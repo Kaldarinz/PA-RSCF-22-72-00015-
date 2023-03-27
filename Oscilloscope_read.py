@@ -10,10 +10,10 @@ sample = 'Water'
 
 data_points_amount = 240000 # задаём сколько точек считывается за раз (для типа BYTE максимум 240 000)
 data_chunks_amount = 2 # сколько раз будут читаться данные
-read_channel1 = 'CHAN1'
+read_channel1 = 'CHAN2'
 read_channel2 = 'CHAN2'
 
-data_storage = 0 # 1 - Save data, 0 - do not save data 
+data_storage = 1 # 1 - Save data, 0 - do not save data 
 #######
 
 def save_data(x_data, final_data) -> None:
