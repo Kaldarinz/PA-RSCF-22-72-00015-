@@ -1,12 +1,35 @@
 import pyvisa as pv
 import numpy as np
 import matplotlib.pyplot as plt
+import os.path
+from pathlib import Path
 
 ####### Все численные параметры задаются здесь
+
+sample = 'Water'
+
 data_points_amount = 240000 # задаём сколько точек считывается за раз (для типа BYTE максимум 240 000)
 data_chunks_amount = 2 # сколько раз будут читаться данные
 read_channel = 'CHAN1'
+
+data_storage = 1 # 1 - Save data, 0 - do not save data 
 #######
+
+def save_data(x_data, final_data):
+    
+    #make folder for data save if it does not exist
+    Path('measuring results/').mkdir(parents=True, exist_ok=True)
+    
+    filename = 'measuring results/Sample_name-' + sample
+
+    i = 1
+    while (os.path.exists(filename + str(i) + '.txt')):
+        i += 1
+    filename = filename + str(i) + '.txt'
+    
+    np.savetxt(filename, np.transpose([x_data,final_data]), header='X = time [s], Y = signal [V]')
+    print('Data saved to ', filename)
+    return ()
 
 def FindInstrument():
     instrument_name = list(filter(lambda x: 'USB0::0x1AB1::0x04CE::DS1ZD212100403::INSTR' in x,
@@ -16,14 +39,13 @@ def FindInstrument():
         exit()
     else:
         print('Осциллограф найден!')
-        print('Адрес:', instrument_name[0])
+        print('Адрес:', instrument_name[0], '\n')
         return instrument_name[0]
 
 rm = pv.ResourceManager()  # вызывает менеджер работы
 all_instruments = rm.list_resources()  # показывает доступные порты передачи данных,имя которых по дефолту заканчивается на ::INSTR. USB RAW и TCPIP SOCKET не выводятся, но чтобы их посмотерть: '?*' в аргумент list_resources()
 rigol = rm.open_resource(FindInstrument())
 
-rigol.write(':ACQ:MDEP 24000000')
 rigol.write(':STOP')
 rigol.write(':WAV:SOUR ' + read_channel)
 rigol.write(':WAV:MODE RAW')
@@ -57,7 +79,7 @@ if (1/sample_rate) != params['xincrement']:
     print('Sample rate reading problem')
 
 print('frame duration = ', frame_duration * 1000000, 'us')
-print('total read duration = ', total_duration * 1000000, 'us')
+print('total read duration = ', total_duration * 1000000, 'us\n')
 
 data = np.zeros(data_chunks_amount*data_points_amount)
 
@@ -74,6 +96,9 @@ for i in range(data_chunks_amount):
 rigol.write(':RUN')
 
 x_data = np.arange(0, params['xincrement']*data[11:].size, params['xincrement'])
+
+if data_storage == 1:
+    save_data(x_data, data[11:])
 
 plt.plot(x_data, data[11:])
 plt.show()

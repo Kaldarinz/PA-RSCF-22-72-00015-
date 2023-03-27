@@ -1,3 +1,6 @@
+#user folder
+/measuring results
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
