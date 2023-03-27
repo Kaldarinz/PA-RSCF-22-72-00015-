@@ -10,12 +10,13 @@ sample = 'Water'
 
 data_points_amount = 240000 # задаём сколько точек считывается за раз (для типа BYTE максимум 240 000)
 data_chunks_amount = 2 # сколько раз будут читаться данные
-read_channel = 'CHAN1'
+read_channel1 = 'CHAN1'
+read_channel2 = 'CHAN2'
 
-data_storage = 1 # 1 - Save data, 0 - do not save data 
+data_storage = 0 # 1 - Save data, 0 - do not save data 
 #######
 
-def save_data(x_data, final_data):
+def save_data(x_data, final_data) -> None:
     
     #make folder for data save if it does not exist
     Path('measuring results/').mkdir(parents=True, exist_ok=True)
@@ -29,9 +30,8 @@ def save_data(x_data, final_data):
     
     np.savetxt(filename, np.transpose([x_data,final_data]), header='X = time [s], Y = signal [V]')
     print('Data saved to ', filename)
-    return ()
 
-def FindInstrument():
+def FindInstrument() -> str:
     instrument_name = list(filter(lambda x: 'USB0::0x1AB1::0x04CE::DS1ZD212100403::INSTR' in x,
                                   all_instruments))  # USB0::0x1AB1::0x04CE::DS1ZD212100403::INSTR адрес прибора. Если используете другой прибор, то посмотрите вывод строки print(all_instruments)
     if len(instrument_name) == 0:
@@ -42,14 +42,47 @@ def FindInstrument():
         print('Адрес:', instrument_name[0], '\n')
         return instrument_name[0]
 
+def read_data(channel):
+    rigol.write(':WAV:SOUR ' + channel)
+    rigol.write(':WAV:MODE RAW')
+    rigol.write('"WAV:FORM BYTE')
+
+    # по факту триггерный сигнал в середине сохранённого диапазона.
+    data_start = (int(params['points']/data_points_amount/2) - 1) * data_points_amount # выбираем начальную точку
+
+    sample_rate = float(rigol.query(':ACQ:SRAT?')) # шаг по времени в RAW 1/sample_rate
+    frame_duration = data_points_amount/sample_rate # длительность кадра считывания
+    total_duration = frame_duration * data_chunks_amount # общая длительность считывания
+
+    print('xincerement = ', params['xincrement'] * 1000000000, 'ns')
+    print('1/SampleRate = ', 1000000000/sample_rate, 'ns')
+
+    if (1/sample_rate) != params['xincrement']:
+        print('Sample rate reading problem')
+
+    print('frame duration = ', frame_duration * 1000000, 'us')
+    print('total read duration = ', total_duration * 1000000, 'us\n')
+
+    data = np.zeros(data_chunks_amount*data_points_amount)
+
+    for i in range(data_chunks_amount):
+        rigol.write(':WAV:STAR ' + str(i * data_points_amount + 1 + data_start))
+        rigol.write(':WAV:STOP ' + str((i + 1) * data_points_amount + data_start))
+
+        rigol.write(':WAV:DATA?')
+        data_chunk = np.frombuffer(rigol.read_raw(), dtype=np.int8)
+
+        data_chunk = (data_chunk - params['xreference'] - params['yorigin']) * params['yincrement']
+        data_chunk[-1] = data_chunk[-2] # убираем битый пиксель
+        data[i*data_points_amount:data_points_amount*(i+1)] += data_chunk[12:]
+
+    return data
+
 rm = pv.ResourceManager()  # вызывает менеджер работы
 all_instruments = rm.list_resources()  # показывает доступные порты передачи данных,имя которых по дефолту заканчивается на ::INSTR. USB RAW и TCPIP SOCKET не выводятся, но чтобы их посмотерть: '?*' в аргумент list_resources()
 rigol = rm.open_resource(FindInstrument())
 
 rigol.write(':STOP')
-rigol.write(':WAV:SOUR ' + read_channel)
-rigol.write(':WAV:MODE RAW')
-rigol.write('"WAV:FORM BYTE')
 
 params_raw = rigol.query(':WAV:PRE?').split(',')
 params = {
@@ -65,34 +98,7 @@ params = {
     'yreference': float(params_raw[9]) #the vertical reference position in the Y direction
 }
 
-# по факту триггерный сигнал в середине сохранённого диапазона.
-data_start = (int(params['points']/data_points_amount/2) - 1) * data_points_amount # выбираем начальную точку
-
-sample_rate = float(rigol.query(':ACQ:SRAT?')) # шаг по времени в RAW 1/sample_rate
-frame_duration = data_points_amount/sample_rate # длительность кадра считывания
-total_duration = frame_duration * data_chunks_amount # общая длительность считывания
-
-print('xincerement = ', params['xincrement'] * 1000000000, 'ns')
-print('1/SampleRate = ', 1000000000/sample_rate, 'ns')
-
-if (1/sample_rate) != params['xincrement']:
-    print('Sample rate reading problem')
-
-print('frame duration = ', frame_duration * 1000000, 'us')
-print('total read duration = ', total_duration * 1000000, 'us\n')
-
-data = np.zeros(data_chunks_amount*data_points_amount)
-
-for i in range(data_chunks_amount):
-    rigol.write(':WAV:STAR ' + str(i * data_points_amount + 1 + data_start))
-    rigol.write(':WAV:STOP ' + str((i + 1) * data_points_amount + data_start))
-
-    rigol.write(':WAV:DATA?')
-    data_chunk = np.frombuffer(rigol.read_raw(), dtype=np.int8)
-
-    data_chunk = (data_chunk - params['xreference'] - params['yorigin']) * params['yincrement']
-    data_chunk[-1] = data_chunk[-2] # убираем битый пиксель
-    data[i*data_points_amount:data_points_amount*(i+1)] += data_chunk[12:]
+data = read_data(read_channel1)
 rigol.write(':RUN')
 
 x_data = np.arange(0, params['xincrement']*data[11:].size, params['xincrement'])
