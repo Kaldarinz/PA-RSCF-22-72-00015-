@@ -3,6 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import os.path
 from pathlib import Path
+import time
 
 ####### Все численные параметры задаются здесь
 
@@ -10,11 +11,14 @@ sample = 'Water'
 
 data_points_amount = 240000 # задаём сколько точек считывается за раз (для типа BYTE максимум 240 000)
 data_chunks_amount = 2 # сколько раз будут читаться данные
-read_channel1 = 'CHAN2'
+read_channel1 = 'CHAN1'
 read_channel2 = 'CHAN2'
+averaging = 2
 
 data_storage = 1 # 1 - Save data, 0 - do not save data 
 #######
+
+params = {}
 
 def save_data(x_data, final_data) -> None:
     
@@ -28,10 +32,12 @@ def save_data(x_data, final_data) -> None:
         i += 1
     filename = filename + str(i) + '.txt'
     
-    np.savetxt(filename, np.transpose([x_data,final_data]), header='X = time [s], Y = signal [V]')
+    np.savetxt(filename, final_data, header='X = time [s], Y = signal [V]')
     print('Data saved to ', filename)
 
-def FindInstrument() -> str:
+def FindInstrument():
+    rm = pv.ResourceManager()
+    all_instruments = rm.list_resources()
     instrument_name = list(filter(lambda x: 'USB0::0x1AB1::0x04CE::DS1ZD212100403::INSTR' in x,
                                   all_instruments))  # USB0::0x1AB1::0x04CE::DS1ZD212100403::INSTR адрес прибора. Если используете другой прибор, то посмотрите вывод строки print(all_instruments)
     if len(instrument_name) == 0:
@@ -40,12 +46,28 @@ def FindInstrument() -> str:
     else:
         print('Осциллограф найден!')
         print('Адрес:', instrument_name[0], '\n')
-        return instrument_name[0]
+        
+    
+    return rm.open_resource(instrument_name[0])
 
-def read_data(channel):
+def read_data(data, channel):
     rigol.write(':WAV:SOUR ' + channel)
     rigol.write(':WAV:MODE RAW')
     rigol.write('"WAV:FORM BYTE')
+
+    params_raw = rigol.query(':WAV:PRE?').split(',')
+    params = {
+        'format': int(params_raw[0]), # 0 - BYTE, 1 - WORD, 2 - ASC 
+        'type': int(params_raw[1]), # 0 - NORMal, 1 - MAXimum, 2 RAW
+        'points': int(params_raw[2]), # between 1 and 240000000
+        'count': int(params_raw[3]), # the number of averages in the average sample mode and 1 in other modes
+        'xincrement': float(params_raw[4]), # the time difference brtween two neighboring points in the X direction
+        'xorigin': float(params_raw[5]), # the start time of the waveform data in the X direction
+        'xreference': float(params_raw[6]), # the reference time of the data point in the X direction
+        'yincrement': float(params_raw[7]), # the waveform increment in the Y direction
+        'yorigin': float(params_raw[8]), # the vertical offset relative to the "Vertical Reference Position" in the Y direction
+        'yreference': float(params_raw[9]) #the vertical reference position in the Y direction
+    }
 
     # по факту триггерный сигнал в середине сохранённого диапазона.
     data_start = (int(params['points']/data_points_amount/2) - 1) * data_points_amount # выбираем начальную точку
@@ -63,8 +85,6 @@ def read_data(channel):
     print('frame duration = ', frame_duration * 1000000, 'us')
     print('total read duration = ', total_duration * 1000000, 'us\n')
 
-    data = np.zeros(data_chunks_amount*data_points_amount)
-
     for i in range(data_chunks_amount):
         rigol.write(':WAV:STAR ' + str(i * data_points_amount + 1 + data_start))
         rigol.write(':WAV:STOP ' + str((i + 1) * data_points_amount + data_start))
@@ -78,12 +98,39 @@ def read_data(channel):
 
     return data
 
-rm = pv.ResourceManager()  # вызывает менеджер работы
-all_instruments = rm.list_resources()  # показывает доступные порты передачи данных,имя которых по дефолту заканчивается на ::INSTR. USB RAW и TCPIP SOCKET не выводятся, но чтобы их посмотерть: '?*' в аргумент list_resources()
-rigol = rm.open_resource(FindInstrument())
+def baseline_correction(data_array):
+
+    baseline = np.average(data_array[:int(data_points_amount/10)])
+    return data_array-baseline
+
+def pa_data_normalization(data_array, scale):
+    """Divide array elements by scale"""
+    return data_array/scale
+
+rigol = FindInstrument()
+
+data = np.zeros(data_chunks_amount*data_points_amount)
+data_pa = np.zeros(data_chunks_amount*data_points_amount)
+
+for i in range(averaging):
+    while int(rigol.query(':TRIG:POS?'))<0: #ждём пока можно будет снова читать данные
+        time.sleep(0.1)
+    print('Current status', rigol.query(':TRIG:POS?'))
+    rigol.write(':STOP')
+    data += read_data(data, read_channel1)
+    data_pa += read_data(data_pa, read_channel2)
+    rigol.write(':RUN')
+data = data/averaging
+data_pa = data_pa/averaging
+
+data = baseline_correction(data)
+data_pa = baseline_correction(data_pa)
+
+laser_amplitude = data.max()
+#data_pa = pa_data_normalization(data_pa, laser_amplitude)
+print('Laser signal amplitude = ', laser_amplitude)
 
 rigol.write(':STOP')
-
 params_raw = rigol.query(':WAV:PRE?').split(',')
 params = {
     'format': int(params_raw[0]), # 0 - BYTE, 1 - WORD, 2 - ASC 
@@ -97,14 +144,20 @@ params = {
     'yorigin': float(params_raw[8]), # the vertical offset relative to the "Vertical Reference Position" in the Y direction
     'yreference': float(params_raw[9]) #the vertical reference position in the Y direction
 }
-
-data = read_data(read_channel1)
 rigol.write(':RUN')
-
-x_data = np.arange(0, params['xincrement']*data[11:].size, params['xincrement'])
+x_data = np.arange(0, params['xincrement']*data[11:].size, params['xincrement']) # generation of time points
 
 if data_storage == 1:
-    save_data(x_data, data[11:])
+    save_data(x_data, np.stack((x_data, data[11:], data_pa[11:]), axis=1))
 
-plt.plot(x_data, data[11:])
+fig, axc = plt.subplots(2, sharex = True)
+fig.tight_layout()
+axc[0].plot(x_data, data[11:], 'tab:orange', linewidth=0.7)
+axc[0].set_title('Channel 1', fontsize=12)
+axc[0].set_ylabel('Voltage, V', fontsize=11)
+axc[1].plot(x_data, data_pa[11:], 'tab:blue', linewidth=0.3)
+axc[1].set_title('Channel 2', fontsize=12)
+axc[1].set_ylabel('Voltage, V', fontsize=11)
+axc[1].set_xlabel('Time, s')
+
 plt.show()
