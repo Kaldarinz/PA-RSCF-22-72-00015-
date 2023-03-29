@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import datetime as dt
 import os.path
-import earthpy as et
+#import earthpy as et
 import statistics
 
 
@@ -15,17 +15,6 @@ def FindInstrument():
     else:
         return instrument_name[0]
 
-
-def CreateDirectory():
-    new_dir = os.path.join(et.io.HOME, 'Desktop', 'Фотоаккустика')
-    dir_check = os.path.exists(new_dir)
-    if dir_check == True:
-        print('Директория сохранения файлов:', new_dir)
-    else:
-        os.mkdir(new_dir)
-        print('Была создана новая дирректория для сохранения файлов:', new_dir)
-
-
 rm = pv.ResourceManager()  # вызывает менеджер работы
 all_instruments = rm.list_resources()  # показывает доступные порты передачи данных,имя которых по дефолту заканчивается на ::INSTR. USB RAW и TCPIP SOCKET не выводятся, но чтобы их посмотерть: '?*' в аргумент list_resources()
 print(FindInstrument())  # вызываю функцию для теста подключения. Должна вернуть адрес USB
@@ -33,8 +22,6 @@ rigol = rm.open_resource(FindInstrument())  # обозначение перем�
 print('Подключение установлено. Название устройства:', rigol.query('*IDN?'), end=' ')
 print('Проверить: датчик для лазера на CH1, Датчик для ультразвука на СН2.')
 rigol.write(':RUN')
-
-CreateDirectory()
 
 timeoffset = float(rigol.query(':TIM:OFFS?')[0])
 voltscale1 = float(rigol.query(':CHAN1:SCAL?')[0])
@@ -91,26 +78,11 @@ average_data2 = []
 for i in range(len(channel2_array0)):
     average_data2.append((channel2_array0[i] + channel2_array1[i] + channel2_array2[i])/3)
 
-directory = os.path.join(et.io.HOME, 'Desktop', 'Фотоаккустика')
-d = dt.datetime.now()
-date_name = str(d.strftime("%H:%M:%S-%Y_%m_%d"))
-print('Введите название файла')
-user_given_name = str(input())
-file_name = str('{}.txt'.format(user_given_name + '_' + date_name))
-file_save = open(os.path.join(directory, file_name), 'w+')
-
 average_data = np.array(average_data2[0])
-
-file_save.write('Максимальная амплитуда:'+ max(str(average_data)) + '\n')
-for i in average_data:
-    file_save.write(str(i) + '\n')  # проверить, работает ли такая распаковка массива в документ, потому что до этого массив печается как [x, x, ..., x, x]
-file_save.close()
 
 plt.plot(average_data[1:-1], linewidth=0.3)
 plt.xlabel('Время, мкс', fontsize=12)
 plt.ylabel('Напряжение, мВ', fontsize=12)
-name_fig_1 = '{}.jpg'.format(user_given_name + '_Осциллограмма_УЗ_' + date_name)
-plt.savefig(os.path.join(directory, name_fig_1))
 plt.show()
 plt.close()
 
@@ -124,8 +96,6 @@ axc[1].plot(average_data[1:-1], 'tab:blue', linewidth=0.3)
 axc[1].set_title('Сигнал от УЗ датчика', fontsize=12)
 axc[1].set_ylabel('Напряжение, мВ', fontsize=11)
 axc[1].set_xlabel('Время, мкс')
-name_fig_2 = '{}.jpg'.format(user_given_name + '_Совмещенная_Осциллограмма_' + date_name)
-plt.savefig(os.path.join(directory, name_fig_2))
 
 plt.show()
 

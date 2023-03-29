@@ -13,7 +13,7 @@ data_points_amount = 240000 # задаём сколько точек считы�
 data_chunks_amount = 2 # сколько раз будут читаться данные
 read_channel1 = 'CHAN1'
 read_channel2 = 'CHAN2'
-averaging = 2
+averaging = 1
 
 data_storage = 1 # 1 - Save data, 0 - do not save data 
 #######
