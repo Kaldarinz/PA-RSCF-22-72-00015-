@@ -10,7 +10,7 @@ import time
 sample = 'Water'
 
 pre_time = 10 # start time of data storage before trigger in micro seconds
-frame_duration = 100 # whole duration of the stored frame
+frame_duration = 30 # whole duration of the stored frame
 pm_response_time = 500 # response time of the power meter
 
 read_channel1 = 'CHAN1'
