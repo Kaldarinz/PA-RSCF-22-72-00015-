@@ -9,8 +9,10 @@ import time
 
 sample = 'Water'
 
-data_points_amount = 240000 # задаём сколько точек считывается за раз (для типа BYTE максимум 240 000)
-data_chunks_amount = 2 # сколько раз будут читаться данные
+pre_time = 10 # start time of data storage before trigger in micro seconds
+frame_duration = 100 # whole duration of the stored frame
+pm_response_time = 500 # response time of the power meter
+
 read_channel1 = 'CHAN1'
 read_channel2 = 'CHAN2'
 averaging = 1
@@ -50,7 +52,7 @@ def FindInstrument():
     
     return rm.open_resource(instrument_name[0])
 
-def read_data(data, channel):
+def read_data(data, channel, starting_point, points_number):
     rigol.write(':WAV:SOUR ' + channel)
     rigol.write(':WAV:MODE RAW')
     rigol.write('"WAV:FORM BYTE')
@@ -69,95 +71,96 @@ def read_data(data, channel):
         'yreference': float(params_raw[9]) #the vertical reference position in the Y direction
     }
 
+    print('Channel = ', channel)
+    print('Points amount', params['points'])
     # по факту триггерный сигнал в середине сохранённого диапазона.
-    data_start = (int(params['points']/data_points_amount/2) - 1) * data_points_amount # выбираем начальную точку
-
-    sample_rate = float(rigol.query(':ACQ:SRAT?')) # шаг по времени в RAW 1/sample_rate
-    frame_duration = data_points_amount/sample_rate # длительность кадра считывания
-    total_duration = frame_duration * data_chunks_amount # общая длительность считывания
+    data_start = (int(params['points']/2) - starting_point) # выбираем начальную точку
 
     print('xincerement = ', params['xincrement'] * 1000000000, 'ns')
-    print('1/SampleRate = ', 1000000000/sample_rate, 'ns')
 
-    if (1/sample_rate) != params['xincrement']:
-        print('Sample rate reading problem')
-
-    print('frame duration = ', frame_duration * 1000000, 'us')
-    print('total read duration = ', total_duration * 1000000, 'us\n')
-
-    for i in range(data_chunks_amount):
-        rigol.write(':WAV:STAR ' + str(i * data_points_amount + 1 + data_start))
-        rigol.write(':WAV:STOP ' + str((i + 1) * data_points_amount + data_start))
-
+    for i in range(1): #мы скорей всего будем читать за 1 раз, но на всякий случай пока не удаляю код для считывания нескольких кадров
+        rigol.write(':WAV:STAR ' + str(i * 240000 + data_start + 1))
+        rigol.write(':WAV:STOP ' + str((i + 1) * points_number + data_start))
         rigol.write(':WAV:DATA?')
         data_chunk = np.frombuffer(rigol.read_raw(), dtype=np.int8)
-
         data_chunk = (data_chunk - params['xreference'] - params['yorigin']) * params['yincrement']
         data_chunk[-1] = data_chunk[-2] # убираем битый пиксель
-        data[i*data_points_amount:data_points_amount*(i+1)] += data_chunk[12:]
+        data[i*points_number:points_number*(i+1)] += data_chunk[12:]
 
     return data
 
-def baseline_correction(data_array):
+def baseline_correction(data_array, points_number):
 
-    baseline = np.average(data_array[:int(data_points_amount/10)])
+    baseline = np.average(data_array[:int(points_number/10)])
     return data_array-baseline
 
 def pa_data_normalization(data_array, scale):
     """Divide array elements by scale"""
     return data_array/scale
 
-rigol = FindInstrument()
+def frame_size_calculation(frame_duration):
+    """Calculate total points amount and starting point offset for storage"""
 
-data = np.zeros(data_chunks_amount*data_points_amount)
-data_pa = np.zeros(data_chunks_amount*data_points_amount)
+    sample_rate = float(rigol.query(':ACQ:SRAT?'))
+    points = int(frame_duration*sample_rate/1000000) + 1
+    return points
 
-for i in range(averaging):
-    while int(rigol.query(':TRIG:POS?'))<0: #ждём пока можно будет снова читать данные
-        time.sleep(0.1)
-    print('Current status', rigol.query(':TRIG:POS?'))
+if __name__ == "__main__":
+
+    rigol = FindInstrument()
+
+    points_number_pm = frame_size_calculation(pm_response_time)
+    data = np.zeros(points_number_pm)
+
+    points_number_pa = frame_size_calculation(frame_duration)
+    data_pa = np.zeros(points_number_pa)
+
+    starting_point = frame_size_calculation(pre_time)
+
+    for i in range(averaging):
+        while int(rigol.query(':TRIG:POS?'))<0: #ждём пока можно будет снова читать данные
+            time.sleep(0.1)
+        rigol.write(':STOP')
+        data += read_data(data, read_channel1, starting_point, points_number_pm)
+        data_pa += read_data(data_pa, read_channel2, starting_point, points_number_pa)
+        rigol.write(':RUN')
+    data = data/averaging
+    data_pa = data_pa/averaging
+
+    data = baseline_correction(data, points_number_pm)
+    data_pa = baseline_correction(data_pa, points_number_pa)
+
+    laser_amplitude = data.max()
+    #data_pa = pa_data_normalization(data_pa, laser_amplitude)
+    print('Laser signal amplitude = ', laser_amplitude)
+
     rigol.write(':STOP')
-    data += read_data(data, read_channel1)
-    data_pa += read_data(data_pa, read_channel2)
+    params_raw = rigol.query(':WAV:PRE?').split(',')
+    params = {
+        'format': int(params_raw[0]), # 0 - BYTE, 1 - WORD, 2 - ASC 
+        'type': int(params_raw[1]), # 0 - NORMal, 1 - MAXimum, 2 RAW
+        'points': int(params_raw[2]), # between 1 and 240000000
+        'count': int(params_raw[3]), # the number of averages in the average sample mode and 1 in other modes
+        'xincrement': float(params_raw[4]), # the time difference brtween two neighboring points in the X direction
+        'xorigin': float(params_raw[5]), # the start time of the waveform data in the X direction
+        'xreference': float(params_raw[6]), # the reference time of the data point in the X direction
+        'yincrement': float(params_raw[7]), # the waveform increment in the Y direction
+        'yorigin': float(params_raw[8]), # the vertical offset relative to the "Vertical Reference Position" in the Y direction
+        'yreference': float(params_raw[9]) #the vertical reference position in the Y direction
+    }
     rigol.write(':RUN')
-data = data/averaging
-data_pa = data_pa/averaging
+    x_data = np.arange(0, params['xincrement']*data_pa[11:].size, params['xincrement']) # generation of time points
 
-data = baseline_correction(data)
-data_pa = baseline_correction(data_pa)
+    if data_storage == 1:
+        save_data(x_data, np.stack((x_data, data[11:points_number_pa], data_pa[11:]), axis=1))
 
-laser_amplitude = data.max()
-#data_pa = pa_data_normalization(data_pa, laser_amplitude)
-print('Laser signal amplitude = ', laser_amplitude)
-
-rigol.write(':STOP')
-params_raw = rigol.query(':WAV:PRE?').split(',')
-params = {
-    'format': int(params_raw[0]), # 0 - BYTE, 1 - WORD, 2 - ASC 
-    'type': int(params_raw[1]), # 0 - NORMal, 1 - MAXimum, 2 RAW
-    'points': int(params_raw[2]), # between 1 and 240000000
-    'count': int(params_raw[3]), # the number of averages in the average sample mode and 1 in other modes
-    'xincrement': float(params_raw[4]), # the time difference brtween two neighboring points in the X direction
-    'xorigin': float(params_raw[5]), # the start time of the waveform data in the X direction
-    'xreference': float(params_raw[6]), # the reference time of the data point in the X direction
-    'yincrement': float(params_raw[7]), # the waveform increment in the Y direction
-    'yorigin': float(params_raw[8]), # the vertical offset relative to the "Vertical Reference Position" in the Y direction
-    'yreference': float(params_raw[9]) #the vertical reference position in the Y direction
-}
-rigol.write(':RUN')
-x_data = np.arange(0, params['xincrement']*data[11:].size, params['xincrement']) # generation of time points
-
-if data_storage == 1:
-    save_data(x_data, np.stack((x_data, data[11:], data_pa[11:]), axis=1))
-
-fig, axc = plt.subplots(2, sharex = True)
-fig.tight_layout()
-axc[0].plot(x_data, data[11:], 'tab:orange', linewidth=0.7)
-axc[0].set_title('Channel 1', fontsize=12)
-axc[0].set_ylabel('Voltage, V', fontsize=11)
-axc[1].plot(x_data, data_pa[11:], 'tab:blue', linewidth=0.3)
-axc[1].set_title('Channel 2', fontsize=12)
-axc[1].set_ylabel('Voltage, V', fontsize=11)
-axc[1].set_xlabel('Time, s')
-
-plt.show()
+    fig, axc = plt.subplots(2, sharex = True)
+    fig.tight_layout()
+    axc[0].plot(x_data, data[11:points_number_pa], 'tab:orange', linewidth=0.7)
+    axc[0].set_title('Channel 1', fontsize=12)
+    axc[0].set_ylabel('Voltage, V', fontsize=11)
+    axc[1].plot(x_data, data_pa[11:], 'tab:blue', linewidth=0.3)
+    axc[1].set_title('Channel 2', fontsize=12)
+    axc[1].set_ylabel('Voltage, V', fontsize=11)
+    axc[1].set_xlabel('Time, s')
+    plt.show()
