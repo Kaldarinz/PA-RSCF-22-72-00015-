@@ -10,8 +10,8 @@ import time
 sample = 'Water'
 
 pre_time = 40 # start time of data storage before trigger in micro seconds
-frame_duration = 120 # whole duration of the stored frame
-pm_response_time = 500 # response time of the power meter
+frame_duration = 150 # whole duration of the stored frame in micro seconds
+pm_response_time = 500 # response time of the power meter in micro seconds
 
 read_channel1 = 'CHAN1'
 read_channel2 = 'CHAN2'
@@ -22,7 +22,7 @@ data_storage = 1 # 1 - Save data, 0 - do not save data
 
 params = {}
 
-def save_data(final_data, laser_amplitude) -> None:
+def save_data(final_data, laser_amplitude, pa_amplitude) -> None:
     
     #make folder for data save if it does not exist
     Path('measuring results/').mkdir(parents=True, exist_ok=True)
@@ -34,8 +34,9 @@ def save_data(final_data, laser_amplitude) -> None:
         i += 1
     filename = filename + str(i) + '.txt'
     
-    header = 'X = time [s], Y = Laser [V], Z = PA signal [V], Laser amplitude = ' + str(laser_amplitude)
-    np.savetxt(filename, final_data, header='X = time [s], Y = Laser [V], Z = PA signal [V], Laser amplitude = ')
+    header = 'X = time [s], Y = Laser [V], Z = PA signal [V], Laser amplitude = '
+    + str(laser_amplitude) + 'PA amplitude = ' + str(pa_amplitude)
+    np.savetxt(filename, final_data, header=header)
     print('Data saved to ', filename)
 
 def FindInstrument():
@@ -81,7 +82,7 @@ def read_data(data, channel, starting_point, points_number):
         rigol.write(':WAV:STOP ' + str((i + 1) * points_number + data_start))
         rigol.write(':WAV:DATA?')
         data_chunk = np.frombuffer(rigol.read_raw(), dtype=np.int8)
-        data_chunk = (data_chunk - params['xreference'] - params['yorigin']) * params['yincrement']
+        data_chunk = (data_chunk - params['xreference'] - params['yorigin']) * params['yincrement'] /2 #2 странная
         data_chunk[-1] = data_chunk[-2] # убираем битый пиксель
         data[i*points_number:points_number*(i+1)] += data_chunk[12:]
 
@@ -132,6 +133,11 @@ if __name__ == "__main__":
     #data_pa = pa_data_normalization(data_pa, laser_amplitude)
     print('Laser signal amplitude = ', laser_amplitude)
 
+    pa_search_start = frame_size_calculation(5 + pre_time)
+    pa_search_stop = frame_size_calculation(80)
+    pa_amplitude = abs(data_pa[pa_search_start:pa_search_stop].max()-data_pa[pa_search_start:pa_search_stop].min())
+    print('PhotoAcoustic amplitude = ', pa_amplitude)
+
     rigol.write(':STOP')
     params_raw = rigol.query(':WAV:PRE?').split(',')
     params = {
@@ -150,7 +156,7 @@ if __name__ == "__main__":
     x_data = np.arange(0, params['xincrement']*data_pa[11:].size, params['xincrement']) # generation of time points
 
     if data_storage == 1:
-        save_data(np.stack((x_data, data[11:points_number_pa], data_pa[11:]), axis=1), laser_amplitude)
+        save_data(np.stack((x_data, data[11:points_number_pa], data_pa[11:]), axis=1), laser_amplitude, pa_amplitude)
 
     fig, axc = plt.subplots(2, sharex = True)
     fig.tight_layout()
