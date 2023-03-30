@@ -9,8 +9,8 @@ import time
 
 sample = 'Water'
 
-pre_time = 10 # start time of data storage before trigger in micro seconds
-frame_duration = 30 # whole duration of the stored frame
+pre_time = 40 # start time of data storage before trigger in micro seconds
+frame_duration = 120 # whole duration of the stored frame
 pm_response_time = 500 # response time of the power meter
 
 read_channel1 = 'CHAN1'
@@ -22,7 +22,7 @@ data_storage = 1 # 1 - Save data, 0 - do not save data
 
 params = {}
 
-def save_data(x_data, final_data) -> None:
+def save_data(final_data, laser_amplitude) -> None:
     
     #make folder for data save if it does not exist
     Path('measuring results/').mkdir(parents=True, exist_ok=True)
@@ -34,7 +34,8 @@ def save_data(x_data, final_data) -> None:
         i += 1
     filename = filename + str(i) + '.txt'
     
-    np.savetxt(filename, final_data, header='X = time [s], Y = signal [V]')
+    header = 'X = time [s], Y = Laser [V], Z = PA signal [V], Laser amplitude = ' + str(laser_amplitude)
+    np.savetxt(filename, final_data, header='X = time [s], Y = Laser [V], Z = PA signal [V], Laser amplitude = ')
     print('Data saved to ', filename)
 
 def FindInstrument():
@@ -70,9 +71,6 @@ def read_data(data, channel, starting_point, points_number):
         'yorigin': float(params_raw[8]), # the vertical offset relative to the "Vertical Reference Position" in the Y direction
         'yreference': float(params_raw[9]) #the vertical reference position in the Y direction
     }
-
-    print('Channel = ', channel)
-    print('Points amount', params['points'])
     # по факту триггерный сигнал в середине сохранённого диапазона.
     data_start = (int(params['points']/2) - starting_point) # выбираем начальную точку
 
@@ -152,7 +150,7 @@ if __name__ == "__main__":
     x_data = np.arange(0, params['xincrement']*data_pa[11:].size, params['xincrement']) # generation of time points
 
     if data_storage == 1:
-        save_data(x_data, np.stack((x_data, data[11:points_number_pa], data_pa[11:]), axis=1))
+        save_data(np.stack((x_data, data[11:points_number_pa], data_pa[11:]), axis=1), laser_amplitude)
 
     fig, axc = plt.subplots(2, sharex = True)
     fig.tight_layout()
