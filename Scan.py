@@ -27,6 +27,8 @@ x_start = 0 # [mm]
 y_start = 0 # [mm]
 x_size = 2 # [mm]
 y_size = 2 # [mm]
+x_points = 2
+y_points = 2 
 
 class Oscilloscope:
     __osc = None
@@ -36,6 +38,7 @@ class Oscilloscope:
     pre_points = 0
     laser_amp = 0
     signal_amp = 0
+    x_data =0 
 
     def __init__(self, osc_params) -> None:
         
@@ -60,6 +63,7 @@ class Oscilloscope:
         self.pre_points = self.time_to_points(osc_params['pre_time'])
 
         self.init_current_data()
+        self.x_data = np.arange(0, self.pa_frame_size/self.sample_rate, 1/self.sample_rate)
 
         self.pa_channel = osc_params['pa_channel']
         print('PA channel name = ', self.pa_channel)
@@ -117,7 +121,7 @@ class Oscilloscope:
                 self.__osc.write(':WAV:STOP ' + str(self.pm_frame_size + data_start))
                 self.__osc.write(':WAV:DATA?')
                 data_chunk = np.frombuffer(self.__osc.read_raw(), dtype=np.int8)
-                data_chunk = (data_chunk - self.preamble['xreference'] - self.preamble['yorigin']) * self.preamble['yincrement'] /2 #2 странная
+                data_chunk = (data_chunk - self.preamble['xreference'] - self.preamble['yorigin']) * self.preamble['yincrement']
                 data_chunk[-1] = data_chunk[-2] # убираем битый пиксель
                 self.current_pm_data += data_chunk[12:]
             
@@ -126,7 +130,7 @@ class Oscilloscope:
                 self.__osc.write(':WAV:STOP ' + str(self.pa_frame_size + data_start))
                 self.__osc.write(':WAV:DATA?')
                 data_chunk = np.frombuffer(self.__osc.read_raw(), dtype=np.int8)
-                data_chunk = (data_chunk - self.preamble['xreference'] - self.preamble['yorigin']) * self.preamble['yincrement'] /2 #2 странная
+                data_chunk = (data_chunk - self.preamble['xreference'] - self.preamble['yorigin']) * self.preamble['yincrement']
                 data_chunk[-1] = data_chunk[-2] # убираем битый пиксель
                 self.current_pa_data += data_chunk[12:]
         else:
@@ -193,22 +197,21 @@ def init_stages():
         exit()
 
     stage1_ID = stages.pop()[0]
-    stage1 = Thorlabs.KinesisMotor(stage1_ID, scale='Stage') #motor units [m]
+    stage1 = Thorlabs.KinesisMotor(stage1_ID, scale='stage') #motor units [m]
     print('Stage X initiated. Stage X ID = ', stage1_ID)
 
     stage2_ID = stages.pop()[0]
-    stage2 = Thorlabs.KinesisMotor(stage2_ID, scale='Stage') #motor units [m]
+    stage2 = Thorlabs.KinesisMotor(stage2_ID, scale='stage') #motor units [m]
     print('Stage Y initiated. Stage Y ID = ', stage2_ID)
 
     return stage1, stage2
-
 
 def move_to(X, Y, stage_X, stage_Y) -> None:
     """Move PA detector to (X,Y) position.
     Coordinates are in mm."""
     
-    stage_X.move_to(X)
-    stage_Y.move_to(Y)
+    stage_X.move_to(X/1000)
+    stage_Y.move_to(Y/1000)
 
 def wait_stages_stop(stage1 = None, stage2 = None):
     """Waits untill all specified stages stop"""
@@ -233,7 +236,31 @@ if __name__ == "__main__":
 
     move_to(x_start, y_start, stage_X, stage_Y) # move to starting point
     wait_stages_stop(stage_X, stage_Y)
-    amp = osc.measure()
 
-    print(amp)
+    fig, axc = plt.subplots(2, sharex = True)
+    fig.tight_layout()
+    axc[0].set_title('Channel 1', fontsize=12)
+    axc[0].set_ylabel('Voltage, V', fontsize=11)
+    axc[1].set_title('Channel 2', fontsize=12)
+    axc[1].set_ylabel('Voltage, V', fontsize=11)
+    axc[1].set_xlabel('Time, s')
+    fig.show()
+
+    for i in range(x_points):
+        for j in range(y_points):
+            x = x_start + i*(x_size/x_points)
+            y = y_start + j*(y_size/y_points)
+            move_to(x,y,stage_X,stage_Y)
+            wait_stages_stop(stage_X,stage_Y)
+            osc.measure()
+            axc[0].clear()
+            axc[0].plot(osc.x_data, osc.current_pm_data[:osc.pa_frame_size], 'tab:orange', linewidth=0.7)
+            axc[1].clear()
+            axc[1].plot(osc.x_data, osc.current_pa_data, 'tab:blue', linewidth=0.3)
+            fig.canvas.draw()
+            plt.pause(0.1)
+
+    stage_X.close()
+    stage_Y.close()
+
 
