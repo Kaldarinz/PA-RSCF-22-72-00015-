@@ -27,8 +27,8 @@ x_start = 0 # [mm]
 y_start = 0 # [mm]
 x_size = 2 # [mm]
 y_size = 2 # [mm]
-x_points = 2
-y_points = 2 
+x_points = 3
+y_points = 3 
 
 class Oscilloscope:
     __osc = None
@@ -144,12 +144,10 @@ class Oscilloscope:
         if channel == self.pm_channel:
             baseline = np.average(self.current_pm_data[:int(self.pm_frame_size/20)])
             self.current_pm_data -= baseline
-            print('Baseline corrected')
 
         elif channel == self.pa_channel:
             baseline = np.average(self.current_pa_data[:int(self.pa_frame_size/20)])
             self.current_pa_data -= baseline
-            print('Baseline corrected')
         else:
             print('Wrong channel for base correction! Channel = ', channel)
 
@@ -237,13 +235,19 @@ if __name__ == "__main__":
     move_to(x_start, y_start, stage_X, stage_Y) # move to starting point
     wait_stages_stop(stage_X, stage_Y)
 
-    fig, axc = plt.subplots(2, sharex = True)
-    fig.tight_layout()
-    axc[0].set_title('Channel 1', fontsize=12)
-    axc[0].set_ylabel('Voltage, V', fontsize=11)
-    axc[1].set_title('Channel 2', fontsize=12)
-    axc[1].set_ylabel('Voltage, V', fontsize=11)
-    axc[1].set_xlabel('Time, s')
+    #fig, axc = plt.subplots(2, sharex = True)
+    #fig.tight_layout()
+    #axc[0].set_title('Channel 1', fontsize=12)
+    #axc[0].set_ylabel('Voltage, V', fontsize=11)
+    #axc[1].set_title('Channel 2', fontsize=12)
+    #axc[1].set_ylabel('Voltage, V', fontsize=11)
+    #axc[1].set_xlabel('Time, s')
+    #fig.show()
+
+    fig, ax = plt.subplots(1,1)
+    scan_frame = np.zeros((x_points,y_points))
+    im = ax.imshow(scan_frame, vmin = 0, vmax = 0.5)
+    cbar = plt.colorbar(im)
     fig.show()
 
     for i in range(x_points):
@@ -253,12 +257,19 @@ if __name__ == "__main__":
             move_to(x,y,stage_X,stage_Y)
             wait_stages_stop(stage_X,stage_Y)
             osc.measure()
-            axc[0].clear()
-            axc[0].plot(osc.x_data, osc.current_pm_data[:osc.pa_frame_size], 'tab:orange', linewidth=0.7)
-            axc[1].clear()
-            axc[1].plot(osc.x_data, osc.current_pa_data, 'tab:blue', linewidth=0.3)
+            scan_frame[i,j] = osc.signal_amp/osc.laser_amp
+            print('normalizaed amp at ', i, j, ' Value = ', scan_frame[i,j])
+            im.set_data(scan_frame)
             fig.canvas.draw()
             plt.pause(0.1)
+
+            #axc[0].clear()
+            #axc[0].plot(osc.x_data, osc.current_pm_data[:osc.pa_frame_size], 'tab:orange', linewidth=0.7)
+            #axc[1].clear()
+            #axc[1].plot(osc.x_data, osc.current_pa_data, 'tab:blue', linewidth=0.3)
+            #fig.canvas.draw()
+            #plt.pause(0.1)
+    plt.show()
 
     stage_X.close()
     stage_Y.close()
