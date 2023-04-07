@@ -12,12 +12,11 @@ import Oscilloscope
 sample_name = 'TiN'
 
 osc_params = {
-    'pre_time': 40, # [us] start time of data storage before trigger
+    'pre_time': 0, # [us] start time of data storage before trigger
     'frame_duration': 150, # [us] whole duration of the stored frame
     'pm_response_time': 500, # [us] response time of the power meter
     'trigger_channel': 'CHAN1',
     'pa_channel': 'CHAN2',
-    'averaging': 1
 }
 
 data_storage = 1 # 1 - Save data, 0 - do not save data
@@ -28,8 +27,8 @@ x_start = 1 # [mm]
 y_start = 1 # [mm]
 x_size = 20 # [mm]
 y_size = 20 # [mm]
-x_points = 10
-y_points = 10
+x_points = 5
+y_points = 5
 
 def init_stages():
     """Initiate stages"""
@@ -69,10 +68,53 @@ def wait_stages_stop(stage1 = None, stage2 = None):
         while stage2.is_moving():
             time.sleep(0.01)
 
-def scan(signal, x_start, y_start, x_size, y_size):
+def scan(x_start, y_start, x_size, y_size, x_points, y_points):
     """Scan an area, which starts at bottom left side 
-    at (x_start, y_start) and has a size (x_size, y_size) in mm """
-    pass
+    at (x_start, y_start) and has a size (x_size, y_size) in mm.
+    Returns 2D array with normalized signal amplitudes and
+    3D array with the whole normalized PA data for each scan point"""
+
+    scan_frame = np.zeros((x_points,y_points)) #scan image of normalized amplitudes
+    scan_frame_full = np.zeros((x_points,y_points,osc.pa_frame_size)) #full data
+
+    fig, ax = plt.subplots(1,1)
+    im = ax.imshow(scan_frame, vmin = 0, vmax = 0.5)
+    fig.show()
+
+    for i in range(x_points):
+        for j in range(y_points):
+            x = x_start + i*(x_size/x_points)
+            y = y_start + j*(y_size/y_points)
+
+            move_to(x,y,stage_X,stage_Y)
+            wait_stages_stop(stage_X,stage_Y)
+
+            osc.measure()
+
+            scan_frame[i,j] = osc.signal_amp/osc.laser_amp
+            scan_frame_full[i,j,:] = osc.current_pa_data/osc.laser_amp
+            print('normalizaed amp at ', i, j, ' Value = ', scan_frame[i,j])
+            
+            im.set_data(scan_frame)
+            fig.canvas.draw()
+            plt.pause(0.1)
+
+    return scan_frame, scan_frame_full
+
+def save_image(data):
+    """Saves image in txt format"""
+
+    Path('measuring results/').mkdir(parents=True, exist_ok=True)
+    
+    filename = 'measuring results/' + sample_name + '-2D'
+
+    i = 1
+    while (os.path.exists(filename + str(i) + '.txt')):
+        i += 1
+    filename = filename + str(i) + '.txt'
+    
+    np.save(filename, data)
+    print('Data saved to ', filename)
 
 def save_full_data(data_full):
     """Saves full data in npy format"""
@@ -97,47 +139,26 @@ if __name__ == "__main__":
     move_to(x_start, y_start, stage_X, stage_Y) # move to starting point
     wait_stages_stop(stage_X, stage_Y)
 
-    #fig, axc = plt.subplots(2, sharex = True)
-    #fig.tight_layout()
-    #axc[0].set_title('Channel 1', fontsize=12)
-    #axc[0].set_ylabel('Voltage, V', fontsize=11)
-    #axc[1].set_title('Channel 2', fontsize=12)
-    #axc[1].set_ylabel('Voltage, V', fontsize=11)
-    #axc[1].set_xlabel('Time, s')
-    #fig.show()
+    scan_image, full_data = scan(x_start, y_start, x_size, y_size, x_points, y_points)
 
-    scan_frame = np.zeros((x_points,y_points)) #scan image of normalized amplitudes
-    scan_frame_full = np.zeros((x_points,y_points,osc.pa_frame_size))
+    max_amp_index = np.unravel_index(scan_image.argmax(), scan_image.shape)
 
-    fig, ax = plt.subplots(1,1)
-    im = ax.imshow(scan_frame, vmin = 0, vmax = 0.5)
-    cbar = plt.colorbar(im)
-    fig.show()
+    if x_points > 1 and y_points > 1:
+        opt_x = x_start + max_amp_index[0]*x_size/(x_points-1)
+        opt_y = y_start + max_amp_index[1]*y_size/(y_points-1)
+        print('best pos indexes', max_amp_index)
+        print('best X pos = ', opt_x)
+        print('best Y pos = ', opt_y)
 
-    for i in range(x_points):
-        for j in range(y_points):
-            x = x_start + i*(x_size/x_points)
-            y = y_start + j*(y_size/y_points)
-            move_to(x,y,stage_X,stage_Y)
-            wait_stages_stop(stage_X,stage_Y)
-            osc.measure()
-            scan_frame[i,j] = osc.signal_amp/osc.laser_amp
-            scan_frame_full[i,j,:] = osc.current_pa_data/osc.laser_amp
-            print('normalizaed amp at ', i, j, ' Value = ', scan_frame[i,j])
-            im.set_data(scan_frame)
-            fig.canvas.draw()
-            plt.pause(0.1)
+        if (input('Move to the best position? (Y/N)')) == 'Y':
+            move_to(opt_x, opt_y, stage_X, stage_Y)
 
-            #axc[0].clear()
-            #axc[0].plot(osc.x_data, osc.current_pm_data[:osc.pa_frame_size], 'tab:orange', linewidth=0.7)
-            #axc[1].clear()
-            #axc[1].plot(osc.x_data, osc.current_pa_data, 'tab:blue', linewidth=0.3)
-            #fig.canvas.draw()
-            #plt.pause(0.1)
-    
 
     plt.show()
-    save_full_data(scan_frame_full)
+
+    if data_storage == 1:
+        save_full_data(full_data)
+        save_image(scan_image)
 
     stage_X.close()
     stage_Y.close()

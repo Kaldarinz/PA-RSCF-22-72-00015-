@@ -46,6 +46,11 @@ class Oscilloscope:
 
         print('Oscilloscope initiation complete!')
         
+    def query(self, message):
+        """Sends a querry to the oscilloscope"""
+
+        return self.__osc.query(message)
+
     def init_current_data(self):
         """Fill arrays for current data with zeros"""
 
