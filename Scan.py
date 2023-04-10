@@ -113,7 +113,7 @@ def save_image(data):
         i += 1
     filename = filename + str(i) + '.txt'
     
-    np.save(filename, data)
+    np.savetxt(filename, data)
     print('Data saved to ', filename)
 
 def save_full_data(data_full):
