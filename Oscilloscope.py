@@ -2,6 +2,7 @@ import pyvisa as pv
 import numpy as np
 import time
 
+# oscilloscope class. Intended to be used as a module in other scripts.
 class Oscilloscope:
     __osc = None
     sample_rate = 0
