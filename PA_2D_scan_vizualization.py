@@ -1,63 +1,60 @@
 import numpy as np
 import matplotlib.pyplot as plt
-import configparser
 
-config = configparser.ConfigParser()
-config.read('SimulationParams.ini')
-
-model_area_x = int(config['Model Geometry']['model area x [mm]'])
-model_area_y = int(config['Model Geometry']['model area y [mm]'])
-model_area_z = int(config['Model Geometry']['model area z [mm]'])
-data_x_size = int(config['Model Geometry']['data x size'])
-data_y_size = int(config['Model Geometry']['data y size'])
-data_z_size = int(config['Model Geometry']['data z size'])
-simulation_filename = config['Technical data']['absorbed light filename']
+filename = 'Sample_name-TiN-Full1.npy'
 
 class IndexTracker:
-    def __init__(self, ax, X):
+    def __init__(self, ax, data):
         self.ax = ax
-        ax.set_title('use scroll wheel to navigate images')
-        ax.set_xlabel('mm')
-        ax.set_xticks([i*(data_x_size-1)/5 for i in range(6)])
-        ax.set_xticklabels([i*model_area_x/5 for i in range(6)])
-        ax.set_ylabel('mm')
-        ax.set_yticks([i*(data_z_size-1)/5 for i in range(6)])
-        ax.set_yticklabels([i*model_area_z/5 for i in range(6)])
-        self.X = X
-        self.slices = X.shape[1]
-        self.ind = self.slices//2
+        ax.set_title('Photoacoustic signal')
+        ax.set_xlabel('us')
+        ax.set_ylabel('V')
+        self.data = data
+        self.x_max = data.shape[1]
+        self.y_max = data.shape[0]
+        self.x_ind = 0
+        self.y_ind = 0
 
-        self.im = ax.imshow(self.X[:, self.ind, :], 
-                            vmin = 0, vmax = np.amax(self.X))
-        self.cbar = plt.colorbar(self.im, ax=self.ax)
-        self.cbar.set_label('absorbed photons', rotation=90)
+        self.im = ax.plot(self.data[self.x_ind,self.y_ind,:])
         self.update()
 
-    def on_scroll(self, event):
-        #print("%s %s" % (event.button, event.step))
-        if event.button == 'up':
-            self.ind = (self.ind + 1)
-            if self.ind >= self.slices:
-               self.ind = (self.ind - 1)
-        else:
-            self.ind = (self.ind - 1)
-            if self.ind < 0:
-                self.ind = (self.ind + 1)
+    def on_key_press(self, event):
+
+        if event.key == 'left':
+            if self.x_ind == 0:
+                pass
+            else:
+                self.x_ind -= 1
+        elif event.key == 'right':
+            if self.x_ind == (self.x_max - 1):
+                pass
+            else:
+                self.x_ind += 1
+        elif event.key == 'down':
+            if self.y_ind == 0:
+                pass
+            else: self.y_ind -= 1
+        elif event.key == 'up':
+            if self.y_ind == (self.y_max - 1):
+                pass
+            else:
+                self.y_ind += 1
         self.update()
+
 
     def update(self):
-        self.im.set_data(self.X[:, self.ind, :])
-        coordinate_y = '%.2f' % (self.ind/data_y_size*model_area_y)
-        title = ('Y coordinate ' + coordinate_y +' mm out of ' + str(model_area_y) + ' mm')
+        self.im.set_data(self.data[self.x_ind,self.y_ind,:])
+        title = ('X index = ', self.x_ind, ' Y index = ', self.y_ind)
         self.ax.set_title(title)
         self.im.axes.figure.canvas.draw()
 
 if __name__ == "__main__":
     fig, ax = plt.subplots(1, 1)
 
-    X = np.load(simulation_filename)
-    print(X.shape)
-    tracker = IndexTracker(ax, X)
 
-    fig.canvas.mpl_connect('scroll_event', tracker.on_scroll)
+    data = np.load(filename)
+    print(data.shape)
+    tracker = IndexTracker(ax, data)
+
+    fig.canvas.mpl_connect('key_press_event', tracker.on_key_press)
     plt.show()
