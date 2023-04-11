@@ -7,14 +7,19 @@ class IndexTracker:
     def __init__(self, fig, ax, data):
         self.ax = ax
         self.fig = fig
+        self.dt = data[0,0,0]
         ax.set_title('Photoacoustic signal')
         ax.set_xlabel('us')
         ax.set_ylabel('V')
         self.data = data
+        self.data[:,:,0] = 0
         self.x_max = data.shape[1]
         self.y_max = data.shape[0]
         self.x_ind = 0
         self.y_ind = 0
+
+        self.time_data = np.arange(0,self.dt*(self.data.shape[2]-1),self.dt)
+
         self.update()
 
     def on_key_press(self, event):
@@ -47,7 +52,7 @@ class IndexTracker:
 
     def update(self):
         self.ax.clear()
-        self.ax.plot(self.data[self.x_ind,self.y_ind,:])
+        self.ax.plot(self.time_data, self.data[self.x_ind,self.y_ind,1:])
         title = 'X index = ' + str(self.x_ind) + '/' + str(self.x_max-1) + '. Y index = ' + str(self.y_ind) + '/' + str(self.y_max-1)
         self.ax.set_title(title)
         self.fig.canvas.draw()
