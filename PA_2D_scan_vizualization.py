@@ -3,13 +3,14 @@ import matplotlib.pyplot as plt
 
 ### do not read the first value in each signal, which is reserved for additional information
 
-filename = 'measuring results/Sample_name-TiN-Full4_filtered.npy'
+filename = 'measuring results/Sample_name-TiN-Full6_filtered.npy'
 
 class IndexTracker:
     def __init__(self, fig, ax, data):
         self.ax = ax
         self.fig = fig
         self.dt = data[0,0,0]
+        print('dt = ', self.dt)
         ax.set_title('Photoacoustic signal')
         ax.set_xlabel('us')
         ax.set_ylabel('V')
@@ -20,7 +21,8 @@ class IndexTracker:
         self.x_ind = 0
         self.y_ind = 0
 
-        self.time_data = np.arange(0,self.dt*(self.data.shape[2]-1),self.dt)
+        self.time_data = np.linspace(0,self.dt*(self.data.shape[2]-0),self.data.shape[2]-1)
+        print(self.time_data.shape)
 
         self.update()
 

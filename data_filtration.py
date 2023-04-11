@@ -8,7 +8,7 @@ from scipy.fftpack import rfft, irfft, fftfreq
 low_cutof = 300000 # low cutoff frequency
 high_cutof = 5000000 # high cutoff frequency
 
-filename = 'measuring results/Sample_name-TiN-Full4.npy'
+filename = 'measuring results/Sample_name-TiN-Full6.npy'
 new_filename = filename.split('.')[0] + '_filtered.npy'
 
 data = np.load(filename)
