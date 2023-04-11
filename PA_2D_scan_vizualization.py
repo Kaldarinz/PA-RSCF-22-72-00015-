@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-filename = 'measuring results/Sample_name-TiN-Full4.npy'
+filename = 'measuring results/Sample_name-TiN-Full4_filtered.npy'
 
 class IndexTracker:
     def __init__(self, fig, ax, data):

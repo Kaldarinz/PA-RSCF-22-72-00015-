@@ -116,9 +116,11 @@ def save_image(data):
     np.savetxt(filename, data)
     print('Data saved to ', filename)
 
-def save_full_data(data_full):
-    """Saves full data in npy format"""
+def save_full_data(data_full, dt):
+    """Saves full data in npy format.
+    By convention the first value in all PA signals in dt"""
 
+    data_full[:,:,0] = dt
     Path('measuring results/').mkdir(parents=True, exist_ok=True)
     
     filename = 'measuring results/Sample_name-' + sample_name + '-Full'
@@ -157,7 +159,8 @@ if __name__ == "__main__":
     plt.show()
 
     if data_storage == 1:
-        save_full_data(full_data)
+        dt = 1 / osc.sample_rate
+        save_full_data(full_data, dt)
         save_image(scan_image)
 
     stage_X.close()
