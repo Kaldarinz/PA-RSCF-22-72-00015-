@@ -1,6 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
+### do not read the first value in each signal, which is reserved for additional information
+
 filename = 'measuring results/Sample_name-TiN-Full4_filtered.npy'
 
 class IndexTracker:

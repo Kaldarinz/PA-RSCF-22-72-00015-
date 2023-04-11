@@ -2,6 +2,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 from scipy.fftpack import rfft, irfft, fftfreq
 
+### The first value of each filtered signal is the main frequence in Hz for this signal
 ### Parameters
 
 low_cutof = 300000 # low cutoff frequency
