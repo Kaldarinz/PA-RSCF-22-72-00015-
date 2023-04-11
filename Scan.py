@@ -1,5 +1,5 @@
 from pylablib.devices import Thorlabs
-import pyvisa as pv
+from scipy.fftpack import rfft, irfft, fftfreq
 import numpy as np
 import matplotlib.pyplot as plt
 import os.path
@@ -18,6 +18,9 @@ osc_params = {
     'trigger_channel': 'CHAN1',
     'pa_channel': 'CHAN2',
 }
+
+low_cutof = 300000 # low cutoff frequency
+high_cutof = 5000000 # high cutoff frequency
 
 data_storage = 1 # 1 - Save data, 0 - do not save data
 
@@ -133,6 +136,26 @@ def save_full_data(data_full, dt):
     np.save(filename, data_full)
     print('Data saved to ', filename)
 
+def bp_filter(data, low, high, dt):
+    """Perform bandpass filtration on data
+    low is high pass cutoff frequency in Hz
+    high is low pass cutoff frequency in Hz
+    dt is time step in seconds"""
+
+    W = fftfreq(data.shape[2], dt) # array with frequencies
+    f_signal = rfft(data) # signal in f-space
+
+    filtered_f_signal = f_signal.copy()
+    filtered_f_signal[:,:,(W<low)] = 0   # high pass filtering
+
+    if high > 1/(2.5*dt): # Nyquist frequency check
+        filtered_f_signal[:,:,(W>1/(2.5*dt))] = 0 
+    else:
+        filtered_f_signal[:,:,(W>high_cutof)] = 0
+
+    return irfft(filtered_f_signal) # actual filtered signal
+
+
 if __name__ == "__main__":
     
     osc = Oscilloscope.Oscilloscope(osc_params) # initialize oscilloscope
@@ -141,7 +164,7 @@ if __name__ == "__main__":
     move_to(x_start, y_start, stage_X, stage_Y) # move to starting point
     wait_stages_stop(stage_X, stage_Y)
 
-    scan_image, full_data = scan(x_start, y_start, x_size, y_size, x_points, y_points)
+    scan_image, raw_data = scan(x_start, y_start, x_size, y_size, x_points, y_points)
 
     max_amp_index = np.unravel_index(scan_image.argmax(), scan_image.shape)
 
@@ -157,10 +180,11 @@ if __name__ == "__main__":
 
 
     plt.show()
+    filtered_data = bp_filter(raw_data, low_cutof, high_cutof, 1/osc.sample_rate)
 
     if data_storage == 1:
         dt = 1 / osc.sample_rate
-        save_full_data(full_data, dt)
+        save_full_data(raw_data, dt)
         save_image(scan_image)
 
     stage_X.close()
