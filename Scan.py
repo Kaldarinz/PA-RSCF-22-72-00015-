@@ -77,7 +77,7 @@ basic_options = [
         'type': 'list',
         'name': 'basic_option',
         'message': 'Choose an action',
-        'choices': ["Get status","Home satges","Find beam position (scan)", 'Data manipulations', "Exit"]
+        'choices': ["Get status","Home stages",'Move to',"Find beam position (scan)", 'Data manipulations', "Exit"]
     }
 ]
 
@@ -87,6 +87,25 @@ data_options = [
         'name': 'data_options',
         'message': 'Choose an action',
         'choices': ['View scan data', 'FFT filtration os scan data', 'View Fourier spectra of scan data', 'Back']
+    }
+]
+
+move_to_options = [
+    {
+        'type': "input",
+        "name": "x_pos",
+        "message": "Enter X destination [mm]",
+        'default': '1',
+        "validate": FloatValidator,
+        "filter": lambda val: float(val)
+    },
+    {
+        'type': "input",
+        "name": "y_pos",
+        "message": "Enter Y destination [mm]",
+        'default': '1',
+        "validate": FloatValidator,
+        "filter": lambda val: float(val)
     }
 ]
 
@@ -351,8 +370,8 @@ def bp_filter(data, low, high, dt):
 def print_status(stage_X, stage_Y):
     """Prints current status and position of stages"""
 
-    print(f'X stage status: {stage_X.get_status()}, position: {stage_X.get_position()*1000} mm.')
-    print(f'X stage status: {stage_Y.get_status()}, position: {stage_Y.get_position()*1000} mm.')
+    print(f'{bcolors.OKBLUE}X stage{bcolors.ENDC} homing status: {stage_X.is_homed()}, status: {stage_X.get_status()}, position: {stage_X.get_position()*1000} mm.')
+    print(f'{bcolors.OKBLUE}Y stage{bcolors.ENDC} homing status: {stage_Y.is_homed()}, status: {stage_Y.get_status()}, position: {stage_Y.get_position()*1000} mm.')
 
 def home(stage_X, stage_Y):
     """Homes stages"""
@@ -371,11 +390,14 @@ if __name__ == "__main__":
 
     while True: #main execution loop
         answers = prompt(basic_options, style=custom_style_2)
-        if answers.get('basic_option') == 'Home':
+        if answers.get('basic_option') == 'Home stages':
             home(stage_X, stage_Y)
 
         elif answers.get('basic_option') == 'Get status':
             print_status(stage_X, stage_Y)
+
+        elif answers.get('basic_option') == 'Move to':
+            pass
 
         elif answers.get('basic_option') == 'Find beam position (scan)':
             answers_scan = prompt(scan_options, style=custom_style_2)
@@ -415,12 +437,12 @@ if __name__ == "__main__":
                 stage_Y.close()
                 break
 
-    filtered_data = bp_filter(raw_data, low_cutof, high_cutof, 1/osc.sample_rate)
+    #filtered_data = bp_filter(raw_data, low_cutof, high_cutof, 1/osc.sample_rate)
 
-    if data_storage == 1:
-        dt = 1 / osc.sample_rate
-        save_full_data(raw_data, dt)
-        save_image(scan_image)
+    #if data_storage == 1:
+    #    dt = 1 / osc.sample_rate
+    #    save_full_data(raw_data, dt)
+    #    save_image(scan_image)
 
     
 
