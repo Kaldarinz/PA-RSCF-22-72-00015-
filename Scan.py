@@ -127,6 +127,24 @@ scan_options = [
     }
 ]
 
+post_scan_options = [
+    {
+        'type': 'confirm',
+        'message': 'Move to the optimal position?',
+        'name': 'move_opt',
+        'default': True
+    }
+]
+
+exit_options = [
+    {
+        'type': 'confirm',
+        'message': 'Do you really want to exit?',
+        'name': 'exit',
+        'default': False
+    }
+]
+
 ### Actuall stuff
 
 def init_stages():
@@ -264,13 +282,23 @@ if __name__ == "__main__":
     while True: #main execution loop
         answers = prompt(basic_options, style=custom_style_2)
         if answers.get('basic_option') == 'Home':
-            print('Home selected')
+            pass
+
         elif answers.get('basic_option') == 'Get status':
-            print('Get status selected')
-        elif answers.get('basic_option') == 'Scan':
+            pass
+
+        elif answers.get('basic_option') == 'Find beam position (scan)':
+            answers_scan = prompt(scan_options, style=custom_style_2)
+            x_start = answers_scan.get('x_start')
+            y_start = answers_scan.get('y_start')
+            x_size = answers_scan.get('x_size')
+            y_size = answers_scan.get('y_size')
+            x_points = answers_scan.get('x_points')
+            y_points = answers_scan.get('y_points')
+
             scan_image, raw_data = scan(x_start, y_start, x_size, y_size, x_points, y_points)
 
-            max_amp_index = np.unravel_index(scan_image.argmax(), scan_image.shape)
+            max_amp_index = np.unravel_index(scan_image.argmax(), scan_image.shape) # find position with max PA amp
             if x_points > 1 and y_points > 1:
                 opt_x = x_start + max_amp_index[0]*x_size/(x_points-1)
                 opt_y = y_start + max_amp_index[1]*y_size/(y_points-1)
@@ -278,14 +306,16 @@ if __name__ == "__main__":
                 print(f'best X pos = {opt_x}')
                 print(f'best Y pos = {opt_y}')
 
+            answers_post_scan = prompt(post_scan_options, style=custom_style_2)
+            if answers_post_scan.get('move_opt'):
+                move_to(opt_x, opt_y, stage_X, stage_Y)
+
         elif answers.get('basic_option') == 'Exit':
-            break
-
-    
-
-        if (input('Move to the best position? (Y/N)')) == 'Y':
-            move_to(opt_x, opt_y, stage_X, stage_Y)
-
+            answers_exit = prompt(exit_options, style=custom_style_2)
+            if answers_exit.get('exit'):
+                stage_X.close()
+                stage_Y.close()
+                break
 
     plt.show()
     filtered_data = bp_filter(raw_data, low_cutof, high_cutof, 1/osc.sample_rate)
@@ -295,7 +325,6 @@ if __name__ == "__main__":
         save_full_data(raw_data, dt)
         save_image(scan_image)
 
-    stage_X.close()
-    stage_Y.close()
+    
 
 
