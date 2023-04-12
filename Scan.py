@@ -6,6 +6,9 @@ import os.path
 from pathlib import Path
 import time
 import Oscilloscope
+from PyInquirer import prompt
+from examples import custom_style_2
+from prompt_toolkit.validation import Validator, ValidationError
 
 ### Configuration
 
@@ -32,6 +35,49 @@ x_size = 20 # [mm]
 y_size = 20 # [mm]
 x_points = 5
 y_points = 5
+
+
+### CLI 
+class NumberValidator(Validator):
+
+    def validate(self, document):
+        try:
+            float(document.text)
+        except ValueError:
+            raise ValidationError(message="Please enter a number",
+                                  cursor_position=len(document.text))
+        
+class bcolors:
+    HEADER = '\033[95m'
+    OKBLUE = '\033[94m'
+    OKCYAN = '\033[96m'
+    OKGREEN = '\033[92m'
+    WARNING = '\033[93m'
+    FAIL = '\033[91m'
+    ENDC = '\033[0m'
+    BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
+
+basic_options = [
+    {
+        'type': 'list',
+        'name': 'basic_option',
+        'message': 'Choose an action',
+        'choices': ["Get status","Home satges","Find beam position (scan)", "Exit"]
+    }
+]
+
+scan_options = [
+    {
+        'type': "input",
+        "name": "x_start",
+        "message": "Enter X starting position",
+        "validate": NumberValidator,
+        "filter": lambda val: int(val)
+    }, 
+]
+
+### Actuall stuff
 
 def init_stages():
     """Initiate stages"""
@@ -76,6 +122,9 @@ def scan(x_start, y_start, x_size, y_size, x_points, y_points):
     at (x_start, y_start) and has a size (x_size, y_size) in mm.
     Returns 2D array with normalized signal amplitudes and
     3D array with the whole normalized PA data for each scan point"""
+
+    move_to(x_start, y_start, stage_X, stage_Y) # move to starting point
+    wait_stages_stop(stage_X, stage_Y)
 
     scan_frame = np.zeros((x_points,y_points)) #scan image of normalized amplitudes
     scan_frame_full = np.zeros((x_points,y_points,osc.pa_frame_size)) #full data
@@ -155,25 +204,34 @@ def bp_filter(data, low, high, dt):
 
     return irfft(filtered_f_signal) # actual filtered signal
 
-
 if __name__ == "__main__":
     
     osc = Oscilloscope.Oscilloscope(osc_params) # initialize oscilloscope
     stage_X, stage_Y = init_stages() # initialize stages
 
-    move_to(x_start, y_start, stage_X, stage_Y) # move to starting point
-    wait_stages_stop(stage_X, stage_Y)
+    print(f"{bcolors.HEADER}Initialization complete! {bcolors.ENDC}")
 
-    scan_image, raw_data = scan(x_start, y_start, x_size, y_size, x_points, y_points)
+    while True: #main execution loop
+        answers = prompt(basic_options, style=custom_style_2)
+        if answers.get('basic_option') == 'Home':
+            print('Home selected')
+        elif answers.get('basic_option') == 'Get status':
+            print('Get status selected')
+        elif answers.get('basic_option') == 'Scan':
+            scan_image, raw_data = scan(x_start, y_start, x_size, y_size, x_points, y_points)
 
-    max_amp_index = np.unravel_index(scan_image.argmax(), scan_image.shape)
+            max_amp_index = np.unravel_index(scan_image.argmax(), scan_image.shape)
+            if x_points > 1 and y_points > 1:
+                opt_x = x_start + max_amp_index[0]*x_size/(x_points-1)
+                opt_y = y_start + max_amp_index[1]*y_size/(y_points-1)
+                print(f'best pos indexes {max_amp_index}')
+                print(f'best X pos = {opt_x}')
+                print(f'best Y pos = {opt_y}')
 
-    if x_points > 1 and y_points > 1:
-        opt_x = x_start + max_amp_index[0]*x_size/(x_points-1)
-        opt_y = y_start + max_amp_index[1]*y_size/(y_points-1)
-        print('best pos indexes', max_amp_index)
-        print('best X pos = ', opt_x)
-        print('best Y pos = ', opt_y)
+        elif answers.get('basic_option') == 'Exit':
+            break
+
+    
 
         if (input('Move to the best position? (Y/N)')) == 'Y':
             move_to(opt_x, opt_y, stage_X, stage_Y)
