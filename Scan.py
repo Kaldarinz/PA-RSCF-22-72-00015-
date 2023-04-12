@@ -27,24 +27,29 @@ high_cutof = 5000000 # high cutoff frequency
 
 data_storage = 1 # 1 - Save data, 0 - do not save data
 
-# Stage parameters
-# (0,0) of scan area is bottom left corner, when looking in beam direction
-x_start = 1 # [mm]
-y_start = 1 # [mm]
-x_size = 20 # [mm]
-y_size = 20 # [mm]
-x_points = 5
-y_points = 5
-
-
 ### CLI 
 class IntValidator(Validator):
 
     def validate(self, document):
         try:
-            int(document.text)
+            value = int(document.text)
         except ValueError:
             raise ValidationError(message="Please enter an integer",
+                                  cursor_position=len(document.text))
+        if value <= 0:
+            raise ValidationError(message='Please enter a positive integer',
+                                  cursor_position=len(document.text))
+
+class ScanPointsValidator(Validator):
+
+    def validate(self, document):
+        try:
+            value = int(document.text)
+        except ValueError:
+            raise ValidationError(message="Please enter an integer",
+                                  cursor_position=len(document.text))
+        if value < 2:
+            raise ValidationError(message='Amount of scan points cannot be less than 2',
                                   cursor_position=len(document.text))
         
 class FloatValidator(Validator):
@@ -114,7 +119,7 @@ scan_options = [
         "name": "x_points",
         "message": "Enter number of X scan points",
         'default': '10',
-        "validate": IntValidator,
+        "validate": ScanPointsValidator,
         "filter": lambda val: int(val)
     },
     {
@@ -122,7 +127,7 @@ scan_options = [
         "name": "y_points",
         "message": "Enter number of Y scan points",
         'default': '10',
-        "validate": IntValidator,
+        "validate": ScanPointsValidator,
         "filter": lambda val: int(val)
     }
 ]
@@ -305,6 +310,8 @@ if __name__ == "__main__":
                 print(f'best pos indexes {max_amp_index}')
                 print(f'best X pos = {opt_x}')
                 print(f'best Y pos = {opt_y}')
+            
+            plt.show()
 
             answers_post_scan = prompt(post_scan_options, style=custom_style_2)
             if answers_post_scan.get('move_opt'):
@@ -317,7 +324,6 @@ if __name__ == "__main__":
                 stage_Y.close()
                 break
 
-    plt.show()
     filtered_data = bp_filter(raw_data, low_cutof, high_cutof, 1/osc.sample_rate)
 
     if data_storage == 1:
