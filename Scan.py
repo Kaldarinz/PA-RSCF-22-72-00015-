@@ -77,7 +77,16 @@ basic_options = [
         'type': 'list',
         'name': 'basic_option',
         'message': 'Choose an action',
-        'choices': ["Get status","Home satges","Find beam position (scan)", "Exit"]
+        'choices': ["Get status","Home satges","Find beam position (scan)", 'Data manipulations', "Exit"]
+    }
+]
+
+data_options = [
+    {
+        'type': 'list',
+        'name': 'data_options',
+        'message': 'Choose an action',
+        'choices': ['View scan data', 'FFT filtration os scan data', 'View Fourier spectra of scan data', 'Back']
     }
 ]
 
@@ -151,6 +160,68 @@ exit_options = [
 ]
 
 ### Actuall stuff
+class IndexTracker:
+    '''Class for scan image vizualization'''
+
+    def __init__(self, fig, ax, data, dt):
+        self.ax = ax
+        self.fig = fig
+        self.dt = dt
+        ax.set_title('Photoacoustic signal')
+        ax.set_xlabel('us')
+        ax.set_ylabel('V')
+        self.data = data
+        self.data[:,:,0] = 0
+        self.x_max = data.shape[0]
+        self.y_max = data.shape[1]
+        self.x_ind = 0
+        self.y_ind = 0
+
+        self.time_data = np.linspace(0,self.dt*(self.data.shape[2]-1),self.data.shape[2])
+        self.update()
+
+    def on_key_press(self, event):
+        if event.key == 'left':
+            if self.x_ind == 0:
+                pass
+            else:
+                self.x_ind -= 1
+                self.update()
+        elif event.key == 'right':
+            if self.x_ind == (self.x_max - 1):
+                pass
+            else:
+                self.x_ind += 1
+                self.update()
+        elif event.key == 'down':
+            if self.y_ind == 0:
+                pass
+            else: 
+                self.y_ind -= 1
+                self.update()
+        elif event.key == 'up':
+            if self.y_ind == (self.y_max - 1):
+                pass
+            else:
+                self.y_ind += 1
+                self.update()
+
+    def update(self):
+        self.ax.clear()
+        self.ax.plot(self.time_data, self.data[self.x_ind,self.y_ind,:])
+        title = 'X index = ' + str(self.x_ind) + '/' + str(self.x_max-1) + '. Y index = ' + str(self.y_ind) + '/' + str(self.y_max-1)
+        self.ax.set_title(title)
+        self.fig.canvas.draw()
+
+def scan_vizualization(data, dt, temporal = True):
+    """Vizualization of scan data.
+    temporal=True means real signal vizualization, dt is time step in s.
+    temporal=False means signal in frequency domain, dt is freq step in Hz."""
+
+    fig, ax = plt.subplots(1, 1)
+    tracker = IndexTracker(fig, ax, data, dt)
+    fig.canvas.mpl_connect('key_press_event', tracker.on_key_press)
+    plt.show()
 
 def init_stages():
     """Initiate stages"""
@@ -296,7 +367,6 @@ if __name__ == "__main__":
     
     osc = Oscilloscope.Oscilloscope(osc_params) # initialize oscilloscope
     stage_X, stage_Y = init_stages() # initialize stages
-    stage_X.home(sync=False,force=True)
     print(f"{bcolors.HEADER}Initialization complete! {bcolors.ENDC}")
 
     while True: #main execution loop
@@ -331,6 +401,12 @@ if __name__ == "__main__":
             answers_post_scan = prompt(post_scan_options, style=custom_style_2)
             if answers_post_scan.get('move_opt'):
                 move_to(opt_x, opt_y, stage_X, stage_Y)
+
+        elif answers.get('basic_option') == 'Data manipulations':
+            answers_data = prompt(data_options, style=custom_style_2)
+            if answers_data.get('data_options') == 'View scan data':
+                dt = 1/osc.sample_rate
+                scan_vizualization(raw_data, dt)
 
         elif answers.get('basic_option') == 'Exit':
             answers_exit = prompt(exit_options, style=custom_style_2)
