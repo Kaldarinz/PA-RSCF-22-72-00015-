@@ -38,7 +38,16 @@ y_points = 5
 
 
 ### CLI 
-class NumberValidator(Validator):
+class IntValidator(Validator):
+
+    def validate(self, document):
+        try:
+            int(document.text)
+        except ValueError:
+            raise ValidationError(message="Please enter an integer",
+                                  cursor_position=len(document.text))
+        
+class FloatValidator(Validator):
 
     def validate(self, document):
         try:
@@ -71,10 +80,51 @@ scan_options = [
     {
         'type': "input",
         "name": "x_start",
-        "message": "Enter X starting position",
-        "validate": NumberValidator,
+        "message": "Enter X starting position [mm]",
+        'default': '1',
+        "validate": FloatValidator,
+        "filter": lambda val: float(val)
+    },
+    {
+        'type': "input",
+        "name": "y_start",
+        "message": "Enter Y starting position [mm]",
+        'default': '1',
+        "validate": FloatValidator,
+        "filter": lambda val: float(val)
+    },
+    {
+        'type': "input",
+        "name": "x_size",
+        "message": "Enter X scan size [mm]",
+        'default': '10',
+        "validate": FloatValidator,
+        "filter": lambda val: float(val)
+    },
+    {
+        'type': "input",
+        "name": "y_size",
+        "message": "Enter Y scan size [mm]",
+        'default': '10',
+        "validate": FloatValidator,
+        "filter": lambda val: float(val)
+    },
+    {
+        'type': "input",
+        "name": "x_points",
+        "message": "Enter number of X scan points",
+        'default': '10',
+        "validate": IntValidator,
         "filter": lambda val: int(val)
-    }, 
+    },
+    {
+        'type': "input",
+        "name": "y_points",
+        "message": "Enter number of Y scan points",
+        'default': '10',
+        "validate": IntValidator,
+        "filter": lambda val: int(val)
+    }
 ]
 
 ### Actuall stuff
@@ -206,8 +256,8 @@ def bp_filter(data, low, high, dt):
 
 if __name__ == "__main__":
     
-    osc = Oscilloscope.Oscilloscope(osc_params) # initialize oscilloscope
-    stage_X, stage_Y = init_stages() # initialize stages
+    #osc = Oscilloscope.Oscilloscope(osc_params) # initialize oscilloscope
+    #stage_X, stage_Y = init_stages() # initialize stages
 
     print(f"{bcolors.HEADER}Initialization complete! {bcolors.ENDC}")
 
