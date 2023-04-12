@@ -277,20 +277,35 @@ def bp_filter(data, low, high, dt):
 
     return irfft(filtered_f_signal) # actual filtered signal
 
+def print_status(stage_X, stage_Y):
+    """Prints current status and position of stages"""
+
+    print(f'X stage status: {stage_X.get_status()}, position: {stage_X.get_position()*1000} mm.')
+    print(f'X stage status: {stage_Y.get_status()}, position: {stage_Y.get_position()*1000} mm.')
+
+def home(stage_X, stage_Y):
+    """Homes stages"""
+
+    stage_X.home(sync=False,force=True)
+    stage_Y.home(sync=False,force=True)
+    print('Homing started...')
+    wait_stages_stop(stage_X,stage_Y)
+    print('...Homing complete!')
+
 if __name__ == "__main__":
     
-    #osc = Oscilloscope.Oscilloscope(osc_params) # initialize oscilloscope
-    #stage_X, stage_Y = init_stages() # initialize stages
-
+    osc = Oscilloscope.Oscilloscope(osc_params) # initialize oscilloscope
+    stage_X, stage_Y = init_stages() # initialize stages
+    stage_X.home(sync=False,force=True)
     print(f"{bcolors.HEADER}Initialization complete! {bcolors.ENDC}")
 
     while True: #main execution loop
         answers = prompt(basic_options, style=custom_style_2)
         if answers.get('basic_option') == 'Home':
-            pass
+            home(stage_X, stage_Y)
 
         elif answers.get('basic_option') == 'Get status':
-            pass
+            print_status(stage_X, stage_Y)
 
         elif answers.get('basic_option') == 'Find beam position (scan)':
             answers_scan = prompt(scan_options, style=custom_style_2)
