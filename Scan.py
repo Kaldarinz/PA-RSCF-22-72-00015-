@@ -328,7 +328,7 @@ def scan(x_start, y_start, x_size, y_size, x_points, y_points):
 
             scan_frame[i,j] = osc.signal_amp/osc.laser_amp
             scan_frame_full[i,j,:] = osc.current_pa_data/osc.laser_amp
-            print('normalizaed amp at ', i, j, ' Value = \n', scan_frame[i,j])
+            print(f'normalizaed amp at ({i}, {j}) is {scan_frame[i,j]:.3f}\n')
             
             im.set_data(scan_frame)
             fig.canvas.draw()
@@ -450,7 +450,7 @@ if __name__ == "__main__":
             answers_post_scan = prompt(post_scan_options, style=custom_style_2)
             if answers_post_scan.get('move_opt'):
                 move_to(opt_x, opt_y, stage_X, stage_Y)
-                wait_stages_stop()
+                wait_stages_stop(stage_X,stage_Y)
 
         elif answers.get('basic_option') == 'Data manipulations':
             answers_data = prompt(data_options, style=custom_style_2)
