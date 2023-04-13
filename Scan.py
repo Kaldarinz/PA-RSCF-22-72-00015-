@@ -328,7 +328,7 @@ def scan(x_start, y_start, x_size, y_size, x_points, y_points):
 
             scan_frame[i,j] = osc.signal_amp/osc.laser_amp
             scan_frame_full[i,j,:] = osc.current_pa_data/osc.laser_amp
-            print('normalizaed amp at ', i, j, ' Value = ', scan_frame[i,j])
+            print('normalizaed amp at ', i, j, ' Value = \n', scan_frame[i,j])
             
             im.set_data(scan_frame)
             fig.canvas.draw()
@@ -442,14 +442,15 @@ if __name__ == "__main__":
                 opt_x = x_start + max_amp_index[0]*x_size/(x_points-1)
                 opt_y = y_start + max_amp_index[1]*y_size/(y_points-1)
                 print(f'best pos indexes {max_amp_index}')
-                print(f'best X pos = {opt_x}')
-                print(f'best Y pos = {opt_y}')
+                print(f'best X pos = {opt_x:.2f}')
+                print(f'best Y pos = {opt_y:.2f}')
             
             plt.show()
 
             answers_post_scan = prompt(post_scan_options, style=custom_style_2)
             if answers_post_scan.get('move_opt'):
                 move_to(opt_x, opt_y, stage_X, stage_Y)
+                wait_stages_stop()
 
         elif answers.get('basic_option') == 'Data manipulations':
             answers_data = prompt(data_options, style=custom_style_2)
