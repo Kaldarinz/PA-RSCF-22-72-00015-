@@ -133,15 +133,15 @@ class Oscilloscope:
         """Updates laser amplitude"""
 
         self.laser_amp = self.current_pm_data.max()
-        print('Laser amplitude updated! New value = ', self.laser_amp)        
+        print(f'Laser amp = {self.laser_amp:.3f}')        
 
     def set_signal_amp(self):
         """Updates PA amplitude"""
 
         pa_search_start = self.time_to_points(5 + self.osc_params['pre_time'])
-        pa_search_stop = self.time_to_points(80) # >то плохо и надо бы переписать
+        pa_search_stop = self.time_to_points(80) # это плохо и надо бы переписать
         self.signal_amp = abs(self.current_pa_data[pa_search_start:pa_search_stop].max()-self.current_pa_data[pa_search_start:pa_search_stop].min())
-        print('PhotoAcoustic amplitude updated! New value = ', self.signal_amp)
+        print(f'PA amp = {self.signal_amp:.4f}')
 
     def measure(self,):
         """Measure PA amplitude"""
