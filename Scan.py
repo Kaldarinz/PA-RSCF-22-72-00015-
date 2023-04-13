@@ -40,6 +40,20 @@ class IntValidator(Validator):
             raise ValidationError(message='Please enter a positive integer',
                                   cursor_position=len(document.text))
 
+class ScanRangeValidator(Validator):
+
+    def validate(self, document):
+        try:
+            value = float(document.text)
+        except ValueError:
+            raise ValidationError(message="Please enter an integer",
+                                  cursor_position=len(document.text))
+        if value < 0:
+            raise ValidationError(message='Please enter a positive integer',
+                                  cursor_position=len(document.text))
+        elif value > 25:
+            raise ValidationError(message='Maximum stage coordinate must be less than 25 mm')
+
 class ScanPointsValidator(Validator):
 
     def validate(self, document):
@@ -95,16 +109,16 @@ move_to_options = [
         'type': "input",
         "name": "x_pos",
         "message": "Enter X destination [mm]",
-        'default': '1',
-        "validate": FloatValidator,
+        'default': '0',
+        "validate": ScanRangeValidator,
         "filter": lambda val: float(val)
     },
     {
         'type': "input",
         "name": "y_pos",
         "message": "Enter Y destination [mm]",
-        'default': '1',
-        "validate": FloatValidator,
+        'default': '0',
+        "validate": ScanRangeValidator,
         "filter": lambda val: float(val)
     }
 ]
@@ -115,7 +129,7 @@ scan_options = [
         "name": "x_start",
         "message": "Enter X starting position [mm]",
         'default': '1',
-        "validate": FloatValidator,
+        "validate": ScanRangeValidator,
         "filter": lambda val: float(val)
     },
     {
@@ -123,7 +137,7 @@ scan_options = [
         "name": "y_start",
         "message": "Enter Y starting position [mm]",
         'default': '1',
-        "validate": FloatValidator,
+        "validate": ScanRangeValidator,
         "filter": lambda val: float(val)
     },
     {
@@ -131,7 +145,7 @@ scan_options = [
         "name": "x_size",
         "message": "Enter X scan size [mm]",
         'default': '10',
-        "validate": FloatValidator,
+        "validate": ScanRangeValidator,
         "filter": lambda val: float(val)
     },
     {
@@ -139,7 +153,7 @@ scan_options = [
         "name": "y_size",
         "message": "Enter Y scan size [mm]",
         'default': '10',
-        "validate": FloatValidator,
+        "validate": ScanRangeValidator,
         "filter": lambda val: float(val)
     },
     {
@@ -272,19 +286,25 @@ def move_to(X, Y, stage_X, stage_Y) -> None:
 def wait_stages_stop(stage1 = None, stage2 = None):
     """Waits untill all specified stages stop"""
 
-    if stage1:
-        while stage1.is_moving():
-            time.sleep(0.01)
-
-    if stage2:
-        while stage2.is_moving():
-            time.sleep(0.01)
+    stage1.wait_for_stop()
+    stage2.wait_for_stop()
 
 def scan(x_start, y_start, x_size, y_size, x_points, y_points):
     """Scan an area, which starts at bottom left side 
     at (x_start, y_start) and has a size (x_size, y_size) in mm.
+    Checks upper scan boundary.
     Returns 2D array with normalized signal amplitudes and
     3D array with the whole normalized PA data for each scan point"""
+
+    if (x_start + x_size ) >25:
+        x_size = 25 - x_start
+        print(f'{bcolors.WARNING}X scan range exceeds stage limitation!')
+        print(f'X scan range reduced to {x_size}! {bcolors.ENDC}')
+
+    if (y_start + y_size)>25:
+        y_size = 25 - y_start
+        print(f'{bcolors.WARNING}Y scan range exceeds stage limitation!')
+        print(f'Y scan range reduced to {y_size}! {bcolors.ENDC}')
 
     move_to(x_start, y_start, stage_X, stage_Y) # move to starting point
     wait_stages_stop(stage_X, stage_Y)
@@ -370,8 +390,8 @@ def bp_filter(data, low, high, dt):
 def print_status(stage_X, stage_Y):
     """Prints current status and position of stages"""
 
-    print(f'{bcolors.OKBLUE}X stage{bcolors.ENDC} homing status: {stage_X.is_homed()}, status: {stage_X.get_status()}, position: {stage_X.get_position()*1000} mm.')
-    print(f'{bcolors.OKBLUE}Y stage{bcolors.ENDC} homing status: {stage_Y.is_homed()}, status: {stage_Y.get_status()}, position: {stage_Y.get_position()*1000} mm.')
+    print(f'{bcolors.OKBLUE}X stage{bcolors.ENDC} homing status: {stage_X.is_homed()}, status: {stage_X.get_status()}, position: {stage_X.get_position()*1000:.2f} mm.')
+    print(f'{bcolors.OKBLUE}Y stage{bcolors.ENDC} homing status: {stage_Y.is_homed()}, status: {stage_Y.get_status()}, position: {stage_Y.get_position()*1000:.2f} mm.')
 
 def home(stage_X, stage_Y):
     """Homes stages"""
@@ -397,7 +417,14 @@ if __name__ == "__main__":
             print_status(stage_X, stage_Y)
 
         elif answers.get('basic_option') == 'Move to':
-            pass
+            answers_move = prompt(move_to_options, style=custom_style_2)
+            x_dest = answers_move.get('x_pos')
+            y_dest = answers_move.get('y_pos')
+
+            print(f'Moving to ({x_dest},{y_dest})...')
+            move_to(x_dest, y_dest, stage_X, stage_Y)
+            wait_stages_stop(stage_X,stage_Y)
+            print(f'...Mooving complete! Current position ({stage_X.get_position(scale=True)*1000:.2f},{stage_Y.get_position(scale=True)*1000:.2f})')
 
         elif answers.get('basic_option') == 'Find beam position (scan)':
             answers_scan = prompt(scan_options, style=custom_style_2)
