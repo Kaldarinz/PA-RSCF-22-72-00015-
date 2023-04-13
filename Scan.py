@@ -401,10 +401,6 @@ def bp_filter(data, low, high, dt):
     W = fftfreq(data.shape[2], dt) # array with frequencies
     f_signal = rfft(data) # signal in f-space
 
-    fft_data = np.zeros((2,data.shape[2]))
-    fft_data[0,:] = W
-    fft_data[1,:] = f_signal
-
     filtered_f_signal = f_signal.copy()
     filtered_f_signal[:,:,(W<low)] = 0   # high pass filtering
 
@@ -413,7 +409,7 @@ def bp_filter(data, low, high, dt):
     else:
         filtered_f_signal[:,:,(W>high_cutof)] = 0
 
-    return irfft(filtered_f_signal), fft_data
+    return irfft(filtered_f_signal), f_signal, W
 
 def print_status(stage_X, stage_Y):
     """Prints current status and position of stages"""
@@ -463,6 +459,7 @@ if __name__ == "__main__":
             x_points = answers_scan.get('x_points')
             y_points = answers_scan.get('y_points')
 
+            print('Scan starting...')
             scan_image, raw_data = scan(x_start, y_start, x_size, y_size, x_points, y_points)
 
             max_amp_index = np.unravel_index(scan_image.argmax(), scan_image.shape) # find position with max PA amp
@@ -474,6 +471,7 @@ if __name__ == "__main__":
                 print(f'best Y pos = {opt_y:.2f}')
             
             plt.show()
+            print('...Scan complete!')
 
             answers_post_scan = prompt(post_scan_options, style=custom_style_2)
             if answers_post_scan.get('move_opt'):
@@ -482,29 +480,30 @@ if __name__ == "__main__":
 
         elif answers.get('basic_option') == 'Data manipulations':
             answers_data = prompt(data_options, style=custom_style_2)
+            ans = answers_data.get('data_options')
             
-            if answers_data.get('data_options') == 'View scan data':
+            if ans == 'View raw scan data':
                 dt = 1/osc.sample_rate
                 scan_vizualization(raw_data, dt)
 
-            elif answers_data.get('data_options') == 'FFT filtration of scan data':
+            elif ans == 'FFT filtration of scan data':
                     answers_filtr = prompt(filtration_options, style=custom_style_2)
 
                     low_cutof = answers_filtr.get('low_freq')
                     high_cutof = answers_filtr.get('high_freq')
-                    filtered_data, fft_data = bp_filter(raw_data, low_cutof, high_cutof, 1/osc.sample_rate)
+                    filtered_data, fft_data, freq_data = bp_filter(raw_data, low_cutof, high_cutof, 1/osc.sample_rate)
                     print('FFT filtration complete')
             
-            elif answers_data.get('data_options') == 'View scan data in Fourier space':
-                    scan_vizualization(fft_data[1,:], 1)
+            elif ans == 'View scan data in Fourier space':
+                    scan_vizualization(fft_data, 1)
             
-            elif answers_data.get('data_options') == 'View filtered data':
+            elif ans == 'View filtered data':
                     scan_vizualization(filtered_data, 1)
 
-            elif answers_data.get('data_options') == 'Save all data':
+            elif ans == 'Save all data':
                     pass
 
-            elif answers_data.get('data_options') == 'Back':
+            elif ans == 'Back':
                     pass
 
         elif answers.get('basic_option') == 'Exit':
