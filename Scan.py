@@ -6,8 +6,9 @@ import os.path
 from pathlib import Path
 import time
 import Oscilloscope
-from PyInquirer import prompt
-from examples import custom_style_2
+#from PyInquirer import prompt
+from InquirerPy import inquirer
+#from examples import custom_style_2
 from prompt_toolkit.validation import Validator, ValidationError
 
 ### Configuration
@@ -86,48 +87,6 @@ class bcolors:
     BOLD = '\033[1m'
     UNDERLINE = '\033[4m'
 
-basic_options = [
-    {
-        'type': 'list',
-        'name': 'basic_option',
-        'message': 'Choose an action',
-        'choices': ["Get status","Home stages",'Move to',"Find beam position (scan)", 'Data manipulations', "Exit"]
-    }
-]
-
-data_options = [
-    {
-        'type': 'list',
-        'name': 'data_options',
-        'message': 'Choose an action',
-        'choices': ['View raw scan data', 
-                    'FFT filtration of scan data', 
-                    'View scan data in Fourier space', 
-                    'View filtered data', 
-                    'Save all data', 
-                    'Back']
-    }
-]
-
-move_to_options = [
-    {
-        'type': "input",
-        "name": "x_pos",
-        "message": "Enter X destination [mm]",
-        'default': '0',
-        "validate": ScanRangeValidator,
-        "filter": lambda val: float(val)
-    },
-    {
-        'type': "input",
-        "name": "y_pos",
-        "message": "Enter Y destination [mm]",
-        'default': '0',
-        "validate": ScanRangeValidator,
-        "filter": lambda val: float(val)
-    }
-]
-
 filtration_options = [
     {
         'type': "input",
@@ -204,15 +163,6 @@ post_scan_options = [
         'message': 'Move to the optimal position?',
         'name': 'move_opt',
         'default': True
-    }
-]
-
-exit_options = [
-    {
-        'type': 'confirm',
-        'message': 'Do you really want to exit?',
-        'name': 'exit',
-        'default': False
     }
 ]
 
@@ -428,29 +378,48 @@ def home(stage_X, stage_Y):
 
 if __name__ == "__main__":
     
-    osc = Oscilloscope.Oscilloscope(osc_params) # initialize oscilloscope
-    stage_X, stage_Y = init_stages() # initialize stages
+    #osc = Oscilloscope.Oscilloscope(osc_params) # initialize oscilloscope
+    #stage_X, stage_Y = init_stages() # initialize stages
     print(f"{bcolors.HEADER}Initialization complete! {bcolors.ENDC}")
 
     while True: #main execution loop
-        answers = prompt(basic_options, style=custom_style_2)
-        if answers.get('basic_option') == 'Home stages':
+        menu_ans = inquirer.rawlist(
+            message='Choose an action',
+            choices=[
+                'Get status',
+                'Home stages',
+                'Move to',
+                'Find beam position (scan)',
+                'Data manipulation',
+                'Exit'
+            ]
+        ).execute()
+        if menu_ans == 'Home stages':
             home(stage_X, stage_Y)
 
-        elif answers.get('basic_option') == 'Get status':
+        elif menu_ans == 'Get status':
             print_status(stage_X, stage_Y)
 
-        elif answers.get('basic_option') == 'Move to':
-            answers_move = prompt(move_to_options, style=custom_style_2)
-            x_dest = answers_move.get('x_pos')
-            y_dest = answers_move.get('y_pos')
+        elif menu_ans == 'Move to':
+            x_dest = inquirer.number(
+                message='Enter X destination []',
+                default=0,
+                validate=ScanRangeValidator,
+                filter=lambda result: float(result)
+            ).execute()
+            y_dest = inquirer.number(
+                message='Enter Y destination [mm]',
+                default=0,
+                validate=ScanRangeValidator,
+                filter=lambda result: float(result)
+            )
 
             print(f'Moving to ({x_dest},{y_dest})...')
             move_to(x_dest, y_dest, stage_X, stage_Y)
             wait_stages_stop(stage_X,stage_Y)
             print(f'...Mooving complete! Current position ({stage_X.get_position(scale=True)*1000:.2f},{stage_Y.get_position(scale=True)*1000:.2f})')
 
-        elif answers.get('basic_option') == 'Find beam position (scan)':
+        elif menu_ans == 'Find beam position (scan)':
             answers_scan = prompt(scan_options, style=custom_style_2)
             x_start = answers_scan.get('x_start')
             y_start = answers_scan.get('y_start')
@@ -478,15 +447,24 @@ if __name__ == "__main__":
                 move_to(opt_x, opt_y, stage_X, stage_Y)
                 wait_stages_stop(stage_X,stage_Y)
 
-        elif answers.get('basic_option') == 'Data manipulations':
-            answers_data = prompt(data_options, style=custom_style_2)
-            ans = answers_data.get('data_options')
+        elif menu_ans == 'Data manipulations':
+            data_ans = inquirer.rawlist(
+                message='Choose data action',
+                choices=[
+                    'View raw scan data', 
+                    'FFT filtration of scan data', 
+                    'View scan data in Fourier space', 
+                    'View filtered data', 
+                    'Save all data', 
+                    'Back'
+                ]
+            )
             
-            if ans == 'View raw scan data':
+            if data_ans == 'View raw scan data':
                 dt = 1/osc.sample_rate
                 scan_vizualization(raw_data, dt)
 
-            elif ans == 'FFT filtration of scan data':
+            elif data_ans == 'FFT filtration of scan data':
                     answers_filtr = prompt(filtration_options, style=custom_style_2)
 
                     low_cutof = answers_filtr.get('low_freq')
@@ -494,24 +472,26 @@ if __name__ == "__main__":
                     filtered_data, fft_data, freq_data = bp_filter(raw_data, low_cutof, high_cutof, 1/osc.sample_rate)
                     print('FFT filtration complete')
             
-            elif ans == 'View scan data in Fourier space':
+            elif data_ans == 'View scan data in Fourier space':
                     scan_vizualization(fft_data, 1)
             
-            elif ans == 'View filtered data':
+            elif data_ans == 'View filtered data':
                     scan_vizualization(filtered_data, 1)
 
-            elif ans == 'Save all data':
+            elif data_ans == 'Save all data':
                     pass
 
-            elif ans == 'Back':
+            elif data_ans == 'Back':
                     pass
 
-        elif answers.get('basic_option') == 'Exit':
-            answers_exit = prompt(exit_options, style=custom_style_2)
-            if answers_exit.get('exit'):
+        elif menu_ans == 'Exit':
+            exit_ans = inquirer.confirm(
+                message='Do you really want to exit?'
+                ).execute()
+            if exit_ans:
                 stage_X.close()
                 stage_Y.close()
-                break
+                exit()
 
     #if data_storage == 1:
     #    dt = 1 / osc.sample_rate
