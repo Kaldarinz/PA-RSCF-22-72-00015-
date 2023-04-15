@@ -27,55 +27,7 @@ low_cutof = 300000 # low cutoff frequency
 high_cutof = 5000000 # high cutoff frequency
 
 data_storage = 1 # 1 - Save data, 0 - do not save data
-
-### CLI 
-class IntValidator(Validator):
-
-    def validate(self, document):
-        try:
-            value = int(document.text)
-        except ValueError:
-            raise ValidationError(message="Please enter an integer",
-                                  cursor_position=len(document.text))
-        if value <= 0:
-            raise ValidationError(message='Please enter a positive integer',
-                                  cursor_position=len(document.text))
-
-class ScanRangeValidator(Validator):
-
-    def validate(self, document):
-        try:
-            value = float(document.text)
-        except ValueError:
-            raise ValidationError(message="Please enter an integer",
-                                  cursor_position=len(document.text))
-        if value < 0:
-            raise ValidationError(message='Please enter a positive integer',
-                                  cursor_position=len(document.text))
-        elif value > 25:
-            raise ValidationError(message='Maximum stage coordinate must be less than 25 mm')
-
-class ScanPointsValidator(Validator):
-
-    def validate(self, document):
-        try:
-            value = int(document.text)
-        except ValueError:
-            raise ValidationError(message="Please enter an integer",
-                                  cursor_position=len(document.text))
-        if value < 2:
-            raise ValidationError(message='Amount of scan points cannot be less than 2',
-                                  cursor_position=len(document.text))
-        
-class FloatValidator(Validator):
-
-    def validate(self, document):
-        try:
-            float(document.text)
-        except ValueError:
-            raise ValidationError(message="Please enter a number",
-                                  cursor_position=len(document.text))
-        
+       
 class bcolors:
     HEADER = '\033[95m'
     OKBLUE = '\033[94m'
@@ -87,86 +39,6 @@ class bcolors:
     BOLD = '\033[1m'
     UNDERLINE = '\033[4m'
 
-filtration_options = [
-    {
-        'type': "input",
-        "name": "low_freq",
-        "message": "Enter low cutoff frquency [Hz]",
-        'default': '100000',
-        "validate": IntValidator,
-        "filter": lambda val: int(val)
-    },
-    {
-        'type': "input",
-        "name": "high_freq",
-        "message": "Enter high cutoff frquency [Hz]",
-        'default': '10000000',
-        "validate": IntValidator,
-        "filter": lambda val: int(val)
-    }
-]
-
-scan_options = [
-    {
-        'type': "input",
-        "name": "x_start",
-        "message": "Enter X starting position [mm]",
-        'default': '1',
-        "validate": ScanRangeValidator,
-        "filter": lambda val: float(val)
-    },
-    {
-        'type': "input",
-        "name": "y_start",
-        "message": "Enter Y starting position [mm]",
-        'default': '1',
-        "validate": ScanRangeValidator,
-        "filter": lambda val: float(val)
-    },
-    {
-        'type': "input",
-        "name": "x_size",
-        "message": "Enter X scan size [mm]",
-        'default': '10',
-        "validate": ScanRangeValidator,
-        "filter": lambda val: float(val)
-    },
-    {
-        'type': "input",
-        "name": "y_size",
-        "message": "Enter Y scan size [mm]",
-        'default': '10',
-        "validate": ScanRangeValidator,
-        "filter": lambda val: float(val)
-    },
-    {
-        'type': "input",
-        "name": "x_points",
-        "message": "Enter number of X scan points",
-        'default': '10',
-        "validate": ScanPointsValidator,
-        "filter": lambda val: int(val)
-    },
-    {
-        'type': "input",
-        "name": "y_points",
-        "message": "Enter number of Y scan points",
-        'default': '10',
-        "validate": ScanPointsValidator,
-        "filter": lambda val: int(val)
-    }
-]
-
-post_scan_options = [
-    {
-        'type': 'confirm',
-        'message': 'Move to the optimal position?',
-        'name': 'move_opt',
-        'default': True
-    }
-]
-
-### Actuall stuff
 class IndexTracker:
     '''Class for scan image vizualization'''
 
@@ -402,17 +274,21 @@ if __name__ == "__main__":
 
         elif menu_ans == 'Move to':
             x_dest = inquirer.number(
-                message='Enter X destination []',
-                default=0,
-                validate=ScanRangeValidator,
+                message='Enter X destination [mm]',
+                default=0.0,
+                float_allowed=True,
+                min_allowed=0.0,
+                max_allowed=25.0,
                 filter=lambda result: float(result)
             ).execute()
             y_dest = inquirer.number(
                 message='Enter Y destination [mm]',
-                default=0,
-                validate=ScanRangeValidator,
+                default=0.0,
+                float_allowed=True,
+                min_allowed=0.0,
+                max_allowed=25.0,
                 filter=lambda result: float(result)
-            )
+            ).execute()
 
             print(f'Moving to ({x_dest},{y_dest})...')
             move_to(x_dest, y_dest, stage_X, stage_Y)
@@ -420,13 +296,58 @@ if __name__ == "__main__":
             print(f'...Mooving complete! Current position ({stage_X.get_position(scale=True)*1000:.2f},{stage_Y.get_position(scale=True)*1000:.2f})')
 
         elif menu_ans == 'Find beam position (scan)':
-            answers_scan = prompt(scan_options, style=custom_style_2)
-            x_start = answers_scan.get('x_start')
-            y_start = answers_scan.get('y_start')
-            x_size = answers_scan.get('x_size')
-            y_size = answers_scan.get('y_size')
-            x_points = answers_scan.get('x_points')
-            y_points = answers_scan.get('y_points')
+
+            x_start = inquirer.number(
+                message='Enter X starting position [mm]',
+                default=1.0,
+                float_allowed=True,
+                min_allowed=0.0,
+                max_allowed=25.0,
+                filter=lambda result: float(result)
+            ).execute()
+
+            y_start = inquirer.number(
+                message='Enter Y starting position [mm]',
+                default=1.0,
+                float_allowed=True,
+                min_allowed=0.0,
+                max_allowed=25.0,
+                filter=lambda result: float(result)
+            ).execute()
+
+            x_size = inquirer.number(
+                message='Enter X scan size [mm]',
+                default= (x_start + 3.0),
+                float_allowed=True,
+                min_allowed=x_start,
+                max_allowed=25.0-x_start,
+                filter=lambda result: float(result)
+            ).execute()
+
+            y_size = inquirer.number(
+                message='Enter Y scan size [mm]',
+                default= (y_start + 3.0),
+                float_allowed=True,
+                min_allowed=y_start,
+                max_allowed=25.0-y_start,
+                filter=lambda result: float(result)
+            ).execute()
+
+            x_points = inquirer.number(
+                message='Enter number of X scan points',
+                default= 5,
+                min_allowed=2,
+                max_allowed=50,
+                filter=lambda result: int(result)
+            ).execute()
+
+            y_points = inquirer.number(
+                message='Enter number of Y scan points',
+                default= 5,
+                min_allowed=2,
+                max_allowed=50,
+                filter=lambda result: int(result)
+            ).execute()
 
             print('Scan starting...')
             scan_image, raw_data = scan(x_start, y_start, x_size, y_size, x_points, y_points)
@@ -442,47 +363,64 @@ if __name__ == "__main__":
             plt.show()
             print('...Scan complete!')
 
-            answers_post_scan = prompt(post_scan_options, style=custom_style_2)
-            if answers_post_scan.get('move_opt'):
+            confirm_move = inquirer.confirm(
+                message='Move to optimal position?'    
+            ).execute()
+            if confirm_move:
                 move_to(opt_x, opt_y, stage_X, stage_Y)
                 wait_stages_stop(stage_X,stage_Y)
 
         elif menu_ans == 'Data manipulations':
-            data_ans = inquirer.rawlist(
-                message='Choose data action',
-                choices=[
-                    'View raw scan data', 
-                    'FFT filtration of scan data', 
-                    'View scan data in Fourier space', 
-                    'View filtered data', 
-                    'Save all data', 
-                    'Back'
-                ]
-            )
-            
-            if data_ans == 'View raw scan data':
-                dt = 1/osc.sample_rate
-                scan_vizualization(raw_data, dt)
 
-            elif data_ans == 'FFT filtration of scan data':
-                    answers_filtr = prompt(filtration_options, style=custom_style_2)
+            while True:
+                data_ans = inquirer.rawlist(
+                    message='Choose data action',
+                    choices=[
+                        'View raw scan data', 
+                        'FFT filtration of scan data', 
+                        'View scan data in Fourier space', 
+                        'View filtered data', 
+                        'Save all data', 
+                        'Back'
+                    ]
+                )
+                
+                if data_ans == 'View raw scan data':
+                    dt = 1/osc.sample_rate
+                    scan_vizualization(raw_data, dt)
 
-                    low_cutof = answers_filtr.get('low_freq')
-                    high_cutof = answers_filtr.get('high_freq')
-                    filtered_data, fft_data, freq_data = bp_filter(raw_data, low_cutof, high_cutof, 1/osc.sample_rate)
-                    print('FFT filtration complete')
-            
-            elif data_ans == 'View scan data in Fourier space':
-                    scan_vizualization(fft_data, 1)
-            
-            elif data_ans == 'View filtered data':
-                    scan_vizualization(filtered_data, 1)
+                elif data_ans == 'FFT filtration of scan data':
 
-            elif data_ans == 'Save all data':
-                    pass
+                        low_cutof = inquirer.number(
+                            message='Enter low cutoff frequency [Hz]',
+                            default=100000,
+                            min_allowed=1,
+                            max_allowed=50000000,
+                            filter=lambda result: int(result)
+                        ).execute()
 
-            elif data_ans == 'Back':
-                    pass
+                        high_cutof = inquirer.number(
+                            message='Enter high cutoff frequency [Hz]',
+                            default=10000000,
+                            min_allowed=(low_cutof+100000),
+                            max_allowed=50200000,
+                            filter=lambda result: int(result)
+                        ).execute()
+
+                        filtered_data, fft_data, freq_data = bp_filter(raw_data, low_cutof, high_cutof, 1/osc.sample_rate)
+                        print('FFT filtration complete')
+                
+                elif data_ans == 'View scan data in Fourier space':
+                        scan_vizualization(fft_data, 1)
+                
+                elif data_ans == 'View filtered data':
+                        scan_vizualization(filtered_data, 1)
+
+                elif data_ans == 'Save all data':
+                        pass
+
+                elif data_ans == 'Back':
+                        pass
 
         elif menu_ans == 'Exit':
             exit_ans = inquirer.confirm(
