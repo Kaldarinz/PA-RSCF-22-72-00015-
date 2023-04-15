@@ -6,10 +6,8 @@ import os.path
 from pathlib import Path
 import time
 import Oscilloscope
-#from PyInquirer import prompt
 from InquirerPy import inquirer
-#from examples import custom_style_2
-from prompt_toolkit.validation import Validator, ValidationError
+from InquirerPy.validator import PathValidator
 
 ### Configuration
 
@@ -22,9 +20,6 @@ osc_params = {
     'trigger_channel': 'CHAN1',
     'pa_channel': 'CHAN2',
 }
-
-low_cutof = 300000 # low cutoff frequency
-high_cutof = 5000000 # high cutoff frequency
 
 data_storage = 1 # 1 - Save data, 0 - do not save data
        
@@ -380,7 +375,8 @@ if __name__ == "__main__":
                         'FFT filtration of scan data', 
                         'View scan data in Fourier space', 
                         'View filtered data', 
-                        'Save all data', 
+                        'Save all data',
+                        'Load data from file',
                         'Back'
                     ]
                 ).execute()
@@ -418,6 +414,17 @@ if __name__ == "__main__":
 
                 elif data_ans == 'Save all data':
                         pass
+
+                elif data_ans == 'Load data from file':
+
+                    home_path = str(Path().resolve())
+                    file_path = inquirer.filepath(
+                        message='Enter file to load:',
+                        default=home_path,
+                        validate=PathValidator(is_file=True, message='Input is not a file')
+                    ).execute()
+
+                    raw_data = np.load(file_path)
 
                 elif data_ans == 'Back':
                         break
