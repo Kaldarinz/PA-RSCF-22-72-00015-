@@ -370,7 +370,7 @@ if __name__ == "__main__":
                 move_to(opt_x, opt_y, stage_X, stage_Y)
                 wait_stages_stop(stage_X,stage_Y)
 
-        elif menu_ans == 'Data manipulations':
+        elif menu_ans == 'Data manipulation':
 
             while True:
                 data_ans = inquirer.rawlist(
@@ -383,7 +383,7 @@ if __name__ == "__main__":
                         'Save all data', 
                         'Back'
                     ]
-                )
+                ).execute()
                 
                 if data_ans == 'View raw scan data':
                     dt = 1/osc.sample_rate
@@ -420,7 +420,7 @@ if __name__ == "__main__":
                         pass
 
                 elif data_ans == 'Back':
-                        pass
+                        break
 
         elif menu_ans == 'Exit':
             exit_ans = inquirer.confirm(
