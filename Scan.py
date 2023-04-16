@@ -219,21 +219,20 @@ def save_image(data):
     np.savetxt(filename, data)
     print('Data saved to ', filename)
 
-def save_full_data(data_full, dt):
-    """Saves full data in npy format.
-    By convention the first value in all PA signals in dt"""
+def save_scan_data(sample, data, dt):
+    """Saves full data in npy format."""
 
-    data_full[:,:,0] = dt
     Path('measuring results/').mkdir(parents=True, exist_ok=True)
-    
-    filename = 'measuring results/Sample_name-' + sample_name + '-Full'
+    dt = dt*1000000000
+
+    filename = 'measuring results/Scan-' + sample + '-dt' + str(dt) + 'ns'
 
     i = 1
     while (os.path.exists(filename + str(i) + '.npy')):
         i += 1
     filename = filename + str(i) + '.npy'
     
-    np.save(filename, data_full)
+    np.save(filename, data)
     print('Data saved to ', filename)
 
 def bp_filter(data, low, high, dt):
@@ -242,8 +241,11 @@ def bp_filter(data, low, high, dt):
     high is low pass cutoff frequency in Hz
     dt is time step in seconds"""
 
-    W = fftfreq(data.shape[3], dt) # array with frequencies
-    f_signal = rfft(data[:,:,0,:]) # signal in f-space
+    temp_data = data.copy()
+    temp_data[:,:,2,:] = 0
+    temp_data[:,:,3,:] = 0
+    W = fftfreq(temp_data.shape[3], dt) # array with frequencies
+    f_signal = rfft(temp_data[:,:,0,:]) # signal in f-space
 
     filtered_f_signal = f_signal.copy()
     filtered_f_signal[:,:,(W<low)] = 0   # high pass filtering
@@ -255,12 +257,12 @@ def bp_filter(data, low, high, dt):
 
     filtered_freq = W[(W>low)*(W<high_cutof)]
 
-    data[:,:,2,:len(filtered_freq)] = filtered_freq
-    data[:,:,3,:len(filtered_freq)] = f_signal[:,:,(W>low)*(W<high_cutof)]
+    temp_data[:,:,2,:len(filtered_freq)] = filtered_freq
+    temp_data[:,:,3,:len(filtered_freq)] = f_signal[:,:,(W>low)*(W<high_cutof)]
 
-    data[:,:,1,:] = irfft(filtered_f_signal)
+    temp_data[:,:,1,:] = irfft(filtered_f_signal)
 
-    return data
+    return temp_data
 
 def print_status(stage_X, stage_Y):
     """Prints current status and position of stages"""
@@ -401,7 +403,7 @@ if __name__ == "__main__":
 
             if state['stages init']:
                 print('Scan starting...')
-                scan_image, raw_data = scan(x_start, y_start, x_size, y_size, x_points, y_points)
+                scan_image, data = scan(x_start, y_start, x_size, y_size, x_points, y_points)
                 state['scan data'] = True
                 state['raw data'] = True
 
@@ -452,7 +454,7 @@ if __name__ == "__main__":
                                 filter=lambda result: int(result)/1000000000
                             ).execute()
                             
-                        scan_vizualization(raw_data, dt)
+                        scan_vizualization(data, dt)
                     else:
                         print(f'{bcolors.WARNING} Scan data missing!{bcolors.ENDC}')
 
@@ -484,15 +486,18 @@ if __name__ == "__main__":
                                 max_allowed=1000000,
                                 filter=lambda result: int(result)/1000000000
                             ).execute()
-                        raw_data, fft_data = bp_filter(raw_data, low_cutof, high_cutof, dt)
-                        print(f'FFT shape {fft_data.shape}')
+                        data = bp_filter(data, low_cutof, high_cutof, dt)
                         state['filtered data'] = True
                         print('FFT filtration complete')
                     else:
                         print(f'{bcolors.WARNING} Scan data is missing!{bcolors.ENDC}')
 
                 elif data_ans == 'Save all data':
-                        print(f'{bcolors.WARNING}Not implemented yet!{bcolors.ENDC}')
+                    sample = inquirer.text(
+                        message='Enter Sample name',
+                        default='Unknown'
+                    ).execute()
+                    save_scan_data(sample, data, dt)
 
                 elif data_ans == 'Load data from file':
                     home_path = str(Path().resolve())
@@ -503,10 +508,10 @@ if __name__ == "__main__":
                     ).execute()
 
                     loaded_data = np.load(file_path)
-                    raw_data = np.zeros((loaded_data.shape[0],loaded_data.shape[1],4,loaded_data.shape[2]))
-                    raw_data[:,:,0,:] = loaded_data
+                    data = np.zeros((loaded_data.shape[0],loaded_data.shape[1],4,loaded_data.shape[2]))
+                    data[:,:,0,:] = loaded_data
                     state['raw data'] = True
-                    print(f'...Data with shape {raw_data.shape} loaded!')
+                    print(f'...Data with shape {data.shape} loaded!')
 
                 elif data_ans == 'Back':
                         break
@@ -520,12 +525,5 @@ if __name__ == "__main__":
                     stage_X.close()
                     stage_Y.close()
                 exit()
-
-    #if data_storage == 1:
-    #    dt = 1 / osc.sample_rate
-    #    save_full_data(raw_data, dt)
-    #    save_image(scan_image)
-
-    
 
 
