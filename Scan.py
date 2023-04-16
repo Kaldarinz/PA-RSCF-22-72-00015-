@@ -28,7 +28,6 @@ state = {
     'raw data': False,
     'scan data': False,
     'filtered data': False,
-    'FFT data': False
 }
        
 class bcolors:
@@ -45,17 +44,17 @@ class bcolors:
 class IndexTracker:
     '''Class for scan image vizualization'''
 
-    def __init__(self, fig, ax_freq, ax_raw, ax_filt, data, dt, fft_data):
+    def __init__(self, fig, ax_freq, ax_raw, ax_filt, data, dt):
         
         self.ax_freq = ax_freq
         self.ax_raw = ax_raw
         self.ax_filt = ax_filt
         self.fig = fig
         self.dt = dt*1000000
-        self.freq_data = fft_data[0,0,0,:]/1000
+        self.freq_data = data[0,0,2,:]/1000
         self.raw_data = data[:,:,0,:]
         self.filt_data = data[:,:,1,:]
-        self.fft_data = fft_data[:,:,1,:]
+        self.fft_data = data[:,:,3,:]
         self.x_max = data.shape[0]
         self.y_max = data.shape[1]
         self.x_ind = 0
@@ -109,7 +108,7 @@ class IndexTracker:
         self.fig.align_labels()
         self.fig.canvas.draw()
 
-def scan_vizualization(data, dt, fft_data):
+def scan_vizualization(data, dt):
     """Vizualization of scan data.
     temporal=True means real signal vizualization, dt is time step in s.
     temporal=False means signal in frequency domain, dt is freq step in Hz."""
@@ -120,7 +119,7 @@ def scan_vizualization(data, dt, fft_data):
     ax_freq = fig.add_subplot(gs[1, :])
     ax_raw = fig.add_subplot(gs[0,0])
     ax_filt = fig.add_subplot(gs[0,1])
-    tracker = IndexTracker(fig, ax_freq, ax_raw, ax_filt, data, dt, fft_data)
+    tracker = IndexTracker(fig, ax_freq, ax_raw, ax_filt, data, dt)
     fig.canvas.mpl_connect('key_press_event', tracker.on_key_press)
     plt.show()
 
@@ -179,7 +178,7 @@ def scan(x_start, y_start, x_size, y_size, x_points, y_points):
     wait_stages_stop(stage_X, stage_Y)
 
     scan_frame = np.zeros((x_points,y_points)) #scan image of normalized amplitudes
-    scan_frame_full = np.zeros((x_points,y_points,2,osc.pa_frame_size)) #full data
+    scan_frame_full = np.zeros((x_points,y_points,4,osc.pa_frame_size)) #0-raw data, 1-filt data, 2-freq, 3-FFT
 
     fig, ax = plt.subplots(1,1)
     im = ax.imshow(scan_frame, vmin = 0, vmax = 0.5)
@@ -255,14 +254,13 @@ def bp_filter(data, low, high, dt):
         filtered_f_signal[:,:,(W>high_cutof)] = 0
 
     filtered_freq = W[(W>low)*(W<high_cutof)]
-    final_data = np.zeros((f_signal.shape[0],f_signal.shape[1],2,filtered_freq.shape[0]))
-    print(f'final data shape = {final_data.shape}')
-    final_data[:,:,0,:] = filtered_freq
-    final_data[:,:,1,:] = f_signal[:,:,(W>low)*(W<high_cutof)]
+
+    data[:,:,2,:len(filtered_freq)] = filtered_freq
+    data[:,:,3,:len(filtered_freq)] = f_signal[:,:,(W>low)*(W<high_cutof)]
 
     data[:,:,1,:] = irfft(filtered_f_signal)
 
-    return data, final_data
+    return data
 
 def print_status(stage_X, stage_Y):
     """Prints current status and position of stages"""
@@ -433,17 +431,15 @@ if __name__ == "__main__":
                 data_ans = inquirer.rawlist(
                     message='Choose data action',
                     choices=[
-                        'View raw scan data', 
-                        'FFT filtration of scan data', 
-                        'View scan data in Fourier space', 
-                        'View filtered data', 
+                        'View scan data', 
+                        'FFT filtration of scan data',
                         'Save all data',
                         'Load data from file',
                         'Back'
                     ]
                 ).execute()
                 
-                if data_ans == 'View raw scan data':
+                if data_ans == 'View scan data':
                     if state['raw data']:
                         if state['osc init']:
                             dt = 1/osc.sample_rate
@@ -455,11 +451,8 @@ if __name__ == "__main__":
                                 max_allowed=1000000,
                                 filter=lambda result: int(result)/1000000000
                             ).execute()
-                        if not state['filtered data']:
-                            raw_data[:,:,1,:] = 0
-                            fft_data = np.zeros((raw_data.shape[0],raw_data.shape[1],2,100))
                             
-                        scan_vizualization(raw_data, dt, fft_data)
+                        scan_vizualization(raw_data, dt)
                     else:
                         print(f'{bcolors.WARNING} Scan data missing!{bcolors.ENDC}')
 
@@ -494,33 +487,9 @@ if __name__ == "__main__":
                         raw_data, fft_data = bp_filter(raw_data, low_cutof, high_cutof, dt)
                         print(f'FFT shape {fft_data.shape}')
                         state['filtered data'] = True
-                        state['FFT data'] = True
                         print('FFT filtration complete')
                     else:
                         print(f'{bcolors.WARNING} Scan data is missing!{bcolors.ENDC}')
-                
-                elif data_ans == 'View scan data in Fourier space':
-                    if state['FFT data']:
-                        dt = freq_data[1]-freq_data[0]
-                        scan_vizualization(fft_data, dt, temporal=False)
-                    else:
-                        print(f'{bcolors.WARNING} FFT data is missing!{bcolors.ENDC}')
-                
-                elif data_ans == 'View filtered data':
-                    if state['filtered data']:
-                        if state['osc init']:
-                            dt = 1/osc.sample_rate
-                        else:
-                            dt = inquirer.number(
-                                message='Set dt in [ns]',
-                                default=20,
-                                min_allowed=1,
-                                max_allowed=1000000,
-                                filter=lambda result: int(result)/1000000000
-                            ).execute()
-                        scan_vizualization(filtered_data, dt)
-                    else:
-                        print(f'{bcolors.WARNING} Filtered data is missing!{bcolors.ENDC}')
 
                 elif data_ans == 'Save all data':
                         print(f'{bcolors.WARNING}Not implemented yet!{bcolors.ENDC}')
@@ -534,7 +503,7 @@ if __name__ == "__main__":
                     ).execute()
 
                     loaded_data = np.load(file_path)
-                    raw_data = np.zeros((loaded_data.shape[0],loaded_data.shape[1],2,loaded_data.shape[2]))
+                    raw_data = np.zeros((loaded_data.shape[0],loaded_data.shape[1],4,loaded_data.shape[2]))
                     raw_data[:,:,0,:] = loaded_data
                     state['raw data'] = True
                     print(f'...Data with shape {raw_data.shape} loaded!')
