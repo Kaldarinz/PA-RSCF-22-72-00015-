@@ -8,6 +8,7 @@ import time
 import Oscilloscope
 from InquirerPy import inquirer
 from InquirerPy.validator import PathValidator
+import matplotlib.gridspec as gridspec
 
 ### Configuration
 
@@ -29,8 +30,6 @@ state = {
     'filtered data': False,
     'FFT data': False
 }
-
-data_storage = 1 # 1 - Save data, 0 - do not save data
        
 class bcolors:
     HEADER = '\033[95m'
@@ -46,29 +45,23 @@ class bcolors:
 class IndexTracker:
     '''Class for scan image vizualization'''
 
-    def __init__(self, fig, ax, data, dt, temporal):
-        self.ax = ax
+    def __init__(self, fig, ax_freq, ax_raw, ax_filt, data, dt, fft_data):
+        
+        self.ax_freq = ax_freq
+        self.ax_raw = ax_raw
+        self.ax_filt = ax_filt
         self.fig = fig
-        self.temporal = temporal
-        if temporal:
-            self.ax.set_ylabel('PA detector signal, [V]')
-            self.ax.set_xlabel('Time, [us]')
-            self.dt = dt*1000000
-        else:
-            self.ax.set_ylabel('FFT signal amp')
-            self.ax.set_xlabel('Frequency, [kHz]')
-            self.dt =dt/1000
-        ax.set_title('Photoacoustic signal')
-        ax.set_xlabel('us')
-        ax.set_ylabel('V')
-        self.data = data
-        self.data[:,:,0] = 0
+        self.dt = dt*1000000
+        self.freq_data = fft_data[0,0,0,:]/1000
+        self.raw_data = data[:,:,0,:]
+        self.filt_data = data[:,:,1,:]
+        self.fft_data = fft_data[:,:,1,:]
         self.x_max = data.shape[0]
         self.y_max = data.shape[1]
         self.x_ind = 0
         self.y_ind = 0
 
-        self.time_data = np.linspace(0,self.dt*(self.data.shape[2]-1),self.data.shape[2])
+        self.time_data = np.linspace(0,self.dt*(self.raw_data.shape[2]-1),self.raw_data.shape[2])
         self.update()
 
     def on_key_press(self, event):
@@ -98,25 +91,36 @@ class IndexTracker:
                 self.update()
 
     def update(self):
-        self.ax.clear()
-        self.ax.plot(self.time_data, self.data[self.x_ind,self.y_ind,:])
+        self.ax_freq.clear()
+        self.ax_raw.clear()
+        self.ax_filt.clear()
+        self.ax_raw.plot(self.time_data, self.raw_data[self.x_ind,self.y_ind,:])
+        self.ax_filt.plot(self.time_data, self.filt_data[self.x_ind,self.y_ind,:])
+        self.ax_freq.plot(self.freq_data, self.fft_data[self.x_ind,self.y_ind,:])
         title = 'X index = ' + str(self.x_ind) + '/' + str(self.x_max-1) + '. Y index = ' + str(self.y_ind) + '/' + str(self.y_max-1)
-        self.ax.set_title(title)
-        if self.temporal:
-            self.ax.set_ylabel('PA detector signal, [V]')
-            self.ax.set_xlabel('Time, [us]')
-        else:
-            self.ax.set_ylabel('FFT signal amp')
-            self.ax.set_xlabel('Frequency, [kHz]')
+        self.ax_freq.set_title(title)
+        
+        self.ax_raw.set_ylabel('PA detector signal, [V]')
+        self.ax_raw.set_xlabel('Time, [us]')
+        self.ax_filt.set_ylabel('PA detector signal, [V]')
+        self.ax_filt.set_xlabel('Time, [us]')
+        self.ax_freq.set_ylabel('FFT signal amp')
+        self.ax_freq.set_xlabel('Frequency, [kHz]')
+        self.fig.align_labels()
         self.fig.canvas.draw()
 
-def scan_vizualization(data, dt, temporal = True):
+def scan_vizualization(data, dt, fft_data):
     """Vizualization of scan data.
     temporal=True means real signal vizualization, dt is time step in s.
     temporal=False means signal in frequency domain, dt is freq step in Hz."""
 
-    fig, ax = plt.subplots()
-    tracker = IndexTracker(fig, ax, data, dt, temporal)
+    fig = plt.figure(tight_layout=True)
+    gs = gridspec.GridSpec(2, 2)
+
+    ax_freq = fig.add_subplot(gs[1, :])
+    ax_raw = fig.add_subplot(gs[0,0])
+    ax_filt = fig.add_subplot(gs[0,1])
+    tracker = IndexTracker(fig, ax_freq, ax_raw, ax_filt, data, dt, fft_data)
     fig.canvas.mpl_connect('key_press_event', tracker.on_key_press)
     plt.show()
 
@@ -175,7 +179,7 @@ def scan(x_start, y_start, x_size, y_size, x_points, y_points):
     wait_stages_stop(stage_X, stage_Y)
 
     scan_frame = np.zeros((x_points,y_points)) #scan image of normalized amplitudes
-    scan_frame_full = np.zeros((x_points,y_points,osc.pa_frame_size)) #full data
+    scan_frame_full = np.zeros((x_points,y_points,2,osc.pa_frame_size)) #full data
 
     fig, ax = plt.subplots(1,1)
     im = ax.imshow(scan_frame, vmin = 0, vmax = 0.5)
@@ -192,7 +196,7 @@ def scan(x_start, y_start, x_size, y_size, x_points, y_points):
             osc.measure()
 
             scan_frame[i,j] = osc.signal_amp/osc.laser_amp
-            scan_frame_full[i,j,:] = osc.current_pa_data/osc.laser_amp
+            scan_frame_full[i,j,0,:] = osc.current_pa_data/osc.laser_amp
             print(f'normalizaed amp at ({i}, {j}) is {scan_frame[i,j]:.3f}\n')
             
             im.set_data(scan_frame)
@@ -239,8 +243,8 @@ def bp_filter(data, low, high, dt):
     high is low pass cutoff frequency in Hz
     dt is time step in seconds"""
 
-    W = fftfreq(data.shape[2], dt) # array with frequencies
-    f_signal = rfft(data) # signal in f-space
+    W = fftfreq(data.shape[3], dt) # array with frequencies
+    f_signal = rfft(data[:,:,0,:]) # signal in f-space
 
     filtered_f_signal = f_signal.copy()
     filtered_f_signal[:,:,(W<low)] = 0   # high pass filtering
@@ -250,7 +254,15 @@ def bp_filter(data, low, high, dt):
     else:
         filtered_f_signal[:,:,(W>high_cutof)] = 0
 
-    return irfft(filtered_f_signal), f_signal[:,:,(W>low)*(W<high_cutof)], W[(W>low)*(W<high_cutof)]
+    filtered_freq = W[(W>low)*(W<high_cutof)]
+    final_data = np.zeros((f_signal.shape[0],f_signal.shape[1],2,filtered_freq.shape[0]))
+    print(f'final data shape = {final_data.shape}')
+    final_data[:,:,0,:] = filtered_freq
+    final_data[:,:,1,:] = f_signal[:,:,(W>low)*(W<high_cutof)]
+
+    data[:,:,1,:] = irfft(filtered_f_signal)
+
+    return data, final_data
 
 def print_status(stage_X, stage_Y):
     """Prints current status and position of stages"""
@@ -443,7 +455,11 @@ if __name__ == "__main__":
                                 max_allowed=1000000,
                                 filter=lambda result: int(result)/1000000000
                             ).execute()
-                        scan_vizualization(raw_data, dt)
+                        if not state['filtered data']:
+                            raw_data[:,:,1,:] = 0
+                            fft_data = np.zeros((raw_data.shape[0],raw_data.shape[1],2,100))
+                            
+                        scan_vizualization(raw_data, dt, fft_data)
                     else:
                         print(f'{bcolors.WARNING} Scan data missing!{bcolors.ENDC}')
 
@@ -475,7 +491,7 @@ if __name__ == "__main__":
                                 max_allowed=1000000,
                                 filter=lambda result: int(result)/1000000000
                             ).execute()
-                        filtered_data, fft_data, freq_data = bp_filter(raw_data, low_cutof, high_cutof, dt)
+                        raw_data, fft_data = bp_filter(raw_data, low_cutof, high_cutof, dt)
                         print(f'FFT shape {fft_data.shape}')
                         state['filtered data'] = True
                         state['FFT data'] = True
@@ -517,7 +533,9 @@ if __name__ == "__main__":
                         validate=PathValidator(is_file=True, message='Input is not a file')
                     ).execute()
 
-                    raw_data = np.load(file_path)
+                    loaded_data = np.load(file_path)
+                    raw_data = np.zeros((loaded_data.shape[0],loaded_data.shape[1],2,loaded_data.shape[2]))
+                    raw_data[:,:,0,:] = loaded_data
                     state['raw data'] = True
                     print(f'...Data with shape {raw_data.shape} loaded!')
 
