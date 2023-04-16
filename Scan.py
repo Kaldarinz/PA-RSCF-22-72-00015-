@@ -279,6 +279,61 @@ def home(stage_X, stage_Y):
     wait_stages_stop(stage_X,stage_Y)
     print('...Homing complete!')
 
+def spectra(osc, start_wl, end_wl, step):
+    """Measures spectral data"""
+
+    print('Start measuring spectra!')
+    d_wl = abs(end_wl-start_wl)
+    if d_wl % step:
+        spectral_points = int(d_wl/step) + 2
+    else:
+        spectral_points = int(d_wl/step) + 1
+    
+    if start_wl>end_wl:
+        step = -step
+
+    if state['osc init']:
+        scan_data = np.zeros((2,spectral_points,osc.pa_frame_size))
+    else:
+        scan_data = np.zeros((2,spectral_points,10))
+
+    for i in range(spectral_points-1):
+        current_wl = start_wl + step*i
+        print(f'Start measuring point {(i+1)}')
+        print(f'Set wavelength {bcolors.OKBLUE}{current_wl}{bcolors.ENDC}')
+        measure_ans = inquirer.rawlist(
+            message='Action:',
+            choices=['Measure','Stop measurements']
+        ).execute()
+        if measure_ans == 'Measure':
+            if state['osc init']:
+                osc.measure()
+                scan_data[0,i] = current_wl
+                scan_data[1,i] = osc.current_pa_data/osc.laser_amp
+            else:
+                print(f'{bcolors.WARNING}Oscilloscope in not initialized!{bcolors.ENDC}')
+        elif measure_ans == 'Stop measurements':
+            return scan_data
+    
+    print(f'Start measuring point {spectral_points}')
+    print(f'Set wavelength {bcolors.OKBLUE}{end_wl}{bcolors.ENDC}')  
+    measure_ans = inquirer.rawlist(
+        message='Action:',
+        choices=['Measure','Stop measurements']
+    ).execute()
+    if measure_ans == 'Measure':
+        if state['osc init']:
+            osc.measure()
+            scan_data[0,i] = current_wl
+            scan_data[1,i] = osc.current_pa_data/osc.laser_amp
+        else:
+            print(f'{bcolors.WARNING}Oscilloscope in not initialized!{bcolors.ENDC}')
+    elif measure_ans == 'Stop measurements':
+        return scan_data
+    
+    print('Spectral scanning complete!')
+    return scan_data
+
 if __name__ == "__main__":
     
     # # initialize oscilloscope
@@ -291,6 +346,7 @@ if __name__ == "__main__":
                 'Home stages',
                 'Move to',
                 'Find beam position (scan)',
+                'Measure spectrum',
                 'Data manipulation',
                 'Exit'
             ]
@@ -426,6 +482,28 @@ if __name__ == "__main__":
                     wait_stages_stop(stage_X,stage_Y)
             else:
                 print(f'{bcolors.WARNING} Stages are not initialized!{bcolors.ENDC}')
+
+        elif menu_ans == 'Measure spectrum':
+            start_wl = inquirer.number(
+                message='Set start wavelength, [nm]',
+                default=690,
+                min_allowed=500,
+                max_allowed=1500
+            ).execute()
+            end_wl = inquirer.number(
+                message='Set end wavelength, [nm]',
+                default=950,
+                min_allowed=500,
+                max_allowed=1500
+            ).execute()
+            step = inquirer.number(
+                message='Set step, [nm]',
+                default=10,
+                min_allowed=1,
+                max_allowed=abs(end_wl-start_wl)
+            ).execute()
+
+            scan_data = spectra(osc, start_wl, end_wl, step)
 
         elif menu_ans == 'Data manipulation':
 
