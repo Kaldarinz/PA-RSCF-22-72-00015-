@@ -46,10 +46,18 @@ class bcolors:
 class IndexTracker:
     '''Class for scan image vizualization'''
 
-    def __init__(self, fig, ax, data, dt):
+    def __init__(self, fig, ax, data, dt, temporal):
         self.ax = ax
         self.fig = fig
-        self.dt = dt
+        self.temporal = temporal
+        if temporal:
+            self.ax.set_ylabel('PA detector signal, [V]')
+            self.ax.set_xlabel('Time, [us]')
+            self.dt = dt*1000000
+        else:
+            self.ax.set_ylabel('FFT signal amp')
+            self.ax.set_xlabel('Frequency, [kHz]')
+            self.dt =dt/1000
         ax.set_title('Photoacoustic signal')
         ax.set_xlabel('us')
         ax.set_ylabel('V')
@@ -94,6 +102,12 @@ class IndexTracker:
         self.ax.plot(self.time_data, self.data[self.x_ind,self.y_ind,:])
         title = 'X index = ' + str(self.x_ind) + '/' + str(self.x_max-1) + '. Y index = ' + str(self.y_ind) + '/' + str(self.y_max-1)
         self.ax.set_title(title)
+        if self.temporal:
+            self.ax.set_ylabel('PA detector signal, [V]')
+            self.ax.set_xlabel('Time, [us]')
+        else:
+            self.ax.set_ylabel('FFT signal amp')
+            self.ax.set_xlabel('Frequency, [kHz]')
         self.fig.canvas.draw()
 
 def scan_vizualization(data, dt, temporal = True):
@@ -101,8 +115,8 @@ def scan_vizualization(data, dt, temporal = True):
     temporal=True means real signal vizualization, dt is time step in s.
     temporal=False means signal in frequency domain, dt is freq step in Hz."""
 
-    fig, ax = plt.subplots(1, 1)
-    tracker = IndexTracker(fig, ax, data, dt)
+    fig, ax = plt.subplots()
+    tracker = IndexTracker(fig, ax, data, dt, temporal)
     fig.canvas.mpl_connect('key_press_event', tracker.on_key_press)
     plt.show()
 
@@ -236,7 +250,7 @@ def bp_filter(data, low, high, dt):
     else:
         filtered_f_signal[:,:,(W>high_cutof)] = 0
 
-    return irfft(filtered_f_signal), f_signal, W
+    return irfft(filtered_f_signal), f_signal[:,:,(W>low)*(W<high_cutof)], W[(W>low)*(W<high_cutof)]
 
 def print_status(stage_X, stage_Y):
     """Prints current status and position of stages"""
@@ -428,8 +442,7 @@ if __name__ == "__main__":
                                 min_allowed=1,
                                 max_allowed=1000000,
                                 filter=lambda result: int(result)/1000000000
-                            )
-                            print(f'dt = {dt}')
+                            ).execute()
                         scan_vizualization(raw_data, dt)
                     else:
                         print(f'{bcolors.WARNING} Scan data missing!{bcolors.ENDC}')
@@ -452,7 +465,18 @@ if __name__ == "__main__":
                                 filter=lambda result: int(result)
                             ).execute()
 
-                        filtered_data, fft_data, freq_data = bp_filter(raw_data, low_cutof, high_cutof, 1/osc.sample_rate)
+                        if state['osc init']:
+                            dt = 1/osc.sample_rate
+                        else:
+                            dt = inquirer.number(
+                                message='Set dt in [ns]',
+                                default=20,
+                                min_allowed=1,
+                                max_allowed=1000000,
+                                filter=lambda result: int(result)/1000000000
+                            ).execute()
+                        filtered_data, fft_data, freq_data = bp_filter(raw_data, low_cutof, high_cutof, dt)
+                        print(f'FFT shape {fft_data.shape}')
                         state['filtered data'] = True
                         state['FFT data'] = True
                         print('FFT filtration complete')
@@ -461,13 +485,24 @@ if __name__ == "__main__":
                 
                 elif data_ans == 'View scan data in Fourier space':
                     if state['FFT data']:
-                        scan_vizualization(fft_data, 1)
+                        dt = freq_data[1]-freq_data[0]
+                        scan_vizualization(fft_data, dt, temporal=False)
                     else:
                         print(f'{bcolors.WARNING} FFT data is missing!{bcolors.ENDC}')
                 
                 elif data_ans == 'View filtered data':
                     if state['filtered data']:
-                        scan_vizualization(filtered_data, 1)
+                        if state['osc init']:
+                            dt = 1/osc.sample_rate
+                        else:
+                            dt = inquirer.number(
+                                message='Set dt in [ns]',
+                                default=20,
+                                min_allowed=1,
+                                max_allowed=1000000,
+                                filter=lambda result: int(result)/1000000000
+                            ).execute()
+                        scan_vizualization(filtered_data, dt)
                     else:
                         print(f'{bcolors.WARNING} Filtered data is missing!{bcolors.ENDC}')
 
@@ -483,6 +518,8 @@ if __name__ == "__main__":
                     ).execute()
 
                     raw_data = np.load(file_path)
+                    state['raw data'] = True
+                    print(f'...Data with shape {raw_data.shape} loaded!')
 
                 elif data_ans == 'Back':
                         break
