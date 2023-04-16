@@ -15,6 +15,7 @@ class Oscilloscope:
 
     def __init__(self, osc_params) -> None:
         
+        print('Initiating oscilloscope...')
         self.osc_params = osc_params
         rm = pv.ResourceManager()
         all_instruments = rm.list_resources()

@@ -21,6 +21,15 @@ osc_params = {
     'pa_channel': 'CHAN2',
 }
 
+state = {
+    'stages init': False,
+    'osc init': False,
+    'raw data': False,
+    'scan data': False,
+    'filtered data': False,
+    'FFT data': False
+}
+
 data_storage = 1 # 1 - Save data, 0 - do not save data
        
 class bcolors:
@@ -100,6 +109,7 @@ def scan_vizualization(data, dt, temporal = True):
 def init_stages():
     """Initiate stages"""
 
+    print('Initializing stages...')
     stages = Thorlabs.list_kinesis_devices()
 
     if len(stages) < 2:
@@ -109,11 +119,11 @@ def init_stages():
 
     stage1_ID = stages.pop()[0]
     stage1 = Thorlabs.KinesisMotor(stage1_ID, scale='stage') #motor units [m]
-    print('Stage X initiated. Stage X ID = ', stage1_ID)
+    print(f'{bcolors.OKBLUE}Stage X{bcolors.ENDC} initiated. Stage X ID = {stage1_ID}')
 
     stage2_ID = stages.pop()[0]
     stage2 = Thorlabs.KinesisMotor(stage2_ID, scale='stage') #motor units [m]
-    print('Stage Y initiated. Stage Y ID = ', stage2_ID)
+    print(f'{bcolors.OKBLUE}Stage Y{bcolors.ENDC} initiated. Stage X ID = {stage2_ID}')
 
     return stage1, stage2
 
@@ -245,14 +255,12 @@ def home(stage_X, stage_Y):
 
 if __name__ == "__main__":
     
-    #osc = Oscilloscope.Oscilloscope(osc_params) # initialize oscilloscope
-    #stage_X, stage_Y = init_stages() # initialize stages
-    print(f"{bcolors.HEADER}Initialization complete! {bcolors.ENDC}")
-
+    # # initialize oscilloscope
     while True: #main execution loop
         menu_ans = inquirer.rawlist(
             message='Choose an action',
             choices=[
+                'Init hardware',
                 'Get status',
                 'Home stages',
                 'Move to',
@@ -261,11 +269,31 @@ if __name__ == "__main__":
                 'Exit'
             ]
         ).execute()
-        if menu_ans == 'Home stages':
-            home(stage_X, stage_Y)
+
+        if menu_ans == 'Init hardware':
+            if not state['stages init']:
+                stage_X, stage_Y = init_stages()
+                state['stages init'] = True
+            else:
+                print('Stages already initiated!')
+
+            if not state['osc init']:
+                osc = Oscilloscope.Oscilloscope(osc_params) #add prompt for osc params
+                state['osc init'] = True
+            else:
+                print('Oscilloscope already initiated!')
+
+        elif menu_ans == 'Home stages':
+            if state['stages init']:
+                home(stage_X, stage_Y)
+            else:
+                print(f'{bcolors.WARNING} Stages are not initialized!{bcolors.ENDC}')
 
         elif menu_ans == 'Get status':
-            print_status(stage_X, stage_Y)
+            if state['stages init']:
+                print_status(stage_X, stage_Y)
+            else:
+                print(f'{bcolors.WARNING} Stages are not initialized!{bcolors.ENDC}')
 
         elif menu_ans == 'Move to':
             x_dest = inquirer.number(
@@ -285,10 +313,13 @@ if __name__ == "__main__":
                 filter=lambda result: float(result)
             ).execute()
 
-            print(f'Moving to ({x_dest},{y_dest})...')
-            move_to(x_dest, y_dest, stage_X, stage_Y)
-            wait_stages_stop(stage_X,stage_Y)
-            print(f'...Mooving complete! Current position ({stage_X.get_position(scale=True)*1000:.2f},{stage_Y.get_position(scale=True)*1000:.2f})')
+            if state['stages init']:
+                print(f'Moving to ({x_dest},{y_dest})...')
+                move_to(x_dest, y_dest, stage_X, stage_Y)
+                wait_stages_stop(stage_X,stage_Y)
+                print(f'...Mooving complete! Current position ({stage_X.get_position(scale=True)*1000:.2f},{stage_Y.get_position(scale=True)*1000:.2f})')
+            else:
+                print(f'{bcolors.WARNING} Stages are not initialized!{bcolors.ENDC}')
 
         elif menu_ans == 'Find beam position (scan)':
 
@@ -344,26 +375,31 @@ if __name__ == "__main__":
                 filter=lambda result: int(result)
             ).execute()
 
-            print('Scan starting...')
-            scan_image, raw_data = scan(x_start, y_start, x_size, y_size, x_points, y_points)
+            if state['stages init']:
+                print('Scan starting...')
+                scan_image, raw_data = scan(x_start, y_start, x_size, y_size, x_points, y_points)
+                state['scan data'] = True
+                state['raw data'] = True
 
-            max_amp_index = np.unravel_index(scan_image.argmax(), scan_image.shape) # find position with max PA amp
-            if x_points > 1 and y_points > 1:
-                opt_x = x_start + max_amp_index[0]*x_size/(x_points-1)
-                opt_y = y_start + max_amp_index[1]*y_size/(y_points-1)
-                print(f'best pos indexes {max_amp_index}')
-                print(f'best X pos = {opt_x:.2f}')
-                print(f'best Y pos = {opt_y:.2f}')
-            
-            plt.show()
-            print('...Scan complete!')
+                max_amp_index = np.unravel_index(scan_image.argmax(), scan_image.shape) # find position with max PA amp
+                if x_points > 1 and y_points > 1:
+                    opt_x = x_start + max_amp_index[0]*x_size/(x_points-1)
+                    opt_y = y_start + max_amp_index[1]*y_size/(y_points-1)
+                    print(f'best pos indexes {max_amp_index}')
+                    print(f'best X pos = {opt_x:.2f}')
+                    print(f'best Y pos = {opt_y:.2f}')
+                
+                plt.show()
+                print('...Scan complete!')
 
-            confirm_move = inquirer.confirm(
-                message='Move to optimal position?'    
-            ).execute()
-            if confirm_move:
-                move_to(opt_x, opt_y, stage_X, stage_Y)
-                wait_stages_stop(stage_X,stage_Y)
+                confirm_move = inquirer.confirm(
+                    message='Move to optimal position?'    
+                ).execute()
+                if confirm_move:
+                    move_to(opt_x, opt_y, stage_X, stage_Y)
+                    wait_stages_stop(stage_X,stage_Y)
+            else:
+                print(f'{bcolors.WARNING} Stages are not initialized!{bcolors.ENDC}')
 
         elif menu_ans == 'Data manipulation':
 
@@ -382,41 +418,63 @@ if __name__ == "__main__":
                 ).execute()
                 
                 if data_ans == 'View raw scan data':
-                    dt = 1/osc.sample_rate
-                    scan_vizualization(raw_data, dt)
+                    if state['raw data']:
+                        if state['osc init']:
+                            dt = 1/osc.sample_rate
+                        else:
+                            dt = inquirer.number(
+                                message='Set dt in [ns]',
+                                default=20,
+                                min_allowed=1,
+                                max_allowed=1000000,
+                                filter=lambda result: int(result)/1000000000
+                            )
+                            print(f'dt = {dt}')
+                        scan_vizualization(raw_data, dt)
+                    else:
+                        print(f'{bcolors.WARNING} Scan data missing!{bcolors.ENDC}')
 
                 elif data_ans == 'FFT filtration of scan data':
-
+                    if state['raw data']:
                         low_cutof = inquirer.number(
-                            message='Enter low cutoff frequency [Hz]',
-                            default=100000,
-                            min_allowed=1,
-                            max_allowed=50000000,
-                            filter=lambda result: int(result)
-                        ).execute()
+                                message='Enter low cutoff frequency [Hz]',
+                                default=100000,
+                                min_allowed=1,
+                                max_allowed=50000000,
+                                filter=lambda result: int(result)
+                            ).execute()
 
                         high_cutof = inquirer.number(
-                            message='Enter high cutoff frequency [Hz]',
-                            default=10000000,
-                            min_allowed=(low_cutof+100000),
-                            max_allowed=50200000,
-                            filter=lambda result: int(result)
-                        ).execute()
+                                message='Enter high cutoff frequency [Hz]',
+                                default=10000000,
+                                min_allowed=(low_cutof+100000),
+                                max_allowed=50200000,
+                                filter=lambda result: int(result)
+                            ).execute()
 
                         filtered_data, fft_data, freq_data = bp_filter(raw_data, low_cutof, high_cutof, 1/osc.sample_rate)
+                        state['filtered data'] = True
+                        state['FFT data'] = True
                         print('FFT filtration complete')
+                    else:
+                        print(f'{bcolors.WARNING} Scan data is missing!{bcolors.ENDC}')
                 
                 elif data_ans == 'View scan data in Fourier space':
+                    if state['FFT data']:
                         scan_vizualization(fft_data, 1)
+                    else:
+                        print(f'{bcolors.WARNING} FFT data is missing!{bcolors.ENDC}')
                 
                 elif data_ans == 'View filtered data':
+                    if state['filtered data']:
                         scan_vizualization(filtered_data, 1)
+                    else:
+                        print(f'{bcolors.WARNING} Filtered data is missing!{bcolors.ENDC}')
 
                 elif data_ans == 'Save all data':
-                        pass
+                        print(f'{bcolors.WARNING}Not implemented yet!{bcolors.ENDC}')
 
                 elif data_ans == 'Load data from file':
-
                     home_path = str(Path().resolve())
                     file_path = inquirer.filepath(
                         message='Enter file to load:',
@@ -434,8 +492,9 @@ if __name__ == "__main__":
                 message='Do you really want to exit?'
                 ).execute()
             if exit_ans:
-                stage_X.close()
-                stage_Y.close()
+                if state['stages init']:
+                    stage_X.close()
+                    stage_Y.close()
                 exit()
 
     #if data_storage == 1:
