@@ -358,7 +358,8 @@ if __name__ == "__main__":
                 'Scan data manipulation',
                 'Spectral data manipulation',
                 'Exit'
-            ]
+            ],
+            height=9
         ).execute()
 
         if menu_ans == 'Init hardware':
@@ -419,7 +420,8 @@ if __name__ == "__main__":
                 default=1.0,
                 float_allowed=True,
                 min_allowed=0.0,
-                max_allowed=25.0
+                max_allowed=25.0,
+                filter=lambda result: float(result)
             ).execute()
 
             y_start = inquirer.number(
@@ -427,7 +429,8 @@ if __name__ == "__main__":
                 default=1.0,
                 float_allowed=True,
                 min_allowed=0.0,
-                max_allowed=25.0
+                max_allowed=25.0,
+                filter=lambda result: float(result)
             ).execute()
 
             x_size = inquirer.number(
@@ -435,7 +438,8 @@ if __name__ == "__main__":
                 default= (x_start + 3.0),
                 float_allowed=True,
                 min_allowed=x_start,
-                max_allowed=25.0-x_start
+                max_allowed=25.0-x_start,
+                filter=lambda result: float(result)
             ).execute()
 
             y_size = inquirer.number(
@@ -443,21 +447,24 @@ if __name__ == "__main__":
                 default= (y_start + 3.0),
                 float_allowed=True,
                 min_allowed=y_start,
-                max_allowed=25.0-y_start
+                max_allowed=25.0-y_start,
+                filter=lambda result: float(result)
             ).execute()
 
             x_points = inquirer.number(
                 message='Enter number of X scan points',
                 default= 5,
                 min_allowed=2,
-                max_allowed=50
+                max_allowed=50,
+                filter=lambda result: int(result)
             ).execute()
 
             y_points = inquirer.number(
                 message='Enter number of Y scan points',
                 default= 5,
                 min_allowed=2,
-                max_allowed=50
+                max_allowed=50,
+                filter=lambda result: int(result)
             ).execute()
 
             if state['stages init']:
@@ -490,19 +497,22 @@ if __name__ == "__main__":
                 message='Set start wavelength, [nm]',
                 default=690,
                 min_allowed=500,
-                max_allowed=1500
+                max_allowed=1500,
+                filter=lambda result: int(result)
             ).execute()
             end_wl = inquirer.number(
                 message='Set end wavelength, [nm]',
                 default=950,
                 min_allowed=500,
-                max_allowed=1500
+                max_allowed=1500,
+                filter=lambda result: int(result)
             ).execute()
             step = inquirer.number(
                 message='Set step, [nm]',
                 default=10,
                 min_allowed=1,
-                max_allowed=abs(end_wl-start_wl)
+                max_allowed=abs(end_wl-start_wl),
+                filter=lambda result: int(result)
             ).execute()
 
             scan_data = spectra(osc, start_wl, end_wl, step)
@@ -531,7 +541,8 @@ if __name__ == "__main__":
                                 default=20,
                                 min_allowed=1,
                                 max_allowed=1000000,
-                                filter=lambda result: int(result)/1000000000
+                                filter=lambda result: int(result)/1000000000,
+                                filter=lambda result: int(result)
                             ).execute()
                             
                         scan_vizualization(scan_data, dt)
@@ -544,14 +555,17 @@ if __name__ == "__main__":
                                 message='Enter low cutoff frequency [Hz]',
                                 default=100000,
                                 min_allowed=1,
-                                max_allowed=50000000
+                                max_allowed=50000000,
+                                filter=lambda result: int(result)
                             ).execute()
+                        print(type(low_cutof))
 
                         high_cutof = inquirer.number(
                                 message='Enter high cutoff frequency [Hz]',
                                 default=10000000,
                                 min_allowed=(low_cutof+100000),
-                                max_allowed=50000000
+                                max_allowed=50000000,
+                                filter=lambda result: int(result)
                             ).execute()
 
                         if state['osc init']:
