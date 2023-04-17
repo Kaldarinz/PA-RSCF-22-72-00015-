@@ -10,9 +10,12 @@ from InquirerPy import inquirer
 from InquirerPy.validator import PathValidator
 import matplotlib.gridspec as gridspec
 
-### Configuration
+# data formats
+# scan_data[X scan points, Y scan points, 4, signal data points]
+# in scan_data.shape[2]: 0 - raw data, 1 - FFT filtered data, 2 - frquencies, 3 - spectral data
 
-sample_name = 'TiN'
+#spec_data[2, WL points, signal data points]
+#in spec_data.shape[0]: 0 - wavelength, 1 - raw data
 
 osc_params = {
     'pre_time': 0, # [us] start time of data storage before trigger
@@ -25,9 +28,9 @@ osc_params = {
 state = {
     'stages init': False,
     'osc init': False,
-    'raw data': False,
     'scan data': False,
-    'filtered data': False,
+    'spectral data': False,
+    'filtered scan data': False,
 }
        
 class bcolors:
@@ -204,21 +207,6 @@ def scan(x_start, y_start, x_size, y_size, x_points, y_points):
 
     return scan_frame, scan_frame_full
 
-def save_image(data):
-    """Saves image in txt format"""
-
-    Path('measuring results/').mkdir(parents=True, exist_ok=True)
-    
-    filename = 'measuring results/' + sample_name + '-2D'
-
-    i = 1
-    while (os.path.exists(filename + str(i) + '.txt')):
-        i += 1
-    filename = filename + str(i) + '.txt'
-    
-    np.savetxt(filename, data)
-    print('Data saved to ', filename)
-
 def save_scan_data(sample, data, dt):
     """Saves full data in npy format."""
 
@@ -234,6 +222,27 @@ def save_scan_data(sample, data, dt):
     
     np.save(filename, data)
     print('Data saved to ', filename)
+
+def load_data(data_type):
+    """Return loaded data in the related format"""
+
+    home_path = str(Path().resolve())
+    if data_type == 'Scan':
+        file_path = inquirer.filepath(
+            message='Choose scan file to load:',
+            default=home_path,
+            validate=PathValidator(is_file=True, message='Input is not a file')
+        ).execute()
+
+        loaded_data = np.load(file_path)
+        data = np.zeros((loaded_data.shape[0],loaded_data.shape[1],4,loaded_data.shape[2]))
+        data[:,:,0,:] = loaded_data
+        state['scan data'] = True
+        print(f'...Scan data with shape {data.shape} loaded!')
+        return data
+    elif data_type == 'Spectral':
+        print(f'{bcolors.WARNING} Spectral data loading is not realized!{bcolors.ENDC}')
+        return np.zeros(1,1,1)
 
 def bp_filter(data, low, high, dt):
     """Perform bandpass filtration on data
@@ -336,7 +345,6 @@ def spectra(osc, start_wl, end_wl, step):
 
 if __name__ == "__main__":
     
-    # # initialize oscilloscope
     while True: #main execution loop
         menu_ans = inquirer.rawlist(
             message='Choose an action',
@@ -347,7 +355,8 @@ if __name__ == "__main__":
                 'Move to',
                 'Find beam position (scan)',
                 'Measure spectrum',
-                'Data manipulation',
+                'Scan data manipulation',
+                'Spectral data manipulation',
                 'Exit'
             ]
         ).execute()
@@ -410,8 +419,7 @@ if __name__ == "__main__":
                 default=1.0,
                 float_allowed=True,
                 min_allowed=0.0,
-                max_allowed=25.0,
-                filter=lambda result: float(result)
+                max_allowed=25.0
             ).execute()
 
             y_start = inquirer.number(
@@ -419,8 +427,7 @@ if __name__ == "__main__":
                 default=1.0,
                 float_allowed=True,
                 min_allowed=0.0,
-                max_allowed=25.0,
-                filter=lambda result: float(result)
+                max_allowed=25.0
             ).execute()
 
             x_size = inquirer.number(
@@ -428,8 +435,7 @@ if __name__ == "__main__":
                 default= (x_start + 3.0),
                 float_allowed=True,
                 min_allowed=x_start,
-                max_allowed=25.0-x_start,
-                filter=lambda result: float(result)
+                max_allowed=25.0-x_start
             ).execute()
 
             y_size = inquirer.number(
@@ -437,31 +443,27 @@ if __name__ == "__main__":
                 default= (y_start + 3.0),
                 float_allowed=True,
                 min_allowed=y_start,
-                max_allowed=25.0-y_start,
-                filter=lambda result: float(result)
+                max_allowed=25.0-y_start
             ).execute()
 
             x_points = inquirer.number(
                 message='Enter number of X scan points',
                 default= 5,
                 min_allowed=2,
-                max_allowed=50,
-                filter=lambda result: int(result)
+                max_allowed=50
             ).execute()
 
             y_points = inquirer.number(
                 message='Enter number of Y scan points',
                 default= 5,
                 min_allowed=2,
-                max_allowed=50,
-                filter=lambda result: int(result)
+                max_allowed=50
             ).execute()
 
             if state['stages init']:
                 print('Scan starting...')
-                scan_image, data = scan(x_start, y_start, x_size, y_size, x_points, y_points)
+                scan_image, scan_data = scan(x_start, y_start, x_size, y_size, x_points, y_points)
                 state['scan data'] = True
-                state['raw data'] = True
 
                 max_amp_index = np.unravel_index(scan_image.argmax(), scan_image.shape) # find position with max PA amp
                 if x_points > 1 and y_points > 1:
@@ -505,22 +507,22 @@ if __name__ == "__main__":
 
             scan_data = spectra(osc, start_wl, end_wl, step)
 
-        elif menu_ans == 'Data manipulation':
+        elif menu_ans == 'Scan data manipulation':
 
             while True:
                 data_ans = inquirer.rawlist(
-                    message='Choose data action',
+                    message='Choose scan data action',
                     choices=[
-                        'View scan data', 
-                        'FFT filtration of scan data',
-                        'Save all data',
-                        'Load data from file',
-                        'Back'
+                        'View', 
+                        'FFT filtration',
+                        'Load',
+                        'Save',
+                        'Back to main menu'
                     ]
                 ).execute()
                 
-                if data_ans == 'View scan data':
-                    if state['raw data']:
+                if data_ans == 'View':
+                    if state['scan data']:
                         if state['osc init']:
                             dt = 1/osc.sample_rate
                         else:
@@ -532,26 +534,24 @@ if __name__ == "__main__":
                                 filter=lambda result: int(result)/1000000000
                             ).execute()
                             
-                        scan_vizualization(data, dt)
+                        scan_vizualization(scan_data, dt)
                     else:
                         print(f'{bcolors.WARNING} Scan data missing!{bcolors.ENDC}')
 
-                elif data_ans == 'FFT filtration of scan data':
-                    if state['raw data']:
+                elif data_ans == 'FFT filtration':
+                    if state['scan data']:
                         low_cutof = inquirer.number(
                                 message='Enter low cutoff frequency [Hz]',
                                 default=100000,
                                 min_allowed=1,
-                                max_allowed=50000000,
-                                filter=lambda result: int(result)
+                                max_allowed=50000000
                             ).execute()
 
                         high_cutof = inquirer.number(
                                 message='Enter high cutoff frequency [Hz]',
                                 default=10000000,
                                 min_allowed=(low_cutof+100000),
-                                max_allowed=50200000,
-                                filter=lambda result: int(result)
+                                max_allowed=50000000
                             ).execute()
 
                         if state['osc init']:
@@ -564,35 +564,27 @@ if __name__ == "__main__":
                                 max_allowed=1000000,
                                 filter=lambda result: int(result)/1000000000
                             ).execute()
-                        data = bp_filter(data, low_cutof, high_cutof, dt)
-                        state['filtered data'] = True
-                        print('FFT filtration complete')
+                        scan_data = bp_filter(scan_data, low_cutof, high_cutof, dt)
+                        state['filtered scan data'] = True
+                        print('FFT filtration of scan data complete!')
                     else:
                         print(f'{bcolors.WARNING} Scan data is missing!{bcolors.ENDC}')
 
-                elif data_ans == 'Save all data':
+                elif data_ans == 'Save':
                     sample = inquirer.text(
                         message='Enter Sample name',
                         default='Unknown'
                     ).execute()
-                    save_scan_data(sample, data, dt)
+                    save_scan_data(sample, scan_data, dt)
 
-                elif data_ans == 'Load data from file':
-                    home_path = str(Path().resolve())
-                    file_path = inquirer.filepath(
-                        message='Enter file to load:',
-                        default=home_path,
-                        validate=PathValidator(is_file=True, message='Input is not a file')
-                    ).execute()
+                elif data_ans == 'Load':
+                    scan_data = load_data('Scan')
 
-                    loaded_data = np.load(file_path)
-                    data = np.zeros((loaded_data.shape[0],loaded_data.shape[1],4,loaded_data.shape[2]))
-                    data[:,:,0,:] = loaded_data
-                    state['raw data'] = True
-                    print(f'...Data with shape {data.shape} loaded!')
-
-                elif data_ans == 'Back':
+                elif data_ans == 'Back to main menu':
                         break
+
+        elif menu_ans == 'Spectral data manipulation':
+            print(f'{bcolors.WARNING} Spectral data manipulation is not realized!{bcolors.ENDC}')
 
         elif menu_ans == 'Exit':
             exit_ans = inquirer.confirm(
