@@ -213,7 +213,7 @@ def save_scan_data(sample, data, dt):
     Path('measuring results/').mkdir(parents=True, exist_ok=True)
     dt = dt*1000000000
 
-    filename = 'measuring results/Scan-' + sample + '-dt' + str(dt) + 'ns'
+    filename = 'measuring results/Scan-' + sample + '-dt' + str(int(dt)) + 'ns'
 
     i = 1
     while (os.path.exists(filename + str(i) + '.npy')):
@@ -541,8 +541,7 @@ if __name__ == "__main__":
                                 default=20,
                                 min_allowed=1,
                                 max_allowed=1000000,
-                                filter=lambda result: int(result)/1000000000,
-                                filter=lambda result: int(result)
+                                filter=lambda result: int(result)/1000000000
                             ).execute()
                             
                         scan_vizualization(scan_data, dt)
