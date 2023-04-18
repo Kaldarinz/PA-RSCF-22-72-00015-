@@ -20,7 +20,8 @@ import matplotlib.gridspec as gridspec
 osc_params = {
     'pre_time': 0, # [us] start time of data storage before trigger
     'frame_duration': 150, # [us] whole duration of the stored frame
-    'pm_response_time': 500, # [us] response time of the power meter
+    'pm_response_time': 2500, # [us] response time of the power meter
+    'pm_pre_time': 300,
     'trigger_channel': 'CHAN1',
     'pa_channel': 'CHAN2',
 }
@@ -349,6 +350,7 @@ if __name__ == "__main__":
         menu_ans = inquirer.rawlist(
             message='Choose an action',
             choices=[
+                'test',
                 'Init hardware',
                 'Get status',
                 'Home stages',
@@ -356,7 +358,7 @@ if __name__ == "__main__":
                 'Find beam position (scan)',
                 'Measure spectrum',
                 'Scan data manipulation',
-                'Spectral data manipulation',
+                #'Spectral data manipulation',
                 'Exit'
             ],
             height=9
@@ -374,6 +376,18 @@ if __name__ == "__main__":
                 state['osc init'] = True
             else:
                 print('Oscilloscope already initiated!')
+
+        elif menu_ans == 'test':
+            if state['osc init']:
+                print(f'frame size {osc.pm_frame_size}')
+                print(f'current pm data size {osc.current_pm_data.shape}')
+                osc.measure()
+                plt.plot(osc.current_pm_data)
+                plt.show()
+                plt.plot(osc.current_pa_data)
+                plt.show()
+            else:
+                print('Osc not init!')
 
         elif menu_ans == 'Home stages':
             if state['stages init']:

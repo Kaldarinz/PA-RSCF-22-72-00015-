@@ -8,10 +8,14 @@ class Oscilloscope:
     sample_rate = 0
     pa_frame_size = 0
     pm_frame_size = 0
+    pm_pre_time = 0
     pre_points = 0
     laser_amp = 0
     signal_amp = 0
-    x_data =0 
+    frame_duration = 0
+    pre_time = 0
+    pm_response_time = 0
+    pm_pre_time = 0
 
     def __init__(self, osc_params) -> None:
         
@@ -32,17 +36,22 @@ class Oscilloscope:
         self.sample_rate = float(self.__osc.query(':ACQ:SRAT?'))
         print('Sample rate = ', self.sample_rate)
 
-        self.pa_frame_size = self.time_to_points(osc_params['frame_duration'])
-        self.pm_frame_size = self.time_to_points(osc_params['pm_response_time'])
-        self.pre_points = self.time_to_points(osc_params['pre_time'])
-
-        self.init_current_data()
-        self.x_data = np.arange(0, self.pa_frame_size/self.sample_rate, 1/self.sample_rate)
-
         self.pa_channel = osc_params['pa_channel']
         print('PA channel name = ', self.pa_channel)
         self.pm_channel = osc_params['trigger_channel']
         print('power meter channel name = ', self.pm_channel)
+
+        self.frame_duration = osc_params['frame_duration']
+        self.pre_time = osc_params['pre_time']
+        self.pa_frame_size = self.time_to_points(self.frame_duration)
+        self.pre_points = self.time_to_points(self.pre_time)
+        self.init_current_data(self.pa_channel)
+
+        self.pm_response_time = osc_params['pm_response_time']
+        self.pm_pre_time = osc_params['pm_pre_time']
+        self.pm_frame_size = self.time_to_points(self.pm_response_time + self.pm_pre_time)
+        self.pm_pre_points = self.time_to_points(self.pm_pre_time)
+        self.init_current_data(self.pm_channel)
 
         self.set_preamble()
 
@@ -53,11 +62,14 @@ class Oscilloscope:
 
         return self.__osc.query(message)
 
-    def init_current_data(self):
+    def init_current_data(self, channel):
         """Fill arrays for current data with zeros"""
 
-        self.current_pa_data = np.zeros(self.pa_frame_size)
-        self.current_pm_data = np.zeros(self.pm_frame_size)
+        if channel == self.pm_channel:
+            self.current_pm_data = np.zeros(self.pm_frame_size)
+        if channel == self.pa_channel:
+            self.current_pa_data = np.zeros(self.pa_frame_size)
+        
 
     def set_preamble(self):
         """Set or update preamble"""
@@ -75,6 +87,7 @@ class Oscilloscope:
             'yorigin': float(preamble_raw[8]), # the vertical offset relative to the "Vertical Reference Position" in the Y direction
             'yreference': float(preamble_raw[9]) #the vertical reference position in the Y direction
         }
+        self.sample_rate = float(self.__osc.query(':ACQ:SRAT?'))
 
     def time_to_points (self, duration) -> int:
         """Convert duration [us] into amount of data points"""
@@ -92,10 +105,13 @@ class Oscilloscope:
 
         self.set_preamble()
         
-        # по факту триггерный сигнал в середине сохранённого диапазона.
-        data_start = (int(self.preamble['points']/2) - self.pre_points) # выбираем начальную точку
-
         if channel == self.pm_channel:
+            self.pm_frame_size = self.time_to_points(self.pm_response_time + self.pm_pre_time)
+            self.pm_pre_points = self.time_to_points(self.pm_pre_time)
+            self.init_current_data(self.pm_channel)
+            # по факту триггерный сигнал в середине сохранённого диапазона.
+            data_start = (int(self.preamble['points']/2) - self.pm_pre_points) # выбираем начальную точку
+            if self.pm_frame_size <250001:
                 self.__osc.write(':WAV:STAR ' + str(data_start + 1))
                 self.__osc.write(':WAV:STOP ' + str(self.pm_frame_size + data_start))
                 self.__osc.write(':WAV:DATA?')
@@ -103,15 +119,40 @@ class Oscilloscope:
                 data_chunk = (data_chunk - self.preamble['xreference'] - self.preamble['yorigin']) * self.preamble['yincrement']
                 data_chunk[-1] = data_chunk[-2] # убираем битый пиксель
                 self.current_pm_data += data_chunk[12:]
-            
+            else:
+                data_frames = int(self.pm_frame_size/250000) + 1
+                print(f'data_frames = {data_frames}')
+                for i in range(data_frames):
+                    command = ':WAV:STAR ' + str(data_start + 1 + i*250000)
+                    self.__osc.write(command)
+                    if (self.pm_frame_size - (i+1)*250000) > 0:
+                        self.__osc.write(':WAV:STOP ' + str(data_start + (i+1)*250000))
+                    else:
+                        command = ':WAV:STOP ' + str(data_start + self.pm_frame_size - 1)
+                        self.__osc.write(command)
+                    self.__osc.write(':WAV:DATA?')
+                    data_chunk = np.frombuffer(self.__osc.read_raw(), dtype=np.int8)
+                    data_chunk = (data_chunk - self.preamble['xreference'] - self.preamble['yorigin']) * self.preamble['yincrement']
+                    data_chunk[-1] = data_chunk[-2] # убираем битый пиксель
+                    if (self.pm_frame_size - (i+1)*250000) > 0:
+                        self.current_pm_data[i*250000:(i+1)*250000] += data_chunk[12:].copy()
+                        data_chunk = 0
+                    else:
+                        self.current_pm_data[i*250000:-1] += data_chunk[12:].copy()
+                        data_chunk = 0
+
         elif channel == self.pa_channel:
-                self.__osc.write(':WAV:STAR ' + str(data_start + 1))
-                self.__osc.write(':WAV:STOP ' + str(self.pa_frame_size + data_start))
-                self.__osc.write(':WAV:DATA?')
-                data_chunk = np.frombuffer(self.__osc.read_raw(), dtype=np.int8)
-                data_chunk = (data_chunk - self.preamble['xreference'] - self.preamble['yorigin']) * self.preamble['yincrement']
-                data_chunk[-1] = data_chunk[-2] # убираем битый пиксель
-                self.current_pa_data += data_chunk[12:]
+            self.pa_frame_size = self.time_to_points(self.frame_duration)
+            self.pre_points = self.time_to_points(self.pre_time)
+            self.init_current_data(self.pa_channel)
+            data_start = (int(self.preamble['points']/2) - self.pre_points) # выбираем начальную точку
+            self.__osc.write(':WAV:STAR ' + str(data_start + 1))
+            self.__osc.write(':WAV:STOP ' + str(self.pa_frame_size + data_start))
+            self.__osc.write(':WAV:DATA?')
+            data_chunk = np.frombuffer(self.__osc.read_raw(), dtype=np.int8)
+            data_chunk = (data_chunk - self.preamble['xreference'] - self.preamble['yorigin']) * self.preamble['yincrement']
+            data_chunk[-1] = data_chunk[-2] # убираем битый пиксель
+            self.current_pa_data += data_chunk[12:]
         else:
             print('Wrong channel for read!')
             print('Program terminated!')
@@ -121,7 +162,7 @@ class Oscilloscope:
         """Corrects baseline for the selected channel"""
 
         if channel == self.pm_channel:
-            baseline = np.average(self.current_pm_data[:int(self.pm_frame_size/20)])
+            baseline = np.average(self.current_pm_data[:int(self.pm_frame_size/100)])
             self.current_pm_data -= baseline
 
         elif channel == self.pa_channel:
@@ -147,13 +188,16 @@ class Oscilloscope:
     def measure(self,):
         """Measure PA amplitude"""
 
-        self.init_current_data()
+
+        self.set_preamble()
 
         while int(self.__osc.query(':TRIG:POS?'))<0: #ждём пока можно будет снова читать данные
             time.sleep(0.1)
 
         self.__osc.write(':STOP')
+        self.init_current_data(self.pm_channel)
         self.read_data(self.pm_channel)
+        self.init_current_data(self.pa_channel)
         self.read_data(self.pa_channel)
         self.__osc.write(':RUN')
 
