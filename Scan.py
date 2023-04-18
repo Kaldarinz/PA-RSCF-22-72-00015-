@@ -226,7 +226,7 @@ def save_scan_data(sample, data, dt):
 def load_data(data_type):
     """Return loaded data in the related format"""
 
-    home_path = str(Path().resolve())
+    home_path = str(Path().resolve()) + '\\measuring results'
     if data_type == 'Scan':
         file_path = inquirer.filepath(
             message='Choose scan file to load:',
@@ -234,10 +234,12 @@ def load_data(data_type):
             validate=PathValidator(is_file=True, message='Input is not a file')
         ).execute()
 
+        dt = int(file_path.split('dt')[1].split('ns')[0])/1000000000
+
         data = np.load(file_path)
         state['scan data'] = True
         print(f'...Scan data with shape {data.shape} loaded!')
-        return data
+        return data, dt
     elif data_type == 'Spectral':
         print(f'{bcolors.WARNING} Spectral data loading is not realized!{bcolors.ENDC}')
         return np.zeros(1,1,1)
@@ -531,17 +533,6 @@ if __name__ == "__main__":
                 
                 if data_ans == 'View':
                     if state['scan data']:
-                        if state['osc init']:
-                            dt = 1/osc.sample_rate
-                        else:
-                            dt = inquirer.number(
-                                message='Set dt in [ns]',
-                                default=20,
-                                min_allowed=1,
-                                max_allowed=1000000,
-                                filter=lambda result: int(result)/1000000000
-                            ).execute()
-                            
                         scan_vizualization(scan_data, dt)
                     else:
                         print(f'{bcolors.WARNING} Scan data missing!{bcolors.ENDC}')
@@ -588,7 +579,7 @@ if __name__ == "__main__":
                     save_scan_data(sample, scan_data, dt)
 
                 elif data_ans == 'Load':
-                    scan_data = load_data('Scan')
+                    scan_data, dt = load_data('Scan')
 
                 elif data_ans == 'Back to main menu':
                         break
