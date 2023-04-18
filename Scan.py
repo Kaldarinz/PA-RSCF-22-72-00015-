@@ -234,9 +234,7 @@ def load_data(data_type):
             validate=PathValidator(is_file=True, message='Input is not a file')
         ).execute()
 
-        loaded_data = np.load(file_path)
-        data = np.zeros((loaded_data.shape[0],loaded_data.shape[1],4,loaded_data.shape[2]))
-        data[:,:,0,:] = loaded_data
+        data = np.load(file_path)
         state['scan data'] = True
         print(f'...Scan data with shape {data.shape} loaded!')
         return data
@@ -557,7 +555,6 @@ if __name__ == "__main__":
                                 max_allowed=50000000,
                                 filter=lambda result: int(result)
                             ).execute()
-                        print(type(low_cutof))
 
                         high_cutof = inquirer.number(
                                 message='Enter high cutoff frequency [Hz]',
