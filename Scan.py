@@ -312,19 +312,27 @@ def spectra(osc, start_wl, end_wl, step):
         current_wl = start_wl + step*i
         print(f'Start measuring point {(i+1)}')
         print(f'Set wavelength {bcolors.OKBLUE}{current_wl}{bcolors.ENDC}')
-        measure_ans = inquirer.rawlist(
-            message='Action:',
-            choices=['Measure','Stop measurements']
-        ).execute()
-        if measure_ans == 'Measure':
-            if state['osc init']:
-                osc.measure()
-                scan_data[0,i] = current_wl
-                scan_data[1,i] = osc.current_pa_data/osc.laser_amp
-            else:
-                print(f'{bcolors.WARNING}Oscilloscope in not initialized!{bcolors.ENDC}')
-        elif measure_ans == 'Stop measurements':
-            return scan_data
+        measure_ans = 'Empty'
+        while measure_ans != 'Measure':
+            measure_ans = inquirer.rawlist(
+                message='Action:',
+                choices=['Tune power','Measure','Stop measurements']
+            ).execute()
+            if measure_ans == 'Tune power':
+                if state['osc init']:
+                    track_power(100)
+                else:
+                    print(f'{bcolors.WARNING}Oscilloscope in not initialized!{bcolors.ENDC}')
+            elif measure_ans == 'Measure':
+                if state['osc init']:
+                    osc.measure()
+
+                    scan_data[0,i] = current_wl
+                    scan_data[1,i] = osc.current_pa_data/osc.laser_amp
+                else:
+                    print(f'{bcolors.WARNING}Oscilloscope in not initialized!{bcolors.ENDC}')
+            elif measure_ans == 'Stop measurements':
+                return scan_data
     
     print(f'Start measuring point {spectral_points}')
     print(f'Set wavelength {bcolors.OKBLUE}{end_wl}{bcolors.ENDC}')  
@@ -335,8 +343,20 @@ def spectra(osc, start_wl, end_wl, step):
     if measure_ans == 'Measure':
         if state['osc init']:
             osc.measure()
-            scan_data[0,i] = current_wl
-            scan_data[1,i] = osc.current_pa_data/osc.laser_amp
+            fig = plt.figure(tight_layout=True)
+            gs = gridspec.GridSpec(1,2)
+            ax_pm = fig.add_subplot(gs[0,0])
+            ax_pm.plot(osc.current_pm_data)
+            ax_pa = fig.add_subplot(gs[0,1])
+            ax_pa.plot(osc.current_pa_data)
+            fig.show()
+
+            good_data = inquirer.confirm(message='Data looks good?')
+            if good_data:
+                scan_data[0,i] = current_wl
+                scan_data[1,i] = osc.current_pa_data/osc.laser_amp
+            else:
+                measure_ans = 'Bad data' #trigger additional while cycle
         else:
             print(f'{bcolors.WARNING}Oscilloscope in not initialized!{bcolors.ENDC}')
     elif measure_ans == 'Stop measurements':
