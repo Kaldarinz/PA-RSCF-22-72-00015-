@@ -13,6 +13,7 @@ class Oscilloscope:
     pm_pre_time = 0
     pre_points = 0
     laser_amp = 0
+    screen_laser_amp = 0
     signal_amp = 0
     frame_duration = 0
     pre_time = 0
@@ -54,6 +55,7 @@ class Oscilloscope:
         self.pm_frame_size = self.time_to_points(self.pm_response_time + self.pm_pre_time)
         self.pm_pre_points = self.time_to_points(self.pm_pre_time)
         self.init_current_data(self.pm_channel)
+        self.screen_data = np.zeros(1200)
 
         self.set_preamble()
 
@@ -116,7 +118,12 @@ class Oscilloscope:
         with kernel_size"""
 
         kernel = np.ones(kernel_size)/kernel_size
-        self.current_pm_data = np.convolve(self.current_pm_data,kernel,mode='valid')
+        if channel == self.pm_channel:
+            self.current_pm_data = np.convolve(self.current_pm_data,kernel,mode='valid')
+        elif channel == 'screen':
+            self.screen_data = np.convolve(self.screen_data,kernel,mode='valid')
+        else:
+            print(f'rolling average for channel {channel} is not written!')
 
     def read_data(self, channel):
         """Reads data from the specified channel.
@@ -124,7 +131,7 @@ class Oscilloscope:
 
         self.__osc.write(':WAV:SOUR ' + channel)
         self.__osc.write(':WAV:MODE RAW')
-        self.__osc.write('"WAV:FORM BYTE')
+        self.__osc.write(':WAV:FORM BYTE')
 
         self.set_preamble()
         
@@ -191,6 +198,10 @@ class Oscilloscope:
         elif channel == self.pa_channel:
             baseline = np.average(self.current_pa_data[:int(self.pa_frame_size/20)])
             self.current_pa_data -= baseline
+        
+        elif channel == 'screen':
+            baseline = np.average(self.screen_data[:int(len(self.screen_data)/20)])
+            self.screen_data -= baseline
         else:
             print('Wrong channel for base correction! Channel = ', channel)
 
@@ -209,8 +220,8 @@ class Oscilloscope:
         stop_index = np.where(self.current_pm_data[start_index:] < 0)[0][0]
         #print(f'stop_index={stop_index}')
         #print(f'Signal at stop_index={self.current_pm_data[start_index + stop_index]}')
-        self.laser_amp = np.sum(self.current_pm_data[start_index:stop_index])/self.sample_rate*1000000
-        #print(f'Laser amp = {self.laser_amp:.5f}')
+        self.laser_amp = np.sum(self.current_pm_data[start_index:(start_index + stop_index)])/self.sample_rate*1000000
+        print(f'Laser amp = {self.laser_amp:.5f}')
 
     def set_signal_amp(self):
         """Updates PA amplitude"""
@@ -220,6 +231,36 @@ class Oscilloscope:
         pa_search_stop = self.time_to_points(80) # это плохо и надо бы переписать
         self.signal_amp = abs(self.current_pa_data[pa_search_start:pa_search_stop].max()-self.current_pa_data[pa_search_start:pa_search_stop].min())
         print(f'PA amp = {self.signal_amp:.4f}')
+
+    def read_screen(self, channel):
+        """Read data from screen"""
+
+        threshold = 0.05 # percentage of max amp, when we set begining of the impulse
+
+        self.set_preamble()
+        self.__osc.write(':WAV:SOUR ' + channel)
+        self.__osc.write(':WAV:MODE NORM')
+        self.__osc.write(':WAV:FORM BYTE')
+        self.__osc.write(':WAV:STAR 1')
+        self.__osc.write(':WAV:STOP 1200')
+        self.__osc.write(':WAV:DATA?')
+        data_chunk = np.frombuffer(self.__osc.read_raw(), dtype=np.int8)
+        self.screen_data = data_chunk[12:]
+        self.rolling_average('screen', 5)
+        
+        self.baseline_correction('screen')
+        max_screen = np.amax(self.screen_data)
+        start_index = np.where(self.screen_data>(max_screen*threshold))[0][0]
+
+        stop_index = np.where(self.screen_data[start_index:] < 0)[0][0]
+
+        dt = self.preamble['xincrement']
+        dy = self.preamble['yincrement']
+        self.screen_laser_amp = np.sum(self.screen_data[start_index:(start_index + stop_index)])*dt*1000000*dy
+        #print(f'screen laser amp = {self.screen_laser_amp:.5f}')
+
+        #plt.plot(self.screen_data[start_index:(start_index + stop_index)])
+        #plt.show()
 
     def measure(self,):
         """Measure PA amplitude"""

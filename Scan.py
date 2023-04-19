@@ -379,7 +379,8 @@ if __name__ == "__main__":
 
         elif menu_ans == 'test':
             if state['osc init']:
-                osc.measure()
+                #osc.measure()
+                osc.read_screen(osc.pm_channel)
             else:
                 print('Osc not init!')
 
