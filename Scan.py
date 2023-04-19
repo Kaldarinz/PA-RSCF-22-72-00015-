@@ -379,13 +379,7 @@ if __name__ == "__main__":
 
         elif menu_ans == 'test':
             if state['osc init']:
-                print(f'frame size {osc.pm_frame_size}')
-                print(f'current pm data size {osc.current_pm_data.shape}')
                 osc.measure()
-                plt.plot(osc.current_pm_data)
-                plt.show()
-                plt.plot(osc.current_pa_data)
-                plt.show()
             else:
                 print('Osc not init!')
 

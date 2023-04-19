@@ -1,6 +1,8 @@
 import pyvisa as pv
 import numpy as np
 import time
+from scipy.fftpack import rfft, irfft, fftfreq
+import matplotlib.pyplot as plt
 
 # oscilloscope class. Intended to be used as a module in other scripts.
 class Oscilloscope:
@@ -70,7 +72,6 @@ class Oscilloscope:
         if channel == self.pa_channel:
             self.current_pa_data = np.zeros(self.pa_frame_size)
         
-
     def set_preamble(self):
         """Set or update preamble"""
 
@@ -95,6 +96,28 @@ class Oscilloscope:
         points = int(duration*self.sample_rate/1000000) + 1
         return points
     
+    def hp_filter(self, channel, cutoff_freq):
+        """High-pass filter for the given channel"""
+
+        if channel == self.pm_channel:
+            dt = 1/self.sample_rate
+            print(f'self.current_pm_data.shape = {self.current_pm_data.shape}')
+            print(f'dt={dt}')
+            W = fftfreq(len(self.current_pm_data), dt) # array with frequencies
+            f_signal = rfft(self.current_pm_data) # signal in f-space
+
+            filtered_f_signal = f_signal.copy()
+            filtered_f_signal[(W<cutoff_freq)] = 0   # high pass filtering
+
+            self.current_pm_data = irfft(filtered_f_signal)
+
+    def rolling_average(self, channel, kernel_size):
+        """Smooth data of the given channel using rolling average method
+        with kernel_size"""
+
+        kernel = np.ones(kernel_size)/kernel_size
+        self.current_pm_data = np.convolve(self.current_pm_data,kernel,mode='valid')
+
     def read_data(self, channel):
         """Reads data from the specified channel.
         Automatically handles read size"""
@@ -174,12 +197,25 @@ class Oscilloscope:
     def set_laser_amp(self):
         """Updates laser amplitude"""
 
-        self.laser_amp = self.current_pm_data.max()
-        print(f'Laser amp = {self.laser_amp:.3f}')        
+        threshold = 0.03 # percentage of max amp, when we set begining of the impulse
+
+        self.set_preamble()
+        self.baseline_correction(self.pm_channel)
+        max_pm = np.amax(self.current_pm_data)
+
+        start_index = np.where(self.current_pm_data>(max_pm*threshold))[0][0]
+        #print(f'start_signal={start_index}')
+        #print(f'Signal at start_index={self.current_pm_data[start_index]}')
+        stop_index = np.where(self.current_pm_data[start_index:] < 0)[0][0]
+        #print(f'stop_index={stop_index}')
+        #print(f'Signal at stop_index={self.current_pm_data[start_index + stop_index]}')
+        self.laser_amp = np.sum(self.current_pm_data[start_index:stop_index])/self.sample_rate*1000000
+        #print(f'Laser amp = {self.laser_amp:.5f}')
 
     def set_signal_amp(self):
         """Updates PA amplitude"""
 
+        self.baseline_correction(self.pa_channel)
         pa_search_start = self.time_to_points(5 + self.osc_params['pre_time'])
         pa_search_stop = self.time_to_points(80) # это плохо и надо бы переписать
         self.signal_amp = abs(self.current_pa_data[pa_search_start:pa_search_stop].max()-self.current_pa_data[pa_search_start:pa_search_stop].min())
@@ -188,6 +224,8 @@ class Oscilloscope:
     def measure(self,):
         """Measure PA amplitude"""
 
+        pm_cutoff_freq = 1000 # pm cutoff freq for filtration
+        kernel_size = 1000 # kernel size for rolling average filtration 
 
         self.set_preamble()
 
@@ -197,12 +235,11 @@ class Oscilloscope:
         self.__osc.write(':STOP')
         self.init_current_data(self.pm_channel)
         self.read_data(self.pm_channel)
+        kernel_size = int(len(self.current_pm_data)/1000)
+        self.rolling_average(self.pm_channel,kernel_size)
         self.init_current_data(self.pa_channel)
         self.read_data(self.pa_channel)
         self.__osc.write(':RUN')
-
-        self.baseline_correction(self.pa_channel)
-        self.baseline_correction(self.pm_channel)
 
         self.set_laser_amp()
         self.set_signal_amp()
