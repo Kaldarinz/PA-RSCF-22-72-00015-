@@ -235,7 +235,7 @@ class Oscilloscope:
     def read_screen(self, channel):
         """Read data from screen"""
 
-        threshold = 0.05 # percentage of max amp, when we set begining of the impulse
+        threshold = 0.10 # percentage of max amp, when we set begining of the impulse
 
         self.set_preamble()
         self.__osc.write(':WAV:SOUR ' + channel)
@@ -246,7 +246,7 @@ class Oscilloscope:
         self.__osc.write(':WAV:DATA?')
         data_chunk = np.frombuffer(self.__osc.read_raw(), dtype=np.int8)
         self.screen_data = data_chunk[12:]
-        self.rolling_average('screen', 5)
+        self.rolling_average('screen', 10)
         
         self.baseline_correction('screen')
         max_screen = np.amax(self.screen_data)
@@ -257,6 +257,8 @@ class Oscilloscope:
         dt = self.preamble['xincrement']
         dy = self.preamble['yincrement']
         self.screen_laser_amp = np.sum(self.screen_data[start_index:(start_index + stop_index)])*dt*1000000*dy
+        self.screen_data[start_index] = np.amax(self.screen_data)
+        self.screen_data[start_index + stop_index] = np.amax(self.screen_data)
         #print(f'screen laser amp = {self.screen_laser_amp:.5f}')
 
         #plt.plot(self.screen_data[start_index:(start_index + stop_index)])

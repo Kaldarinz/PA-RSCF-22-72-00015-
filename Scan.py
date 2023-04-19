@@ -1,5 +1,6 @@
 from pylablib.devices import Thorlabs
 from scipy.fftpack import rfft, irfft, fftfreq
+from scipy import signal
 import numpy as np
 import matplotlib.pyplot as plt
 import os.path
@@ -19,7 +20,7 @@ import time
 #in spec_data.shape[0]: 0 - wavelength, 1 - raw data
 
 osc_params = {
-    'pre_time': 0, # [us] start time of data storage before trigger
+    'pre_time': 30, # [us] start time of data storage before trigger
     'frame_duration': 150, # [us] whole duration of the stored frame
     'pm_response_time': 2500, # [us] response time of the power meter
     'pm_pre_time': 300,
@@ -310,10 +311,11 @@ def spectra(osc, start_wl, end_wl, step):
 
     for i in range(spectral_points-1):
         current_wl = start_wl + step*i
-        print(f'Start measuring point {(i+1)}')
-        print(f'Set wavelength {bcolors.OKBLUE}{current_wl}{bcolors.ENDC}')
+
         measure_ans = 'Empty'
         while measure_ans != 'Measure':
+            print(f'Start measuring point {(i+1)}')
+            print(f'Set wavelength {bcolors.OKBLUE}{current_wl}{bcolors.ENDC}')
             measure_ans = inquirer.rawlist(
                 message='Action:',
                 choices=['Tune power','Measure','Stop measurements']
@@ -326,9 +328,23 @@ def spectra(osc, start_wl, end_wl, step):
             elif measure_ans == 'Measure':
                 if state['osc init']:
                     osc.measure()
+                    print(f'scan_data.shape {scan_data.shape}')
+                    print(f'current_pa_data.shape {osc.current_pa_data.shape}')
+                    print(f'pa_frame_size {osc.pa_frame_size}')
+                    fig = plt.figure(tight_layout=True)
+                    gs = gridspec.GridSpec(1,2)
+                    ax_pm = fig.add_subplot(gs[0,0])
+                    ax_pm.plot(signal.decimate(osc.current_pm_data, 100))
+                    ax_pa = fig.add_subplot(gs[0,1])
+                    ax_pa.plot(osc.current_pa_data)
+                    plt.show()
 
-                    scan_data[0,i] = current_wl
-                    scan_data[1,i] = osc.current_pa_data/osc.laser_amp
+                    good_data = inquirer.confirm(message='Data looks good?').execute()
+                    if good_data:
+                        scan_data[0,i] = current_wl
+                        scan_data[1,i] = osc.current_pa_data/osc.laser_amp
+                    else:
+                        measure_ans = 'Bad data' #trigger additional while cycle
                 else:
                     print(f'{bcolors.WARNING}Oscilloscope in not initialized!{bcolors.ENDC}')
             elif measure_ans == 'Stop measurements':
@@ -343,20 +359,6 @@ def spectra(osc, start_wl, end_wl, step):
     if measure_ans == 'Measure':
         if state['osc init']:
             osc.measure()
-            fig = plt.figure(tight_layout=True)
-            gs = gridspec.GridSpec(1,2)
-            ax_pm = fig.add_subplot(gs[0,0])
-            ax_pm.plot(osc.current_pm_data)
-            ax_pa = fig.add_subplot(gs[0,1])
-            ax_pa.plot(osc.current_pa_data)
-            fig.show()
-
-            good_data = inquirer.confirm(message='Data looks good?')
-            if good_data:
-                scan_data[0,i] = current_wl
-                scan_data[1,i] = osc.current_pa_data/osc.laser_amp
-            else:
-                measure_ans = 'Bad data' #trigger additional while cycle
         else:
             print(f'{bcolors.WARNING}Oscilloscope in not initialized!{bcolors.ENDC}')
     elif measure_ans == 'Stop measurements':
@@ -371,7 +373,10 @@ def track_power(tune_width):
     print(f'{bcolors.OKGREEN} Hold q button to stop power measurements{bcolors.ENDC}')
     data = np.zeros(tune_width)
     tmp_data = np.zeros(tune_width)
-    fig, ax = plt.subplots()
+    fig = plt.figure(tight_layout=True)
+    gs = gridspec.GridSpec(1,2)
+    ax_pm = fig.add_subplot(gs[0,0])
+    ax_pa = fig.add_subplot(gs[0,1])
     i = 0 #iterator
     bad_read_flag = 0
     while True:
@@ -388,9 +393,11 @@ def track_power(tune_width):
                 bad_read_flag = 1
             else:
                 data = tmp_data.copy()
-        ax.clear()
-        ax.plot(data)
-        ax.set_ylim(bottom=0)
+        ax_pm.clear()
+        ax_pa.clear()
+        ax_pm.plot(osc.screen_data)
+        ax_pa.plot(data)
+        ax_pa.set_ylim(bottom=0) 
         fig.canvas.draw()
         plt.pause(0.1)
         if bad_read_flag == 1:
@@ -436,7 +443,7 @@ if __name__ == "__main__":
 
         elif menu_ans == 'test':
             if state['osc init']:
-                _ = track_power(10)
+                _ = track_power(100)
             else:
                 print('Osc not init!')
 
@@ -561,7 +568,7 @@ if __name__ == "__main__":
             start_wl = inquirer.number(
                 message='Set start wavelength, [nm]',
                 default=690,
-                min_allowed=500,
+                min_allowed=0,
                 max_allowed=1500,
                 filter=lambda result: int(result)
             ).execute()
@@ -569,7 +576,7 @@ if __name__ == "__main__":
                 message='Set end wavelength, [nm]',
                 default=950,
                 min_allowed=500,
-                max_allowed=1500,
+                max_allowed=10000,
                 filter=lambda result: int(result)
             ).execute()
             step = inquirer.number(
