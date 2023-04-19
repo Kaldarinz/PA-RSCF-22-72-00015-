@@ -4,11 +4,12 @@ import numpy as np
 import matplotlib.pyplot as plt
 import os.path
 from pathlib import Path
-import time
 import Oscilloscope
 from InquirerPy import inquirer
 from InquirerPy.validator import PathValidator
 import matplotlib.gridspec as gridspec
+import keyboard
+import time
 
 # data formats
 # scan_data[X scan points, Y scan points, 4, signal data points]
@@ -344,6 +345,42 @@ def spectra(osc, start_wl, end_wl, step):
     print('Spectral scanning complete!')
     return scan_data
 
+def track_power(tune_width):
+    """Build power graph"""
+
+    print(f'{bcolors.OKGREEN} Hold q button to stop power measurements{bcolors.ENDC}')
+    data = np.zeros(tune_width)
+    tmp_data = np.zeros(tune_width)
+    fig, ax = plt.subplots()
+    i = 0 #iterator
+    bad_read_flag = 0
+    while True:
+        if i <tune_width:
+            osc.read_screen(osc.pm_channel)
+            data[i] = osc.screen_laser_amp
+            if data[i] < 0.2:
+                bad_read_flag = 1
+        else:
+            tmp_data[:-1] = data[1:].copy()
+            osc.read_screen(osc.pm_channel)
+            tmp_data[tune_width-1] = osc.screen_laser_amp
+            if tmp_data[tune_width-1] < 0.2:
+                bad_read_flag = 1
+            else:
+                data = tmp_data.copy()
+        ax.clear()
+        ax.plot(data)
+        ax.set_ylim(bottom=0)
+        fig.canvas.draw()
+        plt.pause(0.1)
+        if bad_read_flag == 1:
+            bad_read_flag = 0
+        else:
+            i += 1
+        if keyboard.is_pressed('q'):
+            break
+        time.sleep(0.1)
+
 if __name__ == "__main__":
     
     while True: #main execution loop
@@ -379,8 +416,7 @@ if __name__ == "__main__":
 
         elif menu_ans == 'test':
             if state['osc init']:
-                #osc.measure()
-                osc.read_screen(osc.pm_channel)
+                _ = track_power(10)
             else:
                 print('Osc not init!')
 
