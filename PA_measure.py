@@ -182,7 +182,7 @@ class SpectralIndexTracker:
         self.fig.align_labels()
         self.fig.canvas.draw()
 
-def scan_vizualization(data, dt):
+def scan_vizualization(data):
     """Vizualization of scan data."""
 
     fig = plt.figure(tight_layout=True)
@@ -191,7 +191,7 @@ def scan_vizualization(data, dt):
     ax_freq = fig.add_subplot(gs[1, :])
     ax_raw = fig.add_subplot(gs[0,0])
     ax_filt = fig.add_subplot(gs[0,1])
-    tracker = IndexTracker(fig, ax_freq, ax_raw, ax_filt, data, dt)
+    tracker = SpectralIndexTracker(fig, ax_freq, ax_raw, ax_filt, data)
     fig.canvas.mpl_connect('key_press_event', tracker.on_key_press)
     plt.show()
 
@@ -315,7 +315,27 @@ def save_scan_data(sample, data, dt):
     filename = filename + str(i) + '.npy'
     
     np.save(filename, data)
-    print('Data saved to ', filename)
+    print('Scan data saved to ', filename)
+
+def save_spectral_data(sample, data):
+    """"Saves spectral data"""
+
+    #format: spec_data[WL index, data type, data points]
+    #data type: 0 - raw data, 1 - filtered data, 2 - FFT data
+    #for real data data points[0] - start WL, [1] - end WL, [2] - step WL, [3] - dt, [4] - max amp
+    #for FFT data data points[0] - start freq, [1] - end freq, [2] - step freq
+
+    Path('measuring results/').mkdir(parents=True, exist_ok=True)
+
+    filename = 'measuring results/Spectral-' + sample
+
+    i = 1
+    while (os.path.exists(filename + str(i) + '.npy')):
+        i += 1
+    filename = filename + str(i) + '.npy'
+    
+    np.save(filename, data)
+    print('Spectral data saved to ', filename)
 
 def load_data(data_type):
     """Return loaded data in the related format"""
@@ -334,9 +354,18 @@ def load_data(data_type):
         state['scan data'] = True
         print(f'...Scan data with shape {data.shape} loaded!')
         return data, dt
+    
     elif data_type == 'Spectral':
-        print(f'{bcolors.WARNING} Spectral data loading is not realized!{bcolors.ENDC}')
-        return np.zeros(1,1,1)
+        file_path = inquirer.filepath(
+            message='Choose spectral file to load:',
+            default=home_path,
+            validate=PathValidator(is_file=True, message='Input is not a file')
+        ).execute()
+
+        data = np.load(file_path)
+        state['spectral data'] = True
+        print(f'...Spectral data with shape {data.shape} loaded!')
+        return data
 
 def bp_filter(data, low, high, dt):
     """Perform bandpass filtration on data
@@ -749,7 +778,7 @@ if __name__ == "__main__":
                 
                 if data_ans == 'View':
                     if state['spectral data']:
-                        scan_vizualization(scan_data, dt)
+                        scan_vizualization(scan_data)
                     else:
                         print(f'{bcolors.WARNING} Spectral data missing!{bcolors.ENDC}')
 
@@ -792,10 +821,10 @@ if __name__ == "__main__":
                         message='Enter Sample name',
                         default='Unknown'
                     ).execute()
-                    save_scan_data(sample, scan_data, dt)
+                    save_spectral_data(sample, scan_data)
 
                 elif data_ans == 'Load':
-                    scan_data, dt = load_data('Scan')
+                    scan_data = load_data('Spectral')
 
                 elif data_ans == 'Back to main menu':
                         break
