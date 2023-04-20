@@ -16,8 +16,10 @@ import time
 # scan_data[X scan points, Y scan points, 4, signal data points]
 # in scan_data.shape[2]: 0 - raw data, 1 - FFT filtered data, 2 - frquencies, 3 - spectral data
 
-#spec_data[2, WL points, signal data points]
-#in spec_data.shape[0]: 0 - wavelength, 1 - raw data
+#spec_data[WL index, data type, data points]
+#data type: 0 - raw data, 1 - filtered data, 2 - FFT data
+#for real data data points[0] - start WL, [1] - end WL, [2] - step WL, [3] - dt, [4] - max amp
+#for FFT data data points[0] - start freq, [1] - end freq, [2] - step freq
 
 osc_params = {
     'pre_time': 30, # [us] start time of data storage before trigger
@@ -114,10 +116,74 @@ class IndexTracker:
         self.fig.align_labels()
         self.fig.canvas.draw()
 
+class SpectralIndexTracker:
+    '''Class for spectral data vizualization'''
+
+    def __init__(self, fig, ax_sp, ax_raw, ax_freq, ax_filt, data):
+        
+        self.fig = fig
+        self.ax_sp = ax_sp
+        self.ax_raw = ax_raw
+        self.ax_freq = ax_freq
+        self.ax_filt = ax_filt
+        
+        self.dt = data[0,0,3]
+        self.dw = data[0,2,2]
+        
+        self.time_data = np.linspace(0,self.dt*(data.shape[2]-6),data.shape[2]-5)*1000
+        self.raw_data = data[:,0,5:]
+        self.filt_data = data[:,1,5:]
+
+        wl_points = int((data[0,0,1] - data[0,0,0])/data[0,0,2]) + 1
+        self.wl_data = np.linspace(data[0,0,0],data[0,0,1],wl_points)
+        self.spec_data = data[:,0,4]
+        self.ax_sp.plot(self.wl_data,self.spec_data)
+        self.ax_sp.set_ylabel('Normalizaed PA amp')
+        self.ax_sp.set_xlabel('Wavelength, [nm]')
+
+        freq_points = int((data[0,2,1] - data[0,2,0])/self.dw) + 1
+        self.freq_data = np.linspace(data[0,2,0],data[0,2,1],freq_points)/1000
+        self.fft_data = data[:,2,3:(freq_points+3)]
+
+        self.x_max = data.shape[0]
+        self.x_ind = 0
+        self.update()
+
+    def on_key_press(self, event):
+        if event.key == 'left':
+            if self.x_ind == 0:
+                pass
+            else:
+                self.x_ind -= 1
+                self.update()
+        elif event.key == 'right':
+            if self.x_ind == (self.x_max - 1):
+                pass
+            else:
+                self.x_ind += 1
+                self.update()
+
+    def update(self):
+        self.ax_raw.clear()
+        self.ax_freq.clear()
+        self.ax_filt.clear()
+        self.ax_raw.plot(self.time_data, self.raw_data[self.x_ind,:])
+        self.ax_freq.plot(self.freq_data, self.fft_data[self.x_ind,:])
+        self.ax_filt.plot(self.time_data, self.filt_data[self.x_ind,:])
+        title = 'X index = ' + str(self.x_ind) + '/' + str(self.x_max-1)
+        self.ax_freq.set_title(title)
+        
+        self.ax_raw.set_ylabel('PA detector signal, [V]')
+        self.ax_raw.set_xlabel('Time, [us]')
+        self.ax_filt.set_ylabel('PA detector signal, [V]')
+        self.ax_filt.set_xlabel('Time, [us]')
+        self.ax_freq.set_ylabel('FFT signal amp')
+        self.ax_freq.set_xlabel('Frequency, [kHz]')
+        self.fig.align_labels()
+        self.fig.canvas.draw()
+
 def scan_vizualization(data, dt):
-    """Vizualization of scan data.
-    temporal=True means real signal vizualization, dt is time step in s.
-    temporal=False means signal in frequency domain, dt is freq step in Hz."""
+    """Vizualization of scan data."""
 
     fig = plt.figure(tight_layout=True)
     gs = gridspec.GridSpec(2, 2)
@@ -128,6 +194,31 @@ def scan_vizualization(data, dt):
     tracker = IndexTracker(fig, ax_freq, ax_raw, ax_filt, data, dt)
     fig.canvas.mpl_connect('key_press_event', tracker.on_key_press)
     plt.show()
+
+def spectral_vizualization(data, dt):
+    """Vizualization of spectral data."""
+
+    fig = plt.figure(tight_layout=True)
+    gs = gridspec.GridSpec(2,2)
+    ax_sp = fig.add_subplot(gs[0,0])
+    ax_raw = fig.add_subplot(gs[0,1])
+    ax_freq = fig.add_subplot(gs[1,0])
+    ax_filt = fig.add_subplot(gs[1,1])
+    tracker = SpectralIndexTracker(fig,ax_sp,ax_raw,ax_freq,ax_filt,data, dt)
+
+def set_spec_preamble(data, start, stop, step, d_type='time'):
+    """Sets preamble of spectral data"""
+
+    if d_type == 'time':
+        data[:,0:2,0] = start
+        data[:,0:2,1] = stop
+        data[:,0:2,2] = step
+    elif d_type == 'freq':
+        data[:,2,0] = start
+        data[:,2,1] = stop
+        data[:,2,2] = step
+
+    return data
 
 def init_stages():
     """Initiate stages"""
@@ -295,6 +386,7 @@ def spectra(osc, start_wl, end_wl, step):
     """Measures spectral data"""
 
     print('Start measuring spectra!')
+    dt = 0
     d_wl = abs(end_wl-start_wl)
     if d_wl % step:
         print(f'{bcolors.WARNING} Wrong step size!{bcolors.ENDC}')
@@ -305,9 +397,11 @@ def spectra(osc, start_wl, end_wl, step):
         step = -step
 
     if state['osc init']:
-        scan_data = np.zeros((2,spectral_points,osc.pa_frame_size))
+        spec_data = np.zeros((spectral_points,3,osc.pa_frame_size+5))
     else:
-        scan_data = np.zeros((2,spectral_points,10))
+        spec_data = np.zeros((spectral_points,3,10))
+
+    spec_data = set_spec_preamble(spec_data,start_wl,end_wl,step)
 
     for i in range(spectral_points):
         current_wl = start_wl + step*i
@@ -328,6 +422,7 @@ def spectra(osc, start_wl, end_wl, step):
             elif measure_ans == 'Measure':
                 if state['osc init']:
                     osc.measure()
+                    dt = 1/osc.sample_rate
 
                     fig = plt.figure(tight_layout=True)
                     gs = gridspec.GridSpec(1,2)
@@ -339,18 +434,19 @@ def spectra(osc, start_wl, end_wl, step):
 
                     good_data = inquirer.confirm(message='Data looks good?').execute()
                     if good_data:
-                        scan_data[0,i] = current_wl
-                        scan_data[1,i] = osc.current_pa_data/osc.laser_amp
+                        spec_data[i,0:2,3] = dt
+                        spec_data[i,0,4] = osc.signal_amp
+                        spec_data[i,0,5:] = osc.current_pa_data/osc.laser_amp
                     else:
                         measure_ans = 'Bad data' #trigger additional while cycle
                 else:
                     print(f'{bcolors.WARNING}Oscilloscope in not initialized!{bcolors.ENDC}')
             elif measure_ans == 'Stop measurements':
                 print(f'{bcolors.WARNING} Spectral measurements terminated!{bcolors.ENDC}')
-                return scan_data
+                return scan_data, dt
 
     print('Spectral scanning complete!')
-    return scan_data
+    return scan_data, dt
 
 def track_power(tune_width):
     """Build power graph"""
@@ -567,7 +663,8 @@ if __name__ == "__main__":
                 filter=lambda result: int(result)
             ).execute()
 
-            scan_data = spectra(osc, start_wl, end_wl, step)
+            scan_data, dt = spectra(osc, start_wl, end_wl, step)
+            state['spectral data'] = True
 
         elif menu_ans == 'Scan data manipulation':
 
@@ -637,7 +734,72 @@ if __name__ == "__main__":
                         break
 
         elif menu_ans == 'Spectral data manipulation':
-            print(f'{bcolors.WARNING} Spectral data manipulation is not realized!{bcolors.ENDC}')
+            
+            while True:
+                data_ans = inquirer.rawlist(
+                    message='Choose spectral data action',
+                    choices=[
+                        'View', 
+                        'FFT filtration',
+                        'Load',
+                        'Save',
+                        'Back to main menu'
+                    ]
+                ).execute()
+                
+                if data_ans == 'View':
+                    if state['spectral data']:
+                        scan_vizualization(scan_data, dt)
+                    else:
+                        print(f'{bcolors.WARNING} Spectral data missing!{bcolors.ENDC}')
+
+                elif data_ans == 'FFT filtration':
+                    if state['scan data']:
+                        low_cutof = inquirer.number(
+                                message='Enter low cutoff frequency [Hz]',
+                                default=100000,
+                                min_allowed=1,
+                                max_allowed=50000000,
+                                filter=lambda result: int(result)
+                            ).execute()
+
+                        high_cutof = inquirer.number(
+                                message='Enter high cutoff frequency [Hz]',
+                                default=10000000,
+                                min_allowed=(low_cutof+100000),
+                                max_allowed=50000000,
+                                filter=lambda result: int(result)
+                            ).execute()
+
+                        if state['osc init']:
+                            dt = 1/osc.sample_rate
+                        else:
+                            dt = inquirer.number(
+                                message='Set dt in [ns]',
+                                default=20,
+                                min_allowed=1,
+                                max_allowed=1000000,
+                                filter=lambda result: int(result)/1000000000
+                            ).execute()
+                        scan_data = bp_filter(scan_data, low_cutof, high_cutof, dt)
+                        state['filtered scan data'] = True
+                        print('FFT filtration of scan data complete!')
+                    else:
+                        print(f'{bcolors.WARNING} Scan data is missing!{bcolors.ENDC}')
+
+                elif data_ans == 'Save':
+                    sample = inquirer.text(
+                        message='Enter Sample name',
+                        default='Unknown'
+                    ).execute()
+                    save_scan_data(sample, scan_data, dt)
+
+                elif data_ans == 'Load':
+                    scan_data, dt = load_data('Scan')
+
+                elif data_ans == 'Back to main menu':
+                        break
+
 
         elif menu_ans == 'Exit':
             exit_ans = inquirer.confirm(
