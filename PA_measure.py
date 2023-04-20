@@ -283,7 +283,8 @@ def scan(x_start, y_start, x_size, y_size, x_points, y_points):
     scan_frame_full = np.zeros((x_points,y_points,4,osc.pa_frame_size)) #0-raw data, 1-filt data, 2-freq, 3-FFT
 
     fig, ax = plt.subplots(1,1)
-    im = ax.imshow(scan_frame, vmin = 0, vmax = 0.5)
+    #im = ax.imshow(scan_frame, vmin = 0, vmax = 0.5)
+    im = ax.imshow(scan_frame)
     fig.show()
 
     for i in range(x_points):
@@ -301,6 +302,7 @@ def scan(x_start, y_start, x_size, y_size, x_points, y_points):
             print(f'normalizaed amp at ({i}, {j}) is {scan_frame[i,j]:.3f}\n')
             
             im.set_data(scan_frame)
+            im.set_clim(vmax=np.amax(scan_frame))
             fig.canvas.draw()
             plt.pause(0.1)
 
