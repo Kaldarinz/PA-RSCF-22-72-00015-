@@ -427,6 +427,7 @@ def spectra(osc, start_wl, end_wl, step):
 
     if state['osc init']:
         spec_data = np.zeros((spectral_points,3,osc.pa_frame_size+5))
+        print(f'Spec_data init with shape {spec_data.shape}')
     else:
         spec_data = np.zeros((spectral_points,3,10))
 
@@ -472,10 +473,10 @@ def spectra(osc, start_wl, end_wl, step):
                     print(f'{bcolors.WARNING}Oscilloscope in not initialized!{bcolors.ENDC}')
             elif measure_ans == 'Stop measurements':
                 print(f'{bcolors.WARNING} Spectral measurements terminated!{bcolors.ENDC}')
-                return scan_data, dt
+                return spec_data
 
     print('Spectral scanning complete!')
-    return scan_data, dt
+    return spec_data
 
 def track_power(tune_width):
     """Build power graph"""
@@ -524,50 +525,64 @@ if __name__ == "__main__":
         menu_ans = inquirer.rawlist(
             message='Choose an action',
             choices=[
-                'test',
-                'Init hardware',
-                'Get status',
-                'Home stages',
+                'Init and status',
+                'Power meter',
                 'Move to',
                 'Find beam position (scan)',
                 'Measure spectrum',
                 'Scan data manipulation',
-                #'Spectral data manipulation',
+                'Spectral data manipulation',
                 'Exit'
             ],
             height=9
         ).execute()
 
-        if menu_ans == 'Init hardware':
-            if not state['stages init']:
-                stage_X, stage_Y = init_stages()
-                state['stages init'] = True
-            else:
-                print('Stages already initiated!')
+        if menu_ans == 'Init and status':
+            while True:
+                stat_ans = inquirer.rawlist(
+                message='Choose an action',
+                choices=[
+                    'Init hardware',
+                    'Get status',
+                    'Home stages',
+                    'Back'
+                ],
+                height=9
+            ).execute()
 
-            if not state['osc init']:
-                osc = Oscilloscope.Oscilloscope(osc_params) #add prompt for osc params
-                state['osc init'] = True
-            else:
-                print('Oscilloscope already initiated!')
+                if stat_ans == 'Init hardware':
+                    if not state['stages init']:
+                        stage_X, stage_Y = init_stages()
+                        state['stages init'] = True
+                    else:
+                        print('Stages already initiated!')
 
-        elif menu_ans == 'test':
+                    if not state['osc init']:
+                        osc = Oscilloscope.Oscilloscope(osc_params) #add prompt for osc params
+                        state['osc init'] = True
+                    else:
+                        print('Oscilloscope already initiated!')
+
+                elif stat_ans == 'Home stages':
+                    if state['stages init']:
+                        home(stage_X, stage_Y)
+                    else:
+                        print(f'{bcolors.WARNING} Stages are not initialized!{bcolors.ENDC}')
+
+                elif stat_ans == 'Get status':
+                    if state['stages init']:
+                        print_status(stage_X, stage_Y)
+                    else:
+                        print(f'{bcolors.WARNING} Stages are not initialized!{bcolors.ENDC}')
+
+                elif stat_ans == 'Back':
+                    break
+
+        elif menu_ans == 'Power meter':
             if state['osc init']:
                 _ = track_power(100)
             else:
                 print('Osc not init!')
-
-        elif menu_ans == 'Home stages':
-            if state['stages init']:
-                home(stage_X, stage_Y)
-            else:
-                print(f'{bcolors.WARNING} Stages are not initialized!{bcolors.ENDC}')
-
-        elif menu_ans == 'Get status':
-            if state['stages init']:
-                print_status(stage_X, stage_Y)
-            else:
-                print(f'{bcolors.WARNING} Stages are not initialized!{bcolors.ENDC}')
 
         elif menu_ans == 'Move to':
             x_dest = inquirer.number(
@@ -692,7 +707,7 @@ if __name__ == "__main__":
                 filter=lambda result: int(result)
             ).execute()
 
-            scan_data, dt = spectra(osc, start_wl, end_wl, step)
+            spec_data = spectra(osc, start_wl, end_wl, step)
             state['spectral data'] = True
 
         elif menu_ans == 'Scan data manipulation':
@@ -828,7 +843,6 @@ if __name__ == "__main__":
 
                 elif data_ans == 'Back to main menu':
                         break
-
 
         elif menu_ans == 'Exit':
             exit_ans = inquirer.confirm(
