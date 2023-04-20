@@ -130,7 +130,7 @@ class SpectralIndexTracker:
         self.dt = data[0,0,3]
         self.dw = data[0,2,2]
         
-        self.time_data = np.linspace(0,self.dt*(data.shape[2]-6),data.shape[2]-5)*1000
+        self.time_data = np.linspace(0,self.dt*(data.shape[2]-6),data.shape[2]-5)*1000000
         self.raw_data = data[:,0,5:]
         self.filt_data = data[:,1,5:]
 
@@ -140,8 +140,11 @@ class SpectralIndexTracker:
         self.ax_sp.plot(self.wl_data,self.spec_data)
         self.ax_sp.set_ylabel('Normalizaed PA amp')
         self.ax_sp.set_xlabel('Wavelength, [nm]')
-
-        freq_points = int((data[0,2,1] - data[0,2,0])/self.dw) + 1
+        
+        if self.dw:
+            freq_points = int((data[0,2,1] - data[0,2,0])/self.dw) + 1
+        else:
+            freq_points = 2
         self.freq_data = np.linspace(data[0,2,0],data[0,2,1],freq_points)/1000
         self.fft_data = data[:,2,3:(freq_points+3)]
 
@@ -182,7 +185,7 @@ class SpectralIndexTracker:
         self.fig.align_labels()
         self.fig.canvas.draw()
 
-def scan_vizualization(data):
+def scan_vizualization(data, dt):
     """Vizualization of scan data."""
 
     fig = plt.figure(tight_layout=True)
@@ -191,11 +194,11 @@ def scan_vizualization(data):
     ax_freq = fig.add_subplot(gs[1, :])
     ax_raw = fig.add_subplot(gs[0,0])
     ax_filt = fig.add_subplot(gs[0,1])
-    tracker = SpectralIndexTracker(fig, ax_freq, ax_raw, ax_filt, data)
+    tracker = SpectralIndexTracker(fig, ax_freq, ax_raw, ax_filt, data, dt)
     fig.canvas.mpl_connect('key_press_event', tracker.on_key_press)
     plt.show()
 
-def spectral_vizualization(data, dt):
+def spectral_vizualization(data):
     """Vizualization of spectral data."""
 
     fig = plt.figure(tight_layout=True)
@@ -204,7 +207,9 @@ def spectral_vizualization(data, dt):
     ax_raw = fig.add_subplot(gs[0,1])
     ax_freq = fig.add_subplot(gs[1,0])
     ax_filt = fig.add_subplot(gs[1,1])
-    tracker = SpectralIndexTracker(fig,ax_sp,ax_raw,ax_freq,ax_filt,data, dt)
+    tracker = SpectralIndexTracker(fig,ax_sp,ax_raw,ax_freq,ax_filt,data)
+    fig.canvas.mpl_connect('key_press_event', tracker.on_key_press)
+    plt.show()
 
 def set_spec_preamble(data, start, stop, step, d_type='time'):
     """Sets preamble of spectral data"""
@@ -438,8 +443,8 @@ def spectra(osc, start_wl, end_wl, step):
 
         measure_ans = 'Empty'
         while measure_ans != 'Measure':
-            print(f'Start measuring point {(i+1)}')
-            print(f'First wavelength is {bcolors.OKBLUE}{current_wl}{bcolors.ENDC}. Please set it!')
+            print(f'\nStart measuring point {(i+1)}')
+            print(f'Current wavelength is {bcolors.OKBLUE}{current_wl}{bcolors.ENDC}. Please set it!')
             measure_ans = inquirer.rawlist(
                 message='Chose an action:',
                 choices=['Tune power','Measure','Stop measurements']
@@ -580,6 +585,7 @@ if __name__ == "__main__":
 
         elif menu_ans == 'Power meter':
             if state['osc init']:
+                print(f'OSC.sample rate ={osc.sample_rate}')
                 _ = track_power(100)
             else:
                 print('Osc not init!')
@@ -793,7 +799,7 @@ if __name__ == "__main__":
                 
                 if data_ans == 'View':
                     if state['spectral data']:
-                        scan_vizualization(scan_data)
+                        spectral_vizualization(spec_data)
                     else:
                         print(f'{bcolors.WARNING} Spectral data missing!{bcolors.ENDC}')
 
@@ -836,10 +842,10 @@ if __name__ == "__main__":
                         message='Enter Sample name',
                         default='Unknown'
                     ).execute()
-                    save_spectral_data(sample, scan_data)
+                    save_spectral_data(sample, spec_data)
 
                 elif data_ans == 'Load':
-                    scan_data = load_data('Spectral')
+                    spec_data = load_data('Spectral')
 
                 elif data_ans == 'Back to main menu':
                         break
