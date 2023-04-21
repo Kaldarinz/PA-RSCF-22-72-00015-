@@ -263,6 +263,7 @@ class Oscilloscope:
     def read_screen(self, channel):
         """Read data from screen"""
 
+        self.bad_read = False
         threshold = 0.10 # percentage of max amp, when we set begining of the impulse
 
         self.set_preamble()
@@ -273,24 +274,32 @@ class Oscilloscope:
         self.__osc.write(':WAV:STOP 1200')
         self.__osc.write(':WAV:DATA?')
         data_chunk = np.frombuffer(self.__osc.read_raw(), dtype=np.int8)
-        self.screen_data = data_chunk[12:]
-        self.rolling_average('screen', 10)
         
-        self.baseline_correction('screen')
+        if len(self.screen_data) == len(data_chunk[12:]):
+            self.screen_data = data_chunk[12:]
+            self.rolling_average('screen', 10)
+            self.baseline_correction('screen')
+        else:
+            self.bad_read = True
+            print(f'{bcolors.WARNING} Bad read (data points number) of screen data {bcolors.ENDC}')
+            self.screen_laser_amp = 0
+
         max_screen = np.amax(self.screen_data)
-        start_index = np.where(self.screen_data>(max_screen*threshold))[0][0]
 
-        stop_index = np.where(self.screen_data[start_index:] < 0)[0][0]
+        try:
+            start_index = np.where(self.screen_data>(max_screen*threshold))[0][0]
+            stop_index = np.where(self.screen_data[start_index:] < 0)[0][0]
+            dt = self.preamble['xincrement']
+            dy = self.preamble['yincrement']
+            self.screen_laser_amp = np.sum(self.screen_data[start_index:(start_index + stop_index)])*dt*1000000*dy
+            self.screen_data[start_index] = np.amax(self.screen_data)
+            self.screen_data[start_index + stop_index] = np.amax(self.screen_data)
+        except IndexError:
+            self.screen_laser_amp = 0
+            self.bad_read = True
+            print(f'{bcolors.WARNING} Bad read (index problem) of screen data {bcolors.ENDC}')
 
-        dt = self.preamble['xincrement']
-        dy = self.preamble['yincrement']
-        self.screen_laser_amp = np.sum(self.screen_data[start_index:(start_index + stop_index)])*dt*1000000*dy
-        self.screen_data[start_index] = np.amax(self.screen_data)
-        self.screen_data[start_index + stop_index] = np.amax(self.screen_data)
-        #print(f'screen laser amp = {self.screen_laser_amp:.5f}')
 
-        #plt.plot(self.screen_data[start_index:(start_index + stop_index)])
-        #plt.show()
 
     def measure(self,):
         """Measure PA amplitude"""

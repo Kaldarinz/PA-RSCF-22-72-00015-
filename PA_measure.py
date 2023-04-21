@@ -510,19 +510,21 @@ def track_power(tune_width):
     ax_pm = fig.add_subplot(gs[0,0])
     ax_pa = fig.add_subplot(gs[0,1])
     i = 0 #iterator
-    bad_read_flag = 0
+    bad_read_flag = False
     while True:
         if i <tune_width:
             osc.read_screen(osc.pm_channel)
+            bad_read_flag = osc.bad_read
             data[i] = osc.screen_laser_amp
             if data[i] < 0.2:
-                bad_read_flag = 1
+                bad_read_flag = True
         else:
             tmp_data[:-1] = data[1:].copy()
             osc.read_screen(osc.pm_channel)
+            bad_read_flag = osc.bad_read
             tmp_data[tune_width-1] = osc.screen_laser_amp
             if tmp_data[tune_width-1] < 0.2:
-                bad_read_flag = 1
+                bad_read_flag = True
             else:
                 data = tmp_data.copy()
         ax_pm.clear()
@@ -532,8 +534,8 @@ def track_power(tune_width):
         ax_pa.set_ylim(bottom=0) 
         fig.canvas.draw()
         plt.pause(0.1)
-        if bad_read_flag == 1:
-            bad_read_flag = 0
+        if bad_read_flag:
+            bad_read_flag = False
         else:
             i += 1
         if keyboard.is_pressed('q'):
