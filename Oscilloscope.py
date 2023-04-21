@@ -4,6 +4,17 @@ import time
 from scipy.fftpack import rfft, irfft, fftfreq
 import matplotlib.pyplot as plt
 
+class bcolors:
+    HEADER = '\033[95m'
+    OKBLUE = '\033[94m'
+    OKCYAN = '\033[96m'
+    OKGREEN = '\033[92m'
+    WARNING = '\033[93m'
+    FAIL = '\033[91m'
+    ENDC = '\033[0m'
+    BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
+
 # oscilloscope class. Intended to be used as a module in other scripts.
 class Oscilloscope:
     __osc = None
@@ -19,6 +30,7 @@ class Oscilloscope:
     pre_time = 0
     pm_response_time = 0
     pm_pre_time = 0
+    bad_read = False
 
     def __init__(self, osc_params) -> None:
         
@@ -148,7 +160,10 @@ class Oscilloscope:
                 data_chunk = np.frombuffer(self.__osc.read_raw(), dtype=np.int8)
                 data_chunk = (data_chunk - self.preamble['xreference'] - self.preamble['yorigin']) * self.preamble['yincrement']
                 data_chunk[-1] = data_chunk[-2] # убираем битый пиксель
-                self.current_pm_data += data_chunk[12:]
+                if len(self.current_pm_data) == len(data_chunk[12:]):
+                    self.current_pm_data += data_chunk[12:]
+                else:
+                    self.bad_read = True
             else:
                 data_frames = int(self.pm_frame_size/250000) + 1
                 print(f'data_frames = {data_frames}')
@@ -206,7 +221,9 @@ class Oscilloscope:
             print('Wrong channel for base correction! Channel = ', channel)
 
     def set_laser_amp(self):
-        """Updates laser amplitude"""
+        """Updates laser amplitude
+        If this method is called from outside, 
+        please set 'osc.bad_read = False' first"""
 
         threshold = 0.03 # percentage of max amp, when we set begining of the impulse
 
@@ -214,13 +231,24 @@ class Oscilloscope:
         self.baseline_correction(self.pm_channel)
         max_pm = np.amax(self.current_pm_data)
 
-        start_index = np.where(self.current_pm_data>(max_pm*threshold))[0][0]
-        #print(f'start_signal={start_index}')
-        #print(f'Signal at start_index={self.current_pm_data[start_index]}')
-        stop_index = np.where(self.current_pm_data[start_index:] < 0)[0][0]
-        #print(f'stop_index={stop_index}')
-        #print(f'Signal at stop_index={self.current_pm_data[start_index + stop_index]}')
-        self.laser_amp = np.sum(self.current_pm_data[start_index:(start_index + stop_index)])/self.sample_rate*1000000
+        try:
+            start_index = np.where(self.current_pm_data>(max_pm*threshold))[0][0]
+        except IndexError:
+            self.bad_read = True
+            start_index = 0
+            print(f'{bcolors.WARNING} Problem in set_laser_amp start_index. Laser amp set to 0 {bcolors.ENDC}')
+
+        try:
+            stop_index = np.where(self.current_pm_data[start_index:] < 0)[0][0]
+        except IndexError:
+            self.bad_read = True
+            stop_index = 0
+            print(f'{bcolors.WARNING} Problem in set_laser_amp stop_index. Laser amp set to 0 {bcolors.ENDC}')
+
+        if not self.bad_read:
+            self.laser_amp = np.sum(self.current_pm_data[start_index:(start_index + stop_index)])/self.sample_rate*1000000
+        else:
+            self.laser_amp = 0
         print(f'Laser amp = {self.laser_amp:.5f}')
 
     def set_signal_amp(self):
@@ -267,6 +295,7 @@ class Oscilloscope:
     def measure(self,):
         """Measure PA amplitude"""
 
+        self.bad_read = False
         pm_cutoff_freq = 1000 # pm cutoff freq for filtration
         kernel_size = 1000 # kernel size for rolling average filtration 
 

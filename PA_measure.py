@@ -202,7 +202,7 @@ def scan_vizualization(data, dt):
     ax_freq = fig.add_subplot(gs[1, :])
     ax_raw = fig.add_subplot(gs[0,0])
     ax_filt = fig.add_subplot(gs[0,1])
-    tracker = SpectralIndexTracker(fig, ax_freq, ax_raw, ax_filt, data, dt)
+    tracker = IndexTracker(fig, ax_freq, ax_raw, ax_filt, data, dt)
     fig.canvas.mpl_connect('key_press_event', tracker.on_key_press)
     plt.show()
 
@@ -304,15 +304,20 @@ def scan(x_start, y_start, x_size, y_size, x_points, y_points):
             wait_stages_stop(stage_X,stage_Y)
 
             osc.measure()
-
-            scan_frame[i,j] = osc.signal_amp/osc.laser_amp
-            scan_frame_full[i,j,0,:] = osc.current_pa_data/osc.laser_amp
-            print(f'normalizaed amp at ({i}, {j}) is {scan_frame[i,j]:.3f}\n')
-            
-            im.set_data(scan_frame)
+            if not osc.bad_read:
+                scan_frame[i,j] = osc.signal_amp/osc.laser_amp
+                scan_frame_full[i,j,0,:] = osc.current_pa_data/osc.laser_amp
+                print(f'normalizaed amp at ({i}, {j}) is {scan_frame[i,j]:.3f}\n')
+            else:
+                scan_frame[i,j] = 0
+                scan_frame_full[i,j,0,:] = 0
+                print(f'{bcolors.WARNING} Bad data at point ({i},{j}){bcolors.ENDC}\n')
+                
+            im.set_data(scan_frame.transpose())
             im.set_clim(vmax=np.amax(scan_frame))
             fig.canvas.draw()
             plt.pause(0.1)
+
 
     return scan_frame, scan_frame_full
 
