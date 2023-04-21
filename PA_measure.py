@@ -503,7 +503,11 @@ def spectra(osc, start_wl, end_wl, step):
 def track_power(tune_width):
     """Build power graph"""
 
+    if tune_width <11:
+        print(f'{bcolors.WARNING} Wrong tune_width value!{bcolors.ENDC}')
+        return
     print(f'{bcolors.OKGREEN} Hold q button to stop power measurements{bcolors.ENDC}')
+    threshold = 0.1
     data = np.zeros(tune_width)
     tmp_data = np.zeros(tune_width)
     fig = plt.figure(tight_layout=True)
@@ -512,19 +516,36 @@ def track_power(tune_width):
     ax_pa = fig.add_subplot(gs[0,1])
     i = 0 #iterator
     bad_read_flag = False
+
     while True:
-        if i <tune_width:
+        if i == 0:
             osc.read_screen(osc.pm_channel)
             bad_read_flag = osc.bad_read
-            data[i] = osc.screen_laser_amp
-            if data[i] < 0.2:
+            if osc.screen_laser_amp < 1:
                 bad_read_flag = True
+            title = f'Power={osc.screen_laser_amp:.1f} [uJ], Mean (last 10) = {data[:i+1].mean():.1f} [uJ], Std (last 10) = {data[:i+1].std():.1f} [uJ]'
+
+        elif i <tune_width:
+            osc.read_screen(osc.pm_channel)
+            bad_read_flag = osc.bad_read
+
+            if i <11:
+                if osc.screen_laser_amp < threshold*data[:i].mean():
+                    bad_read_flag = True
+                title = f'Power={osc.screen_laser_amp:.1f} [uJ], Mean (last 10) = {data[:i].mean():.1f} [uJ], Std (last 10) = {data[:i].std():.1f} [uJ]'
+            else:
+                if osc.screen_laser_amp < threshold*data[i-11:i].mean():
+                    bad_read_flag = True
+                title = f'Power={osc.screen_laser_amp:.1f} [uJ], Mean (last 10) = {data[i-11:i].mean():.1f} [uJ], Std (last 10) = {data[i-11:i].std():.1f} [uJ]'
+            if not bad_read_flag:
+                data[i] = osc.screen_laser_amp
         else:
             tmp_data[:-1] = data[1:].copy()
             osc.read_screen(osc.pm_channel)
             bad_read_flag = osc.bad_read
             tmp_data[tune_width-1] = osc.screen_laser_amp
-            if tmp_data[tune_width-1] < 0.2:
+            title = f'Power={osc.screen_laser_amp:.1f} [uJ], Mean (last 10) = {data[tune_width-10:].mean():.1f} [uJ], Std (last 10) = {data[tune_width-10].std():.1f} [uJ]'
+            if tmp_data[tune_width-1] < threshold*data[tune_width-10:]:
                 bad_read_flag = True
             else:
                 data = tmp_data.copy()
@@ -533,7 +554,8 @@ def track_power(tune_width):
         ax_pm.plot(osc.screen_data)
         ax_pa.plot(data)
         ax_pa.set_ylabel('Laser power, [uJ]')
-        ax_pa.set_ylim(bottom=0) 
+        ax_pa.set_title(title)
+        ax_pa.set_ylim(bottom=0)
         fig.canvas.draw()
         plt.pause(0.1)
         if bad_read_flag:
