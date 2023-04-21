@@ -19,6 +19,7 @@ class bcolors:
 class Oscilloscope:
     __osc = None
     sample_rate = 0
+    laser_calib_uj = 0
     pa_frame_size = 0
     pm_frame_size = 0
     pm_pre_time = 0
@@ -56,6 +57,7 @@ class Oscilloscope:
         self.pm_channel = osc_params['trigger_channel']
         print('power meter channel name = ', self.pm_channel)
 
+        self.laser_calib_uj = osc_params['laser_calib_uj']
         self.frame_duration = osc_params['frame_duration']
         self.pre_time = osc_params['pre_time']
         self.pa_frame_size = self.time_to_points(self.frame_duration)
@@ -226,11 +228,12 @@ class Oscilloscope:
             print('Wrong channel for base correction! Channel = ', channel)
 
     def set_laser_amp(self):
-        """Updates laser amplitude
+        """Updates laser amplitude in uJ
         If this method is called from outside, 
         please set 'osc.bad_read = False' first"""
 
         threshold = 0.03 # percentage of max amp, when we set begining of the impulse
+        
 
         self.set_preamble()
         self.baseline_correction(self.pm_channel)
@@ -251,7 +254,7 @@ class Oscilloscope:
             print(f'{bcolors.WARNING} Problem in set_laser_amp stop_index. Laser amp set to 0 {bcolors.ENDC}')
 
         if not self.bad_read:
-            self.laser_amp = np.sum(self.current_pm_data[start_index:(start_index + stop_index)])/self.sample_rate*1000000
+            self.laser_amp = np.sum(self.current_pm_data[start_index:(start_index + stop_index)])/self.sample_rate*self.laser_calib_uj
         else:
             self.laser_amp = 0
         print(f'Laser amp = {self.laser_amp:.5f}')
@@ -298,7 +301,7 @@ class Oscilloscope:
             stop_index = np.where(self.screen_data[start_index:] < 0)[0][0]
             dt = self.preamble['xincrement']
             dy = self.preamble['yincrement']
-            self.screen_laser_amp = np.sum(self.screen_data[start_index:(start_index + stop_index)])*dt*1000000*dy
+            self.screen_laser_amp = np.sum(self.screen_data[start_index:(start_index + stop_index)])*dt*dy*self.laser_calib_uj
             self.screen_data[start_index] = np.amax(self.screen_data)
             self.screen_data[start_index + stop_index] = np.amax(self.screen_data)
         except IndexError:

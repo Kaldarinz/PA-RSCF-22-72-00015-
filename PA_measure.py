@@ -34,6 +34,7 @@ osc_params = {
     'frame_duration': 150, # [us] whole duration of the stored frame
     'pm_response_time': 2500, # [us] response time of the power meter
     'pm_pre_time': 300,
+    'laser_calib_uj': 2500000,
     'trigger_channel': 'CHAN1',
     'pa_channel': 'CHAN2',
 }
@@ -531,6 +532,7 @@ def track_power(tune_width):
         ax_pa.clear()
         ax_pm.plot(osc.screen_data)
         ax_pa.plot(data)
+        ax_pa.set_ylabel('Laser power, [uJ]')
         ax_pa.set_ylim(bottom=0) 
         fig.canvas.draw()
         plt.pause(0.1)
