@@ -18,8 +18,16 @@ import time
 
 #spec_data[WL index, data type, data points]
 #data type: 0 - raw data, 1 - filtered data, 2 - FFT data
-#for real data data points[0] - start WL, [1] - end WL, [2] - step WL, [3] - dt, [4] - max amp
-#for FFT data data points[0] - start freq, [1] - end freq, [2] - step freq
+#for real data: 
+# data points[:,0:2,0] - start WL 
+# data points[:,0:2,1] - end WL
+# data points[:,0:2,2] - step WL
+# data points[:,0:2,3] - dt
+# data points[:,0:2,4] - max amp
+# data points[:,0:2,5] - laser energy (integral)
+# data points[:,2,0] - start freq
+# data points[:,2,1] - end freq
+# data points[:,2,2] - step freq
 
 osc_params = {
     'pre_time': 30, # [us] start time of data storage before trigger
@@ -130,9 +138,9 @@ class SpectralIndexTracker:
         self.dt = data[0,0,3]
         self.dw = data[0,2,2]
         
-        self.time_data = np.linspace(0,self.dt*(data.shape[2]-6),data.shape[2]-5)*1000000
-        self.raw_data = data[:,0,5:]
-        self.filt_data = data[:,1,5:]
+        self.time_data = np.linspace(0,self.dt*(data.shape[2]-7),data.shape[2]-6)*1000000
+        self.raw_data = data[:,0,6:]
+        self.filt_data = data[:,1,6:]
 
         wl_points = int((data[0,0,1] - data[0,0,0])/data[0,0,2]) + 1
         self.wl_data = np.linspace(data[0,0,0],data[0,0,1],wl_points)
@@ -433,7 +441,7 @@ def spectra(osc, start_wl, end_wl, step):
         step = -step
 
     if state['osc init']:
-        spec_data = np.zeros((spectral_points,3,osc.pa_frame_size+5))
+        spec_data = np.zeros((spectral_points,3,osc.pa_frame_size+6))
         print(f'Spec_data init with shape {spec_data.shape}')
     else:
         spec_data = np.zeros((spectral_points,3,10))
@@ -473,7 +481,8 @@ def spectra(osc, start_wl, end_wl, step):
                     if good_data:
                         spec_data[i,0:2,3] = dt
                         spec_data[i,0,4] = osc.signal_amp
-                        spec_data[i,0,5:] = osc.current_pa_data/osc.laser_amp
+                        spec_data[i,0,5] = osc.laser_amp
+                        spec_data[i,0,6:] = osc.current_pa_data/osc.laser_amp
                     else:
                         measure_ans = 'Bad data' #trigger additional while cycle
                 else:
