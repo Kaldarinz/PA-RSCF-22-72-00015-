@@ -263,9 +263,7 @@ class Oscilloscope:
         """Updates PA amplitude"""
 
         self.baseline_correction(self.pa_channel)
-        pa_search_start = self.time_to_points(5 + self.osc_params['pre_time'])
-        pa_search_stop = self.time_to_points(80) # это плохо и надо бы переписать
-        self.signal_amp = abs(self.current_pa_data[pa_search_start:pa_search_stop].max()-self.current_pa_data[pa_search_start:pa_search_stop].min())
+        self.signal_amp = abs(self.current_pa_data.max()-self.current_pa_data.min())
         print(f'PA amp = {self.signal_amp:.4f}')
 
     def read_screen(self, channel):

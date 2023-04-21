@@ -447,6 +447,7 @@ def spectra(osc, start_wl, end_wl, step):
         step = -step
 
     if state['osc init']:
+        osc.measure()
         spec_data = np.zeros((spectral_points,3,osc.pa_frame_size+6))
         print(f'Spec_data init with shape {spec_data.shape}')
     else:
@@ -545,7 +546,7 @@ def track_power(tune_width):
             bad_read_flag = osc.bad_read
             tmp_data[tune_width-1] = osc.screen_laser_amp
             title = f'Power={osc.screen_laser_amp:.1f} [uJ], Mean (last 10) = {data[tune_width-10:].mean():.1f} [uJ], Std (last 10) = {data[tune_width-10].std():.1f} [uJ]'
-            if tmp_data[tune_width-1] < threshold*data[tune_width-10:]:
+            if tmp_data[tune_width-1] < threshold*data[tune_width-10:].mean():
                 bad_read_flag = True
             else:
                 data = tmp_data.copy()
@@ -699,16 +700,12 @@ if __name__ == "__main__":
             x_points = inquirer.number(
                 message='Enter number of X scan points',
                 default= 5,
-                min_allowed=2,
-                max_allowed=50,
                 filter=lambda result: int(result)
             ).execute()
 
             y_points = inquirer.number(
                 message='Enter number of Y scan points',
                 default= 5,
-                min_allowed=2,
-                max_allowed=50,
                 filter=lambda result: int(result)
             ).execute()
 
