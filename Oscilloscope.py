@@ -133,7 +133,12 @@ class Oscilloscope:
         if channel == self.pm_channel:
             self.current_pm_data = np.convolve(self.current_pm_data,kernel,mode='valid')
         elif channel == 'screen':
-            self.screen_data = np.convolve(self.screen_data,kernel,mode='valid')
+            tmp_array = np.zeros(len(self.screen_data))
+            border = int(kernel_size/2)
+            tmp_array[border:-(border-1)] = np.convolve(self.screen_data,kernel,mode='valid')
+            tmp_array[:border] = tmp_array[border]
+            tmp_array[-(border):] = tmp_array[-border]
+            self.screen_data = tmp_array.copy()
         else:
             print(f'rolling average for channel {channel} is not written!')
 
@@ -157,7 +162,7 @@ class Oscilloscope:
                 self.__osc.write(':WAV:STAR ' + str(data_start + 1))
                 self.__osc.write(':WAV:STOP ' + str(self.pm_frame_size + data_start))
                 self.__osc.write(':WAV:DATA?')
-                data_chunk = np.frombuffer(self.__osc.read_raw(), dtype=np.int8)
+                data_chunk = np.frombuffer(self.__osc.read_raw(), dtype=np.uint8)
                 data_chunk = (data_chunk - self.preamble['xreference'] - self.preamble['yorigin']) * self.preamble['yincrement']
                 data_chunk[-1] = data_chunk[-2] # убираем битый пиксель
                 if len(self.current_pm_data) == len(data_chunk[12:]):
@@ -176,7 +181,7 @@ class Oscilloscope:
                         command = ':WAV:STOP ' + str(data_start + self.pm_frame_size - 1)
                         self.__osc.write(command)
                     self.__osc.write(':WAV:DATA?')
-                    data_chunk = np.frombuffer(self.__osc.read_raw(), dtype=np.int8)
+                    data_chunk = np.frombuffer(self.__osc.read_raw(), dtype=np.uint8)
                     data_chunk = (data_chunk - self.preamble['xreference'] - self.preamble['yorigin']) * self.preamble['yincrement']
                     data_chunk[-1] = data_chunk[-2] # убираем битый пиксель
                     if (self.pm_frame_size - (i+1)*250000) > 0:
@@ -194,7 +199,7 @@ class Oscilloscope:
             self.__osc.write(':WAV:STAR ' + str(data_start + 1))
             self.__osc.write(':WAV:STOP ' + str(self.pa_frame_size + data_start))
             self.__osc.write(':WAV:DATA?')
-            data_chunk = np.frombuffer(self.__osc.read_raw(), dtype=np.int8)
+            data_chunk = np.frombuffer(self.__osc.read_raw(), dtype=np.uint8)
             data_chunk = (data_chunk - self.preamble['xreference'] - self.preamble['yorigin']) * self.preamble['yincrement']
             data_chunk[-1] = data_chunk[-2] # убираем битый пиксель
             self.current_pa_data += data_chunk[12:]
@@ -273,17 +278,19 @@ class Oscilloscope:
         self.__osc.write(':WAV:STAR 1')
         self.__osc.write(':WAV:STOP 1200')
         self.__osc.write(':WAV:DATA?')
-        data_chunk = np.frombuffer(self.__osc.read_raw(), dtype=np.int8)
-        
+        data_chunk = np.frombuffer(self.__osc.read_raw(), dtype=np.uint8)
+        data_chunk = data_chunk.astype(np.float64)
+
         if len(self.screen_data) == len(data_chunk[12:]):
             self.screen_data = data_chunk[12:]
             self.rolling_average('screen', 10)
             self.baseline_correction('screen')
         else:
+            print(f'len of screen_data = {len(self.screen_data )}')
+            print(f'len of data_chunk[12:] = {len(data_chunk[12:])}')
             self.bad_read = True
             print(f'{bcolors.WARNING} Bad read (data points number) of screen data {bcolors.ENDC}')
             self.screen_laser_amp = 0
-
         max_screen = np.amax(self.screen_data)
 
         try:

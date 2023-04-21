@@ -241,7 +241,7 @@ def init_stages():
 
     if len(stages) < 2:
         print('Less than 2 stages detected!')
-        print('Program terminated!')
+        print('Try again!')
         exit()
 
     stage1_ID = stages.pop()[0]
