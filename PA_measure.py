@@ -545,8 +545,8 @@ def track_power(tune_width):
             osc.read_screen(osc.pm_channel)
             bad_read_flag = osc.bad_read
             tmp_data[tune_width-1] = osc.screen_laser_amp
-            title = f'Power={osc.screen_laser_amp:.1f} [uJ], Mean (last 10) = {data[tune_width-10:].mean():.1f} [uJ], Std (last 10) = {data[tune_width-10].std():.1f} [uJ]'
-            if tmp_data[tune_width-1] < threshold*data[tune_width-10:].mean():
+            title = f'Power={osc.screen_laser_amp:.1f} [uJ], Mean (last 10) = {tmp_data[tune_width-11:-1].mean():.1f} [uJ], Std (last 10) = {tmp_data[tune_width-11:-1].std():.1f} [uJ]'
+            if tmp_data[tune_width-1] < threshold*tmp_data[tune_width-11:-1].mean():
                 bad_read_flag = True
             else:
                 data = tmp_data.copy()
