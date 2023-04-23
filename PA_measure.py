@@ -820,7 +820,7 @@ def glass_calculator(wavelength, target_energy, max_combinations, no_print=False
             for k,v in comb:
                 key +=k
                 value+=v
-            filter_combinations.update({key:value})    
+            filter_combinations.update({key:math.pow(10,-value)})    
 
     target_transm = target_energy*1000/data[wl_index,1]
     filter_combinations = dict(sorted(filter_combinations.copy().items(), key=lambda item: item[1]))
