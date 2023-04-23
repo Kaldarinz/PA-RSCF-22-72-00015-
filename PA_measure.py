@@ -302,7 +302,7 @@ def scan(stage_X, stage_Y):
     3D array with the whole normalized PA data for each scan point.
     Updates global state."""
 
-    if state['stages init']:
+    if state['stages init'] and state['osc init']:
 
         x_start = inquirer.number(
             message='Enter X starting position [mm]',
@@ -404,11 +404,15 @@ def scan(stage_X, stage_Y):
                 print(f'{bcolors.OKGREEN}PA detector came to the optimal position!{bcolors.ENDC}')
 
     else:
-        print(f'{bcolors.WARNING} Stages are not initialized!{bcolors.ENDC}')
-        return 0, 0 
+        if not state['stages init']:
+            print(f'{bcolors.WARNING} Stages are not initialized!{bcolors.ENDC}')
+        if not state['osc init']:
+            print(f'{bcolors.WARNING} Oscilloscope is not initialized!{bcolors.ENDC}')
+        return 0, 0, 0 
 
+    dt = 1/osc.sample_rate
     state['scan data'] = True
-    return scan_frame, scan_frame_full
+    return scan_frame, scan_frame_full, dt
 
 def save_scan_data(sample, data, dt):
     """Saves full data in npy format."""
@@ -787,13 +791,13 @@ if __name__ == "__main__":
                 ).execute()
                 
                 if data_ans == 'Scan':
-                    scan_image, scan_data = scan(stage_X, stage_Y)
+                    scan_image, scan_data, dt = scan(stage_X, stage_Y)
 
                 elif data_ans == 'View data':
                     if state['scan data']:
                         scan_vizualization(scan_data, dt)
                     else:
-                        print(f'{bcolors.WARNING} Scan data missing!{bcolors.ENDC}')
+                        print(f'{bcolors.WARNING} Scan data is missing!{bcolors.ENDC}')
 
                 elif data_ans == 'FFT filtration':
                     if state['scan data']:
@@ -830,11 +834,14 @@ if __name__ == "__main__":
                         print(f'{bcolors.WARNING} Scan data is missing!{bcolors.ENDC}')
 
                 elif data_ans == 'Save data':
-                    sample = inquirer.text(
-                        message='Enter Sample name',
-                        default='Unknown'
-                    ).execute()
-                    save_scan_data(sample, scan_data, dt)
+                    if state['scan data']:
+                        sample = inquirer.text(
+                            message='Enter Sample name',
+                            default='Unknown'
+                        ).execute()
+                        save_scan_data(sample, scan_data, dt)
+                    else:
+                        print(f'{bcolors.WARNING}Scan data is missing!{bcolors.ENDC}')
 
                 elif data_ans == 'Load data':
                     scan_data, dt = load_data('Scan')
@@ -903,11 +910,14 @@ if __name__ == "__main__":
                         print(f'{bcolors.WARNING} Scan data is missing!{bcolors.ENDC}')
 
                 elif data_ans == 'Save data':
-                    sample = inquirer.text(
-                        message='Enter Sample name',
-                        default='Unknown'
-                    ).execute()
-                    save_spectral_data(sample, spec_data)
+                    if state['spectral data']:
+                        sample = inquirer.text(
+                            message='Enter Sample name',
+                            default='Unknown'
+                        ).execute()
+                        save_spectral_data(sample, spec_data)
+                    else:
+                        print(f'{bcolors.WARNING}Spectral data is missing!{bcolors.ENDC}')
 
                 elif data_ans == 'Load data':
                     spec_data = load_data('Spectral')
