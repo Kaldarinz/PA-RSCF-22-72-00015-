@@ -94,7 +94,7 @@ class EnergyValidator(Validator):
                 message='Energies smaller than 10 uJ are not supported',
                 cursor_position=document.cursor_position
             )
-        if int(document.text) > 100:
+        if float(document.text) > 100:
             raise ValidationError(
                 message='Energies larger than 100 mJ are not supported',
                 cursor_position=document.cursor_position
