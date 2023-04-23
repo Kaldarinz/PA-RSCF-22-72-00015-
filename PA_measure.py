@@ -11,6 +11,8 @@ from InquirerPy.validator import PathValidator
 import matplotlib.gridspec as gridspec
 import keyboard
 import time
+import math
+from itertools import combinations
 
 # data formats
 # scan_data[X scan points, Y scan points, 4, signal data points]
@@ -725,6 +727,99 @@ def set_new_position(stage_X, stage_Y):
     else:
         print(f'{bcolors.WARNING} Stages are not initialized!{bcolors.ENDC}')
 
+def remove_zeros(data):
+    """change zeros in filters data by linear fit from nearest values"""
+
+    for j in range(data.shape[1]-2):
+        for i in range(data.shape[0]-1):
+            if data[i+1,j+2] == 0:
+                if i == 0:
+                    if data[i+2,j+2] == 0 or data[i+3,j+2] == 0:
+                        print('missing value for the smallest WL cannot be calculated!')
+                        return data
+                    else:
+                        data[i+1,j+2] = 2*data[i+2,j+2] - data[i+3,j+2]
+                elif i == data.shape[0]-2:
+                    if data[i,j+2] == 0 or data[i-1,j+2] == 0:
+                        print('missing value for the smallest WL cannot be calculated!')
+                        return data
+                    else:
+                        data[i+1,j+2] = 2*data[i,j+2] - data[i-1,j+2]
+                else:
+                    if data[i,j+2] == 0 or data[i+2,j+2] == 0:
+                        print('adjacent zeros in filter data are not supported!')
+                        return data
+                    else:
+                        data[i+1,j+2] = (data[i,j+2] + data[i+2,j+2])/2
+    return data
+
+def calc_od(data):
+    """calculates OD using thickness of filters"""
+    for j in range(data.shape[1]-2):
+        for i in range(data.shape[0]-1):
+            data[i+1,j+2] = data[i+1,j+2]*data[0,j+2]
+    return data
+
+def glass_calculator(wavelength, target_energy, max_combinations, threshold =0):
+    """Return filter combinations whith close transmissions
+    which are higher than required"""
+
+    result = {}
+    filename = 'ColorGlass.txt'
+
+    try:
+        data = np.loadtxt(filename,skiprows=1)
+        header = open(filename).readline()
+    except FileNotFoundError:
+        print(f'{bcolors.WARNING} File with color glass data not found!{bcolors.ENDC}')
+        return {}
+    except ValueError as er:
+        print(f'Error message: {str(er)}')
+        print(f'{bcolors.WARNING} Error while loading color glass data!{bcolors.ENDC}')
+        return {}
+    
+    data = remove_zeros(data)
+    data = calc_od(data)
+    filter_titles = header.split('\n')[0].split('\t')[2:]
+
+    try:
+        wl_index = np.where(data[1:,0] == wavelength)[0][0] + 1
+    except IndexError:
+        print(f'{bcolors.WARNING} Target WL is missing in color glass data table!{bcolors.ENDC}')
+        return {}
+
+    filter_dict = {}
+    for key, value in zip(filter_titles,data[wl_index,2:]):
+        filter_dict.update({key:value})
+
+    filter_combinations = {}
+    for i in range(max_combinations):
+        for comb in combinations(filter_dict.items(),i+1):
+            key = ''
+            value = 0
+            for k,v in comb:
+                key +=k
+                value+=v
+            filter_combinations.update({key:value})    
+
+    target_transm = target_energy*1000/data[wl_index,1]
+    filter_combinations = dict(sorted(filter_combinations.copy().items(), key=lambda item: item[1]))
+
+    i=0
+    for key, value in filter_combinations.items():
+        if (value-target_transm) > 0 and value/target_transm < 2.5:
+            result.update({key: value})
+            if (value/target_transm < 1.25) and i<5:
+                print(f'{bcolors.OKGREEN} {key}, transmission = {value*100:.1f}%{bcolors.ENDC} (target= {target_transm*100:.1f}%)')
+            elif (value/target_transm < 1.5) and i<5:
+                print(f'{bcolors.OKCYAN} {key}, transmission = {value*100:.1f}%{bcolors.ENDC} (target= {target_transm*100:.1f}%)')
+            elif value/target_transm < 2 and i<5:
+                print(f'{bcolors.OKBLUE} {key}, transmission = {value*100:.1f}%{bcolors.ENDC} (target= {target_transm*100:.1f}%)')
+            elif value/target_transm < 2.5 and i<5:
+                print(f'{bcolors.WARNING} {key}, transmission = {value*100:.1f}%{bcolors.ENDC} (target= {target_transm*100:.1f}%)')
+            i+=1
+    
+    return result, i
 
 if __name__ == "__main__":
     
@@ -858,6 +953,7 @@ if __name__ == "__main__":
                     message='Choose spectral data action',
                     choices=[
                         'Measure spectrum',
+                        'Color glass calculator',
                         'View data', 
                         'FFT filtration',
                         'Load data',
@@ -869,6 +965,24 @@ if __name__ == "__main__":
                 if data_ans == 'Measure spectrum':
                     spec_data = spectra(osc)  
 
+                elif data_ans == 'Color glass calculator':
+                    target_energy = inquirer.number(
+                        message='Set target energy in [mJ]',
+                        default=1,
+                        float_allowed=True,
+                        filter=lambda result: float(result)
+                    ).execute()
+                    max_combinations = inquirer.number(
+                        message='Set maximum amount of filters',
+                        default=3,
+                        filter=lambda result: int(result)
+                    ).execute()
+
+                    wls = np.arange(690,951,10)
+                    for wl in wls:
+                        print(f'WL = {wl}')
+                        filters, n = glass_calculator(wl,target_energy, max_combinations)
+                    
                 elif data_ans == 'View data':
                     if state['spectral data']:
                         spectral_vizualization(spec_data)

@@ -4,9 +4,8 @@ import math
 filename = 'ColorGlass.txt'
 
 def remove_zeros(data):
-    """removes zeros from filter values"""
+    """fill zeros in filters data by linear fit from nearest values"""
 
-    print(f'data shape {data.shape}')
     for j in range(data.shape[1]-2):
         for i in range(data.shape[0]-1):
             if data[i+1,j+2] == 0:
@@ -31,7 +30,7 @@ def remove_zeros(data):
     return data
 
 def calc_od(data):
-    """calculates OD"""
+    """calculates OD using thickness of filters"""
     for j in range(data.shape[1]-2):
         for i in range(data.shape[0]-1):
             data[i+1,j+2] = data[i+1,j+2]*data[0,j+2]
@@ -41,8 +40,7 @@ data = np.loadtxt(filename,skiprows=1)
 data = remove_zeros(data)
 data = calc_od(data)
 
-f = open(filename)
-header = f.readline()
+header = open(filename).readline()
 filters = header.split('\n')[0].split('\t')[2:]
 
 print(filters)
@@ -55,8 +53,8 @@ print(f'all filters = {all_filters}')
 #print(f'Combination = {combinations}')
 
 def get_combi(dict, data, filters, filter_number=2):
-    """data is array with filter values"""
-
+    """Recursive method for calculation of transmission
+    of filter combinations"""
 
     if len(data) > 1:
         combi_name_1 = filters[0]
