@@ -49,14 +49,11 @@ class Oscilloscope:
             self.__osc = rm.open_resource(instrument_name[0])
             print('Oscilloscope found!')
         
-        self.sample_rate = float(self.__osc.query(':ACQ:SRAT?'))
-        print('Sample rate = ', self.sample_rate)
-
+        self.set_preamble()
         self.pa_channel = osc_params['pa_channel']
         print('PA channel name = ', self.pa_channel)
         self.pm_channel = osc_params['trigger_channel']
         print('power meter channel name = ', self.pm_channel)
-
         self.laser_calib_uj = osc_params['laser_calib_uj']
         self.frame_duration = osc_params['frame_duration']
         self.pre_time = osc_params['pre_time']
@@ -70,8 +67,6 @@ class Oscilloscope:
         self.pm_pre_points = self.time_to_points(self.pm_pre_time)
         self.init_current_data(self.pm_channel)
         self.screen_data = np.zeros(1200)
-
-        self.set_preamble()
         self.not_found = False
 
         print(f'{bcolors.OKBLUE}Oscilloscope{bcolors.ENDC} initiation complete!')
@@ -85,8 +80,10 @@ class Oscilloscope:
         """Fill arrays for current data with zeros"""
 
         if channel == self.pm_channel:
+            self.pm_frame_size = self.time_to_points(self.pm_response_time + self.pm_pre_time)
             self.current_pm_data = np.zeros(self.pm_frame_size)
         if channel == self.pa_channel:
+            self.pa_frame_size = self.time_to_points(self.frame_duration)
             self.current_pa_data = np.zeros(self.pa_frame_size)
         
     def set_preamble(self):
@@ -108,8 +105,10 @@ class Oscilloscope:
         self.sample_rate = float(self.__osc.query(':ACQ:SRAT?'))
 
     def time_to_points (self, duration) -> int:
-        """Convert duration [us] into amount of data points"""
+        """Convert duration [us] into amount of data points.
+        Updates preamble before conversion."""
         
+        self.set_preamble()
         points = int(duration*self.sample_rate/1000000) + 1
         return points
     
@@ -143,7 +142,7 @@ class Oscilloscope:
             tmp_array[-(border):] = tmp_array[-border]
             self.screen_data = tmp_array.copy()
         else:
-            print(f'rolling average for channel {channel} is not written!')
+            print(f'rolling average for channel {channel} is not implemented!')
 
     def read_data(self, channel):
         """Reads data from the specified channel.
@@ -152,11 +151,8 @@ class Oscilloscope:
         self.__osc.write(':WAV:SOUR ' + channel)
         self.__osc.write(':WAV:MODE RAW')
         self.__osc.write(':WAV:FORM BYTE')
-
-        self.set_preamble()
         
         if channel == self.pm_channel:
-            self.pm_frame_size = self.time_to_points(self.pm_response_time + self.pm_pre_time)
             self.pm_pre_points = self.time_to_points(self.pm_pre_time)
             self.init_current_data(self.pm_channel)
             # по факту триггерный сигнал в середине сохранённого диапазона.
@@ -174,7 +170,7 @@ class Oscilloscope:
                     self.bad_read = True
             else:
                 data_frames = int(self.pm_frame_size/250000) + 1
-                print(f'data_frames = {data_frames}')
+                print(f'Required data frames to read = {data_frames}')
                 for i in range(data_frames):
                     command = ':WAV:STAR ' + str(data_start + 1 + i*250000)
                     self.__osc.write(command)
@@ -195,7 +191,6 @@ class Oscilloscope:
                         data_chunk = 0
 
         elif channel == self.pa_channel:
-            self.pa_frame_size = self.time_to_points(self.frame_duration)
             self.pre_points = self.time_to_points(self.pre_time)
             self.init_current_data(self.pa_channel)
             data_start = (int(self.preamble['points']/2) - self.pre_points) # выбираем начальную точку
@@ -208,8 +203,7 @@ class Oscilloscope:
             self.current_pa_data += data_chunk[12:]
         else:
             print('Wrong channel for read!')
-            print('Program terminated!')
-            exit()
+            self.bad_read = True
 
     def baseline_correction(self, channel):
         """Corrects baseline for the selected channel"""
@@ -257,7 +251,7 @@ class Oscilloscope:
             self.laser_amp = np.sum(self.current_pm_data[start_index:(start_index + stop_index)])/self.sample_rate*self.laser_calib_uj
         else:
             self.laser_amp = 0
-        print(f'Laser amp = {self.laser_amp:.5f}')
+        print(f'Laser amp = {self.laser_amp:.1f}')
 
     def set_signal_amp(self):
         """Updates PA amplitude"""
@@ -307,28 +301,25 @@ class Oscilloscope:
             self.bad_read = True
             print(f'{bcolors.WARNING} Bad read (index problem) of screen data {bcolors.ENDC}')
 
-
-
     def measure(self,):
         """Measure PA amplitude"""
 
         self.bad_read = False
-        pm_cutoff_freq = 1000 # pm cutoff freq for filtration
         kernel_size = 1000 # kernel size for rolling average filtration 
-
-        self.set_preamble()
 
         while int(self.__osc.query(':TRIG:POS?'))<0: #ждём пока можно будет снова читать данные
             time.sleep(0.1)
 
         self.__osc.write(':STOP')
-        self.init_current_data(self.pm_channel)
         self.read_data(self.pm_channel)
-        kernel_size = int(len(self.current_pm_data)/1000)
-        self.rolling_average(self.pm_channel,kernel_size)
-        self.init_current_data(self.pa_channel)
+        if not self.bad_read:
+            kernel_size = int(len(self.current_pm_data)/1000)
+            self.rolling_average(self.pm_channel,kernel_size) #data smoothing
+            self.set_laser_amp()
+
         self.read_data(self.pa_channel)
+        self.set_signal_amp()
         self.__osc.write(':RUN')
 
-        self.set_laser_amp()
-        self.set_signal_amp()
+        
+        

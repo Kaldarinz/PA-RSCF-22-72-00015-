@@ -537,47 +537,56 @@ def home(stage_X, stage_Y):
     else:
         print(f'{bcolors.WARNING} Stages are not initialized!{bcolors.ENDC}')
 
-def spectra(osc, start_wl, end_wl, step):
-    """Measures spectral data"""
-
-    print('Start measuring spectra!')
-    dt = 0
-    d_wl = abs(end_wl-start_wl)
-    if d_wl % step:
-        print(f'{bcolors.WARNING} Wrong step size!{bcolors.ENDC}')
-    else:
-        spectral_points = int(d_wl/step) + 1
-    
-    if start_wl>end_wl:
-        step = -step
+def spectra(osc):
+    """Measures spectral data.
+    Updates global state"""
 
     if state['osc init']:
-        osc.measure()
+        start_wl = inquirer.number(
+            message='Set start wavelength, [nm]',
+            default=690,
+            filter=lambda result: int(result)
+        ).execute()
+        end_wl = inquirer.number(
+            message='Set end wavelength, [nm]',
+            default=950,
+            filter=lambda result: int(result)
+        ).execute()
+        step = inquirer.number(
+            message='Set step, [nm]',
+            default=10,
+            min_allowed=1,
+            filter=lambda result: int(result)
+        ).execute()
+    
+        print('Start measuring spectra!')
+    
+        d_wl = abs(end_wl-start_wl)
+        spectral_points = int(d_wl/step) + 1
+        
+        if start_wl>end_wl:
+            step = -step
+
+        osc.time_to_points(osc.frame_duration)
         spec_data = np.zeros((spectral_points,3,osc.pa_frame_size+6))
-        print(f'Spec_data init with shape {spec_data.shape}')
-    else:
-        spec_data = np.zeros((spectral_points,3,10))
+        spec_data = set_spec_preamble(spec_data,start_wl,end_wl,step)
 
-    spec_data = set_spec_preamble(spec_data,start_wl,end_wl,step)
+        for i in range(spectral_points):
+            current_wl = start_wl + step*i
 
-    for i in range(spectral_points):
-        current_wl = start_wl + step*i
+            measure_ans = 'Empty'
+            while measure_ans != 'Measure':
+                print(f'\nStart measuring point {(i+1)}')
+                print(f'Current wavelength is {bcolors.OKBLUE}{current_wl}{bcolors.ENDC}. Please set it!')
+                measure_ans = inquirer.rawlist(
+                    message='Chose an action:',
+                    choices=['Tune power','Measure','Stop measurements']
+                ).execute()
 
-        measure_ans = 'Empty'
-        while measure_ans != 'Measure':
-            print(f'\nStart measuring point {(i+1)}')
-            print(f'Current wavelength is {bcolors.OKBLUE}{current_wl}{bcolors.ENDC}. Please set it!')
-            measure_ans = inquirer.rawlist(
-                message='Chose an action:',
-                choices=['Tune power','Measure','Stop measurements']
-            ).execute()
-            if measure_ans == 'Tune power':
-                if state['osc init']:
+                if measure_ans == 'Tune power':
                     track_power(40)
-                else:
-                    print(f'{bcolors.WARNING}Oscilloscope in not initialized!{bcolors.ENDC}')
-            elif measure_ans == 'Measure':
-                if state['osc init']:
+
+                elif measure_ans == 'Measure':
                     osc.measure()
                     dt = 1/osc.sample_rate
 
@@ -597,80 +606,121 @@ def spectra(osc, start_wl, end_wl, step):
                         spec_data[i,0,6:] = osc.current_pa_data/osc.laser_amp
                     else:
                         measure_ans = 'Bad data' #trigger additional while cycle
+                elif measure_ans == 'Stop measurements':
+                    print(f'{bcolors.WARNING} Spectral measurements terminated!{bcolors.ENDC}')
+                    state['spectral data'] = True
+                    return spec_data
                 else:
-                    print(f'{bcolors.WARNING}Oscilloscope in not initialized!{bcolors.ENDC}')
-            elif measure_ans == 'Stop measurements':
-                print(f'{bcolors.WARNING} Spectral measurements terminated!{bcolors.ENDC}')
-                return spec_data
+                    print(f'{bcolors.WARNING}Unknown command in Spectral measure menu!{bcolors.ENDC}')
+        
+        print(f'{bcolors.OKGREEN}Spectral scanning complete!{bcolors.ENDC}')
+        state['spectral data'] = True
+        return spec_data
 
-    print('Spectral scanning complete!')
-    return spec_data
-
+    else:
+        print(f'{bcolors.WARNING} Oscilloscope is not initializaed!{bcolors.ENDC}')
+        return np.zeros((10,3,10))
+    
 def track_power(tune_width):
     """Build power graph"""
 
-    if tune_width <11:
-        print(f'{bcolors.WARNING} Wrong tune_width value!{bcolors.ENDC}')
-        return
-    print(f'{bcolors.OKGREEN} Hold q button to stop power measurements{bcolors.ENDC}')
-    threshold = 0.1
-    data = np.zeros(tune_width)
-    tmp_data = np.zeros(tune_width)
-    fig = plt.figure(tight_layout=True)
-    gs = gridspec.GridSpec(1,2)
-    ax_pm = fig.add_subplot(gs[0,0])
-    ax_pa = fig.add_subplot(gs[0,1])
-    i = 0 #iterator
-    bad_read_flag = False
+    if state['osc init']:
+        if tune_width <11:
+            print(f'{bcolors.WARNING} Wrong tune_width value!{bcolors.ENDC}')
+            return
+        print(f'{bcolors.OKGREEN} Hold q button to stop power measurements{bcolors.ENDC}')
+        threshold = 0.1
+        data = np.zeros(tune_width)
+        tmp_data = np.zeros(tune_width)
+        fig = plt.figure(tight_layout=True)
+        gs = gridspec.GridSpec(1,2)
+        ax_pm = fig.add_subplot(gs[0,0])
+        ax_pa = fig.add_subplot(gs[0,1])
+        i = 0 #iterator
+        bad_read_flag = False
 
-    while True:
-        if i == 0:
-            osc.read_screen(osc.pm_channel)
-            bad_read_flag = osc.bad_read
-            if osc.screen_laser_amp < 1:
-                bad_read_flag = True
-            title = f'Power={osc.screen_laser_amp:.1f} [uJ], Mean (last 10) = {data[:i+1].mean():.1f} [uJ], Std (last 10) = {data[:i+1].std():.1f} [uJ]'
-
-        elif i <tune_width:
-            osc.read_screen(osc.pm_channel)
-            bad_read_flag = osc.bad_read
-
-            if i <11:
-                if osc.screen_laser_amp < threshold*data[:i].mean():
+        while True:
+            if i == 0:
+                osc.read_screen(osc.pm_channel)
+                bad_read_flag = osc.bad_read
+                if osc.screen_laser_amp < 1:
                     bad_read_flag = True
-                title = f'Power={osc.screen_laser_amp:.1f} [uJ], Mean (last 10) = {data[:i].mean():.1f} [uJ], Std (last 10) = {data[:i].std():.1f} [uJ]'
+                title = f'Power={osc.screen_laser_amp:.1f} [uJ], Mean (last 10) = {data[:i+1].mean():.1f} [uJ], Std (last 10) = {data[:i+1].std():.1f} [uJ]'
+
+            elif i <tune_width:
+                osc.read_screen(osc.pm_channel)
+                bad_read_flag = osc.bad_read
+
+                if i <11:
+                    if osc.screen_laser_amp < threshold*data[:i].mean():
+                        bad_read_flag = True
+                    title = f'Power={osc.screen_laser_amp:.1f} [uJ], Mean (last 10) = {data[:i].mean():.1f} [uJ], Std (last 10) = {data[:i].std():.1f} [uJ]'
+                else:
+                    if osc.screen_laser_amp < threshold*data[i-11:i].mean():
+                        bad_read_flag = True
+                    title = f'Power={osc.screen_laser_amp:.1f} [uJ], Mean (last 10) = {data[i-11:i].mean():.1f} [uJ], Std (last 10) = {data[i-11:i].std():.1f} [uJ]'
+                if not bad_read_flag:
+                    data[i] = osc.screen_laser_amp
             else:
-                if osc.screen_laser_amp < threshold*data[i-11:i].mean():
+                tmp_data[:-1] = data[1:].copy()
+                osc.read_screen(osc.pm_channel)
+                bad_read_flag = osc.bad_read
+                tmp_data[tune_width-1] = osc.screen_laser_amp
+                title = f'Power={osc.screen_laser_amp:.1f} [uJ], Mean (last 10) = {tmp_data[tune_width-11:-1].mean():.1f} [uJ], Std (last 10) = {tmp_data[tune_width-11:-1].std():.1f} [uJ]'
+                if tmp_data[tune_width-1] < threshold*tmp_data[tune_width-11:-1].mean():
                     bad_read_flag = True
-                title = f'Power={osc.screen_laser_amp:.1f} [uJ], Mean (last 10) = {data[i-11:i].mean():.1f} [uJ], Std (last 10) = {data[i-11:i].std():.1f} [uJ]'
-            if not bad_read_flag:
-                data[i] = osc.screen_laser_amp
-        else:
-            tmp_data[:-1] = data[1:].copy()
-            osc.read_screen(osc.pm_channel)
-            bad_read_flag = osc.bad_read
-            tmp_data[tune_width-1] = osc.screen_laser_amp
-            title = f'Power={osc.screen_laser_amp:.1f} [uJ], Mean (last 10) = {tmp_data[tune_width-11:-1].mean():.1f} [uJ], Std (last 10) = {tmp_data[tune_width-11:-1].std():.1f} [uJ]'
-            if tmp_data[tune_width-1] < threshold*tmp_data[tune_width-11:-1].mean():
-                bad_read_flag = True
+                else:
+                    data = tmp_data.copy()
+            ax_pm.clear()
+            ax_pa.clear()
+            ax_pm.plot(osc.screen_data)
+            ax_pa.plot(data)
+            ax_pa.set_ylabel('Laser power, [uJ]')
+            ax_pa.set_title(title)
+            ax_pa.set_ylim(bottom=0)
+            fig.canvas.draw()
+            plt.pause(0.1)
+            if bad_read_flag:
+                bad_read_flag = False
             else:
-                data = tmp_data.copy()
-        ax_pm.clear()
-        ax_pa.clear()
-        ax_pm.plot(osc.screen_data)
-        ax_pa.plot(data)
-        ax_pa.set_ylabel('Laser power, [uJ]')
-        ax_pa.set_title(title)
-        ax_pa.set_ylim(bottom=0)
-        fig.canvas.draw()
-        plt.pause(0.1)
-        if bad_read_flag:
-            bad_read_flag = False
-        else:
-            i += 1
-        if keyboard.is_pressed('q'):
-            break
-        time.sleep(0.1)
+                i += 1
+            if keyboard.is_pressed('q'):
+                break
+            time.sleep(0.1)
+    
+    else:
+        print(f'{bcolors.WARNING}Oscilloscope in not initialized!{bcolors.ENDC}')
+
+def set_new_position(stage_X, stage_Y):
+    """Queries new position and move PA detector to this position"""
+
+    if state['stages init']:
+        x_dest = inquirer.number(
+            message='Enter X destination [mm]',
+            default=0.0,
+            float_allowed=True,
+            min_allowed=0.0,
+            max_allowed=25.0,
+            filter=lambda result: float(result)
+        ).execute()
+        y_dest = inquirer.number(
+            message='Enter Y destination [mm]',
+            default=0.0,
+            float_allowed=True,
+            min_allowed=0.0,
+            max_allowed=25.0,
+            filter=lambda result: float(result)
+        ).execute()
+
+        print(f'Moving to ({x_dest},{y_dest})...')
+        move_to(x_dest, y_dest, stage_X, stage_Y)
+        wait_stages_stop(stage_X,stage_Y)
+        pos_x = stage_X.get_position(scale=True)*1000
+        pos_y = stage_Y.get_position(scale=True)*1000
+        print(f'{bcolors.OKGREEN}...Mooving complete!{bcolors.ENDC} Current position ({pos_x:.2f},{pos_y:.2f})')
+    else:
+        print(f'{bcolors.WARNING} Stages are not initialized!{bcolors.ENDC}')
+
 
 if __name__ == "__main__":
     
@@ -685,9 +735,7 @@ if __name__ == "__main__":
                 'Power meter',
                 'Move to',
                 'Stage scanning',
-                'Measure spectrum',
-                'Scan data manipulation',
-                'Spectral data manipulation',
+                'Spectral scanning',
                 'Exit'
             ],
             height=9
@@ -719,37 +767,10 @@ if __name__ == "__main__":
                     break
 
         elif menu_ans == 'Power meter':
-            if state['osc init']:
-                print(f'OSC.sample rate ={osc.sample_rate}')
-                _ = track_power(100)
-            else:
-                print('Osc not init!')
+            track_power(100)
 
         elif menu_ans == 'Move to':
-            x_dest = inquirer.number(
-                message='Enter X destination [mm]',
-                default=0.0,
-                float_allowed=True,
-                min_allowed=0.0,
-                max_allowed=25.0,
-                filter=lambda result: float(result)
-            ).execute()
-            y_dest = inquirer.number(
-                message='Enter Y destination [mm]',
-                default=0.0,
-                float_allowed=True,
-                min_allowed=0.0,
-                max_allowed=25.0,
-                filter=lambda result: float(result)
-            ).execute()
-
-            if state['stages init']:
-                print(f'Moving to ({x_dest},{y_dest})...')
-                move_to(x_dest, y_dest, stage_X, stage_Y)
-                wait_stages_stop(stage_X,stage_Y)
-                print(f'...Mooving complete! Current position ({stage_X.get_position(scale=True)*1000:.2f},{stage_Y.get_position(scale=True)*1000:.2f})')
-            else:
-                print(f'{bcolors.WARNING} Stages are not initialized!{bcolors.ENDC}')
+            set_new_position(stage_X,stage_Y)
 
         elif menu_ans == 'Stage scanning':
             while True:
@@ -824,42 +845,24 @@ if __name__ == "__main__":
                 else:
                     print(f'{bcolors.WARNING} Unknown option is stage scanning menu!{bcolors.ENDC}')
 
-        elif menu_ans == 'Measure spectrum':
-            start_wl = inquirer.number(
-                message='Set start wavelength, [nm]',
-                default=690,
-                filter=lambda result: int(result)
-            ).execute()
-            end_wl = inquirer.number(
-                message='Set end wavelength, [nm]',
-                default=950,
-                filter=lambda result: int(result)
-            ).execute()
-            step = inquirer.number(
-                message='Set step, [nm]',
-                default=10,
-                min_allowed=1,
-                filter=lambda result: int(result)
-            ).execute()
-
-            spec_data = spectra(osc, start_wl, end_wl, step)
-            state['spectral data'] = True
-
-        elif menu_ans == 'Spectral data manipulation':
-            
+        elif menu_ans == 'Spectral scanning':
             while True:
                 data_ans = inquirer.rawlist(
                     message='Choose spectral data action',
                     choices=[
-                        'View', 
+                        'Measure spectrum',
+                        'View data', 
                         'FFT filtration',
-                        'Load',
-                        'Save',
+                        'Load data',
+                        'Save data',
                         'Back to main menu'
                     ]
                 ).execute()
                 
-                if data_ans == 'View':
+                if data_ans == 'Measure spectrum':
+                    spec_data = spectra(osc)  
+
+                elif data_ans == 'View data':
                     if state['spectral data']:
                         spectral_vizualization(spec_data)
                     else:
@@ -899,18 +902,21 @@ if __name__ == "__main__":
                     else:
                         print(f'{bcolors.WARNING} Scan data is missing!{bcolors.ENDC}')
 
-                elif data_ans == 'Save':
+                elif data_ans == 'Save data':
                     sample = inquirer.text(
                         message='Enter Sample name',
                         default='Unknown'
                     ).execute()
                     save_spectral_data(sample, spec_data)
 
-                elif data_ans == 'Load':
+                elif data_ans == 'Load data':
                     spec_data = load_data('Spectral')
 
                 elif data_ans == 'Back to main menu':
-                        break
+                        break         
+
+                else:
+                    print(f'{bcolors.WARNING}Unknown command in Spectral scanning menu!{bcolors.ENDC}')
 
         elif menu_ans == 'Exit':
             exit_ans = inquirer.confirm(
@@ -922,4 +928,6 @@ if __name__ == "__main__":
                     stage_Y.close()
                 exit()
 
+        else:
+            print(f'{bcolors.WARNING}Unknown action in the main menu!{bcolors.ENDC}')
 
