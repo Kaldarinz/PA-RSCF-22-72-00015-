@@ -32,6 +32,7 @@ class Oscilloscope:
     pm_response_time = 0
     pm_pre_time = 0
     bad_read = False
+    not_found = True
 
     def __init__(self, osc_params) -> None:
         
@@ -42,8 +43,7 @@ class Oscilloscope:
         instrument_name = list(filter(lambda x: 'USB0::0x1AB1::0x04CE::DS1ZD212100403::INSTR' in x,
                                     all_instruments))
         if len(instrument_name) == 0:
-            print('Oscilloscope was not found!')
-            print('Program terminated!')
+            print(f'{bcolors.WARNING}Oscilloscope was not found!{bcolors.ENDC}')
             exit()
         else:
             self.__osc = rm.open_resource(instrument_name[0])
@@ -72,8 +72,9 @@ class Oscilloscope:
         self.screen_data = np.zeros(1200)
 
         self.set_preamble()
+        self.not_found = False
 
-        print('Oscilloscope initiation complete!')
+        print(f'{bcolors.OKBLUE}Oscilloscope{bcolors.ENDC} initiation complete!')
         
     def query(self, message):
         """Sends a querry to the oscilloscope"""
@@ -232,9 +233,8 @@ class Oscilloscope:
         If this method is called from outside, 
         please set 'osc.bad_read = False' first"""
 
-        threshold = 0.03 # percentage of max amp, when we set begining of the impulse
+        threshold = 0.05 # percentage of max amp, when we set begining of the impulse
         
-
         self.set_preamble()
         self.baseline_correction(self.pm_channel)
         max_pm = np.amax(self.current_pm_data)

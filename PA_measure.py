@@ -234,26 +234,52 @@ def set_spec_preamble(data, start, stop, step, d_type='time'):
 
     return data
 
+def init_hardware(osc_params):
+    """Initialize all hardware and return them.
+    Updates global state."""
+
+    stage_X = 0
+    stage_Y = 0
+    osc = 0
+    if not state['stages init']:
+        stage_X, stage_Y = init_stages() #global state for stages is updated in init_stages()      
+    else:
+        print(f'{bcolors.WARNING}Stages already initiated!{bcolors.ENDC}')
+
+    if not state['osc init']:
+        osc = Oscilloscope.Oscilloscope(osc_params)
+        if not osc.not_found:
+            state['osc init'] = True
+    else:
+        print(f'{bcolors.WARNING}Oscilloscope already initiated!{bcolors.ENDC}')
+
+    if state['stages init'] and state['osc init']:
+        print(f'{bcolors.OKGREEN}Initialization complete!{bcolors.ENDC}')
+
+    return osc, stage_X, stage_Y
+
 def init_stages():
-    """Initiate stages"""
+    """Initiate stages. Return their ID
+    and updates global state['stages init']"""
 
     print('Initializing stages...')
     stages = Thorlabs.list_kinesis_devices()
 
     if len(stages) < 2:
-        print('Less than 2 stages detected!')
-        print('Try again!')
-        exit()
+        print(f'{bcolors.WARNING}Less than 2 stages detected! Try again!{bcolors.ENDC}')
+        return 0, 0
 
-    stage1_ID = stages.pop()[0]
-    stage1 = Thorlabs.KinesisMotor(stage1_ID, scale='stage') #motor units [m]
-    print(f'{bcolors.OKBLUE}Stage X{bcolors.ENDC} initiated. Stage X ID = {stage1_ID}')
+    else:
+        stage1_ID = stages.pop()[0]
+        stage1 = Thorlabs.KinesisMotor(stage1_ID, scale='stage') #motor units [m]
+        print(f'{bcolors.OKBLUE}Stage X{bcolors.ENDC} initiated. Stage X ID = {stage1_ID}')
 
-    stage2_ID = stages.pop()[0]
-    stage2 = Thorlabs.KinesisMotor(stage2_ID, scale='stage') #motor units [m]
-    print(f'{bcolors.OKBLUE}Stage Y{bcolors.ENDC} initiated. Stage X ID = {stage2_ID}')
-
-    return stage1, stage2
+        stage2_ID = stages.pop()[0]
+        stage2 = Thorlabs.KinesisMotor(stage2_ID, scale='stage') #motor units [m]
+        print(f'{bcolors.OKBLUE}Stage Y{bcolors.ENDC} initiated. Stage X ID = {stage2_ID}')
+        
+        state['stages init'] = True
+        return stage1, stage2
 
 def move_to(X, Y, stage_X, stage_Y) -> None:
     """Move PA detector to (X,Y) position.
@@ -268,58 +294,120 @@ def wait_stages_stop(stage1 = None, stage2 = None):
     stage1.wait_for_stop()
     stage2.wait_for_stop()
 
-def scan(x_start, y_start, x_size, y_size, x_points, y_points):
-    """Scan an area, which starts at bottom left side 
+def scan(stage_X, stage_Y):
+    """Scan an area, which starts at 
     at (x_start, y_start) and has a size (x_size, y_size) in mm.
     Checks upper scan boundary.
     Returns 2D array with normalized signal amplitudes and
-    3D array with the whole normalized PA data for each scan point"""
+    3D array with the whole normalized PA data for each scan point.
+    Updates global state."""
 
-    if (x_start + x_size ) >25:
-        x_size = 25 - x_start
-        print(f'{bcolors.WARNING}X scan range exceeds stage limitation!')
-        print(f'X scan range reduced to {x_size}! {bcolors.ENDC}')
+    if state['stages init']:
 
-    if (y_start + y_size)>25:
-        y_size = 25 - y_start
-        print(f'{bcolors.WARNING}Y scan range exceeds stage limitation!')
-        print(f'Y scan range reduced to {y_size}! {bcolors.ENDC}')
+        x_start = inquirer.number(
+            message='Enter X starting position [mm]',
+            default=1.0,
+            float_allowed=True,
+            min_allowed=0.0,
+            max_allowed=25.0,
+            filter=lambda result: float(result)
+        ).execute()
 
-    move_to(x_start, y_start, stage_X, stage_Y) # move to starting point
-    wait_stages_stop(stage_X, stage_Y)
+        y_start = inquirer.number(
+            message='Enter Y starting position [mm]',
+            default=1.0,
+            float_allowed=True,
+            min_allowed=0.0,
+            max_allowed=25.0,
+            filter=lambda result: float(result)
+        ).execute()
 
-    scan_frame = np.zeros((x_points,y_points)) #scan image of normalized amplitudes
-    scan_frame_full = np.zeros((x_points,y_points,4,osc.pa_frame_size)) #0-raw data, 1-filt data, 2-freq, 3-FFT
+        x_size = inquirer.number(
+            message='Enter X scan size [mm]',
+            default= (x_start + 3.0),
+            float_allowed=True,
+            min_allowed=x_start,
+            max_allowed=25.0-x_start,
+            filter=lambda result: float(result)
+        ).execute()
 
-    fig, ax = plt.subplots(1,1)
-    #im = ax.imshow(scan_frame, vmin = 0, vmax = 0.5)
-    im = ax.imshow(scan_frame)
-    fig.show()
+        y_size = inquirer.number(
+            message='Enter Y scan size [mm]',
+            default= (y_start + 3.0),
+            float_allowed=True,
+            min_allowed=y_start,
+            max_allowed=25.0-y_start,
+            filter=lambda result: float(result)
+        ).execute()
 
-    for i in range(x_points):
-        for j in range(y_points):
-            x = x_start + i*(x_size/x_points)
-            y = y_start + j*(y_size/y_points)
+        x_points = inquirer.number(
+            message='Enter number of X scan points',
+            default= 5,
+            filter=lambda result: int(result)
+        ).execute()
 
-            move_to(x,y,stage_X,stage_Y)
-            wait_stages_stop(stage_X,stage_Y)
+        y_points = inquirer.number(
+            message='Enter number of Y scan points',
+            default= 5,
+            filter=lambda result: int(result)
+        ).execute()
 
-            osc.measure()
-            if not osc.bad_read:
-                scan_frame[i,j] = osc.signal_amp/osc.laser_amp
-                scan_frame_full[i,j,0,:] = osc.current_pa_data/osc.laser_amp
-                print(f'normalizaed amp at ({i}, {j}) is {scan_frame[i,j]:.3f}\n')
-            else:
-                scan_frame[i,j] = 0
-                scan_frame_full[i,j,0,:] = 0
-                print(f'{bcolors.WARNING} Bad data at point ({i},{j}){bcolors.ENDC}\n')
-                
-            im.set_data(scan_frame.transpose())
-            im.set_clim(vmax=np.amax(scan_frame))
-            fig.canvas.draw()
-            plt.pause(0.1)
+        scan_frame = np.zeros((x_points,y_points)) #scan image of normalized amplitudes
+        scan_frame_full = np.zeros((x_points,y_points,4,osc.pa_frame_size)) #0-raw data, 1-filt data, 2-freq, 3-FFT
 
+        print('Scan starting...')
+        move_to(x_start, y_start, stage_X, stage_Y) # move to starting point
+        wait_stages_stop(stage_X, stage_Y)
 
+        fig, ax = plt.subplots(1,1)
+        im = ax.imshow(scan_frame)
+        fig.show()
+
+        for i in range(x_points):
+            for j in range(y_points):
+                x = x_start + i*(x_size/x_points)
+                y = y_start + j*(y_size/y_points)
+
+                move_to(x,y,stage_X,stage_Y)
+                wait_stages_stop(stage_X,stage_Y)
+
+                osc.measure()
+                if not osc.bad_read:
+                    scan_frame[i,j] = osc.signal_amp/osc.laser_amp
+                    scan_frame_full[i,j,0,:] = osc.current_pa_data/osc.laser_amp
+                    print(f'normalizaed amp at ({i}, {j}) is {scan_frame[i,j]:.3f}\n')
+                else:
+                    scan_frame[i,j] = 0
+                    scan_frame_full[i,j,0,:] = 0
+                    print(f'{bcolors.WARNING} Bad data at point ({i},{j}){bcolors.ENDC}\n')
+                    
+                im.set_data(scan_frame.transpose())
+                im.set_clim(vmax=np.amax(scan_frame))
+                fig.canvas.draw()
+                plt.pause(0.1)
+
+        print(f'{bcolors.OKGREEN}...Scan complete!{bcolors.ENDC}')
+
+        max_amp_index = np.unravel_index(scan_frame.argmax(), scan_frame.shape) # find position with max PA amp
+        if x_points > 1 and y_points > 1:
+            opt_x = x_start + max_amp_index[0]*x_size/(x_points-1)
+            opt_y = y_start + max_amp_index[1]*y_size/(y_points-1)
+            print(f'best pos indexes {max_amp_index}')
+            print(f'best X pos = {opt_x:.2f}')
+            print(f'best Y pos = {opt_y:.2f}')
+
+            confirm_move = inquirer.confirm(message='Move to optimal position?').execute()
+            if confirm_move:
+                print(f'Start moving to the optimal position...')
+                move_to(opt_x, opt_y, stage_X, stage_Y)
+                wait_stages_stop(stage_X,stage_Y)
+                print(f'{bcolors.OKGREEN}PA detector came to the optimal position!{bcolors.ENDC}')
+
+    else:
+        print(f'{bcolors.WARNING} Stages are not initialized!{bcolors.ENDC}')
+        return 0, 0 
+
+    state['scan data'] = True
     return scan_frame, scan_frame_full
 
 def save_scan_data(sample, data, dt):
@@ -370,7 +458,6 @@ def load_data(data_type):
         ).execute()
 
         dt = int(file_path.split('dt')[1].split('ns')[0])/1000000000
-
         data = np.load(file_path)
         state['scan data'] = True
         print(f'...Scan data with shape {data.shape} loaded!')
@@ -387,6 +474,9 @@ def load_data(data_type):
         state['spectral data'] = True
         print(f'...Spectral data with shape {data.shape} loaded!')
         return data
+
+    else:
+        print(f'{bcolors.WARNING}Unknown data type in Load data!{bcolors.ENDC}')
 
 def bp_filter(data, low, high, dt):
     """Perform bandpass filtration on data
@@ -418,19 +508,34 @@ def bp_filter(data, low, high, dt):
     return temp_data
 
 def print_status(stage_X, stage_Y):
-    """Prints current status and position of stages"""
+    """Prints current status and position of stages and oscilloscope"""
+    
+    if state['stages init']:
+        print(f'{bcolors.OKBLUE} Stages are initiated!{bcolors.ENDC}')
+        print(f'{bcolors.OKBLUE}X stage{bcolors.ENDC} homing status: {stage_X.is_homed()}, status: {stage_X.get_status()}, position: {stage_X.get_position()*1000:.2f} mm.')
+        print(f'{bcolors.OKBLUE}Y stage{bcolors.ENDC} homing status: {stage_Y.is_homed()}, status: {stage_Y.get_status()}, position: {stage_Y.get_position()*1000:.2f} mm.')
+    else:
+        print(f'{bcolors.WARNING} Stages are not initialized!{bcolors.ENDC}')
 
-    print(f'{bcolors.OKBLUE}X stage{bcolors.ENDC} homing status: {stage_X.is_homed()}, status: {stage_X.get_status()}, position: {stage_X.get_position()*1000:.2f} mm.')
-    print(f'{bcolors.OKBLUE}Y stage{bcolors.ENDC} homing status: {stage_Y.is_homed()}, status: {stage_Y.get_status()}, position: {stage_Y.get_position()*1000:.2f} mm.')
+    if state['osc init']:
+        print(f'{bcolors.OKBLUE}Oscilloscope is initiated!{bcolors.ENDC}')
+    else:
+        print(f'{bcolors.WARNING} Oscilloscope is not initialized!{bcolors.ENDC}')
+
+    if state['stages init'] and state['osc init']:
+        print(f'{bcolors.OKGREEN} All hardware is initiated!{bcolors.ENDC}')
 
 def home(stage_X, stage_Y):
     """Homes stages"""
 
-    stage_X.home(sync=False,force=True)
-    stage_Y.home(sync=False,force=True)
-    print('Homing started...')
-    wait_stages_stop(stage_X,stage_Y)
-    print('...Homing complete!')
+    if state['stages init']:
+        stage_X.home(sync=False,force=True)
+        stage_Y.home(sync=False,force=True)
+        print('Homing started...')
+        wait_stages_stop(stage_X,stage_Y)
+        print(f'{bcolors.OKGREEN}...Homing complete!{bcolors.ENDC}')
+    else:
+        print(f'{bcolors.WARNING} Stages are not initialized!{bcolors.ENDC}')
 
 def spectra(osc, start_wl, end_wl, step):
     """Measures spectral data"""
@@ -569,6 +674,9 @@ def track_power(tune_width):
 
 if __name__ == "__main__":
     
+    stage_X = 0 #ID of X stage
+    stage_Y = 0 #ID of Y stage
+    osc = 0 # instance of Oscilloscope class
     while True: #main execution loop
         menu_ans = inquirer.rawlist(
             message='Choose an action',
@@ -576,7 +684,7 @@ if __name__ == "__main__":
                 'Init and status',
                 'Power meter',
                 'Move to',
-                'Find beam position (scan)',
+                'Stage scanning',
                 'Measure spectrum',
                 'Scan data manipulation',
                 'Spectral data manipulation',
@@ -599,29 +707,13 @@ if __name__ == "__main__":
             ).execute()
 
                 if stat_ans == 'Init hardware':
-                    if not state['stages init']:
-                        stage_X, stage_Y = init_stages()
-                        state['stages init'] = True
-                    else:
-                        print('Stages already initiated!')
-
-                    if not state['osc init']:
-                        osc = Oscilloscope.Oscilloscope(osc_params) #add prompt for osc params
-                        state['osc init'] = True
-                    else:
-                        print('Oscilloscope already initiated!')
+                    osc, stage_X, stage_Y = init_hardware(osc_params)
 
                 elif stat_ans == 'Home stages':
-                    if state['stages init']:
-                        home(stage_X, stage_Y)
-                    else:
-                        print(f'{bcolors.WARNING} Stages are not initialized!{bcolors.ENDC}')
+                    home(stage_X, stage_Y)
 
                 elif stat_ans == 'Get status':
-                    if state['stages init']:
-                        print_status(stage_X, stage_Y)
-                    else:
-                        print(f'{bcolors.WARNING} Stages are not initialized!{bcolors.ENDC}')
+                    print_status(stage_X, stage_Y)
 
                 elif stat_ans == 'Back':
                     break
@@ -659,117 +751,24 @@ if __name__ == "__main__":
             else:
                 print(f'{bcolors.WARNING} Stages are not initialized!{bcolors.ENDC}')
 
-        elif menu_ans == 'Find beam position (scan)':
-
-            x_start = inquirer.number(
-                message='Enter X starting position [mm]',
-                default=1.0,
-                float_allowed=True,
-                min_allowed=0.0,
-                max_allowed=25.0,
-                filter=lambda result: float(result)
-            ).execute()
-
-            y_start = inquirer.number(
-                message='Enter Y starting position [mm]',
-                default=1.0,
-                float_allowed=True,
-                min_allowed=0.0,
-                max_allowed=25.0,
-                filter=lambda result: float(result)
-            ).execute()
-
-            x_size = inquirer.number(
-                message='Enter X scan size [mm]',
-                default= (x_start + 3.0),
-                float_allowed=True,
-                min_allowed=x_start,
-                max_allowed=25.0-x_start,
-                filter=lambda result: float(result)
-            ).execute()
-
-            y_size = inquirer.number(
-                message='Enter Y scan size [mm]',
-                default= (y_start + 3.0),
-                float_allowed=True,
-                min_allowed=y_start,
-                max_allowed=25.0-y_start,
-                filter=lambda result: float(result)
-            ).execute()
-
-            x_points = inquirer.number(
-                message='Enter number of X scan points',
-                default= 5,
-                filter=lambda result: int(result)
-            ).execute()
-
-            y_points = inquirer.number(
-                message='Enter number of Y scan points',
-                default= 5,
-                filter=lambda result: int(result)
-            ).execute()
-
-            if state['stages init']:
-                print('Scan starting...')
-                scan_image, scan_data = scan(x_start, y_start, x_size, y_size, x_points, y_points)
-                state['scan data'] = True
-
-                max_amp_index = np.unravel_index(scan_image.argmax(), scan_image.shape) # find position with max PA amp
-                if x_points > 1 and y_points > 1:
-                    opt_x = x_start + max_amp_index[0]*x_size/(x_points-1)
-                    opt_y = y_start + max_amp_index[1]*y_size/(y_points-1)
-                    print(f'best pos indexes {max_amp_index}')
-                    print(f'best X pos = {opt_x:.2f}')
-                    print(f'best Y pos = {opt_y:.2f}')
-                
-                plt.show()
-                print('...Scan complete!')
-
-                confirm_move = inquirer.confirm(
-                    message='Move to optimal position?'    
-                ).execute()
-                if confirm_move:
-                    move_to(opt_x, opt_y, stage_X, stage_Y)
-                    wait_stages_stop(stage_X,stage_Y)
-            else:
-                print(f'{bcolors.WARNING} Stages are not initialized!{bcolors.ENDC}')
-
-        elif menu_ans == 'Measure spectrum':
-            start_wl = inquirer.number(
-                message='Set start wavelength, [nm]',
-                default=690,
-                filter=lambda result: int(result)
-            ).execute()
-            end_wl = inquirer.number(
-                message='Set end wavelength, [nm]',
-                default=950,
-                filter=lambda result: int(result)
-            ).execute()
-            step = inquirer.number(
-                message='Set step, [nm]',
-                default=10,
-                min_allowed=1,
-                filter=lambda result: int(result)
-            ).execute()
-
-            spec_data = spectra(osc, start_wl, end_wl, step)
-            state['spectral data'] = True
-
-        elif menu_ans == 'Scan data manipulation':
-
+        elif menu_ans == 'Stage scanning':
             while True:
                 data_ans = inquirer.rawlist(
-                    message='Choose scan data action',
+                    message='Choose scan action',
                     choices=[
-                        'View', 
+                        'Scan',
+                        'View data', 
                         'FFT filtration',
-                        'Load',
-                        'Save',
+                        'Load data',
+                        'Save data',
                         'Back to main menu'
                     ]
                 ).execute()
                 
-                if data_ans == 'View':
+                if data_ans == 'Scan':
+                    scan_image, scan_data = scan(stage_X, stage_Y)
+
+                elif data_ans == 'View data':
                     if state['scan data']:
                         scan_vizualization(scan_data, dt)
                     else:
@@ -809,18 +808,42 @@ if __name__ == "__main__":
                     else:
                         print(f'{bcolors.WARNING} Scan data is missing!{bcolors.ENDC}')
 
-                elif data_ans == 'Save':
+                elif data_ans == 'Save data':
                     sample = inquirer.text(
                         message='Enter Sample name',
                         default='Unknown'
                     ).execute()
                     save_scan_data(sample, scan_data, dt)
 
-                elif data_ans == 'Load':
+                elif data_ans == 'Load data':
                     scan_data, dt = load_data('Scan')
 
                 elif data_ans == 'Back to main menu':
                         break
+                
+                else:
+                    print(f'{bcolors.WARNING} Unknown option is stage scanning menu!{bcolors.ENDC}')
+
+        elif menu_ans == 'Measure spectrum':
+            start_wl = inquirer.number(
+                message='Set start wavelength, [nm]',
+                default=690,
+                filter=lambda result: int(result)
+            ).execute()
+            end_wl = inquirer.number(
+                message='Set end wavelength, [nm]',
+                default=950,
+                filter=lambda result: int(result)
+            ).execute()
+            step = inquirer.number(
+                message='Set step, [nm]',
+                default=10,
+                min_allowed=1,
+                filter=lambda result: int(result)
+            ).execute()
+
+            spec_data = spectra(osc, start_wl, end_wl, step)
+            state['spectral data'] = True
 
         elif menu_ans == 'Spectral data manipulation':
             
