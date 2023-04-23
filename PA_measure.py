@@ -564,7 +564,26 @@ def spectra(osc):
             min_allowed=1,
             filter=lambda result: int(result)
         ).execute()
-    
+        target_energy = inquirer.number(
+            message='Set target energy in [mJ]',
+            default=1,
+            float_allowed=True,
+            filter=lambda result: float(result)
+        ).execute()
+        max_combinations = inquirer.number(
+            message='Set maximum amount of filters',
+            default=3,
+            filter=lambda result: int(result)
+        ).execute()
+
+        if start_wl > end_wl:
+            wls = np.arange(end_wl,start_wl+1,step)
+            step = -step
+        for wl in wls:
+            filters, n = glass_calculator(wl,target_energy, max_combinations, no_print=True)
+            if n==0:
+                print(f'{bcolors.WARNING} WARNING! No valid filter combination for {wl} [nm]!{bcolors.ENDC}')
+
         print('Start measuring spectra!')
     
         d_wl = abs(end_wl-start_wl)
@@ -584,6 +603,7 @@ def spectra(osc):
             while measure_ans != 'Measure':
                 print(f'\nStart measuring point {(i+1)}')
                 print(f'Current wavelength is {bcolors.OKBLUE}{current_wl}{bcolors.ENDC}. Please set it!')
+                glass_calculator(current_wl,target_energy, max_combinations)
                 measure_ans = inquirer.rawlist(
                     message='Chose an action:',
                     choices=['Tune power','Measure','Stop measurements']
@@ -760,7 +780,7 @@ def calc_od(data):
             data[i+1,j+2] = data[i+1,j+2]*data[0,j+2]
     return data
 
-def glass_calculator(wavelength, target_energy, max_combinations, threshold =0):
+def glass_calculator(wavelength, target_energy, max_combinations, no_print=False):
     """Return filter combinations whith close transmissions
     which are higher than required"""
 
@@ -809,14 +829,15 @@ def glass_calculator(wavelength, target_energy, max_combinations, threshold =0):
     for key, value in filter_combinations.items():
         if (value-target_transm) > 0 and value/target_transm < 2.5:
             result.update({key: value})
-            if (value/target_transm < 1.25) and i<5:
-                print(f'{bcolors.OKGREEN} {key}, transmission = {value*100:.1f}%{bcolors.ENDC} (target= {target_transm*100:.1f}%)')
-            elif (value/target_transm < 1.5) and i<5:
-                print(f'{bcolors.OKCYAN} {key}, transmission = {value*100:.1f}%{bcolors.ENDC} (target= {target_transm*100:.1f}%)')
-            elif value/target_transm < 2 and i<5:
-                print(f'{bcolors.OKBLUE} {key}, transmission = {value*100:.1f}%{bcolors.ENDC} (target= {target_transm*100:.1f}%)')
-            elif value/target_transm < 2.5 and i<5:
-                print(f'{bcolors.WARNING} {key}, transmission = {value*100:.1f}%{bcolors.ENDC} (target= {target_transm*100:.1f}%)')
+            if not no_print:
+                if (value/target_transm < 1.25) and i<5:
+                    print(f'{bcolors.OKGREEN} {key}, transmission = {value*100:.1f}%{bcolors.ENDC} (target= {target_transm*100:.1f}%)')
+                elif (value/target_transm < 1.5) and i<5:
+                    print(f'{bcolors.OKCYAN} {key}, transmission = {value*100:.1f}%{bcolors.ENDC} (target= {target_transm*100:.1f}%)')
+                elif value/target_transm < 2 and i<5:
+                    print(f'{bcolors.OKBLUE} {key}, transmission = {value*100:.1f}%{bcolors.ENDC} (target= {target_transm*100:.1f}%)')
+                elif value/target_transm < 2.5 and i<5:
+                    print(f'{bcolors.WARNING} {key}, transmission = {value*100:.1f}%{bcolors.ENDC} (target= {target_transm*100:.1f}%)')
             i+=1
     
     return result, i
