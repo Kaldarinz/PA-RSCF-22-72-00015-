@@ -13,6 +13,7 @@ import keyboard
 import time
 import math
 from itertools import combinations
+import Validators as vd
 
 # data formats
 # scan_data[X scan points, Y scan points, 4, signal data points]
@@ -305,52 +306,45 @@ def scan(stage_X, stage_Y):
     Updates global state."""
 
     if state['stages init'] and state['osc init']:
-
-        x_start = inquirer.number(
+        x_start = inquirer.text(
             message='Enter X starting position [mm]',
-            default=1.0,
-            float_allowed=True,
-            min_allowed=0.0,
-            max_allowed=25.0,
+            default='1.0',
+            validate=vd.ScanRangeValidator(),
             filter=lambda result: float(result)
         ).execute()
 
-        y_start = inquirer.number(
+        y_start = inquirer.text(
             message='Enter Y starting position [mm]',
-            default=1.0,
-            float_allowed=True,
-            min_allowed=0.0,
-            max_allowed=25.0,
+            default='1.0',
+            validate=vd.ScanRangeValidator(),
             filter=lambda result: float(result)
         ).execute()
 
-        x_size = inquirer.number(
+        x_size = inquirer.text(
             message='Enter X scan size [mm]',
-            default= (x_start + 3.0),
-            float_allowed=True,
-            min_allowed=x_start,
-            max_allowed=25.0-x_start,
+            default= str(x_start + 3.0),
+            validate=vd.ScanRangeValidator(),
             filter=lambda result: float(result)
         ).execute()
 
-        y_size = inquirer.number(
+        y_size = inquirer.text(
             message='Enter Y scan size [mm]',
-            default= (y_start + 3.0),
-            float_allowed=True,
-            min_allowed=y_start,
-            max_allowed=25.0-y_start,
+            default= str(y_start + 3.0),
+            validate=vd.ScanRangeValidator(),
             filter=lambda result: float(result)
         ).execute()
 
-        x_points = inquirer.number(
+        x_points = inquirer.text(
             message='Enter number of X scan points',
-            default= 5,
+            default= '5',
+            validate=vd.ScanPointsValidator(),
             filter=lambda result: int(result)
         ).execute()
 
-        y_points = inquirer.number(
+        y_points = inquirer.text(
             message='Enter number of Y scan points',
-            default= 5,
+            default= '5',
+            validate=vd.ScanPointsValidator,
             filter=lambda result: int(result)
         ).execute()
 
@@ -548,31 +542,34 @@ def spectra(osc):
     Updates global state"""
 
     if state['osc init']:
-        start_wl = inquirer.number(
+        start_wl = inquirer.text(
             message='Set start wavelength, [nm]',
-            default=690,
+            default='950',
+            validate=vd.WavelengthValidator(),
             filter=lambda result: int(result)
         ).execute()
-        end_wl = inquirer.number(
+        end_wl = inquirer.text(
             message='Set end wavelength, [nm]',
-            default=950,
+            default='690',
+            validate=vd.WavelengthValidator(),
             filter=lambda result: int(result)
         ).execute()
-        step = inquirer.number(
+        step = inquirer.text(
             message='Set step, [nm]',
-            default=10,
-            min_allowed=1,
+            default='10',
+            validate=vd.StepWlValidator(),
             filter=lambda result: int(result)
         ).execute()
-        target_energy = inquirer.number(
+        target_energy = inquirer.text(
             message='Set target energy in [mJ]',
-            default=1,
-            float_allowed=True,
+            default='1.0',
+            validate=vd.EnergyValidator(),
             filter=lambda result: float(result)
         ).execute()
         max_combinations = inquirer.number(
             message='Set maximum amount of filters',
-            default=3,
+            default='3',
+            validate=vd.FilterNumberValidator(),
             filter=lambda result: int(result)
         ).execute()
 
@@ -581,9 +578,16 @@ def spectra(osc):
             step = -step
         for wl in wls:
             filters, n = glass_calculator(wl,target_energy, max_combinations, no_print=True)
+            counter = 0
             if n==0:
                 print(f'{bcolors.WARNING} WARNING! No valid filter combination for {wl} [nm]!{bcolors.ENDC}')
-
+                counter+=1
+            if counter:
+                cont_ans = inquirer.confirm(message='Do you want to continue?').execute()
+            if cont_ans:
+                print(f'{bcolors.WARNING} Spectral measurements terminated!{bcolors.ENDC}')
+                return 0
+            
         print('Start measuring spectra!')
     
         d_wl = abs(end_wl-start_wl)
@@ -721,20 +725,16 @@ def set_new_position(stage_X, stage_Y):
     """Queries new position and move PA detector to this position"""
 
     if state['stages init']:
-        x_dest = inquirer.number(
+        x_dest = inquirer.text(
             message='Enter X destination [mm]',
-            default=0.0,
-            float_allowed=True,
-            min_allowed=0.0,
-            max_allowed=25.0,
+            default='0.0',
+            validate=vd.ScanRangeValidator(),
             filter=lambda result: float(result)
         ).execute()
-        y_dest = inquirer.number(
+        y_dest = inquirer.text(
             message='Enter Y destination [mm]',
-            default=0.0,
-            float_allowed=True,
-            min_allowed=0.0,
-            max_allowed=25.0,
+            default='0.0',
+            validate=vd.ScanPointsValidator(),
             filter=lambda result: float(result)
         ).execute()
 
@@ -917,30 +917,27 @@ if __name__ == "__main__":
 
                 elif data_ans == 'FFT filtration':
                     if state['scan data']:
-                        low_cutof = inquirer.number(
+                        low_cutof = inquirer.text(
                                 message='Enter low cutoff frequency [Hz]',
-                                default=100000,
-                                min_allowed=1,
-                                max_allowed=50000000,
+                                default='100000',
+                                validate=vd.FreqValidator(),
                                 filter=lambda result: int(result)
                             ).execute()
 
-                        high_cutof = inquirer.number(
+                        high_cutof = inquirer.text(
                                 message='Enter high cutoff frequency [Hz]',
-                                default=10000000,
-                                min_allowed=(low_cutof+100000),
-                                max_allowed=50000000,
+                                default='10000000',
+                                validate=vd.FreqValidator(),
                                 filter=lambda result: int(result)
                             ).execute()
 
                         if state['osc init']:
                             dt = 1/osc.sample_rate
                         else:
-                            dt = inquirer.number(
+                            dt = inquirer.text(
                                 message='Set dt in [ns]',
-                                default=20,
-                                min_allowed=1,
-                                max_allowed=1000000,
+                                default='20',
+                                validate=vd.DtValidator(),
                                 filter=lambda result: int(result)/1000000000
                             ).execute()
                         scan_data = bp_filter(scan_data, low_cutof, high_cutof, dt)
@@ -987,15 +984,16 @@ if __name__ == "__main__":
                     spec_data = spectra(osc)  
 
                 elif data_ans == 'Color glass calculator':
-                    target_energy = inquirer.number(
+                    target_energy = inquirer.text(
                         message='Set target energy in [mJ]',
-                        default=1,
-                        float_allowed=True,
+                        default='1.0',
+                        validate=vd.EnergyValidator(),
                         filter=lambda result: float(result)
                     ).execute()
-                    max_combinations = inquirer.number(
+                    max_combinations = inquirer.text(
                         message='Set maximum amount of filters',
-                        default=3,
+                        default='2',
+                        validate=vd.FilterNumberValidator(),
                         filter=lambda result: int(result)
                     ).execute()
 
@@ -1011,38 +1009,7 @@ if __name__ == "__main__":
                         print(f'{bcolors.WARNING} Spectral data missing!{bcolors.ENDC}')
 
                 elif data_ans == 'FFT filtration':
-                    if state['scan data']:
-                        low_cutof = inquirer.number(
-                                message='Enter low cutoff frequency [Hz]',
-                                default=100000,
-                                min_allowed=1,
-                                max_allowed=50000000,
-                                filter=lambda result: int(result)
-                            ).execute()
-
-                        high_cutof = inquirer.number(
-                                message='Enter high cutoff frequency [Hz]',
-                                default=10000000,
-                                min_allowed=(low_cutof+100000),
-                                max_allowed=50000000,
-                                filter=lambda result: int(result)
-                            ).execute()
-
-                        if state['osc init']:
-                            dt = 1/osc.sample_rate
-                        else:
-                            dt = inquirer.number(
-                                message='Set dt in [ns]',
-                                default=20,
-                                min_allowed=1,
-                                max_allowed=1000000,
-                                filter=lambda result: int(result)/1000000000
-                            ).execute()
-                        scan_data = bp_filter(scan_data, low_cutof, high_cutof, dt)
-                        state['filtered scan data'] = True
-                        print('FFT filtration of scan data complete!')
-                    else:
-                        print(f'{bcolors.WARNING} Scan data is missing!{bcolors.ENDC}')
+                    print(f'{bcolors.WARNING} FFT filtration of spectral data in not implemented!{bcolors.ENDC}')
 
                 elif data_ans == 'Save data':
                     if state['spectral data']:
