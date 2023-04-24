@@ -237,20 +237,18 @@ def set_spec_preamble(data, start, stop, step, d_type='time'):
 
     return data
 
-def init_hardware(osc_params):
+def init_hardware(hardware, osc_params):
     """Initialize all hardware and return them.
     Updates global state."""
 
-    stage_X = 0
-    stage_Y = 0
-    osc = 0
     if not state['stages init']:
-        stage_X, stage_Y = init_stages() #global state for stages is updated in init_stages()      
+        init_stages(hardware) #global state for stages is updated in init_stages()      
     else:
         print(f'{bcolors.WARNING}Stages already initiated!{bcolors.ENDC}')
 
     if not state['osc init']:
         osc = Oscilloscope.Oscilloscope(osc_params)
+        hardware.update({'osc':osc})
         if not osc.not_found:
             state['osc init'] = True
     else:
@@ -259,9 +257,7 @@ def init_hardware(osc_params):
     if state['stages init'] and state['osc init']:
         print(f'{bcolors.OKGREEN}Initialization complete!{bcolors.ENDC}')
 
-    return osc, stage_X, stage_Y
-
-def init_stages():
+def init_stages(hardware):
     """Initiate stages. Return their ID
     and updates global state['stages init']"""
 
@@ -270,40 +266,44 @@ def init_stages():
 
     if len(stages) < 2:
         print(f'{bcolors.WARNING}Less than 2 stages detected! Try again!{bcolors.ENDC}')
-        return 0, 0
 
     else:
         stage1_ID = stages.pop()[0]
         stage1 = Thorlabs.KinesisMotor(stage1_ID, scale='stage') #motor units [m]
         print(f'{bcolors.OKBLUE}Stage X{bcolors.ENDC} initiated. Stage X ID = {stage1_ID}')
+        hardware.update({'stage x': stage1})
 
         stage2_ID = stages.pop()[0]
         stage2 = Thorlabs.KinesisMotor(stage2_ID, scale='stage') #motor units [m]
         print(f'{bcolors.OKBLUE}Stage Y{bcolors.ENDC} initiated. Stage X ID = {stage2_ID}')
-        
-        state['stages init'] = True
-        return stage1, stage2
+        hardware.update({'stage y': stage2})
 
-def move_to(X, Y, stage_X, stage_Y) -> None:
+        state['stages init'] = True
+
+def move_to(X, Y, hardware) -> None:
     """Move PA detector to (X,Y) position.
     Coordinates are in mm."""
     
-    stage_X.move_to(X/1000)
-    stage_Y.move_to(Y/1000)
+    hardware['stage x'].move_to(X/1000)
+    hardware['stage y'].move_to(Y/1000)
 
-def wait_stages_stop(stage1 = None, stage2 = None):
+def wait_stages_stop(hardware):
     """Waits untill all specified stages stop"""
 
-    stage1.wait_for_stop()
-    stage2.wait_for_stop()
+    hardware['stage x'].wait_for_stop()
+    hardware['stage y'].wait_for_stop()
 
-def scan(stage_X, stage_Y):
+def scan(hardware):
     """Scan an area, which starts at 
     at (x_start, y_start) and has a size (x_size, y_size) in mm.
     Checks upper scan boundary.
     Returns 2D array with normalized signal amplitudes and
     3D array with the whole normalized PA data for each scan point.
     Updates global state."""
+
+    stage_X = hardware['stage x']
+    stage_Y = hardware['stage y']
+    osc = hardware['osc']
 
     if state['stages init'] and state['osc init']:
         x_start = inquirer.text(
@@ -344,7 +344,7 @@ def scan(stage_X, stage_Y):
         y_points = inquirer.text(
             message='Enter number of Y scan points',
             default= '5',
-            validate=vd.ScanPointsValidator,
+            validate=vd.ScanPointsValidator(),
             filter=lambda result: int(result)
         ).execute()
 
@@ -352,8 +352,8 @@ def scan(stage_X, stage_Y):
         scan_frame_full = np.zeros((x_points,y_points,4,osc.pa_frame_size)) #0-raw data, 1-filt data, 2-freq, 3-FFT
 
         print('Scan starting...')
-        move_to(x_start, y_start, stage_X, stage_Y) # move to starting point
-        wait_stages_stop(stage_X, stage_Y)
+        move_to(x_start, y_start, hardware) # move to starting point
+        wait_stages_stop(hardware)
 
         fig, ax = plt.subplots(1,1)
         im = ax.imshow(scan_frame)
@@ -395,8 +395,8 @@ def scan(stage_X, stage_Y):
             confirm_move = inquirer.confirm(message='Move to optimal position?').execute()
             if confirm_move:
                 print(f'Start moving to the optimal position...')
-                move_to(opt_x, opt_y, stage_X, stage_Y)
-                wait_stages_stop(stage_X,stage_Y)
+                move_to(opt_x, opt_y, hardware)
+                wait_stages_stop(hardware)
                 print(f'{bcolors.OKGREEN}PA detector came to the optimal position!{bcolors.ENDC}')
 
     else:
@@ -507,13 +507,21 @@ def bp_filter(data, low, high, dt):
 
     return temp_data
 
-def print_status(stage_X, stage_Y):
+def print_status(hardware):
     """Prints current status and position of stages and oscilloscope"""
     
     if state['stages init']:
+        stage_X = hardware['stage x']
+        stage_Y = hardware['stage y']
         print(f'{bcolors.OKBLUE} Stages are initiated!{bcolors.ENDC}')
-        print(f'{bcolors.OKBLUE}X stage{bcolors.ENDC} homing status: {stage_X.is_homed()}, status: {stage_X.get_status()}, position: {stage_X.get_position()*1000:.2f} mm.')
-        print(f'{bcolors.OKBLUE}Y stage{bcolors.ENDC} homing status: {stage_Y.is_homed()}, status: {stage_Y.get_status()}, position: {stage_Y.get_position()*1000:.2f} mm.')
+        print(f'{bcolors.OKBLUE}X stage{bcolors.ENDC} \
+              homing status: {stage_X.is_homed()}, \
+              status: {stage_X.get_status()}, \
+              position: {stage_X.get_position()*1000:.2f} mm.')
+        print(f'{bcolors.OKBLUE}Y stage{bcolors.ENDC} \
+              homing status: {stage_Y.is_homed()}, \
+              status: {stage_Y.get_status()}, \
+              position: {stage_Y.get_position()*1000:.2f} mm.')
     else:
         print(f'{bcolors.WARNING} Stages are not initialized!{bcolors.ENDC}')
 
@@ -525,21 +533,23 @@ def print_status(stage_X, stage_Y):
     if state['stages init'] and state['osc init']:
         print(f'{bcolors.OKGREEN} All hardware is initiated!{bcolors.ENDC}')
 
-def home(stage_X, stage_Y):
+def home(hardware):
     """Homes stages"""
 
     if state['stages init']:
-        stage_X.home(sync=False,force=True)
-        stage_Y.home(sync=False,force=True)
+        hardware['stage x'].home(sync=False,force=True)
+        hardware['stage y'].home(sync=False,force=True)
         print('Homing started...')
-        wait_stages_stop(stage_X,stage_Y)
+        wait_stages_stop(hardware)
         print(f'{bcolors.OKGREEN}...Homing complete!{bcolors.ENDC}')
     else:
         print(f'{bcolors.WARNING} Stages are not initialized!{bcolors.ENDC}')
 
-def spectra(osc):
+def spectra(hardware):
     """Measures spectral data.
     Updates global state"""
+
+    osc = hardware['osc']
 
     if state['osc init']:
         start_wl = inquirer.text(
@@ -574,7 +584,6 @@ def spectra(osc):
         ).execute()
 
         if start_wl > end_wl:
-            wls = np.arange(end_wl,start_wl+1,step)
             step = -step
             
         print('Start measuring spectra!')
@@ -590,7 +599,7 @@ def spectra(osc):
             current_wl = start_wl + step*i
 
             print(f'{bcolors.UNDERLINE}Please remove all filters!{bcolors.ENDC}')
-            energy = track_power(50)
+            energy = track_power(hardware, 50)
             print(f'Power meter energy = {energy:.0f} [uJ]')
             filters, n, _ = glass_calculator(current_wl,energy,target_energy,max_combinations,no_print=True)
             if n==0:
@@ -651,10 +660,11 @@ def spectra(osc):
         print(f'{bcolors.WARNING} Oscilloscope is not initializaed!{bcolors.ENDC}')
         return np.zeros((10,3,10))
     
-def track_power(tune_width):
+def track_power(hardware, tune_width):
     """Build power graph"""
 
     if state['osc init']:
+        osc = hardware['osc']
         if tune_width <11:
             print(f'{bcolors.WARNING} Wrong tune_width value!{bcolors.ENDC}')
             return
@@ -861,9 +871,11 @@ def glass_calculator(wavelength, current_energy_pm, target_energy, max_combinati
 
 if __name__ == "__main__":
     
-    stage_X = 0 #ID of X stage
-    stage_Y = 0 #ID of Y stage
-    osc = 0 # instance of Oscilloscope class
+    hardware = {
+        'stage x': 0,
+        'stage y': 0,
+        'osc': 0
+    }
     while True: #main execution loop
         menu_ans = inquirer.rawlist(
             message='Choose an action',
@@ -892,22 +904,22 @@ if __name__ == "__main__":
             ).execute()
 
                 if stat_ans == 'Init hardware':
-                    osc, stage_X, stage_Y = init_hardware(osc_params)
+                    init_hardware(hardware, osc_params)
 
                 elif stat_ans == 'Home stages':
-                    home(stage_X, stage_Y)
+                    home(hardware)
 
                 elif stat_ans == 'Get status':
-                    print_status(stage_X, stage_Y)
+                    print_status(hardware)
 
                 elif stat_ans == 'Back':
                     break
 
         elif menu_ans == 'Power meter':
-            _ = track_power(100)
+            _ = track_power(hardware, 100)
 
         elif menu_ans == 'Move to':
-            set_new_position(stage_X,stage_Y)
+            set_new_position(hardware)
 
         elif menu_ans == 'Stage scanning':
             while True:
@@ -924,7 +936,7 @@ if __name__ == "__main__":
                 ).execute()
                 
                 if data_ans == 'Scan':
-                    scan_image, scan_data, dt = scan(stage_X, stage_Y)
+                    scan_image, scan_data, dt = scan(hardware)
 
                 elif data_ans == 'View data':
                     if state['scan data']:
@@ -949,7 +961,7 @@ if __name__ == "__main__":
                             ).execute()
 
                         if state['osc init']:
-                            dt = 1/osc.sample_rate
+                            dt = 1/hardware['osc'].sample_rate
                         else:
                             dt = inquirer.text(
                                 message='Set dt in [ns]',
@@ -997,7 +1009,7 @@ if __name__ == "__main__":
                 ).execute()
                 
                 if data_ans == 'Measure spectrum':
-                    spec_data = spectra(osc)  
+                    spec_data = spectra(hardware)  
 
                 elif data_ans == 'View data':
                     if state['spectral data']:
@@ -1033,8 +1045,8 @@ if __name__ == "__main__":
                 ).execute()
             if exit_ans:
                 if state['stages init']:
-                    stage_X.close()
-                    stage_Y.close()
+                    hardware['stage x'].close()
+                    hardware['stage y'].close()
                 exit()
 
         else:
