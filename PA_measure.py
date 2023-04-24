@@ -3,6 +3,8 @@ from scipy.fftpack import rfft, irfft, fftfreq
 from scipy import signal
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib import MatplotlibDeprecationWarning
+import warnings
 import os.path
 from pathlib import Path
 import Oscilloscope
@@ -133,6 +135,9 @@ class SpectralIndexTracker:
 
     def __init__(self, fig, ax_sp, ax_raw, ax_freq, ax_filt, data):
         
+        warnings.filterwarnings('ignore', category=MatplotlibDeprecationWarning)
+
+        self.data = data
         self.fig = fig
         self.ax_sp = ax_sp
         self.ax_raw = ax_raw
@@ -145,13 +150,6 @@ class SpectralIndexTracker:
         self.time_data = np.linspace(0,self.dt*(data.shape[2]-7),data.shape[2]-6)*1000000
         self.raw_data = data[:,0,6:]
         self.filt_data = data[:,1,6:]
-
-        wl_points = int((data[0,0,1] - data[0,0,0])/data[0,0,2]) + 1
-        self.wl_data = np.linspace(data[0,0,0],data[0,0,1],wl_points)
-        self.spec_data = data[:,0,4]
-        self.ax_sp.plot(self.wl_data,self.spec_data)
-        self.ax_sp.set_ylabel('Normalizaed PA amp')
-        self.ax_sp.set_xlabel('Wavelength, [nm]')
         
         if self.dw:
             freq_points = int((data[0,2,1] - data[0,2,0])/self.dw) + 1
@@ -162,6 +160,18 @@ class SpectralIndexTracker:
 
         self.x_max = data.shape[0]
         self.x_ind = 0
+        self.step_wl = data[0,0,2]
+        self.start_wl = data[0,0,0]
+        self.stop_wl = data[0,0,1]
+        wl_points = int((self.stop_wl - self.start_wl)/self.step_wl) + 1
+        self.wl_data = np.linspace(self.start_wl,self.stop_wl,wl_points)
+        self.spec_data = data[:,0,4]
+        self.ax_sp.plot(self.wl_data,self.spec_data)
+        
+        self.ax_sp.set_ylabel('Normalizaed PA amp')
+        self.ax_sp.set_xlabel('Wavelength, [nm]')
+        self.selected, = self.ax_sp.plot(self.wl_data[self.x_ind], data[self.x_ind,0,4], 
+                                         'o', alpha=0.4, ms=12, color='yellow')
         self.update()
 
     def on_key_press(self, event):
@@ -185,8 +195,10 @@ class SpectralIndexTracker:
         self.ax_raw.plot(self.time_data, self.raw_data[self.x_ind,:])
         self.ax_freq.plot(self.freq_data, self.fft_data[self.x_ind,:])
         self.ax_filt.plot(self.time_data, self.filt_data[self.x_ind,:])
-        title = 'X index = ' + str(self.x_ind) + '/' + str(self.x_max-1)
+        title = 'Wavelength:' + str(int(self.x_ind*self.step_wl+self.start_wl)) + 'nm'
         self.ax_freq.set_title(title)
+
+        self.selected.set_data(self.wl_data[self.x_ind], self.data[self.x_ind,0,4])
         
         self.ax_raw.set_ylabel('PA detector signal, [V]')
         self.ax_raw.set_xlabel('Time, [us]')
