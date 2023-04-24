@@ -562,13 +562,13 @@ def spectra(osc):
         ).execute()
         target_energy = inquirer.text(
             message='Set target energy in [mJ]',
-            default='1.0',
+            default='0.5',
             validate=vd.EnergyValidator(),
             filter=lambda result: float(result)
         ).execute()
-        max_combinations = inquirer.number(
+        max_combinations = inquirer.text(
             message='Set maximum amount of filters',
-            default='3',
+            default='2',
             validate=vd.FilterNumberValidator(),
             filter=lambda result: int(result)
         ).execute()
@@ -579,30 +579,35 @@ def spectra(osc):
             
         print('Start measuring spectra!')
     
-        d_wl = abs(end_wl-start_wl)
+        d_wl = end_wl-start_wl
         spectral_points = int(d_wl/step) + 1
 
-        osc.time_to_points(osc.frame_duration)
-        spec_data = np.zeros((spectral_points,3,osc.pa_frame_size+6))
+        frame_size = osc.time_to_points(osc.frame_duration)
+        spec_data = np.zeros((spectral_points,3,frame_size+6))
         spec_data = set_spec_preamble(spec_data,start_wl,end_wl,step)
 
         for i in range(spectral_points):
             current_wl = start_wl + step*i
 
+            print(f'{bcolors.UNDERLINE}Please remove all filters!{bcolors.ENDC}')
             energy = track_power(50)
-            filters, n = glass_calculator(wl,energy,target_energy,max_combinations,no_print=True)
+            print(f'Power meter energy = {energy:.0f} [uJ]')
+            filters, n, _ = glass_calculator(current_wl,energy,target_energy,max_combinations,no_print=True)
             if n==0:
-                print(f'{bcolors.WARNING} WARNING! No valid filter combination for {wl} [nm]!{bcolors.ENDC}')
+                print(f'{bcolors.WARNING} WARNING! No valid filter combination for {current_wl} [nm]!{bcolors.ENDC}')
                 cont_ans = inquirer.confirm(message='Do you want to continue?').execute()
                 if cont_ans:
                     print(f'{bcolors.WARNING} Spectral measurements terminated!{bcolors.ENDC}')
                     return spec_data
 
+            print(f'\n{bcolors.HEADER}Start measuring point {(i+1)}{bcolors.ENDC}')
+            print(f'Current wavelength is {bcolors.OKBLUE}{current_wl}{bcolors.ENDC}. Please set it!')
+            _,__, target_pm_value = glass_calculator(current_wl,energy,target_energy, max_combinations)
+            print(f'Target power meter energy is {target_pm_value}!')
+            print(f'Please set it using {bcolors.UNDERLINE}laser software{bcolors.ENDC}')
+
             measure_ans = 'Empty'
             while measure_ans != 'Measure':
-                print(f'\nStart measuring point {(i+1)}')
-                print(f'Current wavelength is {bcolors.OKBLUE}{current_wl}{bcolors.ENDC}. Please set it!')
-                glass_calculator(current_wl,target_energy, max_combinations)
                 measure_ans = inquirer.rawlist(
                     message='Chose an action:',
                     choices=['Tune power','Measure','Stop measurements']
@@ -823,7 +828,14 @@ def glass_calculator(wavelength, current_energy_pm, target_energy, max_combinati
                 value+=v
             filter_combinations.update({key:math.pow(10,-value)})    
 
-    target_transm = target_energy*1000/(data[wl_index,1]*current_energy_pm/100)
+    target_energy = target_energy*1000
+    laser_energy = current_energy_pm/data[wl_index,1]*100
+    target_transm = target_energy/laser_energy
+    if not no_print:
+        print(f'Target energy = {target_energy} [uJ]')
+        print(f'Current laser output = {laser_energy:.0f} [uJ]')
+        print(f'Target transmission = {target_transm*100:.1f} %')
+        print(f'{bcolors.HEADER} Valid filter combinations:{bcolors.ENDC}')
     filter_combinations = dict(sorted(filter_combinations.copy().items(), key=lambda item: item[1]))
 
     i=0
@@ -841,7 +853,11 @@ def glass_calculator(wavelength, current_energy_pm, target_energy, max_combinati
                     print(f'{bcolors.WARNING} {key}, transmission = {value*100:.1f}%{bcolors.ENDC} (target= {target_transm*100:.1f}%)')
             i+=1
     
-    return result, i
+    if not no_print:
+        print('\n')
+
+    target_pm_value = target_energy*data[wl_index,1]/100
+    return result, i, target_pm_value
 
 if __name__ == "__main__":
     
