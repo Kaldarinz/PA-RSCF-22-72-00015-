@@ -167,7 +167,7 @@ class SpectralIndexTracker:
         self.wl_data = np.linspace(self.start_wl,self.stop_wl,wl_points)
         self.spec_data = data[:,0,4]
         self.ax_sp.plot(self.wl_data,self.spec_data)
-        
+        self.ax_sp.set_ylim(bottom=0)
         self.ax_sp.set_ylabel('Normalizaed PA amp')
         self.ax_sp.set_xlabel('Wavelength, [nm]')
         self.selected, = self.ax_sp.plot(self.wl_data[self.x_ind], data[self.x_ind,0,4], 
@@ -490,34 +490,52 @@ def load_data(data_type):
     else:
         print(f'{bcolors.WARNING}Unknown data type in Load data!{bcolors.ENDC}')
 
-def bp_filter(data, low, high, dt):
+def bp_filter(data, data_type='spectral'):
     """Perform bandpass filtration on data
     low is high pass cutoff frequency in Hz
     high is low pass cutoff frequency in Hz
     dt is time step in seconds"""
 
-    temp_data = data.copy()
-    temp_data[:,:,2,:] = 0
-    temp_data[:,:,3,:] = 0
-    W = fftfreq(temp_data.shape[3], dt) # array with frequencies
-    f_signal = rfft(temp_data[:,:,0,:]) # signal in f-space
+    low_cutof = inquirer.text(
+        message='Enter low cutoff frequency [Hz]',
+        default='100000',
+        validate=vd.FreqValidator(),
+        filter=lambda result: int(result)
+    ).execute()
 
-    filtered_f_signal = f_signal.copy()
-    filtered_f_signal[:,:,(W<low)] = 0   # high pass filtering
+    high_cutof = inquirer.text(
+        message='Enter high cutoff frequency [Hz]',
+        default='10000000',
+        validate=vd.FreqValidator(),
+        filter=lambda result: int(result)
+    ).execute()
 
-    if high > 1/(2.5*dt): # Nyquist frequency check
-        filtered_f_signal[:,:,(W>1/(2.5*dt))] = 0 
-    else:
-        filtered_f_signal[:,:,(W>high_cutof)] = 0
+    if data_type == 'spectral':
+        temp_data = data[:,0,6:].copy()
+        dt = data[0,0,3]
+        W = fftfreq(temp_data.shape[1], dt) # array with frequencies
+        f_signal = rfft(temp_data[:,:]) # signal in f-space
 
-    filtered_freq = W[(W>low)*(W<high_cutof)]
+        filtered_f_signal = f_signal.copy()
+        filtered_f_signal[:,(W<low_cutof)] = 0   # high pass filtering
 
-    temp_data[:,:,2,:len(filtered_freq)] = filtered_freq
-    temp_data[:,:,3,:len(filtered_freq)] = f_signal[:,:,(W>low)*(W<high_cutof)]
+        if high_cutof > 1/(2.5*dt): # Nyquist frequency check
+            filtered_f_signal[:,(W>1/(2.5*dt))] = 0 
+        else:
+            filtered_f_signal[:,(W>high_cutof)] = 0
 
-    temp_data[:,:,1,:] = irfft(filtered_f_signal)
+        filtered_freq = W[(W>low_cutof)*(W<high_cutof)]
+        data[:,2,0] = filtered_freq.min()
+        data[:,2,1] = filtered_freq.max()
+        data[:,2,2] = filtered_freq[1]-filtered_freq[0]
 
-    return temp_data
+        data[:,2,3:len(filtered_freq)+3] = f_signal[:,(W>low_cutof)*(W<high_cutof)]
+
+        data[:,1,6:] = irfft(filtered_f_signal)
+
+        print(f'{bcolors.OKGREEN} FFT filtration of spectral data complete!{bcolors.ENDC}')
+    
+    return data
 
 def print_status(hardware):
     """Prints current status and position of stages and oscilloscope"""
@@ -958,32 +976,7 @@ if __name__ == "__main__":
 
                 elif data_ans == 'FFT filtration':
                     if state['scan data']:
-                        low_cutof = inquirer.text(
-                                message='Enter low cutoff frequency [Hz]',
-                                default='100000',
-                                validate=vd.FreqValidator(),
-                                filter=lambda result: int(result)
-                            ).execute()
-
-                        high_cutof = inquirer.text(
-                                message='Enter high cutoff frequency [Hz]',
-                                default='10000000',
-                                validate=vd.FreqValidator(),
-                                filter=lambda result: int(result)
-                            ).execute()
-
-                        if state['osc init']:
-                            dt = 1/hardware['osc'].sample_rate
-                        else:
-                            dt = inquirer.text(
-                                message='Set dt in [ns]',
-                                default='20',
-                                validate=vd.DtValidator(),
-                                filter=lambda result: int(result)/1000000000
-                            ).execute()
-                        scan_data = bp_filter(scan_data, low_cutof, high_cutof, dt)
-                        state['filtered scan data'] = True
-                        print('FFT filtration of scan data complete!')
+                        print(f'{bcolors.WARNING} FFT of scan data is not implemented!{bcolors.ENDC}')
                     else:
                         print(f'{bcolors.WARNING} Scan data is missing!{bcolors.ENDC}')
 
@@ -1030,7 +1023,10 @@ if __name__ == "__main__":
                         print(f'{bcolors.WARNING} Spectral data missing!{bcolors.ENDC}')
 
                 elif data_ans == 'FFT filtration':
-                    print(f'{bcolors.WARNING} FFT filtration of spectral data in not implemented!{bcolors.ENDC}')
+                   if state['spectral data']:
+                       bp_filter(spec_data)
+                   else:
+                       print(f'{bcolors.WARNING}Spectral data is missing!{bcolors.ENDC}')
 
                 elif data_ans == 'Save data':
                     if state['spectral data']:
