@@ -44,7 +44,7 @@ class Oscilloscope:
                                     all_instruments))
         if len(instrument_name) == 0:
             print(f'{bcolors.WARNING}Oscilloscope was not found!{bcolors.ENDC}')
-            exit()
+            return
         else:
             self.__osc = rm.open_resource(instrument_name[0])
             print('Oscilloscope found!')

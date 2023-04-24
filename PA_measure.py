@@ -576,25 +576,11 @@ def spectra(osc):
         if start_wl > end_wl:
             wls = np.arange(end_wl,start_wl+1,step)
             step = -step
-        for wl in wls:
-            filters, n = glass_calculator(wl,target_energy, max_combinations, no_print=True)
-            counter = 0
-            if n==0:
-                print(f'{bcolors.WARNING} WARNING! No valid filter combination for {wl} [nm]!{bcolors.ENDC}')
-                counter+=1
-            if counter:
-                cont_ans = inquirer.confirm(message='Do you want to continue?').execute()
-            if cont_ans:
-                print(f'{bcolors.WARNING} Spectral measurements terminated!{bcolors.ENDC}')
-                return 0
             
         print('Start measuring spectra!')
     
         d_wl = abs(end_wl-start_wl)
         spectral_points = int(d_wl/step) + 1
-        
-        if start_wl>end_wl:
-            step = -step
 
         osc.time_to_points(osc.frame_duration)
         spec_data = np.zeros((spectral_points,3,osc.pa_frame_size+6))
@@ -602,6 +588,15 @@ def spectra(osc):
 
         for i in range(spectral_points):
             current_wl = start_wl + step*i
+
+            energy = track_power(50)
+            filters, n = glass_calculator(wl,energy,target_energy,max_combinations,no_print=True)
+            if n==0:
+                print(f'{bcolors.WARNING} WARNING! No valid filter combination for {wl} [nm]!{bcolors.ENDC}')
+                cont_ans = inquirer.confirm(message='Do you want to continue?').execute()
+                if cont_ans:
+                    print(f'{bcolors.WARNING} Spectral measurements terminated!{bcolors.ENDC}')
+                    return spec_data
 
             measure_ans = 'Empty'
             while measure_ans != 'Measure':
@@ -667,6 +662,7 @@ def track_power(tune_width):
         ax_pm = fig.add_subplot(gs[0,0])
         ax_pa = fig.add_subplot(gs[0,1])
         i = 0 #iterator
+        mean = 0
         bad_read_flag = False
 
         while True:
@@ -675,7 +671,7 @@ def track_power(tune_width):
                 bad_read_flag = osc.bad_read
                 if osc.screen_laser_amp < 1:
                     bad_read_flag = True
-                title = f'Power={osc.screen_laser_amp:.1f} [uJ], Mean (last 10) = {data[:i+1].mean():.1f} [uJ], Std (last 10) = {data[:i+1].std():.1f} [uJ]'
+                title = f'Power={osc.screen_laser_amp:.1f} [uJ], Mean (last 10) = {osc.screen_laser_amp:.1f} [uJ], Std (last 10) = {data[:i+1].std():.1f} [uJ]'
 
             elif i <tune_width:
                 osc.read_screen(osc.pm_channel)
@@ -684,11 +680,13 @@ def track_power(tune_width):
                 if i <11:
                     if osc.screen_laser_amp < threshold*data[:i].mean():
                         bad_read_flag = True
-                    title = f'Power={osc.screen_laser_amp:.1f} [uJ], Mean (last 10) = {data[:i].mean():.1f} [uJ], Std (last 10) = {data[:i].std():.1f} [uJ]'
+                    mean = data[:i].mean()
+                    title = f'Power={osc.screen_laser_amp:.1f} [uJ], Mean (last 10) = {mean:.1f} [uJ], Std (last 10) = {data[:i].std():.1f} [uJ]'
                 else:
                     if osc.screen_laser_amp < threshold*data[i-11:i].mean():
                         bad_read_flag = True
-                    title = f'Power={osc.screen_laser_amp:.1f} [uJ], Mean (last 10) = {data[i-11:i].mean():.1f} [uJ], Std (last 10) = {data[i-11:i].std():.1f} [uJ]'
+                    mean = data[i-11:i].mean()
+                    title = f'Power={osc.screen_laser_amp:.1f} [uJ], Mean (last 10) = {mean:.1f} [uJ], Std (last 10) = {data[i-11:i].std():.1f} [uJ]'
                 if not bad_read_flag:
                     data[i] = osc.screen_laser_amp
             else:
@@ -696,7 +694,8 @@ def track_power(tune_width):
                 osc.read_screen(osc.pm_channel)
                 bad_read_flag = osc.bad_read
                 tmp_data[tune_width-1] = osc.screen_laser_amp
-                title = f'Power={osc.screen_laser_amp:.1f} [uJ], Mean (last 10) = {tmp_data[tune_width-11:-1].mean():.1f} [uJ], Std (last 10) = {tmp_data[tune_width-11:-1].std():.1f} [uJ]'
+                mean = tmp_data[tune_width-11:-1].mean()
+                title = f'Power={osc.screen_laser_amp:.1f} [uJ], Mean (last 10) = {mean:.1f} [uJ], Std (last 10) = {tmp_data[tune_width-11:-1].std():.1f} [uJ]'
                 if tmp_data[tune_width-1] < threshold*tmp_data[tune_width-11:-1].mean():
                     bad_read_flag = True
                 else:
@@ -717,9 +716,11 @@ def track_power(tune_width):
             if keyboard.is_pressed('q'):
                 break
             time.sleep(0.1)
-    
+
+        return mean
     else:
         print(f'{bcolors.WARNING}Oscilloscope in not initialized!{bcolors.ENDC}')
+        return mean
 
 def set_new_position(stage_X, stage_Y):
     """Queries new position and move PA detector to this position"""
@@ -780,7 +781,7 @@ def calc_od(data):
             data[i+1,j+2] = data[i+1,j+2]*data[0,j+2]
     return data
 
-def glass_calculator(wavelength, target_energy, max_combinations, no_print=False):
+def glass_calculator(wavelength, current_energy_pm, target_energy, max_combinations, no_print=False):
     """Return filter combinations whith close transmissions
     which are higher than required"""
 
@@ -822,7 +823,7 @@ def glass_calculator(wavelength, target_energy, max_combinations, no_print=False
                 value+=v
             filter_combinations.update({key:math.pow(10,-value)})    
 
-    target_transm = target_energy*1000/data[wl_index,1]
+    target_transm = target_energy*1000/(data[wl_index,1]*current_energy_pm/100)
     filter_combinations = dict(sorted(filter_combinations.copy().items(), key=lambda item: item[1]))
 
     i=0
@@ -887,7 +888,7 @@ if __name__ == "__main__":
                     break
 
         elif menu_ans == 'Power meter':
-            track_power(100)
+            _ = track_power(100)
 
         elif menu_ans == 'Move to':
             set_new_position(stage_X,stage_Y)
@@ -971,7 +972,6 @@ if __name__ == "__main__":
                     message='Choose spectral data action',
                     choices=[
                         'Measure spectrum',
-                        'Color glass calculator',
                         'View data', 
                         'FFT filtration',
                         'Load data',
@@ -983,25 +983,6 @@ if __name__ == "__main__":
                 if data_ans == 'Measure spectrum':
                     spec_data = spectra(osc)  
 
-                elif data_ans == 'Color glass calculator':
-                    target_energy = inquirer.text(
-                        message='Set target energy in [mJ]',
-                        default='1.0',
-                        validate=vd.EnergyValidator(),
-                        filter=lambda result: float(result)
-                    ).execute()
-                    max_combinations = inquirer.text(
-                        message='Set maximum amount of filters',
-                        default='2',
-                        validate=vd.FilterNumberValidator(),
-                        filter=lambda result: int(result)
-                    ).execute()
-
-                    wls = np.arange(690,951,10)
-                    for wl in wls:
-                        print(f'WL = {wl}')
-                        filters, n = glass_calculator(wl,target_energy, max_combinations)
-                    
                 elif data_ans == 'View data':
                     if state['spectral data']:
                         spectral_vizualization(spec_data)
