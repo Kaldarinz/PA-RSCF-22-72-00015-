@@ -35,8 +35,8 @@ import Validators as vd
 # data points[:,2,2] - step freq
 
 osc_params = {
-    'pre_time': 30, # [us] start time of data storage before trigger
-    'frame_duration': 150, # [us] whole duration of the stored frame
+    'pre_time': 100, # [us] start time of data storage before trigger
+    'frame_duration': 250, # [us] whole duration of the stored frame
     'pm_response_time': 2500, # [us] response time of the power meter
     'pm_pre_time': 300,
     'laser_calib_uj': 2500000,
@@ -376,14 +376,19 @@ def scan(hardware):
                 x = x_start + i*(x_size/x_points)
                 y = y_start + j*(y_size/y_points)
 
-                move_to(x,y,stage_X,stage_Y)
-                wait_stages_stop(stage_X,stage_Y)
+                move_to(x,y,hardware)
+                wait_stages_stop(hardware)
 
                 osc.measure()
                 if not osc.bad_read:
-                    scan_frame[i,j] = osc.signal_amp/osc.laser_amp
-                    scan_frame_full[i,j,0,:] = osc.current_pa_data/osc.laser_amp
-                    print(f'normalizaed amp at ({i}, {j}) is {scan_frame[i,j]:.3f}\n')
+                    if osc.laser_amp >1:
+                        scan_frame[i,j] = osc.signal_amp/osc.laser_amp
+                        scan_frame_full[i,j,0,:] = osc.current_pa_data/osc.laser_amp
+                        print(f'normalizaed amp at ({i}, {j}) is {scan_frame[i,j]:.3f}\n')
+                    else:
+                        scan_frame[i,j] = 0
+                        scan_frame_full[i,j,0,:] = 0
+                        print(f'{bcolors.WARNING} Bad data at point ({i},{j}){bcolors.ENDC}\n')
                 else:
                     scan_frame[i,j] = 0
                     scan_frame_full[i,j,0,:] = 0
@@ -767,7 +772,7 @@ def track_power(hardware, tune_width):
         print(f'{bcolors.WARNING}Oscilloscope in not initialized!{bcolors.ENDC}')
         return mean
 
-def set_new_position(stage_X, stage_Y):
+def set_new_position(hardware):
     """Queries new position and move PA detector to this position"""
 
     if state['stages init']:
@@ -785,10 +790,10 @@ def set_new_position(stage_X, stage_Y):
         ).execute()
 
         print(f'Moving to ({x_dest},{y_dest})...')
-        move_to(x_dest, y_dest, stage_X, stage_Y)
-        wait_stages_stop(stage_X,stage_Y)
-        pos_x = stage_X.get_position(scale=True)*1000
-        pos_y = stage_Y.get_position(scale=True)*1000
+        move_to(x_dest, y_dest, hardware)
+        wait_stages_stop(hardware)
+        pos_x = hardware['stage x'].get_position(scale=True)*1000
+        pos_y = hardware['stage y'].get_position(scale=True)*1000
         print(f'{bcolors.OKGREEN}...Mooving complete!{bcolors.ENDC} Current position ({pos_x:.2f},{pos_y:.2f})')
     else:
         print(f'{bcolors.WARNING} Stages are not initialized!{bcolors.ENDC}')
