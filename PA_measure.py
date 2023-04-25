@@ -461,7 +461,7 @@ def save_spectral_data(sample, data):
 def load_data(data_type):
     """Return loaded data in the related format"""
 
-    home_path = str(Path().resolve()) + '\\measuring results'
+    home_path = str(Path().resolve()) + '\\measuring results\\'
     if data_type == 'Scan':
         file_path = inquirer.filepath(
             message='Choose scan file to load:',
@@ -635,7 +635,7 @@ def spectra(hardware):
             if n==0:
                 print(f'{bcolors.WARNING} WARNING! No valid filter combination for {current_wl} [nm]!{bcolors.ENDC}')
                 cont_ans = inquirer.confirm(message='Do you want to continue?').execute()
-                if cont_ans:
+                if not cont_ans:
                     print(f'{bcolors.WARNING} Spectral measurements terminated!{bcolors.ENDC}')
                     return spec_data
 
@@ -653,7 +653,7 @@ def spectra(hardware):
                 ).execute()
 
                 if measure_ans == 'Tune power':
-                    track_power(40)
+                    track_power(hardware, 40)
 
                 elif measure_ans == 'Measure':
                     osc.measure()
