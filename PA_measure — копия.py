@@ -3,8 +3,6 @@ from scipy.fftpack import rfft, irfft, fftfreq
 from scipy import signal
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib import MatplotlibDeprecationWarning
-import warnings
 import os.path
 from pathlib import Path
 import Oscilloscope
@@ -35,8 +33,8 @@ import Validators as vd
 # data points[:,2,2] - step freq
 
 osc_params = {
-    'pre_time': 100, # [us] start time of data storage before trigger
-    'frame_duration': 250, # [us] whole duration of the stored frame
+    'pre_time': 30, # [us] start time of data storage before trigger
+    'frame_duration': 150, # [us] whole duration of the stored frame
     'pm_response_time': 2500, # [us] response time of the power meter
     'pm_pre_time': 300,
     'laser_calib_uj': 2500000,
@@ -135,9 +133,6 @@ class SpectralIndexTracker:
 
     def __init__(self, fig, ax_sp, ax_raw, ax_freq, ax_filt, data):
         
-        warnings.filterwarnings('ignore', category=MatplotlibDeprecationWarning)
-
-        self.data = data
         self.fig = fig
         self.ax_sp = ax_sp
         self.ax_raw = ax_raw
@@ -150,6 +145,13 @@ class SpectralIndexTracker:
         self.time_data = np.linspace(0,self.dt*(data.shape[2]-7),data.shape[2]-6)*1000000
         self.raw_data = data[:,0,6:]
         self.filt_data = data[:,1,6:]
+
+        wl_points = int((data[0,0,1] - data[0,0,0])/data[0,0,2]) + 1
+        self.wl_data = np.linspace(data[0,0,0],data[0,0,1],wl_points)
+        self.spec_data = data[:,0,4]
+        self.ax_sp.plot(self.wl_data,self.spec_data)
+        self.ax_sp.set_ylabel('Normalizaed PA amp')
+        self.ax_sp.set_xlabel('Wavelength, [nm]')
         
         if self.dw:
             freq_points = int((data[0,2,1] - data[0,2,0])/self.dw) + 1
@@ -160,18 +162,6 @@ class SpectralIndexTracker:
 
         self.x_max = data.shape[0]
         self.x_ind = 0
-        self.step_wl = data[0,0,2]
-        self.start_wl = data[0,0,0]
-        self.stop_wl = data[0,0,1]
-        wl_points = int((self.stop_wl - self.start_wl)/self.step_wl) + 1
-        self.wl_data = np.linspace(self.start_wl,self.stop_wl,wl_points)
-        self.spec_data = data[:,0,4]
-        self.ax_sp.plot(self.wl_data,self.spec_data)
-        self.ax_sp.set_ylim(bottom=0)
-        self.ax_sp.set_ylabel('Normalizaed PA amp')
-        self.ax_sp.set_xlabel('Wavelength, [nm]')
-        self.selected, = self.ax_sp.plot(self.wl_data[self.x_ind], data[self.x_ind,0,4], 
-                                         'o', alpha=0.4, ms=12, color='yellow')
         self.update()
 
     def on_key_press(self, event):
@@ -195,10 +185,8 @@ class SpectralIndexTracker:
         self.ax_raw.plot(self.time_data, self.raw_data[self.x_ind,:])
         self.ax_freq.plot(self.freq_data, self.fft_data[self.x_ind,:])
         self.ax_filt.plot(self.time_data, self.filt_data[self.x_ind,:])
-        title = 'Wavelength:' + str(int(self.x_ind*self.step_wl+self.start_wl)) + 'nm'
+        title = 'X index = ' + str(self.x_ind) + '/' + str(self.x_max-1)
         self.ax_freq.set_title(title)
-
-        self.selected.set_data(self.wl_data[self.x_ind], self.data[self.x_ind,0,4])
         
         self.ax_raw.set_ylabel('PA detector signal, [V]')
         self.ax_raw.set_xlabel('Time, [us]')
@@ -249,18 +237,20 @@ def set_spec_preamble(data, start, stop, step, d_type='time'):
 
     return data
 
-def init_hardware(hardware, osc_params):
+def init_hardware(osc_params):
     """Initialize all hardware and return them.
     Updates global state."""
 
+    stage_X = 0
+    stage_Y = 0
+    osc = 0
     if not state['stages init']:
-        init_stages(hardware) #global state for stages is updated in init_stages()      
+        stage_X, stage_Y = init_stages() #global state for stages is updated in init_stages()      
     else:
         print(f'{bcolors.WARNING}Stages already initiated!{bcolors.ENDC}')
 
     if not state['osc init']:
         osc = Oscilloscope.Oscilloscope(osc_params)
-        hardware.update({'osc':osc})
         if not osc.not_found:
             state['osc init'] = True
     else:
@@ -269,7 +259,9 @@ def init_hardware(hardware, osc_params):
     if state['stages init'] and state['osc init']:
         print(f'{bcolors.OKGREEN}Initialization complete!{bcolors.ENDC}')
 
-def init_stages(hardware):
+    return osc, stage_X, stage_Y
+
+def init_stages():
     """Initiate stages. Return their ID
     and updates global state['stages init']"""
 
@@ -278,34 +270,34 @@ def init_stages(hardware):
 
     if len(stages) < 2:
         print(f'{bcolors.WARNING}Less than 2 stages detected! Try again!{bcolors.ENDC}')
+        return 0, 0
 
     else:
         stage1_ID = stages.pop()[0]
         stage1 = Thorlabs.KinesisMotor(stage1_ID, scale='stage') #motor units [m]
         print(f'{bcolors.OKBLUE}Stage X{bcolors.ENDC} initiated. Stage X ID = {stage1_ID}')
-        hardware.update({'stage x': stage1})
 
         stage2_ID = stages.pop()[0]
         stage2 = Thorlabs.KinesisMotor(stage2_ID, scale='stage') #motor units [m]
         print(f'{bcolors.OKBLUE}Stage Y{bcolors.ENDC} initiated. Stage X ID = {stage2_ID}')
-        hardware.update({'stage y': stage2})
-
+        
         state['stages init'] = True
+        return stage1, stage2
 
-def move_to(X, Y, hardware) -> None:
+def move_to(X, Y, stage_X, stage_Y) -> None:
     """Move PA detector to (X,Y) position.
     Coordinates are in mm."""
     
-    hardware['stage x'].move_to(X/1000)
-    hardware['stage y'].move_to(Y/1000)
+    stage_X.move_to(X/1000)
+    stage_Y.move_to(Y/1000)
 
-def wait_stages_stop(hardware):
+def wait_stages_stop(stage1 = None, stage2 = None):
     """Waits untill all specified stages stop"""
 
-    hardware['stage x'].wait_for_stop()
-    hardware['stage y'].wait_for_stop()
+    stage1.wait_for_stop()
+    stage2.wait_for_stop()
 
-def scan(hardware):
+def scan(stage_X, stage_Y):
     """Scan an area, which starts at 
     at (x_start, y_start) and has a size (x_size, y_size) in mm.
     Checks upper scan boundary.
@@ -313,83 +305,55 @@ def scan(hardware):
     3D array with the whole normalized PA data for each scan point.
     Updates global state."""
 
-    stage_X = hardware['stage x']
-    stage_Y = hardware['stage y']
-    osc = hardware['osc']
-
     if state['stages init'] and state['osc init']:
         x_start = inquirer.text(
-            message='Enter X starting position [mm] \n(CTRL+Z to cancel)\n',
+            message='Enter X starting position [mm]',
             default='1.0',
-            mandatory=False,
             validate=vd.ScanRangeValidator(),
-            filter=to_float(lambda result: result)
+            filter=lambda result: float(result)
         ).execute()
-        if x_start == None:
-            print(f'{bcolors.WARNING} Intput terminated!{bcolors.ENDC}')
-            return 0
-        
+
         y_start = inquirer.text(
-            message='Enter Y starting position [mm] \n(CTRL+Z to cancel)\n',
+            message='Enter Y starting position [mm]',
             default='1.0',
-            mandatory=False,
             validate=vd.ScanRangeValidator(),
-            filter=to_float(lambda result: result)
+            filter=lambda result: float(result)
         ).execute()
-        if y_start == None:
-            print(f'{bcolors.WARNING} Intput terminated!{bcolors.ENDC}')
-            return 0
 
         x_size = inquirer.text(
-            message='Enter X scan size [mm] \n (CTRL+Z to cancel)\n',
+            message='Enter X scan size [mm]',
             default= str(x_start + 3.0),
-            mandatory=False,
             validate=vd.ScanRangeValidator(),
-            filter=to_float(lambda result: result)
+            filter=lambda result: float(result)
         ).execute()
-        if x_size == None:
-            print(f'{bcolors.WARNING} Intput terminated!{bcolors.ENDC}')
-            return 0
 
         y_size = inquirer.text(
-            message='Enter Y scan size [mm] \n (CTRL+Z to cancel)\n',
+            message='Enter Y scan size [mm]',
             default= str(y_start + 3.0),
-            mandatory=False,
             validate=vd.ScanRangeValidator(),
-            filter=to_float(lambda result:result)
+            filter=lambda result: float(result)
         ).execute()
-        if y_size == None:
-            print(f'{bcolors.WARNING} Intput terminated!{bcolors.ENDC}')
-            return 0
 
         x_points = inquirer.text(
-            message='Enter number of X scan points \n(CTRL+Z to cancel)\n',
+            message='Enter number of X scan points',
             default= '5',
-            mandatory=False,
             validate=vd.ScanPointsValidator(),
-            filter=to_int(lambda result: result)
+            filter=lambda result: int(result)
         ).execute()
-        if x_points == None:
-            print(f'{bcolors.WARNING} Intput terminated!{bcolors.ENDC}')
-            return 0
 
         y_points = inquirer.text(
-            message='Enter number of Y scan points\n(CTRL+Z to cancel)\n',
+            message='Enter number of Y scan points',
             default= '5',
-            mandatory=False,
-            validate=vd.ScanPointsValidator(),
-            filter=to_int(lambda result: result)
+            validate=vd.ScanPointsValidator,
+            filter=lambda result: int(result)
         ).execute()
-        if y_points == None:
-            print(f'{bcolors.WARNING} Intput terminated!{bcolors.ENDC}')
-            return 0
 
         scan_frame = np.zeros((x_points,y_points)) #scan image of normalized amplitudes
         scan_frame_full = np.zeros((x_points,y_points,4,osc.pa_frame_size)) #0-raw data, 1-filt data, 2-freq, 3-FFT
 
         print('Scan starting...')
-        move_to(x_start, y_start, hardware) # move to starting point
-        wait_stages_stop(hardware)
+        move_to(x_start, y_start, stage_X, stage_Y) # move to starting point
+        wait_stages_stop(stage_X, stage_Y)
 
         fig, ax = plt.subplots(1,1)
         im = ax.imshow(scan_frame)
@@ -400,19 +364,14 @@ def scan(hardware):
                 x = x_start + i*(x_size/x_points)
                 y = y_start + j*(y_size/y_points)
 
-                move_to(x,y,hardware)
-                wait_stages_stop(hardware)
+                move_to(x,y,stage_X,stage_Y)
+                wait_stages_stop(stage_X,stage_Y)
 
                 osc.measure()
                 if not osc.bad_read:
-                    if osc.laser_amp >1:
-                        scan_frame[i,j] = osc.signal_amp/osc.laser_amp
-                        scan_frame_full[i,j,0,:] = osc.current_pa_data/osc.laser_amp
-                        print(f'normalizaed amp at ({i}, {j}) is {scan_frame[i,j]:.3f}\n')
-                    else:
-                        scan_frame[i,j] = 0
-                        scan_frame_full[i,j,0,:] = 0
-                        print(f'{bcolors.WARNING} Bad data at point ({i},{j}){bcolors.ENDC}\n')
+                    scan_frame[i,j] = osc.signal_amp/osc.laser_amp
+                    scan_frame_full[i,j,0,:] = osc.current_pa_data/osc.laser_amp
+                    print(f'normalizaed amp at ({i}, {j}) is {scan_frame[i,j]:.3f}\n')
                 else:
                     scan_frame[i,j] = 0
                     scan_frame_full[i,j,0,:] = 0
@@ -436,8 +395,8 @@ def scan(hardware):
             confirm_move = inquirer.confirm(message='Move to optimal position?').execute()
             if confirm_move:
                 print(f'Start moving to the optimal position...')
-                move_to(opt_x, opt_y, hardware)
-                wait_stages_stop(hardware)
+                move_to(opt_x, opt_y, stage_X, stage_Y)
+                wait_stages_stop(stage_X,stage_Y)
                 print(f'{bcolors.OKGREEN}PA detector came to the optimal position!{bcolors.ENDC}')
 
     else:
@@ -490,17 +449,13 @@ def save_spectral_data(sample, data):
 def load_data(data_type):
     """Return loaded data in the related format"""
 
-    home_path = str(Path().resolve()) + '\\measuring results\\'
+    home_path = str(Path().resolve()) + '\\measuring results'
     if data_type == 'Scan':
         file_path = inquirer.filepath(
-            message='Choose scan file to load:\n(CTRL+Z to cancel)\n',
+            message='Choose scan file to load:',
             default=home_path,
-            mandatory=False,
             validate=PathValidator(is_file=True, message='Input is not a file')
         ).execute()
-        if file_path == None:
-            print(f'{bcolors.WARNING}Data loading canceled!{bcolors.ENDC}')
-            return 0, 0
 
         dt = int(file_path.split('dt')[1].split('ns')[0])/1000000000
         data = np.load(file_path)
@@ -510,14 +465,10 @@ def load_data(data_type):
     
     elif data_type == 'Spectral':
         file_path = inquirer.filepath(
-            message='Choose spectral file to load:\n(CTRL+Z to cancel)\n',
+            message='Choose spectral file to load:',
             default=home_path,
-            mandatory=False,
             validate=PathValidator(is_file=True, message='Input is not a file')
         ).execute()
-        if file_path == None:
-            print(f'{bcolors.WARNING}Data loading canceled!{bcolors.ENDC}')
-            return 0, 0
 
         data = np.load(file_path)
         state['spectral data'] = True
@@ -527,76 +478,42 @@ def load_data(data_type):
     else:
         print(f'{bcolors.WARNING}Unknown data type in Load data!{bcolors.ENDC}')
 
-def bp_filter(data, data_type='spectral'):
+def bp_filter(data, low, high, dt):
     """Perform bandpass filtration on data
     low is high pass cutoff frequency in Hz
     high is low pass cutoff frequency in Hz
     dt is time step in seconds"""
 
-    low_cutof = inquirer.text(
-        message='Enter low cutoff frequency [Hz]\n(CTRL+Z to cancel)\n',
-        default='100000',
-        mandatory=False,
-        validate=vd.FreqValidator(),
-        filter=to_int(lambda result: result)
-    ).execute()
-    if low_cutof == None:
-        print(f'{bcolors.WARNING}Intup terminated!{bcolors.WARNING}')
-        return data
+    temp_data = data.copy()
+    temp_data[:,:,2,:] = 0
+    temp_data[:,:,3,:] = 0
+    W = fftfreq(temp_data.shape[3], dt) # array with frequencies
+    f_signal = rfft(temp_data[:,:,0,:]) # signal in f-space
 
-    high_cutof = inquirer.text(
-        message='Enter high cutoff frequency [Hz]\n(CTRL+Z to cancel)\n',
-        default='10000000',
-        mandatory=False,
-        validate=vd.FreqValidator(),
-        filter=to_int(lambda result: result)
-    ).execute()
-    if high_cutof == None:
-        print(f'{bcolors.WARNING}Intup terminated!{bcolors.WARNING}')
-        return data
+    filtered_f_signal = f_signal.copy()
+    filtered_f_signal[:,:,(W<low)] = 0   # high pass filtering
 
-    if data_type == 'spectral':
-        temp_data = data[:,0,6:].copy()
-        dt = data[0,0,3]
-        W = fftfreq(temp_data.shape[1], dt) # array with frequencies
-        f_signal = rfft(temp_data[:,:]) # signal in f-space
+    if high > 1/(2.5*dt): # Nyquist frequency check
+        filtered_f_signal[:,:,(W>1/(2.5*dt))] = 0 
+    else:
+        filtered_f_signal[:,:,(W>high_cutof)] = 0
 
-        filtered_f_signal = f_signal.copy()
-        filtered_f_signal[:,(W<low_cutof)] = 0   # high pass filtering
+    filtered_freq = W[(W>low)*(W<high_cutof)]
 
-        if high_cutof > 1/(2.5*dt): # Nyquist frequency check
-            filtered_f_signal[:,(W>1/(2.5*dt))] = 0 
-        else:
-            filtered_f_signal[:,(W>high_cutof)] = 0
+    temp_data[:,:,2,:len(filtered_freq)] = filtered_freq
+    temp_data[:,:,3,:len(filtered_freq)] = f_signal[:,:,(W>low)*(W<high_cutof)]
 
-        filtered_freq = W[(W>low_cutof)*(W<high_cutof)]
-        data[:,2,0] = filtered_freq.min()
-        data[:,2,1] = filtered_freq.max()
-        data[:,2,2] = filtered_freq[1]-filtered_freq[0]
+    temp_data[:,:,1,:] = irfft(filtered_f_signal)
 
-        data[:,2,3:len(filtered_freq)+3] = f_signal[:,(W>low_cutof)*(W<high_cutof)]
+    return temp_data
 
-        data[:,1,6:] = irfft(filtered_f_signal)
-
-        print(f'{bcolors.OKGREEN} FFT filtration of spectral data complete!{bcolors.ENDC}')
-    
-    return data
-
-def print_status(hardware):
+def print_status(stage_X, stage_Y):
     """Prints current status and position of stages and oscilloscope"""
     
     if state['stages init']:
-        stage_X = hardware['stage x']
-        stage_Y = hardware['stage y']
         print(f'{bcolors.OKBLUE} Stages are initiated!{bcolors.ENDC}')
-        print(f'{bcolors.OKBLUE}X stage{bcolors.ENDC} \
-              homing status: {stage_X.is_homed()}, \
-              status: {stage_X.get_status()}, \
-              position: {stage_X.get_position()*1000:.2f} mm.')
-        print(f'{bcolors.OKBLUE}Y stage{bcolors.ENDC} \
-              homing status: {stage_Y.is_homed()}, \
-              status: {stage_Y.get_status()}, \
-              position: {stage_Y.get_position()*1000:.2f} mm.')
+        print(f'{bcolors.OKBLUE}X stage{bcolors.ENDC} homing status: {stage_X.is_homed()}, status: {stage_X.get_status()}, position: {stage_X.get_position()*1000:.2f} mm.')
+        print(f'{bcolors.OKBLUE}Y stage{bcolors.ENDC} homing status: {stage_Y.is_homed()}, status: {stage_Y.get_status()}, position: {stage_Y.get_position()*1000:.2f} mm.')
     else:
         print(f'{bcolors.WARNING} Stages are not initialized!{bcolors.ENDC}')
 
@@ -608,81 +525,56 @@ def print_status(hardware):
     if state['stages init'] and state['osc init']:
         print(f'{bcolors.OKGREEN} All hardware is initiated!{bcolors.ENDC}')
 
-def home(hardware):
+def home(stage_X, stage_Y):
     """Homes stages"""
 
     if state['stages init']:
-        hardware['stage x'].home(sync=False,force=True)
-        hardware['stage y'].home(sync=False,force=True)
+        stage_X.home(sync=False,force=True)
+        stage_Y.home(sync=False,force=True)
         print('Homing started...')
-        wait_stages_stop(hardware)
+        wait_stages_stop(stage_X,stage_Y)
         print(f'{bcolors.OKGREEN}...Homing complete!{bcolors.ENDC}')
     else:
         print(f'{bcolors.WARNING} Stages are not initialized!{bcolors.ENDC}')
 
-def spectra(hardware):
+def spectra(osc):
     """Measures spectral data.
     Updates global state"""
 
-    osc = hardware['osc']
-
     if state['osc init']:
         start_wl = inquirer.text(
-            message='Set start wavelength, [nm]\n(CTRL+Z to cancel)\n',
+            message='Set start wavelength, [nm]',
             default='950',
-            mandatory=False,
             validate=vd.WavelengthValidator(),
-            filter=to_int(lambda result: result)
+            filter=lambda result: int(result)
         ).execute()
-        if start_wl == None:
-            print(f'{bcolors.WARNING}Intup terminated!{bcolors.WARNING}')
-            return 0
-        
         end_wl = inquirer.text(
-            message='Set end wavelength, [nm]\n(CTRL+Z to cancel)\n',
+            message='Set end wavelength, [nm]',
             default='690',
-            mandatory=False,
             validate=vd.WavelengthValidator(),
-            filter=to_int(lambda result: result)
+            filter=lambda result: int(result)
         ).execute()
-        if end_wl == None:
-            print(f'{bcolors.WARNING}Intup terminated!{bcolors.WARNING}')
-            return 0
-        
         step = inquirer.text(
-            message='Set step, [nm]\n(CTRL+Z to cancel)\n',
+            message='Set step, [nm]',
             default='10',
-            mandatory=False,
             validate=vd.StepWlValidator(),
-            filter=to_int(lambda result: result)
+            filter=lambda result: int(result)
         ).execute()
-        if step == None:
-            print(f'{bcolors.WARNING}Intup terminated!{bcolors.WARNING}')
-            return 0
-
         target_energy = inquirer.text(
-            message='Set target energy in [mJ]\n(CTRL+Z to cancel)\n',
+            message='Set target energy in [mJ]',
             default='0.5',
-            mandatory=False,
             validate=vd.EnergyValidator(),
-            filter=to_float(lambda result: result)
+            filter=lambda result: float(result)
         ).execute()
-        if target_energy == None:
-            print(f'{bcolors.WARNING}Intup terminated!{bcolors.WARNING}')
-            return 0
-        
         max_combinations = inquirer.text(
-            message='Set maximum amount of filters\n(CTRL+Z to cancel)\n',
+            message='Set maximum amount of filters',
             default='2',
-            mandatory=False,
             validate=vd.FilterNumberValidator(),
-            filter=to_int(lambda result: result)
+            filter=lambda result: int(result)
         ).execute()
-        if max_combinations == None:
-            print(f'{bcolors.WARNING}Intup terminated!{bcolors.WARNING}')
-            return 0
 
         if start_wl > end_wl:
+            wls = np.arange(end_wl,start_wl+1,step)
             step = -step
             
         print('Start measuring spectra!')
@@ -698,13 +590,13 @@ def spectra(hardware):
             current_wl = start_wl + step*i
 
             print(f'{bcolors.UNDERLINE}Please remove all filters!{bcolors.ENDC}')
-            energy = track_power(hardware, 50)
+            energy = track_power(50)
             print(f'Power meter energy = {energy:.0f} [uJ]')
             filters, n, _ = glass_calculator(current_wl,energy,target_energy,max_combinations,no_print=True)
             if n==0:
                 print(f'{bcolors.WARNING} WARNING! No valid filter combination for {current_wl} [nm]!{bcolors.ENDC}')
                 cont_ans = inquirer.confirm(message='Do you want to continue?').execute()
-                if not cont_ans:
+                if cont_ans:
                     print(f'{bcolors.WARNING} Spectral measurements terminated!{bcolors.ENDC}')
                     return spec_data
 
@@ -722,7 +614,7 @@ def spectra(hardware):
                 ).execute()
 
                 if measure_ans == 'Tune power':
-                    track_power(hardware, 40)
+                    track_power(40)
 
                 elif measure_ans == 'Measure':
                     osc.measure()
@@ -759,11 +651,10 @@ def spectra(hardware):
         print(f'{bcolors.WARNING} Oscilloscope is not initializaed!{bcolors.ENDC}')
         return np.zeros((10,3,10))
     
-def track_power(hardware, tune_width):
+def track_power(tune_width):
     """Build power graph"""
 
     if state['osc init']:
-        osc = hardware['osc']
         if tune_width <11:
             print(f'{bcolors.WARNING} Wrong tune_width value!{bcolors.ENDC}')
             return
@@ -785,7 +676,7 @@ def track_power(hardware, tune_width):
                 bad_read_flag = osc.bad_read
                 if osc.screen_laser_amp < 1:
                     bad_read_flag = True
-                title = f'Energy={osc.screen_laser_amp:.1f} [uJ], Mean (last 10) = {osc.screen_laser_amp:.1f} [uJ], Std (last 10) = {data[:i+1].std():.1f} [uJ]'
+                title = f'Power={osc.screen_laser_amp:.1f} [uJ], Mean (last 10) = {osc.screen_laser_amp:.1f} [uJ], Std (last 10) = {data[:i+1].std():.1f} [uJ]'
 
             elif i <tune_width:
                 osc.read_screen(osc.pm_channel)
@@ -795,12 +686,12 @@ def track_power(hardware, tune_width):
                     if osc.screen_laser_amp < threshold*data[:i].mean():
                         bad_read_flag = True
                     mean = data[:i].mean()
-                    title = f'Energy={osc.screen_laser_amp:.1f} [uJ], Mean (last 10) = {mean:.1f} [uJ], Std (last 10) = {data[:i].std():.1f} [uJ]'
+                    title = f'Power={osc.screen_laser_amp:.1f} [uJ], Mean (last 10) = {mean:.1f} [uJ], Std (last 10) = {data[:i].std():.1f} [uJ]'
                 else:
                     if osc.screen_laser_amp < threshold*data[i-11:i].mean():
                         bad_read_flag = True
                     mean = data[i-11:i].mean()
-                    title = f'Energy={osc.screen_laser_amp:.1f} [uJ], Mean (last 10) = {mean:.1f} [uJ], Std (last 10) = {data[i-11:i].std():.1f} [uJ]'
+                    title = f'Power={osc.screen_laser_amp:.1f} [uJ], Mean (last 10) = {mean:.1f} [uJ], Std (last 10) = {data[i-11:i].std():.1f} [uJ]'
                 if not bad_read_flag:
                     data[i] = osc.screen_laser_amp
             else:
@@ -809,7 +700,7 @@ def track_power(hardware, tune_width):
                 bad_read_flag = osc.bad_read
                 tmp_data[tune_width-1] = osc.screen_laser_amp
                 mean = tmp_data[tune_width-11:-1].mean()
-                title = f'Energy={osc.screen_laser_amp:.1f} [uJ], Mean (last 10) = {mean:.1f} [uJ], Std (last 10) = {tmp_data[tune_width-11:-1].std():.1f} [uJ]'
+                title = f'Power={osc.screen_laser_amp:.1f} [uJ], Mean (last 10) = {mean:.1f} [uJ], Std (last 10) = {tmp_data[tune_width-11:-1].std():.1f} [uJ]'
                 if tmp_data[tune_width-1] < threshold*tmp_data[tune_width-11:-1].mean():
                     bad_read_flag = True
                 else:
@@ -818,7 +709,7 @@ def track_power(hardware, tune_width):
             ax_pa.clear()
             ax_pm.plot(osc.screen_data)
             ax_pa.plot(data)
-            ax_pa.set_ylabel('Laser energy, [uJ]')
+            ax_pa.set_ylabel('Laser power, [uJ]')
             ax_pa.set_title(title)
             ax_pa.set_ylim(bottom=0)
             fig.canvas.draw()
@@ -836,55 +727,28 @@ def track_power(hardware, tune_width):
         print(f'{bcolors.WARNING}Oscilloscope in not initialized!{bcolors.ENDC}')
         return mean
 
-def to_float(result):
-    """Converts string to float"""
-
-    try:
-        f_result = float(result)
-    except TypeError:
-        return result
-    return f_result
-
-def to_int(result):
-    """Converts string to int"""
-
-    try:
-        i_result = int(result)
-    except TypeError:
-        return result
-    return i_result
-
-def set_new_position(hardware):
+def set_new_position(stage_X, stage_Y):
     """Queries new position and move PA detector to this position"""
 
     if state['stages init']:
         x_dest = inquirer.text(
-            message='Enter X destination [mm] \n(CTRL + Z to cancel)\n',
+            message='Enter X destination [mm]',
             default='0.0',
             validate=vd.ScanRangeValidator(),
-            mandatory=False,
-            filter=to_float(lambda result: result)
+            filter=lambda result: float(result)
         ).execute()
-        if x_dest == None:
-            print(f'{bcolors.WARNING} Input terminated! {bcolors.ENDC}')
-            return
-        
         y_dest = inquirer.text(
-            message='Enter Y destination [mm] \n(CTRL + Z to cancel)\n',
+            message='Enter Y destination [mm]',
             default='0.0',
-            validate=vd.ScanRangeValidator(),
-            mandatory=False,
-            filter=to_float(lambda result: result)
+            validate=vd.ScanPointsValidator(),
+            filter=lambda result: float(result)
         ).execute()
-        if y_dest == None:
-            print(f'{bcolors.WARNING} Input terminated! {bcolors.ENDC}')
-            return
 
         print(f'Moving to ({x_dest},{y_dest})...')
-        move_to(x_dest, y_dest, hardware)
-        wait_stages_stop(hardware)
-        pos_x = hardware['stage x'].get_position(scale=True)*1000
-        pos_y = hardware['stage y'].get_position(scale=True)*1000
+        move_to(x_dest, y_dest, stage_X, stage_Y)
+        wait_stages_stop(stage_X,stage_Y)
+        pos_x = stage_X.get_position(scale=True)*1000
+        pos_y = stage_Y.get_position(scale=True)*1000
         print(f'{bcolors.OKGREEN}...Mooving complete!{bcolors.ENDC} Current position ({pos_x:.2f},{pos_y:.2f})')
     else:
         print(f'{bcolors.WARNING} Stages are not initialized!{bcolors.ENDC}')
@@ -997,11 +861,9 @@ def glass_calculator(wavelength, current_energy_pm, target_energy, max_combinati
 
 if __name__ == "__main__":
     
-    hardware = {
-        'stage x': 0,
-        'stage y': 0,
-        'osc': 0
-    }
+    stage_X = 0 #ID of X stage
+    stage_Y = 0 #ID of Y stage
+    osc = 0 # instance of Oscilloscope class
     while True: #main execution loop
         menu_ans = inquirer.rawlist(
             message='Choose an action',
@@ -1030,22 +892,22 @@ if __name__ == "__main__":
             ).execute()
 
                 if stat_ans == 'Init hardware':
-                    init_hardware(hardware, osc_params)
+                    osc, stage_X, stage_Y = init_hardware(osc_params)
 
                 elif stat_ans == 'Home stages':
-                    home(hardware)
+                    home(stage_X, stage_Y)
 
                 elif stat_ans == 'Get status':
-                    print_status(hardware)
+                    print_status(stage_X, stage_Y)
 
                 elif stat_ans == 'Back':
                     break
 
         elif menu_ans == 'Power meter':
-            _ = track_power(hardware, 100)
+            _ = track_power(100)
 
         elif menu_ans == 'Move to':
-            set_new_position(hardware)
+            set_new_position(stage_X,stage_Y)
 
         elif menu_ans == 'Stage scanning':
             while True:
@@ -1062,7 +924,7 @@ if __name__ == "__main__":
                 ).execute()
                 
                 if data_ans == 'Scan':
-                    scan_image, scan_data, dt = scan(hardware)
+                    scan_image, scan_data, dt = scan(stage_X, stage_Y)
 
                 elif data_ans == 'View data':
                     if state['scan data']:
@@ -1072,29 +934,47 @@ if __name__ == "__main__":
 
                 elif data_ans == 'FFT filtration':
                     if state['scan data']:
-                        print(f'{bcolors.WARNING} FFT of scan data is not implemented!{bcolors.ENDC}')
+                        low_cutof = inquirer.text(
+                                message='Enter low cutoff frequency [Hz]',
+                                default='100000',
+                                validate=vd.FreqValidator(),
+                                filter=lambda result: int(result)
+                            ).execute()
+
+                        high_cutof = inquirer.text(
+                                message='Enter high cutoff frequency [Hz]',
+                                default='10000000',
+                                validate=vd.FreqValidator(),
+                                filter=lambda result: int(result)
+                            ).execute()
+
+                        if state['osc init']:
+                            dt = 1/osc.sample_rate
+                        else:
+                            dt = inquirer.text(
+                                message='Set dt in [ns]',
+                                default='20',
+                                validate=vd.DtValidator(),
+                                filter=lambda result: int(result)/1000000000
+                            ).execute()
+                        scan_data = bp_filter(scan_data, low_cutof, high_cutof, dt)
+                        state['filtered scan data'] = True
+                        print('FFT filtration of scan data complete!')
                     else:
                         print(f'{bcolors.WARNING} Scan data is missing!{bcolors.ENDC}')
 
                 elif data_ans == 'Save data':
                     if state['scan data']:
                         sample = inquirer.text(
-                            message='Enter Sample name\n(CTRL+Z to cancel)\n',
-                            default='Unknown',
-                            mandatory=False
+                            message='Enter Sample name',
+                            default='Unknown'
                         ).execute()
-                        if sample == None:
-                            print(f'{bcolors.WARNING}Save terminated!{bcolors.ENDC}')
-                            break
                         save_scan_data(sample, scan_data, dt)
                     else:
                         print(f'{bcolors.WARNING}Scan data is missing!{bcolors.ENDC}')
 
                 elif data_ans == 'Load data':
-                    tmp_scan_data, tmp_dt = load_data('Scan')
-                    if len(tmp_scan_data) > 1:
-                        scan_data = tmp_scan_data
-                        dt = tmp_dt
+                    scan_data, dt = load_data('Scan')
 
                 elif data_ans == 'Back to main menu':
                         break
@@ -1117,7 +997,7 @@ if __name__ == "__main__":
                 ).execute()
                 
                 if data_ans == 'Measure spectrum':
-                    spec_data = spectra(hardware)  
+                    spec_data = spectra(osc)  
 
                 elif data_ans == 'View data':
                     if state['spectral data']:
@@ -1126,21 +1006,14 @@ if __name__ == "__main__":
                         print(f'{bcolors.WARNING} Spectral data missing!{bcolors.ENDC}')
 
                 elif data_ans == 'FFT filtration':
-                   if state['spectral data']:
-                       bp_filter(spec_data)
-                   else:
-                       print(f'{bcolors.WARNING}Spectral data is missing!{bcolors.ENDC}')
+                    print(f'{bcolors.WARNING} FFT filtration of spectral data in not implemented!{bcolors.ENDC}')
 
                 elif data_ans == 'Save data':
                     if state['spectral data']:
                         sample = inquirer.text(
-                            message='Enter Sample name\n(CTRL+Z to cancel)\n',
-                            default='Unknown',
-                            mandatory=False
+                            message='Enter Sample name',
+                            default='Unknown'
                         ).execute()
-                        if sample == None:
-                            print(f'{bcolors.WARNING}Save terminated!{bcolors.ENDC}')
-                            break
                         save_spectral_data(sample, spec_data)
                     else:
                         print(f'{bcolors.WARNING}Spectral data is missing!{bcolors.ENDC}')
@@ -1160,8 +1033,8 @@ if __name__ == "__main__":
                 ).execute()
             if exit_ans:
                 if state['stages init']:
-                    hardware['stage x'].close()
-                    hardware['stage y'].close()
+                    stage_X.close()
+                    stage_Y.close()
                 exit()
 
         else:
