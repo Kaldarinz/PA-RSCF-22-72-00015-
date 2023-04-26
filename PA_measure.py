@@ -322,67 +322,74 @@ def scan(hardware):
             message='Enter X starting position [mm] \n(CTRL+Z to cancel)\n',
             default='1.0',
             mandatory=False,
-            validate=vd.ScanRangeValidator(),
-            filter=to_float(lambda result: result)
+            validate=vd.ScanRangeValidator()
         ).execute()
+        print(type(x_start))
         if x_start == None:
             print(f'{bcolors.WARNING} Intput terminated!{bcolors.ENDC}')
-            return 0
+            return hardware
+        else:
+            x_start = float(x_start)
         
         y_start = inquirer.text(
             message='Enter Y starting position [mm] \n(CTRL+Z to cancel)\n',
             default='1.0',
             mandatory=False,
-            validate=vd.ScanRangeValidator(),
-            filter=to_float(lambda result: result)
+            validate=vd.ScanRangeValidator()
         ).execute()
         if y_start == None:
             print(f'{bcolors.WARNING} Intput terminated!{bcolors.ENDC}')
-            return 0
+            return hardware
+        else:
+            y_start = float(y_start)
 
         x_size = inquirer.text(
             message='Enter X scan size [mm] \n (CTRL+Z to cancel)\n',
             default= str(x_start + 3.0),
             mandatory=False,
-            validate=vd.ScanRangeValidator(),
-            filter=to_float(lambda result: result)
+            validate=vd.ScanRangeValidator()
         ).execute()
         if x_size == None:
             print(f'{bcolors.WARNING} Intput terminated!{bcolors.ENDC}')
-            return 0
+            return hardware
+        else:
+            x_size = float(x_size)
 
         y_size = inquirer.text(
             message='Enter Y scan size [mm] \n (CTRL+Z to cancel)\n',
             default= str(y_start + 3.0),
             mandatory=False,
-            validate=vd.ScanRangeValidator(),
-            filter=to_float(lambda result:result)
+            validate=vd.ScanRangeValidator()
         ).execute()
         if y_size == None:
             print(f'{bcolors.WARNING} Intput terminated!{bcolors.ENDC}')
-            return 0
+            return hardware
+        else:
+            y_size = float(y_size)
 
         x_points = inquirer.text(
             message='Enter number of X scan points \n(CTRL+Z to cancel)\n',
             default= '5',
             mandatory=False,
-            validate=vd.ScanPointsValidator(),
-            filter=to_int(lambda result: result)
+            validate=vd.ScanPointsValidator()
         ).execute()
         if x_points == None:
             print(f'{bcolors.WARNING} Intput terminated!{bcolors.ENDC}')
-            return 0
+            return hardware
+        else:
+            x_points = int(x_points)
 
         y_points = inquirer.text(
             message='Enter number of Y scan points\n(CTRL+Z to cancel)\n',
             default= '5',
             mandatory=False,
-            validate=vd.ScanPointsValidator(),
-            filter=to_int(lambda result: result)
+            validate=vd.ScanPointsValidator()
         ).execute()
         if y_points == None:
             print(f'{bcolors.WARNING} Intput terminated!{bcolors.ENDC}')
-            return 0
+            return hardware
+        else: 
+            y_points = int(y_points)
 
         scan_frame = np.zeros((x_points,y_points)) #scan image of normalized amplitudes
         scan_frame_full = np.zeros((x_points,y_points,4,osc.pa_frame_size)) #0-raw data, 1-filt data, 2-freq, 3-FFT
@@ -539,23 +546,25 @@ def bp_filter(data, data_type='spectral'):
         message='Enter low cutoff frequency [Hz]\n(CTRL+Z to cancel)\n',
         default='100000',
         mandatory=False,
-        validate=vd.FreqValidator(),
-        filter=to_int(lambda result: result)
+        validate=vd.FreqValidator()
     ).execute()
     if low_cutof == None:
         print(f'{bcolors.WARNING}Intup terminated!{bcolors.WARNING}')
         return data
+    else:
+        low_cutof = int(low_cutof)
 
     high_cutof = inquirer.text(
         message='Enter high cutoff frequency [Hz]\n(CTRL+Z to cancel)\n',
         default='10000000',
         mandatory=False,
-        validate=vd.FreqValidator(),
-        filter=to_int(lambda result: result)
+        validate=vd.FreqValidator()
     ).execute()
     if high_cutof == None:
         print(f'{bcolors.WARNING}Intup terminated!{bcolors.WARNING}')
         return data
+    else:
+        high_cutof = int(high_cutof)
 
     if data_type == 'spectral':
         temp_data = data[:,0,6:].copy()
@@ -633,67 +642,73 @@ def spectra(hardware):
             message='Set start wavelength, [nm]\n(CTRL+Z to cancel)\n',
             default='950',
             mandatory=False,
-            validate=vd.WavelengthValidator(),
-            filter=to_int(lambda result: result)
+            validate=vd.WavelengthValidator()
         ).execute()
         if start_wl == None:
             print(f'{bcolors.WARNING}Intup terminated!{bcolors.WARNING}')
             return 0
-        
+        else:
+            start_wl = int(start_wl)
+
         end_wl = inquirer.text(
             message='Set end wavelength, [nm]\n(CTRL+Z to cancel)\n',
             default='690',
             mandatory=False,
-            validate=vd.WavelengthValidator(),
-            filter=to_int(lambda result: result)
+            validate=vd.WavelengthValidator()
         ).execute()
         if end_wl == None:
             print(f'{bcolors.WARNING}Intup terminated!{bcolors.WARNING}')
             return 0
-        
+        else:
+            end_wl = int(end_wl)
+
         step = inquirer.text(
             message='Set step, [nm]\n(CTRL+Z to cancel)\n',
             default='10',
             mandatory=False,
-            validate=vd.StepWlValidator(),
-            filter=to_int(lambda result: result)
+            validate=vd.StepWlValidator()
         ).execute()
         if step == None:
             print(f'{bcolors.WARNING}Intup terminated!{bcolors.WARNING}')
             return 0
+        else:
+            step = int(step)
 
         target_energy = inquirer.text(
             message='Set target energy in [mJ]\n(CTRL+Z to cancel)\n',
             default='0.5',
             mandatory=False,
-            validate=vd.EnergyValidator(),
-            filter=to_float(lambda result: result)
+            validate=vd.EnergyValidator()
         ).execute()
         if target_energy == None:
             print(f'{bcolors.WARNING}Intup terminated!{bcolors.WARNING}')
             return 0
-        
+        else:
+            target_energy = float(target_energy)
+
         max_combinations = inquirer.text(
             message='Set maximum amount of filters\n(CTRL+Z to cancel)\n',
             default='2',
             mandatory=False,
-            validate=vd.FilterNumberValidator(),
-            filter=to_int(lambda result: result)
+            validate=vd.FilterNumberValidator()
         ).execute()
         if max_combinations == None:
             print(f'{bcolors.WARNING}Intup terminated!{bcolors.WARNING}')
             return 0
+        else:
+            max_combinations = int(max_combinations)
 
         averaging = inquirer.text(
             message='Set averaging\n(CTRL+Z to cancel)\n',
             default='5',
             mandatory=False,
-            validate=vd.AveragingValidator(),
-            filter=to_int(lambda result: result)
+            validate=vd.AveragingValidator()
         ).execute()
         if averaging == None:
             print(f'{bcolors.WARNING}Intup terminated!{bcolors.WARNING}')
-            return 0       
+            return 0     
+        else:
+            averaging = int(averaging)  
 
         if start_wl > end_wl:
             step = -step
@@ -857,24 +872,6 @@ def track_power(hardware, tune_width):
         print(f'{bcolors.WARNING}Oscilloscope in not initialized!{bcolors.ENDC}')
         return mean
 
-def to_float(result):
-    """Converts string to float"""
-
-    try:
-        f_result = float(result)
-    except TypeError:
-        return result
-    return f_result
-
-def to_int(result):
-    """Converts string to int"""
-
-    try:
-        i_result = int(result)
-    except TypeError:
-        return result
-    return i_result
-
 def set_new_position(hardware):
     """Queries new position and move PA detector to this position"""
 
@@ -883,23 +880,25 @@ def set_new_position(hardware):
             message='Enter X destination [mm] \n(CTRL + Z to cancel)\n',
             default='0.0',
             validate=vd.ScanRangeValidator(),
-            mandatory=False,
-            filter=to_float(lambda result: result)
+            mandatory=False
         ).execute()
         if x_dest == None:
             print(f'{bcolors.WARNING} Input terminated! {bcolors.ENDC}')
             return
+        else:
+            x_dest = float(x_dest)
         
         y_dest = inquirer.text(
             message='Enter Y destination [mm] \n(CTRL + Z to cancel)\n',
             default='0.0',
             validate=vd.ScanRangeValidator(),
-            mandatory=False,
-            filter=to_float(lambda result: result)
+            mandatory=False
         ).execute()
         if y_dest == None:
             print(f'{bcolors.WARNING} Input terminated! {bcolors.ENDC}')
             return
+        else:
+            y_dest = float(y_dest)
 
         print(f'Moving to ({x_dest},{y_dest})...')
         move_to(x_dest, y_dest, hardware)
