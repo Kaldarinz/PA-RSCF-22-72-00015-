@@ -319,6 +319,7 @@ class Oscilloscope:
 
         self.read_data(self.pa_channel)
         self.set_signal_amp()
+        print(f'Norm PA amp = {self.signal_amp/self.laser_amp}')
         self.__osc.write(':RUN')
 
         

@@ -682,6 +682,17 @@ def spectra(hardware):
             print(f'{bcolors.WARNING}Intup terminated!{bcolors.WARNING}')
             return 0
 
+        averaging = inquirer.text(
+            message='Set averaging\n(CTRL+Z to cancel)\n',
+            default='5',
+            mandatory=False,
+            validate=vd.AveragingValidator(),
+            filter=to_int(lambda result: result)
+        ).execute()
+        if averaging == None:
+            print(f'{bcolors.WARNING}Intup terminated!{bcolors.WARNING}')
+            return 0       
+
         if start_wl > end_wl:
             step = -step
             
@@ -697,6 +708,11 @@ def spectra(hardware):
         for i in range(spectral_points):
             current_wl = start_wl + step*i
 
+            tmp_signal = 0
+            tmp_laser = 0
+            counter = 0
+            print(f'\n{bcolors.HEADER}Start measuring point {(i+1)}{bcolors.ENDC}')
+            print(f'Current wavelength is {bcolors.OKBLUE}{current_wl}{bcolors.ENDC}. Please set it!')
             print(f'{bcolors.UNDERLINE}Please remove all filters!{bcolors.ENDC}')
             energy = track_power(hardware, 50)
             print(f'Power meter energy = {energy:.0f} [uJ]')
@@ -708,14 +724,13 @@ def spectra(hardware):
                     print(f'{bcolors.WARNING} Spectral measurements terminated!{bcolors.ENDC}')
                     return spec_data
 
-            print(f'\n{bcolors.HEADER}Start measuring point {(i+1)}{bcolors.ENDC}')
-            print(f'Current wavelength is {bcolors.OKBLUE}{current_wl}{bcolors.ENDC}. Please set it!')
             _,__, target_pm_value = glass_calculator(current_wl,energy,target_energy, max_combinations)
             print(f'Target power meter energy is {target_pm_value}!')
             print(f'Please set it using {bcolors.UNDERLINE}laser software{bcolors.ENDC}')
 
-            measure_ans = 'Empty'
-            while measure_ans != 'Measure':
+
+            while counter < averaging:
+                print(f'Signal at current WL should be measured {averaging-counter} more times.')
                 measure_ans = inquirer.rawlist(
                     message='Chose an action:',
                     choices=['Tune power','Measure','Stop measurements']
@@ -738,12 +753,16 @@ def spectra(hardware):
 
                     good_data = inquirer.confirm(message='Data looks good?').execute()
                     if good_data:
-                        spec_data[i,0:2,3] = dt
-                        spec_data[i,0,4] = osc.signal_amp
-                        spec_data[i,0,5] = osc.laser_amp
-                        spec_data[i,0,6:] = osc.current_pa_data/osc.laser_amp
-                    else:
-                        measure_ans = 'Bad data' #trigger additional while cycle
+                        tmp_signal += (osc.signal_amp/osc.laser_amp)
+                        tmp_laser += osc.laser_amp
+                        counter += 1
+                        if counter == averaging:
+                            spec_data[i,0:2,3] = dt
+                            spec_data[i,0,4] = tmp_signal/averaging
+                            spec_data[i,0,5] = tmp_laser/averaging
+                            spec_data[i,0,6:] = osc.current_pa_data/osc.laser_amp
+                            print(f'{bcolors.OKBLUE} Average laser = {spec_data[i,0,5]} [uJ]')
+                            print(f'Average PA signal = {spec_data[i,0,4]}{bcolors.ENDC}')
                 elif measure_ans == 'Stop measurements':
                     print(f'{bcolors.WARNING} Spectral measurements terminated!{bcolors.ENDC}')
                     state['spectral data'] = True

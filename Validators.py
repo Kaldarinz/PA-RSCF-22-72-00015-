@@ -120,6 +120,26 @@ class FilterNumberValidator(Validator):
                 cursor_position=document.cursor_position
             )
         
+class AveragingValidator(Validator):
+    def validate(self, document):
+        try:
+            int(document.text)
+        except ValueError:
+            raise ValidationError(
+                message="Value should be an integer!",
+                cursor_position=document.cursor_position
+            )
+        if int(document.text) < 1:
+            raise ValidationError(
+                message='At least 1 measurement should be made',
+                cursor_position=document.cursor_position
+            )
+        if int(document.text) > 20:
+            raise ValidationError(
+                message='Too many measurements :(',
+                cursor_position=document.cursor_position
+            )
+        
 class FreqValidator(Validator):
     def validate(self, document):
         try:
