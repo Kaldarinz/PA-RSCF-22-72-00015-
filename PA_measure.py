@@ -319,46 +319,70 @@ def scan(hardware):
 
     if state['stages init'] and state['osc init']:
         x_start = inquirer.text(
-            message='Enter X starting position [mm]',
+            message='Enter X starting position [mm] \n(CTRL+Z to cancel)\n',
             default='1.0',
+            mandatory=False,
             validate=vd.ScanRangeValidator(),
-            filter=lambda result: float(result)
+            filter=to_float(lambda result: result)
         ).execute()
-
+        if x_start == None:
+            print(f'{bcolors.WARNING} Intput terminated!{bcolors.ENDC}')
+            return 0
+        
         y_start = inquirer.text(
-            message='Enter Y starting position [mm]',
+            message='Enter Y starting position [mm] \n(CTRL+Z to cancel)\n',
             default='1.0',
+            mandatory=False,
             validate=vd.ScanRangeValidator(),
-            filter=lambda result: float(result)
+            filter=to_float(lambda result: result)
         ).execute()
+        if y_start == None:
+            print(f'{bcolors.WARNING} Intput terminated!{bcolors.ENDC}')
+            return 0
 
         x_size = inquirer.text(
-            message='Enter X scan size [mm]',
+            message='Enter X scan size [mm] \n (CTRL+Z to cancel)\n',
             default= str(x_start + 3.0),
+            mandatory=False,
             validate=vd.ScanRangeValidator(),
-            filter=lambda result: float(result)
+            filter=to_float(lambda result: result)
         ).execute()
+        if x_size == None:
+            print(f'{bcolors.WARNING} Intput terminated!{bcolors.ENDC}')
+            return 0
 
         y_size = inquirer.text(
-            message='Enter Y scan size [mm]',
+            message='Enter Y scan size [mm] \n (CTRL+Z to cancel)\n',
             default= str(y_start + 3.0),
+            mandatory=False,
             validate=vd.ScanRangeValidator(),
-            filter=lambda result: float(result)
+            filter=to_float(lambda result:result)
         ).execute()
+        if y_size == None:
+            print(f'{bcolors.WARNING} Intput terminated!{bcolors.ENDC}')
+            return 0
 
         x_points = inquirer.text(
-            message='Enter number of X scan points',
+            message='Enter number of X scan points \n(CTRL+Z to cancel)\n',
             default= '5',
+            mandatory=False,
             validate=vd.ScanPointsValidator(),
-            filter=lambda result: int(result)
+            filter=to_int(lambda result: result)
         ).execute()
+        if x_points == None:
+            print(f'{bcolors.WARNING} Intput terminated!{bcolors.ENDC}')
+            return 0
 
         y_points = inquirer.text(
-            message='Enter number of Y scan points',
+            message='Enter number of Y scan points\n(CTRL+Z to cancel)\n',
             default= '5',
+            mandatory=False,
             validate=vd.ScanPointsValidator(),
-            filter=lambda result: int(result)
+            filter=to_int(lambda result: result)
         ).execute()
+        if y_points == None:
+            print(f'{bcolors.WARNING} Intput terminated!{bcolors.ENDC}')
+            return 0
 
         scan_frame = np.zeros((x_points,y_points)) #scan image of normalized amplitudes
         scan_frame_full = np.zeros((x_points,y_points,4,osc.pa_frame_size)) #0-raw data, 1-filt data, 2-freq, 3-FFT
@@ -469,10 +493,14 @@ def load_data(data_type):
     home_path = str(Path().resolve()) + '\\measuring results\\'
     if data_type == 'Scan':
         file_path = inquirer.filepath(
-            message='Choose scan file to load:',
+            message='Choose scan file to load:\n(CTRL+Z to cancel)\n',
             default=home_path,
+            mandatory=False,
             validate=PathValidator(is_file=True, message='Input is not a file')
         ).execute()
+        if file_path == None:
+            print(f'{bcolors.WARNING}Data loading canceled!{bcolors.ENDC}')
+            return 0, 0
 
         dt = int(file_path.split('dt')[1].split('ns')[0])/1000000000
         data = np.load(file_path)
@@ -482,10 +510,14 @@ def load_data(data_type):
     
     elif data_type == 'Spectral':
         file_path = inquirer.filepath(
-            message='Choose spectral file to load:',
+            message='Choose spectral file to load:\n(CTRL+Z to cancel)\n',
             default=home_path,
+            mandatory=False,
             validate=PathValidator(is_file=True, message='Input is not a file')
         ).execute()
+        if file_path == None:
+            print(f'{bcolors.WARNING}Data loading canceled!{bcolors.ENDC}')
+            return 0, 0
 
         data = np.load(file_path)
         state['spectral data'] = True
@@ -502,18 +534,26 @@ def bp_filter(data, data_type='spectral'):
     dt is time step in seconds"""
 
     low_cutof = inquirer.text(
-        message='Enter low cutoff frequency [Hz]',
+        message='Enter low cutoff frequency [Hz]\n(CTRL+Z to cancel)\n',
         default='100000',
+        mandatory=False,
         validate=vd.FreqValidator(),
-        filter=lambda result: int(result)
+        filter=to_int(lambda result: result)
     ).execute()
+    if low_cutof == None:
+        print(f'{bcolors.WARNING}Intup terminated!{bcolors.WARNING}')
+        return data
 
     high_cutof = inquirer.text(
-        message='Enter high cutoff frequency [Hz]',
+        message='Enter high cutoff frequency [Hz]\n(CTRL+Z to cancel)\n',
         default='10000000',
+        mandatory=False,
         validate=vd.FreqValidator(),
-        filter=lambda result: int(result)
+        filter=to_int(lambda result: result)
     ).execute()
+    if high_cutof == None:
+        print(f'{bcolors.WARNING}Intup terminated!{bcolors.WARNING}')
+        return data
 
     if data_type == 'spectral':
         temp_data = data[:,0,6:].copy()
@@ -588,35 +628,59 @@ def spectra(hardware):
 
     if state['osc init']:
         start_wl = inquirer.text(
-            message='Set start wavelength, [nm]',
+            message='Set start wavelength, [nm]\n(CTRL+Z to cancel)\n',
             default='950',
+            mandatory=False,
             validate=vd.WavelengthValidator(),
-            filter=lambda result: int(result)
+            filter=to_int(lambda result: result)
         ).execute()
+        if start_wl == None:
+            print(f'{bcolors.WARNING}Intup terminated!{bcolors.WARNING}')
+            return 0
+        
         end_wl = inquirer.text(
-            message='Set end wavelength, [nm]',
+            message='Set end wavelength, [nm]\n(CTRL+Z to cancel)\n',
             default='690',
+            mandatory=False,
             validate=vd.WavelengthValidator(),
-            filter=lambda result: int(result)
+            filter=to_int(lambda result: result)
         ).execute()
+        if end_wl == None:
+            print(f'{bcolors.WARNING}Intup terminated!{bcolors.WARNING}')
+            return 0
+        
         step = inquirer.text(
-            message='Set step, [nm]',
+            message='Set step, [nm]\n(CTRL+Z to cancel)\n',
             default='10',
+            mandatory=False,
             validate=vd.StepWlValidator(),
-            filter=lambda result: int(result)
+            filter=to_int(lambda result: result)
         ).execute()
+        if step == None:
+            print(f'{bcolors.WARNING}Intup terminated!{bcolors.WARNING}')
+            return 0
+
         target_energy = inquirer.text(
-            message='Set target energy in [mJ]',
+            message='Set target energy in [mJ]\n(CTRL+Z to cancel)\n',
             default='0.5',
+            mandatory=False,
             validate=vd.EnergyValidator(),
-            filter=lambda result: float(result)
+            filter=to_float(lambda result: result)
         ).execute()
+        if target_energy == None:
+            print(f'{bcolors.WARNING}Intup terminated!{bcolors.WARNING}')
+            return 0
+        
         max_combinations = inquirer.text(
-            message='Set maximum amount of filters',
+            message='Set maximum amount of filters\n(CTRL+Z to cancel)\n',
             default='2',
+            mandatory=False,
             validate=vd.FilterNumberValidator(),
-            filter=lambda result: int(result)
+            filter=to_int(lambda result: result)
         ).execute()
+        if max_combinations == None:
+            print(f'{bcolors.WARNING}Intup terminated!{bcolors.WARNING}')
+            return 0
 
         if start_wl > end_wl:
             step = -step
@@ -772,22 +836,49 @@ def track_power(hardware, tune_width):
         print(f'{bcolors.WARNING}Oscilloscope in not initialized!{bcolors.ENDC}')
         return mean
 
+def to_float(result):
+    """Converts string to float"""
+
+    try:
+        f_result = float(result)
+    except TypeError:
+        return result
+    return f_result
+
+def to_int(result):
+    """Converts string to int"""
+
+    try:
+        i_result = int(result)
+    except TypeError:
+        return result
+    return i_result
+
 def set_new_position(hardware):
     """Queries new position and move PA detector to this position"""
 
     if state['stages init']:
         x_dest = inquirer.text(
-            message='Enter X destination [mm]',
+            message='Enter X destination [mm] \n(CTRL + Z to cancel)\n',
             default='0.0',
             validate=vd.ScanRangeValidator(),
-            filter=lambda result: float(result)
+            mandatory=False,
+            filter=to_float(lambda result: result)
         ).execute()
+        if x_dest == None:
+            print(f'{bcolors.WARNING} Input terminated! {bcolors.ENDC}')
+            return
+        
         y_dest = inquirer.text(
-            message='Enter Y destination [mm]',
+            message='Enter Y destination [mm] \n(CTRL + Z to cancel)\n',
             default='0.0',
-            validate=vd.ScanPointsValidator(),
-            filter=lambda result: float(result)
+            validate=vd.ScanRangeValidator(),
+            mandatory=False,
+            filter=to_float(lambda result: result)
         ).execute()
+        if y_dest == None:
+            print(f'{bcolors.WARNING} Input terminated! {bcolors.ENDC}')
+            return
 
         print(f'Moving to ({x_dest},{y_dest})...')
         move_to(x_dest, y_dest, hardware)
@@ -988,15 +1079,22 @@ if __name__ == "__main__":
                 elif data_ans == 'Save data':
                     if state['scan data']:
                         sample = inquirer.text(
-                            message='Enter Sample name',
-                            default='Unknown'
+                            message='Enter Sample name\n(CTRL+Z to cancel)\n',
+                            default='Unknown',
+                            mandatory=False
                         ).execute()
+                        if sample == None:
+                            print(f'{bcolors.WARNING}Save terminated!{bcolors.ENDC}')
+                            break
                         save_scan_data(sample, scan_data, dt)
                     else:
                         print(f'{bcolors.WARNING}Scan data is missing!{bcolors.ENDC}')
 
                 elif data_ans == 'Load data':
-                    scan_data, dt = load_data('Scan')
+                    tmp_scan_data, tmp_dt = load_data('Scan')
+                    if len(tmp_scan_data) > 1:
+                        scan_data = tmp_scan_data
+                        dt = tmp_dt
 
                 elif data_ans == 'Back to main menu':
                         break
@@ -1036,9 +1134,13 @@ if __name__ == "__main__":
                 elif data_ans == 'Save data':
                     if state['spectral data']:
                         sample = inquirer.text(
-                            message='Enter Sample name',
-                            default='Unknown'
+                            message='Enter Sample name\n(CTRL+Z to cancel)\n',
+                            default='Unknown',
+                            mandatory=False
                         ).execute()
+                        if sample == None:
+                            print(f'{bcolors.WARNING}Save terminated!{bcolors.ENDC}')
+                            break
                         save_spectral_data(sample, spec_data)
                     else:
                         print(f'{bcolors.WARNING}Spectral data is missing!{bcolors.ENDC}')
