@@ -324,7 +324,6 @@ def scan(hardware):
             mandatory=False,
             validate=vd.ScanRangeValidator()
         ).execute()
-        print(type(x_start))
         if x_start == None:
             print(f'{bcolors.WARNING} Intput terminated!{bcolors.ENDC}')
             return hardware
@@ -870,7 +869,7 @@ def track_power(hardware, tune_width):
         return mean
     else:
         print(f'{bcolors.WARNING}Oscilloscope in not initialized!{bcolors.ENDC}')
-        return mean
+        return 0
 
 def set_new_position(hardware):
     """Queries new position and move PA detector to this position"""
