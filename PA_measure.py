@@ -439,6 +439,8 @@ def scan(hardware):
                 move_to(opt_x, opt_y, hardware)
                 wait_stages_stop(hardware)
                 print(f'{bcolors.OKGREEN}PA detector came to the optimal position!{bcolors.ENDC}')
+            
+            print(f'{bcolors.UNDERLINE} Do not forget to adjust datactor position along laser beam (manually)!{bcolors.ENDC}')
 
     else:
         if not state['stages init']:
