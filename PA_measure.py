@@ -495,6 +495,19 @@ def save_spectral_data(sample, data):
     np.save(filename, data)
     print('Spectral data saved to ', filename)
 
+def save_tmp_data(data):
+    """"Saves temp data"""
+
+    Path('measuring results/').mkdir(parents=True, exist_ok=True)
+
+    filename = 'measuring results/TmpData'
+
+    try:
+        os.remove(filename)
+    except OSError:
+        pass
+    np.save(filename, data)
+
 def load_data(data_type):
     """Return loaded data in the related format"""
 
@@ -778,6 +791,7 @@ def spectra(hardware):
                             spec_data[i,0,4] = tmp_signal/averaging
                             spec_data[i,0,5] = tmp_laser/averaging
                             spec_data[i,0,6:] = osc.current_pa_data/osc.laser_amp
+                            save_tmp_data(spec_data)
                             print(f'{bcolors.OKBLUE} Average laser = {spec_data[i,0,5]} [uJ]')
                             print(f'Average PA signal = {spec_data[i,0,4]}{bcolors.ENDC}')
                 elif measure_ans == 'Stop measurements':
