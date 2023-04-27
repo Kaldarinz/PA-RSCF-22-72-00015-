@@ -738,6 +738,7 @@ def spectra(hardware):
                 cont_ans = inquirer.confirm(message='Do you want to continue?').execute()
                 if not cont_ans:
                     print(f'{bcolors.WARNING} Spectral measurements terminated!{bcolors.ENDC}')
+                    state['spectral data'] = True
                     return spec_data
 
             _,__, target_pm_value = glass_calculator(current_wl,energy,target_energy, max_combinations)
