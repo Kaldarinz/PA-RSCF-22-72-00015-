@@ -655,6 +655,14 @@ def spectra(hardware):
     osc = hardware['osc']
 
     if state['osc init']:
+        power_control = inquirer.select(
+            message='Choose method for laser energy control:',
+            choices=[
+                'Glan prism',
+                'Filters'
+            ]
+        ).execute()
+
         start_wl = inquirer.text(
             message='Set start wavelength, [nm]\n(CTRL+Z to cancel)\n',
             default='950',
@@ -754,21 +762,27 @@ def spectra(hardware):
             counter = 0
             print(f'\n{bcolors.HEADER}Start measuring point {(i+1)}{bcolors.ENDC}')
             print(f'Current wavelength is {bcolors.OKBLUE}{current_wl}{bcolors.ENDC}. Please set it!')
-            print(f'{bcolors.UNDERLINE}Please remove all filters!{bcolors.ENDC}')
-            energy = track_power(hardware, 50)
-            print(f'Power meter energy = {energy:.0f} [uJ]')
-            filters, n, _ = glass_calculator(current_wl,energy,target_energy,max_combinations,no_print=True)
-            if n==0:
-                print(f'{bcolors.WARNING} WARNING! No valid filter combination for {current_wl} [nm]!{bcolors.ENDC}')
-                cont_ans = inquirer.confirm(message='Do you want to continue?').execute()
-                if not cont_ans:
-                    print(f'{bcolors.WARNING} Spectral measurements terminated!{bcolors.ENDC}')
-                    state['spectral data'] = True
-                    return spec_data
+            if power_control == 'Filters':
+                print(f'{bcolors.UNDERLINE}Please remove all filters!{bcolors.ENDC}')
+                energy = track_power(hardware, 50)
+                print(f'Power meter energy = {energy:.0f} [uJ]')
+                filters, n, _ = glass_calculator(current_wl,energy,target_energy,max_combinations,no_print=True)
+                if n==0:
+                    print(f'{bcolors.WARNING} WARNING! No valid filter combination for {current_wl} [nm]!{bcolors.ENDC}')
+                    cont_ans = inquirer.confirm(message='Do you want to continue?').execute()
+                    if not cont_ans:
+                        print(f'{bcolors.WARNING} Spectral measurements terminated!{bcolors.ENDC}')
+                        state['spectral data'] = True
+                        return spec_data
 
-            _,__, target_pm_value = glass_calculator(current_wl,energy,target_energy, max_combinations)
-            print(f'Target power meter energy is {target_pm_value}!')
-            print(f'Please set it using {bcolors.UNDERLINE}laser software{bcolors.ENDC}')
+                _,__, target_pm_value = glass_calculator(current_wl,energy,target_energy, max_combinations)
+                print(f'Target power meter energy is {target_pm_value}!')
+                print(f'Please set it using {bcolors.UNDERLINE}laser software{bcolors.ENDC}')
+            else:
+                _,__, target_pm_value = glass_calculator(current_wl,100,target_energy, max_combinations, no_print=True)
+                print(f'Target power meter energy is {target_pm_value}!')
+                print(f'Please set it using {bcolors.UNDERLINE}Glan prism{bcolors.ENDC}!')
+                _ = track_power(hardware, 50)
 
 
             while counter < averaging:
@@ -848,6 +862,8 @@ def track_power(hardware, tune_width):
                 if osc.screen_laser_amp < 1:
                     bad_read_flag = True
                 title = f'Energy={osc.screen_laser_amp:.1f} [uJ], Mean (last 10) = {osc.screen_laser_amp:.1f} [uJ], Std (last 10) = {data[:i+1].std():.1f} [uJ]'
+                if not bad_read_flag:
+                    data[i] = osc.screen_laser_amp
 
             elif i <tune_width:
                 osc.read_screen(osc.pm_channel)
@@ -865,6 +881,7 @@ def track_power(hardware, tune_width):
                     title = f'Energy={osc.screen_laser_amp:.1f} [uJ], Mean (last 10) = {mean:.1f} [uJ], Std (last 10) = {data[i-11:i].std():.1f} [uJ]'
                 if not bad_read_flag:
                     data[i] = osc.screen_laser_amp
+            
             else:
                 tmp_data[:-1] = data[1:].copy()
                 osc.read_screen(osc.pm_channel)
