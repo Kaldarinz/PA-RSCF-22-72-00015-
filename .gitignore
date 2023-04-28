@@ -1,5 +1,7 @@
 #user folder
 .DS_Store
+backup files/
+measuring results/TmpData.npy
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
