@@ -728,7 +728,7 @@ def spectra(hardware):
             averaging = int(averaging)  
 
         if start_wl > end_wl:
-            step = -stepy
+            step = -step
             
         print('Start measuring spectra!')
     
@@ -1012,6 +1012,11 @@ def glass_calculator(wavelength, current_energy_pm, target_energy, max_combinati
 
     target_energy = target_energy*1000
     laser_energy = current_energy_pm/data[wl_index,1]*100
+
+    if laser_energy == 0:
+        print(f'{bcolors.WARNING} Laser radiation is not detected!{bcolors.ENDC}')
+        return
+    
     target_transm = target_energy/laser_energy
     if not no_print:
         print(f'Target energy = {target_energy} [uJ]')
@@ -1041,6 +1046,46 @@ def glass_calculator(wavelength, current_energy_pm, target_energy, max_combinati
     target_pm_value = target_energy*data[wl_index,1]/100
     return result, i, target_pm_value
 
+def calc_filters_for_energy(hardware):
+    """Provides required filter combination for an energy"""
+
+    max_combinations = 2 #max filters
+
+    wl = inquirer.text(
+        message='Set wavelength, [nm]\n(CTRL+Z to cancel)\n',
+        default='750',
+        mandatory=False,
+        validate=vd.WavelengthValidator()
+    ).execute()
+    if wl == None:
+        print(f'{bcolors.WARNING}Intup terminated!{bcolors.WARNING}')
+        return
+    else:
+        wl = int(wl)
+
+    target_energy = inquirer.text(
+        message='Set target energy in [mJ]\n(CTRL+Z to cancel)\n',
+        default='0.5',
+        mandatory=False,
+        validate=vd.EnergyValidator()
+    ).execute()
+    if target_energy == None:
+        print(f'{bcolors.WARNING}Intup terminated!{bcolors.WARNING}')
+        return
+    else:
+        target_energy = float(target_energy)
+
+    print(f'{bcolors.UNDERLINE}Please remove all filters!{bcolors.ENDC}')
+    energy = track_power(hardware, 50)
+    print(f'Power meter energy = {energy:.0f} [uJ]')
+    filters, n, _ = glass_calculator(wl,energy,target_energy,max_combinations,no_print=True)
+    if n==0:
+        print(f'{bcolors.WARNING} WARNING! No valid filter combination!{bcolors.ENDC}')
+
+    _,__, target_pm_value = glass_calculator(wl,energy,target_energy, max_combinations)
+    print(f'Target power meter energy is {target_pm_value}!')
+    print(f'Please set it using {bcolors.UNDERLINE}laser software{bcolors.ENDC}')
+
 if __name__ == "__main__":
     
     hardware = {
@@ -1054,6 +1099,7 @@ if __name__ == "__main__":
             choices=[
                 'Init and status',
                 'Power meter',
+                'Set energy',
                 'Move to',
                 'Stage scanning',
                 'Spectral scanning',
@@ -1089,6 +1135,9 @@ if __name__ == "__main__":
 
         elif menu_ans == 'Power meter':
             _ = track_power(hardware, 100)
+
+        elif menu_ans == 'Set energy':
+            calc_filters_for_energy(hardware)
 
         elif menu_ans == 'Move to':
             set_new_position(hardware)
