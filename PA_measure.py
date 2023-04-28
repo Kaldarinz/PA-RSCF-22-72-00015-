@@ -164,7 +164,12 @@ class SpectralIndexTracker:
         self.start_wl = data[0,0,0]
         self.stop_wl = data[0,0,1]
         wl_points = int((self.stop_wl - self.start_wl)/self.step_wl) + 1
-        self.wl_data = np.linspace(self.start_wl,self.stop_wl,wl_points)
+        if (self.stop_wl-self.start_wl)%self.step_wl:
+            self.wl_data = np.zeros(wl_points+1)
+            self.wl_data[:-1] = np.arange(self.start_wl,self.stop_wl,self.step_wl)
+            self.wl_data[-1] = self.stop_wl
+        else:
+            self.wl_data = np.linspace(self.start_wl,self.stop_wl,wl_points)
         self.spec_data = data[:,0,4]
         self.ax_sp.plot(self.wl_data,self.spec_data)
         self.ax_sp.set_ylim(bottom=0)
@@ -195,7 +200,7 @@ class SpectralIndexTracker:
         self.ax_raw.plot(self.time_data, self.raw_data[self.x_ind,:])
         self.ax_freq.plot(self.freq_data, self.fft_data[self.x_ind,:])
         self.ax_filt.plot(self.time_data, self.filt_data[self.x_ind,:])
-        title = 'Wavelength:' + str(int(self.x_ind*self.step_wl+self.start_wl)) + 'nm'
+        title = 'Wavelength:' + str(int(self.wl_data[self.x_ind])) + 'nm'
         self.ax_freq.set_title(title)
 
         self.selected.set_data(self.wl_data[self.x_ind], self.data[self.x_ind,0,4])
@@ -723,19 +728,26 @@ def spectra(hardware):
             averaging = int(averaging)  
 
         if start_wl > end_wl:
-            step = -step
+            step = -stepy
             
         print('Start measuring spectra!')
     
         d_wl = end_wl-start_wl
-        spectral_points = int(d_wl/step) + 1
+
+        if d_wl%step:
+            spectral_points = int(d_wl/step) + 2
+        else:
+            spectral_points = int(d_wl/step) + 1
 
         frame_size = osc.time_to_points(osc.frame_duration)
         spec_data = np.zeros((spectral_points,3,frame_size+6))
         spec_data = set_spec_preamble(spec_data,start_wl,end_wl,step)
 
         for i in range(spectral_points):
-            current_wl = start_wl + step*i
+            if abs(step*i) < abs(d_wl):
+                current_wl = start_wl + step*i
+            else:
+                current_wl = end_wl
 
             tmp_signal = 0
             tmp_laser = 0
