@@ -715,17 +715,18 @@ def spectra(hardware):
         else:
             target_energy = float(target_energy)
 
-        max_combinations = inquirer.text(
-            message='Set maximum amount of filters\n(CTRL+Z to cancel)\n',
-            default='2',
-            mandatory=False,
-            validate=vd.FilterNumberValidator()
-        ).execute()
-        if max_combinations == None:
-            print(f'{bcolors.WARNING}Intup terminated!{bcolors.WARNING}')
-            return 0
-        else:
-            max_combinations = int(max_combinations)
+        if power_control == 'Filters':
+            max_combinations = inquirer.text(
+                message='Set maximum amount of filters\n(CTRL+Z to cancel)\n',
+                default='2',
+                mandatory=False,
+                validate=vd.FilterNumberValidator()
+            ).execute()
+            if max_combinations == None:
+                print(f'{bcolors.WARNING}Intup terminated!{bcolors.WARNING}')
+                return 0
+            else:
+                max_combinations = int(max_combinations)
 
         averaging = inquirer.text(
             message='Set averaging\n(CTRL+Z to cancel)\n',
@@ -784,7 +785,7 @@ def spectra(hardware):
                 print(f'Please set it using {bcolors.UNDERLINE}laser software{bcolors.ENDC}')
             elif power_control == 'Glan prism':
                 if i == 0:
-                    target_pm_value = glan_calc_reverse(target_energy)
+                    target_pm_value = glan_calc_reverse(target_energy*1000)
                 print(f'Target power meter energy is {target_pm_value}!')
                 print(f'Please set it using {bcolors.UNDERLINE}Glan prism{bcolors.ENDC}!')
                 _ = track_power(hardware, 50)
