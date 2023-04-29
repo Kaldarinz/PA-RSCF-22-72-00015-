@@ -660,8 +660,12 @@ def spectra(hardware):
             choices=[
                 'Glan prism',
                 'Filters'
-            ]
+            ],
+            mandatory=False
         ).execute()
+        if power_control == None:
+            print(f'{bcolors.WARNING}Intup terminated!{bcolors.WARNING}')
+            return 0
 
         start_wl = inquirer.text(
             message='Set start wavelength, [nm]\n(CTRL+Z to cancel)\n',
@@ -778,12 +782,15 @@ def spectra(hardware):
                 _,__, target_pm_value = glass_calculator(current_wl,energy,target_energy, max_combinations)
                 print(f'Target power meter energy is {target_pm_value}!')
                 print(f'Please set it using {bcolors.UNDERLINE}laser software{bcolors.ENDC}')
-            else:
-                _,__, target_pm_value = glass_calculator(current_wl,100,target_energy, max_combinations, no_print=True)
+            elif power_control == 'Glan prism':
+                if i == 0:
+                    target_pm_value = glan_calc_reverse(target_energy)
                 print(f'Target power meter energy is {target_pm_value}!')
                 print(f'Please set it using {bcolors.UNDERLINE}Glan prism{bcolors.ENDC}!')
                 _ = track_power(hardware, 50)
-
+            else:
+                print(f'{bcolors.WARNING}Unknown power control method! Measurements terminated!')
+                return 0
 
             while counter < averaging:
                 print(f'Signal at current WL should be measured {averaging-counter} more times.')
@@ -1103,6 +1110,89 @@ def calc_filters_for_energy(hardware):
     print(f'Target power meter energy is {target_pm_value}!')
     print(f'Please set it using {bcolors.UNDERLINE}laser software{bcolors.ENDC}')
 
+def glan_calc(energy):
+    """Calculates energy at sample for a given energy"""
+
+    filename = 'GlanCalibr.txt' # file with Glan calibrations
+    fit_order = 1 #order of the polynom for fitting data
+
+    try:
+        calibr_data = np.loadtxt(filename)
+    except FileNotFoundError:
+        print(f'{bcolors.WARNING} File with color glass data not found!{bcolors.ENDC}')
+        return [0]
+    except ValueError as er:
+        print(f'Error message: {str(er)}')
+        print(f'{bcolors.WARNING} Error while loading color glass data!{bcolors.ENDC}')
+        return [0]
+
+    coef = np.polyfit(calibr_data[:,0], calibr_data[:,1],fit_order)
+
+    fit = np.poly1d(coef)
+
+    return fit(energy)
+
+def glan_calc_reverse(target_energy):
+    """Calculates energy at power meter placed at glass reflection
+    to obtain target_energy"""
+
+    filename = 'GlanCalibr.txt' # file with Glan calibrations
+    fit_order = 1 #order of the polynom for fitting data
+
+    try:
+        calibr_data = np.loadtxt(filename)
+    except FileNotFoundError:
+        print(f'{bcolors.WARNING} File with color glass data not found!{bcolors.ENDC}')
+        return [0]
+    except ValueError as er:
+        print(f'Error message: {str(er)}')
+        print(f'{bcolors.WARNING} Error while loading color glass data!{bcolors.ENDC}')
+        return [0]
+
+    coef = np.polyfit(calibr_data[:,0], calibr_data[:,1],fit_order)
+
+    if fit_order == 1:
+        # target_energy = coef[0]*energy + coef[1]
+        energy = (target_energy - coef[1])/coef[0]
+    else:
+        print(f'{bcolors.WARNING} Reverse Glan calculation for nonlinear fit is not realized!{bcolors.ENDC}')
+        return None    
+    
+    return energy
+
+def glan_check(hardware):
+    """Used to check glan performance"""
+
+    damage_threshold = 800 # [uJ] maximum value, which does not damage PM
+
+    print(f'{bcolors.HEADER}Start procedure to check Glan performance{bcolors.ENDC}')
+    print(f'Do not try energies at sample large than {bcolors.UNDERLINE} 800 uJ {bcolors.ENDC}!')
+    
+    while True:
+        print(f'\nSet some energy at glass reflection')
+        energy = track_power(hardware, 50)
+        target_energy = glan_calc(energy)
+        if target_energy > damage_threshold:
+            print(f'{bcolors.WARNING} Energy at sample will damage the PM, set smaller energy!{bcolors.ENDC}')
+            continue
+        print(f'Energy at sample should be ~{target_energy} uJ. Check it!')
+        track_power(hardware,50)
+
+        option = inquirer.rawlist(
+            message='Choose an action:',
+            choices=[
+                'Measure again',
+                'Back'
+            ]
+        ).execute()
+
+        if option == 'Measure again':
+            continue
+        elif option == 'Back':
+            break
+        else:
+            print(f'{bcolors.WARNING}Unknown command in Glan chack menu!{bcolors.ENDC}')
+
 if __name__ == "__main__":
     
     hardware = {
@@ -1116,7 +1206,7 @@ if __name__ == "__main__":
             choices=[
                 'Init and status',
                 'Power meter',
-                'Set energy',
+                'Energy',
                 'Move to',
                 'Stage scanning',
                 'Spectral scanning',
@@ -1153,8 +1243,24 @@ if __name__ == "__main__":
         elif menu_ans == 'Power meter':
             _ = track_power(hardware, 100)
 
-        elif menu_ans == 'Set energy':
-            calc_filters_for_energy(hardware)
+        elif menu_ans == 'Energy':
+            while True:
+                energy_menu = inquirer.rawlist(
+                    message='Choose an option',
+                    choices = [
+                        'Glan check',
+                        'Filter caclulation',
+                        'Back'
+                    ]
+                ).execute()
+                if energy_menu == 'Glan check':
+                    glan_check(hardware)
+                elif energy_menu == 'Filter caclulation':
+                    calc_filters_for_energy(hardware)
+                elif energy_menu == 'Back':
+                    break
+                else:
+                    print(f'{bcolors.WARNING}Unknown command in energy menu!{bcolors.ENDC}')
 
         elif menu_ans == 'Move to':
             set_new_position(hardware)
