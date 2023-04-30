@@ -513,7 +513,7 @@ def save_tmp_data(data):
         pass
     np.save(filename, data)
 
-def load_data(data_type):
+def load_data(data_type, old_data):
     """Return loaded data in the related format"""
 
     home_path = str(Path().resolve()) + '\\measuring results\\'
@@ -543,7 +543,7 @@ def load_data(data_type):
         ).execute()
         if file_path == None:
             print(f'{bcolors.WARNING}Data loading canceled!{bcolors.ENDC}')
-            return 0, 0
+            return old_data
 
         data = np.load(file_path)
         state['spectral data'] = True
@@ -1201,6 +1201,8 @@ if __name__ == "__main__":
         'stage y': 0,
         'osc': 0
     }
+    spec_data = [] # array for spec_data
+    scan_data = [] # array for scan_data
     while True: #main execution loop
         menu_ans = inquirer.rawlist(
             message='Choose an action',
@@ -1310,7 +1312,7 @@ if __name__ == "__main__":
                         print(f'{bcolors.WARNING}Scan data is missing!{bcolors.ENDC}')
 
                 elif data_ans == 'Load data':
-                    tmp_scan_data, tmp_dt = load_data('Scan')
+                    tmp_scan_data, tmp_dt = load_data('Scan', scan_data)
                     if len(tmp_scan_data) > 1:
                         scan_data = tmp_scan_data
                         dt = tmp_dt
@@ -1365,7 +1367,7 @@ if __name__ == "__main__":
                         print(f'{bcolors.WARNING}Spectral data is missing!{bcolors.ENDC}')
 
                 elif data_ans == 'Load data':
-                    spec_data = load_data('Spectral')
+                    spec_data = load_data('Spectral', spec_data)
 
                 elif data_ans == 'Back to main menu':
                         break         
