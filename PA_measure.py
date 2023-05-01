@@ -55,6 +55,7 @@ state = {
     'osc init': False,
     'scan data': False,
     'spectral data': False,
+    'filtered spec data': False,
     'filtered scan data': False,
 }
        
@@ -641,7 +642,13 @@ def load_data(data_type, old_data):
             return old_data
 
         data = np.load(file_path)
+
         state['spectral data'] = True
+        if data[0,2,2]: #check if freq step in nonzero
+            state['filtered spec data'] = True
+        else:
+            state['filtered spec data'] = False
+
         sample = file_path
         print(f'...Spectral data with shape {data.shape} loaded!')
         return data, sample
@@ -710,6 +717,7 @@ def bp_filter(data, data_type='spectral'):
         #norm filtered laser amp
         data[:,1,4] = np.amax(data[:,1,6:], axis=1)-np.amin(data[:,1,6:], axis=1)
 
+        state['filtered spec data'] = True
         print(f'{bcolors.OKGREEN} FFT filtration of spectral data complete!{bcolors.ENDC}')
     
     return data
@@ -1298,6 +1306,84 @@ def glan_check(hardware):
         else:
             print(f'{bcolors.WARNING}Unknown command in Glan chack menu!{bcolors.ENDC}')
 
+def export_to_txt(data, sample, data_type='spectral'):
+    """Exports data to txt file"""
+
+    if data_type == 'spectral':
+        if state['spectral data'] and state['filtered spec data']:
+            export_type = inquirer.rawlist(
+                message='Choose data to export:',
+                choices=[
+                    'Raw data',
+                    'Filtered data',
+                    'Freq data',
+                    'All',
+                    'back'
+                ]
+            ).execute()
+            if export_type == 'Raw data':
+                pass
+
+            elif export_type == 'Filtered data':
+
+                if not len(sample):
+                    filename = 'measuring results/txt data/filt.txt'
+                else:
+                    filename = sample.split('.npy')[0]
+                    filename += '-filt.txt'
+
+                start_freq = data[0,2,0]/1000000
+                end_freq = data[0,2,1]/1000000
+                header_line1 = f'Filtered data in range ({start_freq:.1f}:{end_freq:.1f}) MHz\n'
+                header_line2 = 'First line is WL\n'
+                header_line3 = 'First col is time in [us]; others cols are signals in [V]'
+                header = header_line1 + header_line2 + header_line3
+
+                dt = data[0,0,3]
+                start_wl = data[0,0,0]
+                end_wl = data[0,0,1]
+                step_wl = data[0,0,2]
+                duration = (config['pre_time'] + config['post_time'])/1000000
+                spectr_points = int(duration/dt)+1
+                pre_points = int(config['pre_time']/1000000/dt)
+                post_points = spectr_points - pre_points
+                data_txt = np.zeros((spectr_points+1,data.shape[0]+1))
+                
+                #copy data
+                for i in range(data.shape[0]):
+                    if i < (data.shape[0]-1):
+                        data_txt[0,i+1] = start_wl + i*step_wl
+                    else: #handels case when the last step is smaller then others
+                        data_txt[0,i+1] = end_wl
+                    max_amp_ind = np.argmax(data[i,1,6:])
+                    data_txt[1:,i+1] = data[i,1,6+max_amp_ind-pre_points:6+max_amp_ind+post_points].copy()
+
+                for i in range(spectr_points):
+                    data_txt[i+1,0] = i*dt*1000000
+                
+                np.savetxt(filename,data_txt,header=header,fmt='%1.3e')
+
+            elif export_type == 'Freq data':
+                pass
+
+            elif export_type == 'All':
+                pass
+
+            elif export_type == 'back':
+                return
+            
+            else:
+                print(f'{bcolors.WARNING} Unknown command in data export menu {bcolors.ENDC}')
+
+        else:
+            if not state['spectral data']:
+                print(f'{bcolors.WARNING}Spectral data is missing!{bcolors.ENDC}')
+            elif not state['filtered spec data']:
+                print(f'{bcolors.WARNING}Spectral data is not filtered!{bcolors.ENDC}')
+            else:
+                print(f'{bcolors.WARNING}Unknown state of spectral data!{bcolors.ENDC}')
+            return
+
 if __name__ == "__main__":
     
     hardware = {
@@ -1440,6 +1526,7 @@ if __name__ == "__main__":
                         'FFT filtration',
                         'Load data',
                         'Save data',
+                        'Export to txt',
                         'Back to main menu'
                     ]
                 ).execute()
@@ -1473,6 +1560,9 @@ if __name__ == "__main__":
                         save_spectral_data(sample, spec_data)
                     else:
                         print(f'{bcolors.WARNING}Spectral data is missing!{bcolors.ENDC}')
+
+                elif data_ans == 'Export to txt':
+                    export_to_txt(spec_data,sample)
 
                 elif data_ans == 'Load data':
                     spec_data, sample = load_data('Spectral', spec_data)
