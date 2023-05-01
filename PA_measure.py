@@ -175,13 +175,15 @@ class SpectralIndexTracker:
             self.wl_data = np.linspace(self.start_wl,self.stop_wl,wl_points)
         self.spec_data_raw = data[:,0,4]
         self.spec_data_filt = data[:,1,4]
-        spec_raw, = self.ax_sp.plot(self.wl_data,self.spec_data_raw, label='raw data')
-        spec_filt, = self.ax_sp.plot(self.wl_data,self.spec_data_filt, label='filt data')
-        self.ax_sp.legend(handles=[spec_raw,spec_filt])
+        self.ax_sp.plot(self.wl_data,self.spec_data_raw, label='raw data')
+        self.ax_sp.plot(self.wl_data,self.spec_data_filt, label='filt data')
+        self.ax_sp.legend(loc='upper right')
         self.ax_sp.set_ylim(bottom=0)
         self.ax_sp.set_ylabel('Normalizaed PA amp')
         self.ax_sp.set_xlabel('Wavelength, [nm]')
-        self.selected, = self.ax_sp.plot(self.wl_data[self.x_ind], data[self.x_ind,0,4], 
+        self.selected_raw, = self.ax_sp.plot(self.wl_data[self.x_ind], data[self.x_ind,0,4], 
+                                         'o', alpha=0.4, ms=12, color='yellow')
+        self.selected_filt, = self.ax_sp.plot(self.wl_data[self.x_ind], data[self.x_ind,1,4], 
                                          'o', alpha=0.4, ms=12, color='yellow')
         self.update()
 
@@ -200,23 +202,50 @@ class SpectralIndexTracker:
                 self.update()
 
     def update(self):
+        #update raw data
         self.ax_raw.clear()
-        self.ax_freq.clear()
-        self.ax_filt.clear()
         self.ax_raw.plot(self.time_data, self.raw_data[self.x_ind,:])
-        self.ax_freq.plot(self.freq_data, self.fft_data[self.x_ind,:])
-        self.ax_filt.plot(self.time_data, self.filt_data[self.x_ind,:])
-        title = 'Wavelength:' + str(int(self.wl_data[self.x_ind])) + 'nm'
-        self.ax_freq.set_title(title)
-
-        self.selected.set_data(self.wl_data[self.x_ind], self.data[self.x_ind,0,4])
-        
         self.ax_raw.set_ylabel('PA detector signal, [V]')
         self.ax_raw.set_xlabel('Time, [us]')
+        self.ax_raw.set_title('Raw PA data')
+        #marker for max value
+        raw_max = np.amax(self.raw_data[self.x_ind,:])
+        raw_max_t = self.time_data[np.argwhere(self.raw_data[self.x_ind,:]==raw_max)[0]]
+        self.ax_raw.plot(raw_max_t, raw_max, 'o', alpha=0.4, ms=12, color='yellow')
+        #marker for min value
+        raw_min = np.amin(self.raw_data[self.x_ind,:])
+        raw_min_t = self.time_data[np.argwhere(self.raw_data[self.x_ind,:]==raw_min)[0]]
+        self.ax_raw.plot(raw_min_t, raw_min, 'o', alpha=0.4, ms=12, color='yellow')
+
+        #update filt data
+        self.ax_filt.clear()
+        self.ax_filt.plot(self.time_data, self.filt_data[self.x_ind,:])
         self.ax_filt.set_ylabel('PA detector signal, [V]')
         self.ax_filt.set_xlabel('Time, [us]')
+        self.ax_filt.set_title('Filtered PA data')
+        #marker for max value
+        filt_max = np.amax(self.filt_data[self.x_ind,:])
+        filt_max_t = self.time_data[np.argwhere(self.filt_data[self.x_ind,:]==filt_max)[0]]
+        self.ax_filt.plot(filt_max_t, filt_max, 'o', alpha=0.4, ms=12, color='yellow')
+        #marker for min value
+        filt_min = np.amin(self.filt_data[self.x_ind,:])
+        filt_min_t = self.time_data[np.argwhere(self.filt_data[self.x_ind,:]==filt_min)[0]]
+        self.ax_filt.plot(filt_min_t, filt_min, 'o', alpha=0.4, ms=12, color='yellow')
+
+        #update freq data
+        self.ax_freq.clear()
+        self.ax_freq.plot(self.freq_data, self.fft_data[self.x_ind,:])
         self.ax_freq.set_ylabel('FFT signal amp')
         self.ax_freq.set_xlabel('Frequency, [kHz]')
+        self.ax_freq.set_title('FFT of PA data')
+        
+        #update Spectrum
+        title = 'Wavelength:' + str(int(self.wl_data[self.x_ind])) + 'nm'
+        self.ax_sp.set_title(title)
+        self.selected_raw.set_data(self.wl_data[self.x_ind], self.data[self.x_ind,0,4])
+        self.selected_filt.set_data(self.wl_data[self.x_ind], self.data[self.x_ind,1,4])
+        
+        #general update
         self.fig.align_labels()
         self.fig.canvas.draw()
 
@@ -233,10 +262,11 @@ def scan_vizualization(data, dt):
     fig.canvas.mpl_connect('key_press_event', tracker.on_key_press)
     plt.show()
 
-def spectral_vizualization(data):
+def spectral_vizualization(data, sample_name):
     """Vizualization of spectral data."""
 
     fig = plt.figure(tight_layout=True)
+    fig.suptitle(sample_name)
     gs = gridspec.GridSpec(2,2)
     ax_sp = fig.add_subplot(gs[0,0])
     ax_raw = fig.add_subplot(gs[0,1])
@@ -1371,7 +1401,7 @@ if __name__ == "__main__":
 
                 elif data_ans == 'View data':
                     if state['spectral data']:
-                        spectral_vizualization(spec_data)
+                        spectral_vizualization(spec_data, sample)
                     else:
                         print(f'{bcolors.WARNING} Spectral data missing!{bcolors.ENDC}')
 
