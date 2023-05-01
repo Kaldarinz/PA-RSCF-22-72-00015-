@@ -134,7 +134,7 @@ class IndexTracker:
 class SpectralIndexTracker:
     '''Class for spectral data vizualization'''
 
-    def __init__(self, fig, ax_sp, ax_raw, ax_freq, ax_filt, data):
+    def __init__(self, fig, ax_sp, ax_raw, ax_freq, ax_filt, ax_raw_zoom, ax_filt_zoom, data, pre_time, post_time):
         
         warnings.filterwarnings('ignore', category=MatplotlibDeprecationWarning)
 
@@ -144,9 +144,14 @@ class SpectralIndexTracker:
         self.ax_raw = ax_raw
         self.ax_freq = ax_freq
         self.ax_filt = ax_filt
+        self.ax_raw_zoom = ax_raw_zoom
+        self.ax_filt_zoom = ax_filt_zoom
         
         self.dt = data[0,0,3]
         self.dw = data[0,2,2]
+
+        self.pre_points = int(pre_time/1000000/self.dt)
+        self.post_points = int(post_time/1000000/self.dt)
         
         self.time_data = np.linspace(0,self.dt*(data.shape[2]-7),data.shape[2]-6)*1000000
         self.raw_data = data[:,0,6:]
@@ -202,21 +207,6 @@ class SpectralIndexTracker:
                 self.update()
 
     def update(self):
-        #update raw data
-        self.ax_raw.clear()
-        self.ax_raw.plot(self.time_data, self.raw_data[self.x_ind,:])
-        self.ax_raw.set_ylabel('PA detector signal, [V]')
-        self.ax_raw.set_xlabel('Time, [us]')
-        self.ax_raw.set_title('Raw PA data')
-        #marker for max value
-        raw_max = np.amax(self.raw_data[self.x_ind,:])
-        raw_max_t = self.time_data[np.argwhere(self.raw_data[self.x_ind,:]==raw_max)[0]]
-        self.ax_raw.plot(raw_max_t, raw_max, 'o', alpha=0.4, ms=12, color='yellow')
-        #marker for min value
-        raw_min = np.amin(self.raw_data[self.x_ind,:])
-        raw_min_t = self.time_data[np.argwhere(self.raw_data[self.x_ind,:]==raw_min)[0]]
-        self.ax_raw.plot(raw_min_t, raw_min, 'o', alpha=0.4, ms=12, color='yellow')
-
         #update filt data
         self.ax_filt.clear()
         self.ax_filt.plot(self.time_data, self.filt_data[self.x_ind,:])
@@ -225,12 +215,63 @@ class SpectralIndexTracker:
         self.ax_filt.set_title('Filtered PA data')
         #marker for max value
         filt_max = np.amax(self.filt_data[self.x_ind,:])
-        filt_max_t = self.time_data[np.argwhere(self.filt_data[self.x_ind,:]==filt_max)[0]]
+        filt_max_ind = np.argwhere(self.filt_data[self.x_ind,:]==filt_max)[0][0]
+        filt_max_t = self.time_data[filt_max_ind]
         self.ax_filt.plot(filt_max_t, filt_max, 'o', alpha=0.4, ms=12, color='yellow')
         #marker for min value
         filt_min = np.amin(self.filt_data[self.x_ind,:])
         filt_min_t = self.time_data[np.argwhere(self.filt_data[self.x_ind,:]==filt_min)[0]]
         self.ax_filt.plot(filt_min_t, filt_min, 'o', alpha=0.4, ms=12, color='yellow')
+        #marker for start zoom
+        start_zoom_ind = filt_max_ind-self.pre_points
+        if start_zoom_ind < 0:
+            start_zoom_ind = 0
+        start_zoom = self.time_data[start_zoom_ind]
+        self.ax_filt.plot(start_zoom, 0, 'o', alpha=0.8, ms=12, color='green')
+        #marker for stop zoom
+        stop_zoom_ind = filt_max_ind + self.post_points
+        if stop_zoom_ind > (len(self.time_data) - 1):
+            stop_zoom_ind = len(self.time_data) - 1
+        stop_zoom = self.time_data[stop_zoom_ind]
+        self.ax_filt.plot(stop_zoom, 0, 'o', alpha=0.8, ms=12, color='green')
+
+        #update raw data
+        self.ax_raw.clear()
+        self.ax_raw.plot(self.time_data, self.raw_data[self.x_ind,:])
+        self.ax_raw.set_ylabel('PA detector signal, [V]')
+        self.ax_raw.set_xlabel('Time, [us]')
+        self.ax_raw.set_title('Raw PA data')
+        #marker for max value
+        raw_max = np.amax(self.raw_data[self.x_ind,:])
+        raw_max_ind = np.argwhere(self.raw_data[self.x_ind,:]==raw_max)[0][0]
+        raw_max_t = self.time_data[raw_max_ind]
+        self.ax_raw.plot(raw_max_t, raw_max, 'o', alpha=0.4, ms=12, color='yellow')
+        #marker for min value
+        raw_min = np.amin(self.raw_data[self.x_ind,:])
+        raw_min_t = self.time_data[np.argwhere(self.raw_data[self.x_ind,:]==raw_min)[0]]
+        self.ax_raw.plot(raw_min_t, raw_min, 'o', alpha=0.4, ms=12, color='yellow')
+        #marker for start zoom. Its position is the same as for filt
+        self.ax_raw.plot(start_zoom, 0, 'o', alpha=0.8, ms=12, color='green')
+        #marker for stop zoom. Its position is the same as for filt
+        self.ax_raw.plot(stop_zoom, 0, 'o', alpha=0.8, ms=12, color='green')
+
+        #update raw zoom data
+        self.ax_raw_zoom.clear()
+        self.ax_raw_zoom.plot(
+            self.time_data[start_zoom_ind:stop_zoom_ind+1],
+            self.raw_data[self.x_ind,start_zoom_ind:stop_zoom_ind+1])
+        self.ax_raw_zoom.set_ylabel('PA detector signal, [V]')
+        self.ax_raw_zoom.set_xlabel('Time, [us]')
+        self.ax_raw_zoom.set_title('Zoom of raw PA data')
+
+        #update raw zoom data
+        self.ax_filt_zoom.clear()
+        self.ax_filt_zoom.plot(
+            self.time_data[start_zoom_ind:stop_zoom_ind+1],
+            self.filt_data[self.x_ind,start_zoom_ind:stop_zoom_ind+1])
+        self.ax_filt_zoom.set_ylabel('PA detector signal, [V]')
+        self.ax_filt_zoom.set_xlabel('Time, [us]')
+        self.ax_filt_zoom.set_title('Zoom of filtered PA data')
 
         #update freq data
         self.ax_freq.clear()
@@ -262,17 +303,19 @@ def scan_vizualization(data, dt):
     fig.canvas.mpl_connect('key_press_event', tracker.on_key_press)
     plt.show()
 
-def spectral_vizualization(data, sample_name):
+def spectral_vizualization(data, sample_name, pre_time=2, post_time=20):
     """Vizualization of spectral data."""
 
     fig = plt.figure(tight_layout=True)
     fig.suptitle(sample_name)
-    gs = gridspec.GridSpec(2,2)
+    gs = gridspec.GridSpec(2,3)
     ax_sp = fig.add_subplot(gs[0,0])
     ax_raw = fig.add_subplot(gs[0,1])
     ax_freq = fig.add_subplot(gs[1,0])
     ax_filt = fig.add_subplot(gs[1,1])
-    tracker = SpectralIndexTracker(fig,ax_sp,ax_raw,ax_freq,ax_filt,data)
+    ax_raw_zoom = fig.add_subplot(gs[0,2])
+    ax_filt_zoom = fig.add_subplot(gs[1,2])
+    tracker = SpectralIndexTracker(fig,ax_sp,ax_raw,ax_freq,ax_filt,ax_raw_zoom,ax_filt_zoom,data,pre_time,post_time)
     fig.canvas.mpl_connect('key_press_event', tracker.on_key_press)
     plt.show()
 
@@ -609,7 +652,7 @@ def bp_filter(data, data_type='spectral'):
 
     low_cutof = inquirer.text(
         message='Enter low cutoff frequency [Hz]\n(CTRL+Z to cancel)\n',
-        default='100000',
+        default='1000000',
         mandatory=False,
         validate=vd.FreqValidator()
     ).execute()
