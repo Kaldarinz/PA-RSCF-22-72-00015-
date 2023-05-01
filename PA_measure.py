@@ -35,6 +35,11 @@ import Validators as vd
 # data points[:,2,1] - end freq
 # data points[:,2,2] - step freq
 
+config = {
+    'pre_time':2, # [us] pre time for zoom in data. Reference is max of filtered PA signal
+    'post_time':13 # [us] post time for zoom in data. Reference is max of filtered PA signal
+}
+
 osc_params = {
     'pre_time': 100, # [us] start time of data storage before trigger
     'frame_duration': 250, # [us] whole duration of the stored frame
@@ -134,7 +139,7 @@ class IndexTracker:
 class SpectralIndexTracker:
     '''Class for spectral data vizualization'''
 
-    def __init__(self, fig, ax_sp, ax_raw, ax_freq, ax_filt, ax_raw_zoom, ax_filt_zoom, data, pre_time, post_time):
+    def __init__(self, fig, ax_sp, ax_raw, ax_freq, ax_filt, ax_raw_zoom, ax_filt_zoom, data, config):
         
         warnings.filterwarnings('ignore', category=MatplotlibDeprecationWarning)
 
@@ -150,8 +155,8 @@ class SpectralIndexTracker:
         self.dt = data[0,0,3]
         self.dw = data[0,2,2]
 
-        self.pre_points = int(pre_time/1000000/self.dt)
-        self.post_points = int(post_time/1000000/self.dt)
+        self.pre_points = int(config['pre_time']/1000000/self.dt)
+        self.post_points = int(config['post_time']/1000000/self.dt)
         
         self.time_data = np.linspace(0,self.dt*(data.shape[2]-7),data.shape[2]-6)*1000000
         self.raw_data = data[:,0,6:]
@@ -303,7 +308,7 @@ def scan_vizualization(data, dt):
     fig.canvas.mpl_connect('key_press_event', tracker.on_key_press)
     plt.show()
 
-def spectral_vizualization(data, sample_name, pre_time=2, post_time=20):
+def spectral_vizualization(data, sample_name, config):
     """Vizualization of spectral data."""
 
     fig = plt.figure(tight_layout=True)
@@ -315,7 +320,7 @@ def spectral_vizualization(data, sample_name, pre_time=2, post_time=20):
     ax_filt = fig.add_subplot(gs[1,1])
     ax_raw_zoom = fig.add_subplot(gs[0,2])
     ax_filt_zoom = fig.add_subplot(gs[1,2])
-    tracker = SpectralIndexTracker(fig,ax_sp,ax_raw,ax_freq,ax_filt,ax_raw_zoom,ax_filt_zoom,data,pre_time,post_time)
+    tracker = SpectralIndexTracker(fig,ax_sp,ax_raw,ax_freq,ax_filt,ax_raw_zoom,ax_filt_zoom,data, config)
     fig.canvas.mpl_connect('key_press_event', tracker.on_key_press)
     plt.show()
 
@@ -1444,7 +1449,7 @@ if __name__ == "__main__":
 
                 elif data_ans == 'View data':
                     if state['spectral data']:
-                        spectral_vizualization(spec_data, sample)
+                        spectral_vizualization(spec_data, sample, config)
                     else:
                         print(f'{bcolors.WARNING} Spectral data missing!{bcolors.ENDC}')
 
