@@ -488,17 +488,28 @@ def save_spectral_data(sample, data):
     #for real data data points[0] - start WL, [1] - end WL, [2] - step WL, [3] - dt, [4] - max amp
     #for FFT data data points[0] - start freq, [1] - end freq, [2] - step freq
 
-    Path('measuring results/').mkdir(parents=True, exist_ok=True)
-
-    filename = 'measuring results/Spectral-' + sample
-
-    i = 1
-    while (os.path.exists(filename + str(i) + '.npy')):
-        i += 1
-    filename = filename + str(i) + '.npy'
-    
-    np.save(filename, data)
-    print('Spectral data saved to ', filename)
+    if os.path.exists(sample):
+        sample_tmp = sample.split('Spectral-')[1]
+        override = inquirer.confirm(
+            message='Do you want to override file ' + sample_tmp + '?'
+        ).execute()
+        
+        if override:
+            try:
+                os.remove(sample)
+            except OSError:
+                pass
+            np.save(sample, data)
+    else:
+        Path('measuring results/').mkdir(parents=True, exist_ok=True)
+        filename = 'measuring results/Spectral-' + sample
+        i = 1
+        while (os.path.exists(filename + str(i) + '.npy')):
+            i += 1
+        filename = filename + str(i) + '.npy'
+        
+        np.save(filename, data)
+        print('Spectral data saved to ', filename)
 
 def save_tmp_data(data):
     """"Saves temp data"""
@@ -514,7 +525,7 @@ def save_tmp_data(data):
     np.save(filename, data)
 
 def load_data(data_type):
-    """Return loaded data in the related format"""
+    """Return loaded data and sample name in the related format"""
 
     home_path = str(Path().resolve()) + '\\measuring results\\'
     if data_type == 'Scan':
@@ -547,8 +558,9 @@ def load_data(data_type):
 
         data = np.load(file_path)
         state['spectral data'] = True
+        sample = file_path
         print(f'...Spectral data with shape {data.shape} loaded!')
-        return data
+        return data, sample
 
     else:
         print(f'{bcolors.WARNING}Unknown data type in Load data!{bcolors.ENDC}')
@@ -1201,6 +1213,9 @@ if __name__ == "__main__":
         'stage y': 0,
         'osc': 0
     }
+
+    sample = '' # sample name
+
     while True: #main execution loop
         menu_ans = inquirer.rawlist(
             message='Choose an action',
@@ -1352,20 +1367,21 @@ if __name__ == "__main__":
 
                 elif data_ans == 'Save data':
                     if state['spectral data']:
-                        sample = inquirer.text(
-                            message='Enter Sample name\n(CTRL+Z to cancel)\n',
-                            default='Unknown',
-                            mandatory=False
-                        ).execute()
-                        if sample == None:
-                            print(f'{bcolors.WARNING}Save terminated!{bcolors.ENDC}')
-                            break
+                        if not len(sample):
+                            sample = inquirer.text(
+                                message='Enter Sample name\n(CTRL+Z to cancel)\n',
+                                default='Unknown',
+                                mandatory=False
+                            ).execute()
+                            if sample == None:
+                                print(f'{bcolors.WARNING}Save terminated!{bcolors.ENDC}')
+                                break
                         save_spectral_data(sample, spec_data)
                     else:
                         print(f'{bcolors.WARNING}Spectral data is missing!{bcolors.ENDC}')
 
                 elif data_ans == 'Load data':
-                    spec_data = load_data('Spectral')
+                    spec_data, sample = load_data('Spectral')
 
                 elif data_ans == 'Back to main menu':
                         break         
