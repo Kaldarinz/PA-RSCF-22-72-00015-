@@ -28,7 +28,8 @@ import Validators as vd
 # data points[:,0:2,1] - end WL
 # data points[:,0:2,2] - step WL
 # data points[:,0:2,3] - dt
-# data points[:,0:2,4] - max amp
+# data points[:,0,4] - max amp raw
+# data points[:,1,4] - max amp filtered
 # data points[:,0:2,5] - laser energy (integral)
 # data points[:,2,0] - start freq
 # data points[:,2,1] - end freq
@@ -150,6 +151,12 @@ class SpectralIndexTracker:
         self.time_data = np.linspace(0,self.dt*(data.shape[2]-7),data.shape[2]-6)*1000000
         self.raw_data = data[:,0,6:]
         self.filt_data = data[:,1,6:]
+
+        self.x_max = data.shape[0]
+        self.x_ind = 0
+        self.step_wl = data[0,0,2]
+        self.start_wl = data[0,0,0]
+        self.stop_wl = data[0,0,1]
         
         if self.dw:
             freq_points = int((data[0,2,1] - data[0,2,0])/self.dw) + 1
@@ -158,11 +165,7 @@ class SpectralIndexTracker:
         self.freq_data = np.linspace(data[0,2,0],data[0,2,1],freq_points)/1000
         self.fft_data = data[:,2,3:(freq_points+3)]
 
-        self.x_max = data.shape[0]
-        self.x_ind = 0
-        self.step_wl = data[0,0,2]
-        self.start_wl = data[0,0,0]
-        self.stop_wl = data[0,0,1]
+        #plot static spectra
         wl_points = int((self.stop_wl - self.start_wl)/self.step_wl) + 1
         if (self.stop_wl-self.start_wl)%self.step_wl:
             self.wl_data = np.zeros(wl_points+1)
@@ -170,8 +173,11 @@ class SpectralIndexTracker:
             self.wl_data[-1] = self.stop_wl
         else:
             self.wl_data = np.linspace(self.start_wl,self.stop_wl,wl_points)
-        self.spec_data = data[:,0,4]
-        self.ax_sp.plot(self.wl_data,self.spec_data)
+        self.spec_data_raw = data[:,0,4]
+        self.spec_data_filt = data[:,1,4]
+        spec_raw, = self.ax_sp.plot(self.wl_data,self.spec_data_raw, label='raw data')
+        spec_filt, = self.ax_sp.plot(self.wl_data,self.spec_data_filt, label='filt data')
+        self.ax_sp.legend(handles=[spec_raw,spec_filt])
         self.ax_sp.set_ylim(bottom=0)
         self.ax_sp.set_ylabel('Normalizaed PA amp')
         self.ax_sp.set_xlabel('Wavelength, [nm]')
@@ -609,14 +615,22 @@ def bp_filter(data, data_type='spectral'):
         else:
             filtered_f_signal[:,(W>high_cutof)] = 0
 
+        #pass frequencies
         filtered_freq = W[(W>low_cutof)*(W<high_cutof)]
+
+        #start freq, end freq, step freq
         data[:,2,0] = filtered_freq.min()
         data[:,2,1] = filtered_freq.max()
         data[:,2,2] = filtered_freq[1]-filtered_freq[0]
 
+        #Fourier amplitudes
         data[:,2,3:len(filtered_freq)+3] = f_signal[:,(W>low_cutof)*(W<high_cutof)]
-
+        
+        #filtered PA data
         data[:,1,6:] = irfft(filtered_f_signal)
+
+        #norm filtered laser amp
+        data[:,1,4] = np.amax(data[:,1,6:], axis=1)-np.amin(data[:,1,6:], axis=1)
 
         print(f'{bcolors.OKGREEN} FFT filtration of spectral data complete!{bcolors.ENDC}')
     
@@ -1383,7 +1397,7 @@ if __name__ == "__main__":
                         print(f'{bcolors.WARNING}Spectral data is missing!{bcolors.ENDC}')
 
                 elif data_ans == 'Load data':
-                    spec_data = load_data('Spectral', spec_data)
+                    spec_data, sample = load_data('Spectral', spec_data)
 
                 elif data_ans == 'Back to main menu':
                         break         
