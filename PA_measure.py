@@ -638,11 +638,11 @@ def load_data(data_type, old_data):
         ).execute()
         if file_path == None:
             print(f'{bcolors.WARNING}Data loading canceled!{bcolors.ENDC}')
-            return old_data
+            return old_data, ''
 
         if file_path.split('.')[1] != 'npy':
             print(f'{bcolors.WARNING} Wrong data format! *.npy is required{bcolors.ENDC}')
-            return old_data
+            return old_data, ''
         
         data = np.load(file_path)
 
@@ -652,9 +652,8 @@ def load_data(data_type, old_data):
         else:
             state['filtered spec data'] = False
 
-        sample = file_path
         print(f'...Spectral data with shape {data.shape} loaded!')
-        return data, sample
+        return data, file_path
 
     else:
         print(f'{bcolors.WARNING}Unknown data type in Load data!{bcolors.ENDC}')
@@ -1556,12 +1555,14 @@ def save_spectr_txt(data,sample):
     start_freq = data[0,2,0]/1000000
     end_freq = data[0,2,1]/1000000
 
-    hl1 = f'Filtered data in range ({start_freq:.1f}:{end_freq:.1f}) MHz\n'
-    hl2 = 'First col is wavelength in [nm]\n'
-    hl3 = 'Second col is laser energy in [uJ]\n'
-    hl4 = 'Third col is normalized (to laser energy) raw PA amp in [V]\n'
-    hl5 = 'Forth col is normalized (to laser energy) filt PA amp in [V]'
-    header = hl1 + hl2 + hl3 + hl4 + hl5
+    header = ''
+    header +='Wavelength   laser   raw filt\n'
+    header +='nm   uJ  V   V\n'
+    header +=f'Filtered data in range ({start_freq:.1f}:{end_freq:.1f}) MHz\n'
+    header +='First col is wavelength in [nm]\n'
+    header +='Second col is laser energy in [uJ]\n'
+    header +='Third col is normalized (to laser energy) raw PA amp in [V]\n'
+    header +='Forth col is normalized (to laser energy) filt PA amp in [V]'
 
     start_wl = data[0,0,0]
     end_wl = data[0,0,1]
@@ -1782,4 +1783,3 @@ if __name__ == "__main__":
 
         else:
             print(f'{bcolors.WARNING}Unknown action in the main menu!{bcolors.ENDC}')
-
