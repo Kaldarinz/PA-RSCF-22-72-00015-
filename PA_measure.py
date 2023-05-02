@@ -645,6 +645,10 @@ def load_data(data_type, old_data):
             print(f'{bcolors.WARNING}Data loading canceled!{bcolors.ENDC}')
             return old_data
 
+        if file_path.split('.'[1]) != 'npy':
+            print(f'{bcolors.WARNING} Wrong data format! *.npy is required{bcolors.ENDC}')
+            return old_data
+        
         data = np.load(file_path)
 
         state['spectral data'] = True
