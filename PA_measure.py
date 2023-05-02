@@ -1403,7 +1403,8 @@ def export_to_txt(data, sample, data_type='spectral'):
             return
 
 def save_spectr_filt_txt(data,sample, power_control = ''):
-    """Saves filtered data to txt"""
+    """Saves filtered data to txt
+    corrects for sample energy"""
 
     if not len(sample):
         filename = 'measuring results/txt data/Spectral-Unknown-filt.txt'
@@ -1645,9 +1646,27 @@ def save_spectr_txt(data,sample, power_control = ''):
             data_txt[i,0] = start_wl + i*step_wl
         else: #handels case when the last step is smaller then others
             data_txt[i,0] = end_wl
-        data_txt[i,1] = data[i,0,5] #laser energy
-        data_txt[i,2] = data[i,0,4] #raw norm PA amp
-        data_txt[i,3] = data[i,1,4] #filt norm PA amp
+        pm_energy = data[i,0,5]
+        if power_control == 'Filters':
+            _,__,___,sample_energy = glass_calculator(
+               data_txt[0,i+1],
+               pm_energy,
+               pm_energy*20,
+               2,
+               no_print=True
+            )
+            data_txt[i,1] = sample_energy #laser energy
+            data_txt[i,2] = data[i,0,4]*pm_energy/sample_energy #raw norm PA amp
+            data_txt[i,3] = data[i,1,4]*pm_energy/sample_energy #filt norm PA amp
+        elif power_control == 'Glan prism':
+            sample_energy = glan_calc(pm_energy)
+            data_txt[i,1] = sample_energy #laser energy
+            data_txt[i,2] = data[i,0,4]*pm_energy/sample_energy #raw norm PA amp
+            data_txt[i,3] = data[i,1,4]*pm_energy/sample_energy #filt norm PA amp
+        else:
+            data_txt[i,1] = data[i,1,5] #laser energy
+            data_txt[i,2] = data[i,0,4] #raw norm PA amp
+            data_txt[i,3] = data[i,1,4] #filt norm PA amp
     
     np.savetxt(filename,data_txt,header=header,fmt='%1.3e')
     print(f'Data exported to {bcolors.OKGREEN}{filename}{bcolors.ENDC}')
