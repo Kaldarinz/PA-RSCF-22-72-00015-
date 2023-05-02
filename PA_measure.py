@@ -887,7 +887,7 @@ def spectra(hardware):
                 print(f'{bcolors.UNDERLINE}Please remove all filters!{bcolors.ENDC}')
                 energy = track_power(hardware, 50)
                 print(f'Power meter energy = {energy:.0f} [uJ]')
-                filters, n, = glass_calculator(current_wl,energy,target_energy,max_combinations,no_print=True)
+                filters, n,_,_ = glass_calculator(current_wl,energy,target_energy,max_combinations,no_print=True)
                 if n==0:
                     print(f'{bcolors.WARNING} WARNING! No valid filter combination for {current_wl} [nm]!{bcolors.ENDC}')
                     cont_ans = inquirer.confirm(message='Do you want to continue?').execute()
@@ -896,7 +896,7 @@ def spectra(hardware):
                         state['spectral data'] = True
                         return spec_data
 
-                _,__, target_pm_value, = glass_calculator(current_wl,energy,target_energy, max_combinations)
+                _,__, target_pm_value,_ = glass_calculator(current_wl,energy,target_energy, max_combinations)
                 print(f'Target power meter energy is {target_pm_value}!')
                 print(f'Please set it using {bcolors.UNDERLINE}laser software{bcolors.ENDC}')
             elif power_control == 'Glan prism':
@@ -1210,7 +1210,7 @@ def glass_calculator(wavelength, current_energy_pm, target_energy, max_combinati
 def calc_filters_for_energy(hardware):
     """Provides required filter combination for an energy"""
 
-    max_combinations = 2 #max filters
+    max_combinations = 3 #max filters
 
     wl = inquirer.text(
         message='Set wavelength, [nm]\n(CTRL+Z to cancel)\n',
@@ -1239,11 +1239,11 @@ def calc_filters_for_energy(hardware):
     print(f'{bcolors.UNDERLINE}Please remove all filters!{bcolors.ENDC}')
     energy = track_power(hardware, 50)
     print(f'Power meter energy = {energy:.0f} [uJ]')
-    filters, n, = glass_calculator(wl,energy,target_energy,max_combinations,no_print=True)
+    filters, n, _, _ = glass_calculator(wl,energy,target_energy,max_combinations,no_print=True)
     if n==0:
         print(f'{bcolors.WARNING} WARNING! No valid filter combination!{bcolors.ENDC}')
 
-    _,__, target_pm_value, = glass_calculator(wl,energy,target_energy, max_combinations)
+    _,__, target_pm_value, _ = glass_calculator(wl,energy,target_energy, max_combinations)
     print(f'Target power meter energy is {target_pm_value}!')
     print(f'Please set it using {bcolors.UNDERLINE}laser software{bcolors.ENDC}')
 
