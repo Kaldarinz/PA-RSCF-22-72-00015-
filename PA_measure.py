@@ -215,7 +215,8 @@ class SpectralIndexTracker:
     def update(self):
         #update filt data
         self.ax_filt.clear()
-        self.ax_filt.plot(self.time_data, self.filt_data[self.x_ind,:])
+        self.ax_filt.plot(self.time_data,
+                          self.filt_data[self.x_ind,:])
         self.ax_filt.set_ylabel('PA detector signal, [V]')
         self.ax_filt.set_xlabel('Time, [us]')
         self.ax_filt.set_title('Filtered PA data')
@@ -228,22 +229,23 @@ class SpectralIndexTracker:
         filt_min = np.amin(self.filt_data[self.x_ind,:])
         filt_min_t = self.time_data[np.argwhere(self.filt_data[self.x_ind,:]==filt_min)[0]]
         self.ax_filt.plot(filt_min_t, filt_min, 'o', alpha=0.4, ms=12, color='yellow')
-        #marker for start zoom
+        #marker for zoomed area
         start_zoom_ind = filt_max_ind-self.pre_points
         if start_zoom_ind < 0:
             start_zoom_ind = 0
-        start_zoom = self.time_data[start_zoom_ind]
-        self.ax_filt.plot(start_zoom, 0, 'o', alpha=0.8, ms=12, color='green')
-        #marker for stop zoom
         stop_zoom_ind = filt_max_ind + self.post_points
         if stop_zoom_ind > (len(self.time_data) - 1):
             stop_zoom_ind = len(self.time_data) - 1
-        stop_zoom = self.time_data[stop_zoom_ind]
-        self.ax_filt.plot(stop_zoom, 0, 'o', alpha=0.8, ms=12, color='green')
+        self.ax_filt.fill_betweenx([filt_min,filt_max],
+                                   self.time_data[start_zoom_ind],
+                                   self.time_data[stop_zoom_ind],
+                                   alpha=0.3,
+                                   color='g')
 
         #update raw data
         self.ax_raw.clear()
-        self.ax_raw.plot(self.time_data, self.raw_data[self.x_ind,:])
+        self.ax_raw.plot(self.time_data,
+                         self.raw_data[self.x_ind,:],)
         self.ax_raw.set_ylabel('PA detector signal, [V]')
         self.ax_raw.set_xlabel('Time, [us]')
         self.ax_raw.set_title('Raw PA data')
@@ -256,11 +258,12 @@ class SpectralIndexTracker:
         raw_min = np.amin(self.raw_data[self.x_ind,:])
         raw_min_t = self.time_data[np.argwhere(self.raw_data[self.x_ind,:]==raw_min)[0]]
         self.ax_raw.plot(raw_min_t, raw_min, 'o', alpha=0.4, ms=12, color='yellow')
-        #marker for start zoom. Its position is the same as for filt
-        self.ax_raw.plot(start_zoom, 0, 'o', alpha=0.8, ms=12, color='green')
-        #marker for stop zoom. Its position is the same as for filt
-        self.ax_raw.plot(stop_zoom, 0, 'o', alpha=0.8, ms=12, color='green')
-
+        #marker for zoomed area
+        self.ax_raw.fill_betweenx([raw_min,raw_max],
+                                   self.time_data[start_zoom_ind],
+                                   self.time_data[stop_zoom_ind],
+                                   alpha=0.3,
+                                   color='g')
         #update raw zoom data
         self.ax_raw_zoom.clear()
         self.ax_raw_zoom.plot(
@@ -281,7 +284,8 @@ class SpectralIndexTracker:
 
         #update freq data
         self.ax_freq.clear()
-        self.ax_freq.plot(self.freq_data, self.fft_data[self.x_ind,:])
+        self.ax_freq.plot(self.freq_data,
+                          self.fft_data[self.x_ind,:])
         self.ax_freq.set_ylabel('FFT signal amp')
         self.ax_freq.set_xlabel('Frequency, [kHz]')
         self.ax_freq.set_title('FFT of PA data')
