@@ -1334,6 +1334,17 @@ def export_to_txt(data, sample, data_type='spectral'):
 
     if data_type == 'spectral':
         if state['spectral data'] and state['filtered spec data']:
+            
+            #backward compatibility with old data format
+            power_control = ''
+            if data[0,1,5] == 0:
+                power_control = inquirer.rawlist(
+                    message='Choose method of power control',
+                    choices=[
+                        'Filters',
+                        'Glan prism'
+                    ]
+                ).execute()
             export_type = inquirer.rawlist(
                 message='Choose data to export:',
                 choices=[
@@ -1349,18 +1360,36 @@ def export_to_txt(data, sample, data_type='spectral'):
             if export_type == 'back':
                 return
             elif export_type == 'Raw data':
-                save_spectr_raw_txt(data,sample)
+                if len(power_control):
+                    save_spectr_raw_txt(data,sample,power_control)
+                else:
+                    save_spectr_raw_txt(data,sample)
             elif export_type == 'Filtered data':
-                save_spectr_filt_txt(data,sample)
+                if len(power_control):
+                    save_spectr_filt_txt(data,sample,power_control)
+                else:
+                    save_spectr_filt_txt(data,sample)
             elif export_type == 'Freq data':
-                save_spectr_freq_txt(data,sample)
+                if len(power_control):
+                    save_spectr_freq_txt(data,sample, power_control)
+                else:
+                    save_spectr_freq_txt(data,sample)
             elif export_type == 'Spectral':
-                save_spectr_txt(data,sample)
+                if len(power_control):
+                    save_spectr_txt(data,sample,power_control)
+                else:
+                    save_spectr_txt(data,sample)
             elif export_type == 'All':
-                save_spectr_raw_txt(data,sample)
-                save_spectr_filt_txt(data,sample)
-                save_spectr_freq_txt(data,sample)
-                save_spectr_txt(data,sample)
+                if len(power_control):
+                    save_spectr_raw_txt(data,sample,power_control)
+                    save_spectr_filt_txt(data,sample, power_control)
+                    save_spectr_freq_txt(data,sample, power_control)
+                    save_spectr_txt(data,sample, power_control)
+                else:
+                    save_spectr_raw_txt(data,sample)
+                    save_spectr_filt_txt(data,sample)
+                    save_spectr_freq_txt(data,sample)
+                    save_spectr_txt(data,sample)
             else:
                 print(f'{bcolors.WARNING} Unknown command in data export menu {bcolors.ENDC}')
 
@@ -1373,7 +1402,7 @@ def export_to_txt(data, sample, data_type='spectral'):
                 print(f'{bcolors.WARNING}Unknown state of spectral data!{bcolors.ENDC}')
             return
 
-def save_spectr_filt_txt(data,sample):
+def save_spectr_filt_txt(data,sample, power_control = ''):
     """Saves filtered data to txt"""
 
     if not len(sample):
@@ -1422,9 +1451,27 @@ def save_spectr_filt_txt(data,sample):
             data_txt[0,i+1] = start_wl + i*step_wl
         else: #handels case when the last step is smaller then others
             data_txt[0,i+1] = end_wl
-        data_txt[1,i+1] = data[i,0,5] #laser energy
+
+        pm_energy = data[i,0,5]
         max_amp_ind = np.argmax(data[i,1,6:])
         data_txt[2:,i+1] = data[i,1,6+max_amp_ind-pre_points:6+max_amp_ind+post_points].copy()
+        
+        if power_control == 'Filters':
+            _,__,___,sample_energy = glass_calculator(
+               data_txt[0,i+1],
+               pm_energy,
+               pm_energy*20,
+               2,
+               no_print=True
+            )
+            data_txt[1,i+1] = sample_energy #laser energy at sample
+            data_txt[2:,i+1] = data_txt[2:,i+1]*pm_energy/sample_energy
+        elif power_control == 'Glan prism':
+            sample_energy = glan_calc(pm_energy)
+            data_txt[1,i+1] = sample_energy #laser energy at sample
+            data_txt[2:,i+1] = data_txt[2:,i+1]*pm_energy/sample_energy
+        else:
+            data_txt[1,i+1] = data[i,1,5] #laser energy
 
     for i in range(spectr_points):
         data_txt[i+2,0] = i*dt*1000000
@@ -1432,7 +1479,7 @@ def save_spectr_filt_txt(data,sample):
     np.savetxt(filename,data_txt,header=header,fmt='%1.3e')
     print(f'Data exported to {bcolors.OKGREEN}{filename}{bcolors.ENDC}')
 
-def save_spectr_raw_txt(data,sample):
+def save_spectr_raw_txt(data,sample, power_control = ''):
     """Saves raw data to txt"""
 
     if not len(sample):
@@ -1491,7 +1538,7 @@ def save_spectr_raw_txt(data,sample):
     np.savetxt(filename,data_txt,header=header,fmt='%1.3e')
     print(f'Data exported to {bcolors.OKGREEN}{filename}{bcolors.ENDC}')
 
-def save_spectr_freq_txt(data,sample):
+def save_spectr_freq_txt(data,sample, power_control = ''):
     """Saves freq data to txt"""
 
     if not len(sample):
@@ -1548,9 +1595,11 @@ def save_spectr_freq_txt(data,sample):
     np.savetxt(filename,data_txt,header=header,fmt='%1.3e')
     print(f'Data exported to {bcolors.OKGREEN}{filename}{bcolors.ENDC}')
 
-def save_spectr_txt(data,sample):
-    """Saves spectral data to txt"""
+def save_spectr_txt(data,sample, power_control = ''):
+    """Saves spectral data to txt
+    corrects for sample energy"""
 
+    #path and filename handling
     if not len(sample):
         filename = 'measuring results/txt data/Spectral-Unknown-spectral.txt'
     else:
@@ -1573,6 +1622,7 @@ def save_spectr_txt(data,sample):
                 i += 1
             filename = filename_tmp + str(i) + '.txt'
 
+    #formation of data
     start_freq = data[0,2,0]/1000000
     end_freq = data[0,2,1]/1000000
 
@@ -1590,7 +1640,6 @@ def save_spectr_txt(data,sample):
     step_wl = data[0,0,2]
     data_txt = np.zeros((data.shape[0],4))
     
-    #build aray for txt data
     for i in range(data.shape[0]):
         if i < (data.shape[0]-1):
             data_txt[i,0] = start_wl + i*step_wl
