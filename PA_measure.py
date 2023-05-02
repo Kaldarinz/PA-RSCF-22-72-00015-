@@ -21,19 +21,20 @@ import Validators as vd
 # scan_data[X scan points, Y scan points, 4, signal data points]
 # in scan_data.shape[2]: 0 - raw data, 1 - FFT filtered data, 2 - frquencies, 3 - spectral data
 
-#spec_data[WL index, data type, data points]
-#data type: 0 - raw data, 1 - filtered data, 2 - FFT data
-#for real data: 
-# data points[:,0:2,0] - start WL 
-# data points[:,0:2,1] - end WL
-# data points[:,0:2,2] - step WL
-# data points[:,0:2,3] - dt
-# data points[:,0,4] - max amp raw
-# data points[:,1,4] - max amp filtered
-# data points[:,0:2,5] - laser energy (integral)
-# data points[:,2,0] - start freq
-# data points[:,2,1] - end freq
-# data points[:,2,2] - step freq
+# spec_data[WL index, data type, data points]
+# data type: 0 - raw data, 1 - filtered data, 2 - FFT data
+# additional data:
+# spec_data[0,0,0] - start WL 
+# spec_data[0,0,1] - end WL
+# spec_data[0,0,2] - step WL
+# spec_data[:,0,3] - dt
+# spec_data[:,0,4] - max amp raw
+# spec_data[:,1,4] - max amp filtered
+# spec_data[:,0,5] - laser energy (integral) at PM (reflection from glass)
+# spec_data[:,1,5] - laser energy (integral) at sample
+# spec_data[0,2,0] - start freq
+# spec_data[0,2,1] - end freq
+# spec_data[0,2,2] - step freq
 
 config = {
     'pre_time':2, # [us] pre time for zoom in data. Reference is max of filtered PA signal
@@ -885,7 +886,7 @@ def spectra(hardware):
                 print(f'{bcolors.UNDERLINE}Please remove all filters!{bcolors.ENDC}')
                 energy = track_power(hardware, 50)
                 print(f'Power meter energy = {energy:.0f} [uJ]')
-                filters, n, _ = glass_calculator(current_wl,energy,target_energy,max_combinations,no_print=True)
+                filters, n, = glass_calculator(current_wl,energy,target_energy,max_combinations,no_print=True)
                 if n==0:
                     print(f'{bcolors.WARNING} WARNING! No valid filter combination for {current_wl} [nm]!{bcolors.ENDC}')
                     cont_ans = inquirer.confirm(message='Do you want to continue?').execute()
@@ -894,7 +895,7 @@ def spectra(hardware):
                         state['spectral data'] = True
                         return spec_data
 
-                _,__, target_pm_value = glass_calculator(current_wl,energy,target_energy, max_combinations)
+                _,__, target_pm_value, = glass_calculator(current_wl,energy,target_energy, max_combinations)
                 print(f'Target power meter energy is {target_pm_value}!')
                 print(f'Please set it using {bcolors.UNDERLINE}laser software{bcolors.ENDC}')
             elif power_control == 'Glan prism':
@@ -938,7 +939,27 @@ def spectra(hardware):
                             spec_data[i,0:2,3] = dt
                             spec_data[i,0,4] = tmp_signal/averaging
                             spec_data[i,0,5] = tmp_laser/averaging
-                            spec_data[i,0,6:] = osc.current_pa_data/osc.laser_amp
+                            if power_control == 'Filters':
+                                _,__, ___, spec_data[i,1,5] = glass_calculator(
+                                    current_wl,
+                                    spec_data[i,0,5],
+                                    target_energy,
+                                    max_combinations,
+                                    no_print=True)
+                                _,__, ___, sample_energy = glass_calculator(
+                                    current_wl,
+                                    osc.laser_amp,
+                                    target_energy,
+                                    max_combinations,
+                                    no_print=True)
+                                spec_data[i,0,6:] = osc.current_pa_data/sample_energy
+                            elif power_control == 'Glan prism':
+                                spec_data[i,1,5] = glan_calc(spec_data[i,0,5])
+                                spec_data[i,0,6:] = osc.current_pa_data/glan_calc(osc.laser_amp)
+                            else:
+                                print(f'{bcolors.WARNING}\
+                                      Unknown power control method in writing laser energy\
+                                      {bcolors.ENDC}')
                             save_tmp_data(spec_data)
                             print(f'{bcolors.OKBLUE} Average laser = {spec_data[i,0,5]} [uJ]')
                             print(f'Average PA signal = {spec_data[i,0,4]}{bcolors.ENDC}')
@@ -1183,7 +1204,7 @@ def glass_calculator(wavelength, current_energy_pm, target_energy, max_combinati
         print('\n')
 
     target_pm_value = target_energy*data[wl_index,1]/100
-    return result, i, target_pm_value
+    return result, i, target_pm_value, laser_energy
 
 def calc_filters_for_energy(hardware):
     """Provides required filter combination for an energy"""
@@ -1217,11 +1238,11 @@ def calc_filters_for_energy(hardware):
     print(f'{bcolors.UNDERLINE}Please remove all filters!{bcolors.ENDC}')
     energy = track_power(hardware, 50)
     print(f'Power meter energy = {energy:.0f} [uJ]')
-    filters, n, _ = glass_calculator(wl,energy,target_energy,max_combinations,no_print=True)
+    filters, n, = glass_calculator(wl,energy,target_energy,max_combinations,no_print=True)
     if n==0:
         print(f'{bcolors.WARNING} WARNING! No valid filter combination!{bcolors.ENDC}')
 
-    _,__, target_pm_value = glass_calculator(wl,energy,target_energy, max_combinations)
+    _,__, target_pm_value, = glass_calculator(wl,energy,target_energy, max_combinations)
     print(f'Target power meter energy is {target_pm_value}!')
     print(f'Please set it using {bcolors.UNDERLINE}laser software{bcolors.ENDC}')
 
