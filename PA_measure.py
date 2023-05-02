@@ -585,6 +585,7 @@ def save_spectral_data(sample, data):
             except OSError:
                 pass
             np.save(sample, data)
+            print(f'File updated: {bcolors.OKGREEN}{sample}{bcolors.ENDC}')
     else:
         Path('measuring results/').mkdir(parents=True, exist_ok=True)
         filename = 'measuring results/Spectral-' + sample
@@ -594,7 +595,7 @@ def save_spectral_data(sample, data):
         filename = filename + str(i) + '.npy'
         
         np.save(filename, data)
-        print('Spectral data saved to ', filename)
+        print(f'Spectral data saved to {bcolors.OKGREEN}{filename}{bcolors.ENDC}')
 
 def save_tmp_data(data):
     """"Saves temp data"""
@@ -641,7 +642,7 @@ def load_data(data_type, old_data):
             print(f'{bcolors.WARNING}Data loading canceled!{bcolors.ENDC}')
             return old_data, ''
 
-        if file_path.split('.')[1] != 'npy':
+        if file_path.split('.')[-1] != 'npy':
             print(f'{bcolors.WARNING} Wrong data format! *.npy is required{bcolors.ENDC}')
             return old_data, ''
         
@@ -1175,7 +1176,7 @@ def glass_calculator(wavelength, current_energy_pm, target_energy, max_combinati
 
     if laser_energy == 0:
         print(f'{bcolors.WARNING} Laser radiation is not detected!{bcolors.ENDC}')
-        return
+        return 0,0,0,0
     
     target_transm = target_energy/laser_energy
     if not no_print:
@@ -1649,15 +1650,20 @@ def save_spectr_txt(data,sample, power_control = ''):
         pm_energy = data[i,0,5]
         if power_control == 'Filters':
             _,__,___,sample_energy = glass_calculator(
-               data_txt[0,i+1],
-               pm_energy,
-               pm_energy*20,
-               2,
-               no_print=True
+                data_txt[i,0],
+                pm_energy,
+                pm_energy*20,
+                2,
+                no_print=True
             )
-            data_txt[i,1] = sample_energy #laser energy
-            data_txt[i,2] = data[i,0,4]*pm_energy/sample_energy #raw norm PA amp
-            data_txt[i,3] = data[i,1,4]*pm_energy/sample_energy #filt norm PA amp
+            if not sample_energy:
+                data_txt[i,1] = sample_energy #laser energy
+                data_txt[i,2] = data[i,0,4]*pm_energy/sample_energy #raw norm PA amp
+                data_txt[i,3] = data[i,1,4]*pm_energy/sample_energy #filt norm PA amp
+            else:
+                data_txt[i,1] = 0 #laser energy
+                data_txt[i,2] = 0 #raw norm PA amp
+                data_txt[i,3] = 0 #filt norm PA amp
         elif power_control == 'Glan prism':
             sample_energy = glan_calc(pm_energy)
             data_txt[i,1] = sample_energy #laser energy
