@@ -572,11 +572,6 @@ def save_scan_data(sample, data, dt):
 def save_spectral_data(sample, data):
     """"Saves spectral data"""
 
-    #format: spec_data[WL index, data type, data points]
-    #data type: 0 - raw data, 1 - filtered data, 2 - FFT data
-    #for real data data points[0] - start WL, [1] - end WL, [2] - step WL, [3] - dt, [4] - max amp
-    #for FFT data data points[0] - start freq, [1] - end freq, [2] - step freq
-
     if os.path.exists(sample):
         sample_tmp = sample.split('Spectral-')[1]
         override = inquirer.confirm(
@@ -645,7 +640,7 @@ def load_data(data_type, old_data):
             print(f'{bcolors.WARNING}Data loading canceled!{bcolors.ENDC}')
             return old_data
 
-        if file_path.split('.'[1]) != 'npy':
+        if file_path.split('.')[1] != 'npy':
             print(f'{bcolors.WARNING} Wrong data format! *.npy is required{bcolors.ENDC}')
             return old_data
         
@@ -1335,17 +1330,34 @@ def export_to_txt(data, sample, data_type='spectral'):
             elif export_type == 'Filtered data':
 
                 if not len(sample):
-                    filename = 'measuring results/txt data/filt.txt'
+                    filename = 'measuring results/txt data/Spectral-Unknown-filt.txt'
                 else:
                     filename = sample.split('.npy')[0]
                     filename += '-filt.txt'
+                if os.path.exists(filename):
+                    filename_tmp = filename.split('Spectral-')[1]
+                    override = inquirer.confirm(
+                        message='Do you want to override file ' + filename_tmp + '?'
+                    ).execute()
+                    
+                    if override:
+                        try:
+                            os.remove(filename)
+                        except OSError:
+                            pass
+                    else:
+                        filename_tmp = filename.split('.txt')[0]
+                        i = 1
+                        while os.path.exists(filename_tmp + str(i) + '.txt'):
+                            i += 1
+                        filename = filename_tmp + str(i) + '.txt'
 
                 start_freq = data[0,2,0]/1000000
                 end_freq = data[0,2,1]/1000000
-                header_line1 = f'Filtered data in range ({start_freq:.1f}:{end_freq:.1f}) MHz\n'
-                header_line2 = 'First line is WL\n'
-                header_line3 = 'First col is time in [us]; others cols are signals in [V]'
-                header = header_line1 + header_line2 + header_line3
+                hl1 = f'Filtered data in range ({start_freq:.1f}:{end_freq:.1f}) MHz\n'
+                hl2 = 'First col is time in [us]; others cols are signals in [V]. Signal is already normalized for laser value\n'
+                hl3 = 'First line is WL, Second line if laser energy in [uJ]'
+                header = hl1 + hl2 + hl3
 
                 dt = data[0,0,3]
                 start_wl = data[0,0,0]
@@ -1355,19 +1367,20 @@ def export_to_txt(data, sample, data_type='spectral'):
                 spectr_points = int(duration/dt)+1
                 pre_points = int(config['pre_time']/1000000/dt)
                 post_points = spectr_points - pre_points
-                data_txt = np.zeros((spectr_points+1,data.shape[0]+1))
+                data_txt = np.zeros((spectr_points+2,data.shape[0]+1))
                 
-                #copy data
+                #build aray for txt data
                 for i in range(data.shape[0]):
                     if i < (data.shape[0]-1):
                         data_txt[0,i+1] = start_wl + i*step_wl
                     else: #handels case when the last step is smaller then others
                         data_txt[0,i+1] = end_wl
+                    data_txt[1,i+1] = data[i,0,5] #laser energy
                     max_amp_ind = np.argmax(data[i,1,6:])
-                    data_txt[1:,i+1] = data[i,1,6+max_amp_ind-pre_points:6+max_amp_ind+post_points].copy()
+                    data_txt[2:,i+1] = data[i,1,6+max_amp_ind-pre_points:6+max_amp_ind+post_points].copy()
 
                 for i in range(spectr_points):
-                    data_txt[i+1,0] = i*dt*1000000
+                    data_txt[i+2,0] = i*dt*1000000
                 
                 np.savetxt(filename,data_txt,header=header,fmt='%1.3e')
 
