@@ -1,0 +1,21 @@
+# Wavelength   laser   raw filt
+# nm   uJ  V   V
+# Filtered data in range (1.0:10.0) MHz
+# First col is wavelength in [nm]
+# Second col is laser energy in [uJ]
+# Third col is normalized (to laser energy) raw PA amp in [V]
+# Forth col is normalized (to laser energy) filt PA amp in [V]
+9.400e+02 8.852e+02 1.551e-05 1.035e-05
+9.200e+02 1.011e+03 1.110e-05 6.251e-06
+9.000e+02 8.796e+02 1.695e-05 1.251e-05
+8.800e+02 8.768e+02 2.661e-05 2.174e-05
+8.600e+02 9.185e+02 3.007e-05 2.485e-05
+8.400e+02 8.853e+02 3.995e-05 3.457e-05
+8.200e+02 9.183e+02 4.031e-05 3.569e-05
+8.000e+02 9.025e+02 3.872e-05 3.398e-05
+7.800e+02 9.163e+02 4.176e-05 3.769e-05
+7.600e+02 9.227e+02 3.744e-05 3.337e-05
+7.400e+02 9.106e+02 2.427e-05 1.925e-05
+7.200e+02 9.293e+02 2.766e-05 2.345e-05
+7.000e+02 9.622e+02 2.569e-05 2.065e-05
+6.900e+02 1.018e+03 2.874e-05 2.460e-05
