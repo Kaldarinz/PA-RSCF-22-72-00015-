@@ -1310,7 +1310,7 @@ def glan_check(hardware):
             print(f'{bcolors.WARNING}Unknown command in Glan chack menu!{bcolors.ENDC}')
 
 def export_to_txt(data, sample, data_type='spectral'):
-    """Exports data to txt file"""
+    """CLI method for export data to txt"""
 
     if data_type == 'spectral':
         if state['spectral data'] and state['filtered spec data']:
@@ -1320,79 +1320,27 @@ def export_to_txt(data, sample, data_type='spectral'):
                     'Raw data',
                     'Filtered data',
                     'Freq data',
+                    'Spectral',
                     'All',
                     'back'
                 ]
             ).execute()
-            if export_type == 'Raw data':
-                pass
-
-            elif export_type == 'Filtered data':
-
-                if not len(sample):
-                    filename = 'measuring results/txt data/Spectral-Unknown-filt.txt'
-                else:
-                    filename = sample.split('.npy')[0]
-                    filename += '-filt.txt'
-                if os.path.exists(filename):
-                    filename_tmp = filename.split('Spectral-')[1]
-                    override = inquirer.confirm(
-                        message='Do you want to override file ' + filename_tmp + '?'
-                    ).execute()
-                    
-                    if override:
-                        try:
-                            os.remove(filename)
-                        except OSError:
-                            pass
-                    else:
-                        filename_tmp = filename.split('.txt')[0]
-                        i = 1
-                        while os.path.exists(filename_tmp + str(i) + '.txt'):
-                            i += 1
-                        filename = filename_tmp + str(i) + '.txt'
-
-                start_freq = data[0,2,0]/1000000
-                end_freq = data[0,2,1]/1000000
-                hl1 = f'Filtered data in range ({start_freq:.1f}:{end_freq:.1f}) MHz\n'
-                hl2 = 'First col is time in [us]; others cols are signals in [V]. Signal is already normalized for laser value\n'
-                hl3 = 'First line is WL, Second line if laser energy in [uJ]'
-                header = hl1 + hl2 + hl3
-
-                dt = data[0,0,3]
-                start_wl = data[0,0,0]
-                end_wl = data[0,0,1]
-                step_wl = data[0,0,2]
-                duration = (config['pre_time'] + config['post_time'])/1000000
-                spectr_points = int(duration/dt)+1
-                pre_points = int(config['pre_time']/1000000/dt)
-                post_points = spectr_points - pre_points
-                data_txt = np.zeros((spectr_points+2,data.shape[0]+1))
-                
-                #build aray for txt data
-                for i in range(data.shape[0]):
-                    if i < (data.shape[0]-1):
-                        data_txt[0,i+1] = start_wl + i*step_wl
-                    else: #handels case when the last step is smaller then others
-                        data_txt[0,i+1] = end_wl
-                    data_txt[1,i+1] = data[i,0,5] #laser energy
-                    max_amp_ind = np.argmax(data[i,1,6:])
-                    data_txt[2:,i+1] = data[i,1,6+max_amp_ind-pre_points:6+max_amp_ind+post_points].copy()
-
-                for i in range(spectr_points):
-                    data_txt[i+2,0] = i*dt*1000000
-                
-                np.savetxt(filename,data_txt,header=header,fmt='%1.3e')
-
-            elif export_type == 'Freq data':
-                pass
-
-            elif export_type == 'All':
-                pass
-
-            elif export_type == 'back':
-                return
             
+            if export_type == 'back':
+                return
+            elif export_type == 'Raw data':
+                save_spectr_raw_txt(data,sample)
+            elif export_type == 'Filtered data':
+                save_spectr_filt_txt(data,sample)
+            elif export_type == 'Freq data':
+                save_spectr_freq_txt(data,sample)
+            elif export_type == 'Spectral':
+                save_spectr_txt(data,sample)
+            elif export_type == 'All':
+                save_spectr_raw_txt(data,sample)
+                save_spectr_filt_txt(data,sample)
+                save_spectr_freq_txt(data,sample)
+                save_spectr_txt(data,sample)
             else:
                 print(f'{bcolors.WARNING} Unknown command in data export menu {bcolors.ENDC}')
 
@@ -1404,6 +1352,234 @@ def export_to_txt(data, sample, data_type='spectral'):
             else:
                 print(f'{bcolors.WARNING}Unknown state of spectral data!{bcolors.ENDC}')
             return
+
+def save_spectr_filt_txt(data,sample):
+    """Saves filtered data to txt"""
+
+    if not len(sample):
+        filename = 'measuring results/txt data/Spectral-Unknown-filt.txt'
+    else:
+        filename = sample.split('.npy')[0]
+        filename += '-filt.txt'
+    if os.path.exists(filename):
+        filename_tmp = filename.split('/')[-1]
+        override = inquirer.confirm(
+            message='Do you want to override file ' + filename_tmp + '?'
+        ).execute()
+        if override:
+            try:
+                os.remove(filename)
+            except OSError:
+                pass
+        else:
+            filename_tmp = filename.split('.txt')[0]
+            i = 1
+            while os.path.exists(filename_tmp + str(i) + '.txt'):
+                i += 1
+            filename = filename_tmp + str(i) + '.txt'
+
+    start_freq = data[0,2,0]/1000000
+    end_freq = data[0,2,1]/1000000
+
+    hl1 = f'Filtered data in range ({start_freq:.1f}:{end_freq:.1f}) MHz\n'
+    hl2 = 'First col is time in [us]; others cols are signals in [V]. Signals are already normalized for laser value\n'
+    hl3 = 'First line is WL, Second line if laser energy in [uJ]'
+    header = hl1 + hl2 + hl3
+
+    dt = data[0,0,3]
+    start_wl = data[0,0,0]
+    end_wl = data[0,0,1]
+    step_wl = data[0,0,2]
+    duration = (config['pre_time'] + config['post_time'])/1000000
+    spectr_points = int(duration/dt)+1
+    pre_points = int(config['pre_time']/1000000/dt)
+    post_points = spectr_points - pre_points
+    data_txt = np.zeros((spectr_points+2,data.shape[0]+1))
+    
+    #build aray for txt data
+    for i in range(data.shape[0]):
+        if i < (data.shape[0]-1):
+            data_txt[0,i+1] = start_wl + i*step_wl
+        else: #handels case when the last step is smaller then others
+            data_txt[0,i+1] = end_wl
+        data_txt[1,i+1] = data[i,0,5] #laser energy
+        max_amp_ind = np.argmax(data[i,1,6:])
+        data_txt[2:,i+1] = data[i,1,6+max_amp_ind-pre_points:6+max_amp_ind+post_points].copy()
+
+    for i in range(spectr_points):
+        data_txt[i+2,0] = i*dt*1000000
+    
+    np.savetxt(filename,data_txt,header=header,fmt='%1.3e')
+    print(f'Data exported to {bcolors.OKGREEN}{filename}{bcolors.ENDC}')
+
+def save_spectr_raw_txt(data,sample):
+    """Saves raw data to txt"""
+
+    if not len(sample):
+        filename = 'measuring results/txt data/Spectral-Unknown-raw.txt'
+    else:
+        filename = sample.split('.npy')[0]
+        filename += '-raw.txt'
+    if os.path.exists(filename):
+        filename_tmp = filename.split('/')[-1]
+        override = inquirer.confirm(
+            message='Do you want to override file ' + filename_tmp + '?'
+        ).execute()
+        if override:
+            try:
+                os.remove(filename)
+            except OSError:
+                pass
+        else:
+            filename_tmp = filename.split('.txt')[0]
+            i = 1
+            while os.path.exists(filename_tmp + str(i) + '.txt'):
+                i += 1
+            filename = filename_tmp + str(i) + '.txt'
+
+    start_freq = data[0,2,0]/1000000
+    end_freq = data[0,2,1]/1000000
+
+    hl1 = f'Raw data in range ({start_freq:.1f}:{end_freq:.1f}) MHz\n'
+    hl2 = 'First col is time in [us]; others cols are signals in [V]. Signals are already normalized for laser value\n'
+    hl3 = 'First line is WL, Second line if laser energy in [uJ]'
+    header = hl1 + hl2 + hl3
+
+    dt = data[0,0,3]
+    start_wl = data[0,0,0]
+    end_wl = data[0,0,1]
+    step_wl = data[0,0,2]
+    duration = (config['pre_time'] + config['post_time'])/1000000
+    spectr_points = int(duration/dt)+1
+    pre_points = int(config['pre_time']/1000000/dt)
+    post_points = spectr_points - pre_points
+    data_txt = np.zeros((spectr_points+2,data.shape[0]+1))
+    
+    #build aray for txt data
+    for i in range(data.shape[0]):
+        if i < (data.shape[0]-1):
+            data_txt[0,i+1] = start_wl + i*step_wl
+        else: #handels case when the last step is smaller then others
+            data_txt[0,i+1] = end_wl
+        data_txt[1,i+1] = data[i,0,5] #laser energy
+        max_amp_ind = np.argmax(data[i,1,6:])
+        data_txt[2:,i+1] = data[i,0,6+max_amp_ind-pre_points:6+max_amp_ind+post_points].copy()
+
+    for i in range(spectr_points):
+        data_txt[i+2,0] = i*dt*1000000
+    
+    np.savetxt(filename,data_txt,header=header,fmt='%1.3e')
+    print(f'Data exported to {bcolors.OKGREEN}{filename}{bcolors.ENDC}')
+
+def save_spectr_freq_txt(data,sample):
+    """Saves freq data to txt"""
+
+    if not len(sample):
+        filename = 'measuring results/txt data/Spectral-Unknown-freq.txt'
+    else:
+        filename = sample.split('.npy')[0]
+        filename += '-freq.txt'
+    if os.path.exists(filename):
+        filename_tmp = filename.split('/')[-1]
+        override = inquirer.confirm(
+            message='Do you want to override file ' + filename_tmp + '?'
+        ).execute()
+        if override:
+            try:
+                os.remove(filename)
+            except OSError:
+                pass
+        else:
+            filename_tmp = filename.split('.txt')[0]
+            i = 1
+            while os.path.exists(filename_tmp + str(i) + '.txt'):
+                i += 1
+            filename = filename_tmp + str(i) + '.txt'
+
+    start_freq = data[0,2,0]/1000000
+    end_freq = data[0,2,1]/1000000
+
+    hl1 = f'FFT data in range ({start_freq:.1f}:{end_freq:.1f}) MHz\n'
+    hl2 = 'First col is frequency in [MHz]; others cols are signals in [V]. Signals are already normalized for laser value\n'
+    hl3 = 'First line is WL, Second line if laser energy in [uJ]'
+    header = hl1 + hl2 + hl3
+
+    start_wl = data[0,0,0]
+    end_wl = data[0,0,1]
+    step_wl = data[0,0,2]
+    start_freq = data[0,2,0]
+    end_freq = data[0,2,1]
+    step_freq = data[0,2,2]
+    spectr_points = int((end_freq-start_freq)/step_freq)+1
+    data_txt = np.zeros((spectr_points+2,data.shape[0]+1))
+    
+    #build aray for txt data
+    for i in range(data.shape[0]):
+        if i < (data.shape[0]-1):
+            data_txt[0,i+1] = start_wl + i*step_wl
+        else: #handels case when the last step is smaller then others
+            data_txt[0,i+1] = end_wl
+        data_txt[1,i+1] = data[i,0,5] #laser energy
+        data_txt[2:,i+1] = data[i,2,3:3+spectr_points].copy()
+
+    for i in range(spectr_points):
+        data_txt[i+2,0] = (start_freq + i*step_freq)/1000000
+    
+    np.savetxt(filename,data_txt,header=header,fmt='%1.3e')
+    print(f'Data exported to {bcolors.OKGREEN}{filename}{bcolors.ENDC}')
+
+def save_spectr_txt(data,sample):
+    """Saves spectral data to txt"""
+
+    if not len(sample):
+        filename = 'measuring results/txt data/Spectral-Unknown-spectral.txt'
+    else:
+        filename = sample.split('.npy')[0]
+        filename += '-spectral.txt'
+    if os.path.exists(filename):
+        filename_tmp = filename.split('/')[-1]
+        override = inquirer.confirm(
+            message='Do you want to override file ' + filename_tmp + '?'
+        ).execute()
+        if override:
+            try:
+                os.remove(filename)
+            except OSError:
+                pass
+        else:
+            filename_tmp = filename.split('.txt')[0]
+            i = 1
+            while os.path.exists(filename_tmp + str(i) + '.txt'):
+                i += 1
+            filename = filename_tmp + str(i) + '.txt'
+
+    start_freq = data[0,2,0]/1000000
+    end_freq = data[0,2,1]/1000000
+
+    hl1 = f'Filtered data in range ({start_freq:.1f}:{end_freq:.1f}) MHz\n'
+    hl2 = 'First col is wavelength in [nm]\n'
+    hl3 = 'Second col is laser energy in [uJ]\n'
+    hl4 = 'Third col is normalized (to laser energy) raw PA amp in [V]\n'
+    hl5 = 'Forth col is normalized (to laser energy) filt PA amp in [V]'
+    header = hl1 + hl2 + hl3 + hl4 + hl5
+
+    start_wl = data[0,0,0]
+    end_wl = data[0,0,1]
+    step_wl = data[0,0,2]
+    data_txt = np.zeros((data.shape[0],4))
+    
+    #build aray for txt data
+    for i in range(data.shape[0]):
+        if i < (data.shape[0]-1):
+            data_txt[i,0] = start_wl + i*step_wl
+        else: #handels case when the last step is smaller then others
+            data_txt[i,0] = end_wl
+        data_txt[i,1] = data[i,0,5] #laser energy
+        data_txt[i,2] = data[i,0,4] #raw norm PA amp
+        data_txt[i,3] = data[i,1,4] #filt norm PA amp
+    
+    np.savetxt(filename,data_txt,header=header,fmt='%1.3e')
+    print(f'Data exported to {bcolors.OKGREEN}{filename}{bcolors.ENDC}')
 
 if __name__ == "__main__":
     
