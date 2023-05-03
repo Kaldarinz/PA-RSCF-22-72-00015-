@@ -1461,7 +1461,8 @@ def save_spectr_filt_txt(data,sample, power_control = ''):
 
         pm_energy = data[i,0,5]
         max_amp_ind = np.argmax(data[i,1,6:])
-        data_txt[2:,i+1] = data[i,1,6+max_amp_ind-pre_points:6+max_amp_ind+post_points].copy()
+        if max_amp_ind: #check if data is present
+            data_txt[2:,i+1] = data[i,1,6+max_amp_ind-pre_points:6+max_amp_ind+post_points].copy()
         
         if power_control == 'Filters':
             _,__,___,sample_energy = glass_calculator(
@@ -1511,9 +1512,6 @@ def save_spectr_raw_txt(data,sample, power_control = ''):
                 i += 1
             filename = filename_tmp + str(i) + '.txt'
 
-    start_freq = data[0,2,0]/1000000
-    end_freq = data[0,2,1]/1000000
-
     dt = data[0,0,3]
     start_wl = data[0,0,0]
     end_wl = data[0,0,1]
@@ -1544,7 +1542,8 @@ def save_spectr_raw_txt(data,sample, power_control = ''):
         
         pm_energy = data[i,0,5]
         max_amp_ind = np.argmax(data[i,1,6:])
-        data_txt[2:,i+1] = data[i,0,6+max_amp_ind-pre_points:6+max_amp_ind+post_points].copy()
+        if max_amp_ind: #check if data is present
+            data_txt[2:,i+1] = data[i,0,6+max_amp_ind-pre_points:6+max_amp_ind+post_points].copy()
         
         if power_control == 'Filters':
             _,__,___,sample_energy = glass_calculator(
