@@ -1432,11 +1432,6 @@ def save_spectr_filt_txt(data,sample, power_control = ''):
     start_freq = data[0,2,0]/1000000
     end_freq = data[0,2,1]/1000000
 
-    hl1 = f'Filtered data in range ({start_freq:.1f}:{end_freq:.1f}) MHz\n'
-    hl2 = 'First col is time in [us]; others cols are signals in [V]. Signals are already normalized for laser value\n'
-    hl3 = 'First line is WL, Second line if laser energy in [uJ]'
-    header = hl1 + hl2 + hl3
-
     dt = data[0,0,3]
     start_wl = data[0,0,0]
     end_wl = data[0,0,1]
@@ -1446,6 +1441,16 @@ def save_spectr_filt_txt(data,sample, power_control = ''):
     pre_points = int(config['pre_time']/1000000/dt)
     post_points = spectr_points - pre_points
     data_txt = np.zeros((spectr_points+2,data.shape[0]+1))
+
+    header = 'Time;'
+    for _ in range(data_txt.shape[1]-1):
+        header +='filt signal;'
+    header += '\nus;'
+    for _ in range(data_txt.shape[1]-1):
+        header +='V;'
+    header += '\n'
+    header += f'Filtered data with band pass filter ({start_freq:.1f}:{end_freq:.1f}) MHz\n'
+    header += 'First line is WL, Second line is laser energy in [uJ]'
     
     #build aray for txt data
     for i in range(data.shape[0]):
@@ -1478,7 +1483,7 @@ def save_spectr_filt_txt(data,sample, power_control = ''):
     for i in range(spectr_points):
         data_txt[i+2,0] = i*dt*1000000
     
-    np.savetxt(filename,data_txt,header=header,fmt='%1.3e')
+    np.savetxt(filename,data_txt,header=header,fmt='%1.3e', delimiter=';')
     print(f'Data exported to {bcolors.OKGREEN}{filename}{bcolors.ENDC}')
 
 def save_spectr_raw_txt(data,sample, power_control = ''):
@@ -1509,11 +1514,6 @@ def save_spectr_raw_txt(data,sample, power_control = ''):
     start_freq = data[0,2,0]/1000000
     end_freq = data[0,2,1]/1000000
 
-    hl1 = f'Raw data in range ({start_freq:.1f}:{end_freq:.1f}) MHz\n'
-    hl2 = 'First col is time in [us]; others cols are signals in [V]. Signals are already normalized for laser value\n'
-    hl3 = 'First line is WL, Second line if laser energy in [uJ]'
-    header = hl1 + hl2 + hl3
-
     dt = data[0,0,3]
     start_wl = data[0,0,0]
     end_wl = data[0,0,1]
@@ -1523,6 +1523,16 @@ def save_spectr_raw_txt(data,sample, power_control = ''):
     pre_points = int(config['pre_time']/1000000/dt)
     post_points = spectr_points - pre_points
     data_txt = np.zeros((spectr_points+2,data.shape[0]+1))
+
+    header = 'Time;'
+    for _ in range(data_txt.shape[1]-1):
+        header +='raw signal;'
+    header += '\nus;'
+    for _ in range(data_txt.shape[1]-1):
+        header +='V;'
+    header += '\n'
+    header += f'Raw data\n'
+    header += 'First line is WL, Second line is laser energy in [uJ]'
     
     #build aray for txt data
     for i in range(data.shape[0]):
@@ -1530,14 +1540,33 @@ def save_spectr_raw_txt(data,sample, power_control = ''):
             data_txt[0,i+1] = start_wl + i*step_wl
         else: #handels case when the last step is smaller then others
             data_txt[0,i+1] = end_wl
-        data_txt[1,i+1] = data[i,0,5] #laser energy
+
+        
+        pm_energy = data[i,0,5]
         max_amp_ind = np.argmax(data[i,1,6:])
         data_txt[2:,i+1] = data[i,0,6+max_amp_ind-pre_points:6+max_amp_ind+post_points].copy()
+        
+        if power_control == 'Filters':
+            _,__,___,sample_energy = glass_calculator(
+               data_txt[0,i+1],
+               pm_energy,
+               pm_energy*20,
+               2,
+               no_print=True
+            )
+            data_txt[1,i+1] = sample_energy #laser energy at sample
+            data_txt[2:,i+1] = data_txt[2:,i+1]*pm_energy/sample_energy
+        elif power_control == 'Glan prism':
+            sample_energy = glan_calc(pm_energy)
+            data_txt[1,i+1] = sample_energy #laser energy at sample
+            data_txt[2:,i+1] = data_txt[2:,i+1]*pm_energy/sample_energy
+        else:
+            data_txt[1,i+1] = data[i,1,5] #laser energy
 
     for i in range(spectr_points):
         data_txt[i+2,0] = i*dt*1000000
     
-    np.savetxt(filename,data_txt,header=header,fmt='%1.3e')
+    np.savetxt(filename,data_txt,header=header,fmt='%1.3e', delimiter=';')
     print(f'Data exported to {bcolors.OKGREEN}{filename}{bcolors.ENDC}')
 
 def save_spectr_freq_txt(data,sample, power_control = ''):
@@ -1568,11 +1597,6 @@ def save_spectr_freq_txt(data,sample, power_control = ''):
     start_freq = data[0,2,0]/1000000
     end_freq = data[0,2,1]/1000000
 
-    hl1 = f'FFT data in range ({start_freq:.1f}:{end_freq:.1f}) MHz\n'
-    hl2 = 'First col is frequency in [MHz]; others cols are signals in [V]. Signals are already normalized for laser value\n'
-    hl3 = 'First line is WL, Second line if laser energy in [uJ]'
-    header = hl1 + hl2 + hl3
-
     start_wl = data[0,0,0]
     end_wl = data[0,0,1]
     step_wl = data[0,0,2]
@@ -1581,6 +1605,16 @@ def save_spectr_freq_txt(data,sample, power_control = ''):
     step_freq = data[0,2,2]
     spectr_points = int((end_freq-start_freq)/step_freq)+1
     data_txt = np.zeros((spectr_points+2,data.shape[0]+1))
+
+    header = 'Frequency;'
+    for _ in range(data_txt.shape[1]-1):
+        header +='FFT amplitude;'
+    header += '\nMHz;'
+    for _ in range(data_txt.shape[1]-1):
+        header +='V;'
+    header += '\n'
+    header += f'Filtered data with band pass filter ({start_freq:.1f}:{end_freq:.1f}) MHz\n'
+    header += 'First line is WL, Second line is laser energy in [uJ]'
     
     #build aray for txt data
     for i in range(data.shape[0]):
@@ -1588,13 +1622,16 @@ def save_spectr_freq_txt(data,sample, power_control = ''):
             data_txt[0,i+1] = start_wl + i*step_wl
         else: #handels case when the last step is smaller then others
             data_txt[0,i+1] = end_wl
-        data_txt[1,i+1] = data[i,0,5] #laser energy
+        if data[i,1,5]:
+            data_txt[1,i+1] = data[i,1,5]#laser energy at sample
+        else:
+            data_txt[1,i+1] = data[i,0,5] #laser energy at PM
         data_txt[2:,i+1] = data[i,2,3:3+spectr_points].copy()
 
     for i in range(spectr_points):
         data_txt[i+2,0] = (start_freq + i*step_freq)/1000000
     
-    np.savetxt(filename,data_txt,header=header,fmt='%1.3e')
+    np.savetxt(filename,data_txt,header=header,fmt='%1.3e', delimiter=';')
     print(f'Data exported to {bcolors.OKGREEN}{filename}{bcolors.ENDC}')
 
 def save_spectr_txt(data,sample, power_control = ''):
