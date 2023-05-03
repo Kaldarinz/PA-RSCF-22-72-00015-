@@ -933,7 +933,7 @@ def spectra(hardware):
 
                     good_data = inquirer.confirm(message='Data looks good?').execute()
                     if good_data:
-                        tmp_signal += (osc.signal_amp/osc.laser_amp)
+                        tmp_signal += osc.signal_amp
                         tmp_laser += osc.laser_amp
                         counter += 1
                         if counter == averaging:
