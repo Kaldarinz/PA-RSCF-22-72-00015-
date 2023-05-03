@@ -938,25 +938,26 @@ def spectra(hardware):
                         counter += 1
                         if counter == averaging:
                             spec_data[i,0:2,3] = dt
-                            spec_data[i,0,4] = tmp_signal/averaging
-                            spec_data[i,0,5] = tmp_laser/averaging
+                            spec_data[i,0,5] = tmp_laser/averaging #PM laser energy
                             if power_control == 'Filters':
                                 _,__, ___, spec_data[i,1,5] = glass_calculator(
                                     current_wl,
-                                    spec_data[i,0,5],
+                                    spec_data[i,0,5], #cuz average energy is saved
                                     target_energy,
                                     max_combinations,
                                     no_print=True)
+                                spec_data[i,0,4] = tmp_signal/(averaging*spec_data[i,1,5]) # PA signal norm to sample energy
                                 _,__, ___, sample_energy = glass_calculator(
                                     current_wl,
-                                    osc.laser_amp,
+                                    osc.laser_amp, #cuz signal is normed to this particular energy
                                     target_energy,
                                     max_combinations,
                                     no_print=True)
                                 spec_data[i,0,6:] = osc.current_pa_data/sample_energy
                             elif power_control == 'Glan prism':
-                                spec_data[i,1,5] = glan_calc(spec_data[i,0,5])
-                                spec_data[i,0,6:] = osc.current_pa_data/glan_calc(osc.laser_amp)
+                                spec_data[i,1,5] = glan_calc(spec_data[i,0,5]) #energy at sample in average
+                                spec_data[i,0,4] = tmp_signal/(averaging*spec_data[i,1,5]) # PA signal norm to sample energy
+                                spec_data[i,0,6:] = osc.current_pa_data/glan_calc(osc.laser_amp) #norm to this particular energy
                             else:
                                 print(f'{bcolors.WARNING}\
                                       Unknown power control method in writing laser energy\
