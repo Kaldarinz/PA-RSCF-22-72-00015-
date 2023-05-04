@@ -1567,13 +1567,8 @@ def save_spectr_raw_txt(data,sample, power_control = ''):
             tmp = data[i,0,6:6+max_amp_ind+post_points].copy()
         elif (6+max_amp_ind+post_points)> data.shape[2]+1:
             tmp = data[i,0,6+max_amp_ind-pre_points:-1].copy()
-        #if tmp is too small, add zeros to the end
-        if len(tmp) < len(data_txt[2:,i+1]):
-            filled_arr = np.zeros(len(data_txt[2:,i+1]))
-            filled_arr[:len(tmp)] = tmp
-            data_txt[2:,i+1] = filled_arr
-        else:
-            data_txt[2:,i+1] = tmp
+        
+        data_txt[2:len(tmp),i+1] = tmp
         
         if power_control == 'Filters':
             _,__,___,sample_energy = glass_calculator(
