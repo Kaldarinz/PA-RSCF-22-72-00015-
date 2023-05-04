@@ -571,7 +571,8 @@ def save_scan_data(sample, data, dt):
     print('Scan data saved to ', filename)
 
 def save_spectral_data(sample, data):
-    """"Saves spectral data"""
+    """"Saves spectral data.
+    Returns full name of the saved file"""
 
     if os.path.exists(sample):
         sample_tmp = sample.split('Spectral-')[1]
@@ -586,6 +587,8 @@ def save_spectral_data(sample, data):
                 pass
             np.save(sample, data)
             print(f'File updated: {bcolors.OKGREEN}{sample}{bcolors.ENDC}')
+        else:
+            print(f'{bcolors.WARNING}File was not saved!{bcolors.ENDC}')
     else:
         Path('measuring results/').mkdir(parents=True, exist_ok=True)
         filename = 'measuring results/Spectral-' + sample
@@ -596,6 +599,8 @@ def save_spectral_data(sample, data):
         
         np.save(filename, data)
         print(f'Spectral data saved to {bcolors.OKGREEN}{filename}{bcolors.ENDC}')
+        sample = filename
+    return sample
 
 def save_tmp_data(data):
     """"Saves temp data"""
@@ -1463,7 +1468,13 @@ def save_spectr_filt_txt(data,sample, power_control = ''):
         pm_energy = data[i,0,5]
         max_amp_ind = np.argmax(data[i,1,6:])
         if max_amp_ind: #check if data is present
-            data_txt[2:,i+1] = data[i,1,6+max_amp_ind-pre_points:6+max_amp_ind+post_points].copy()
+            tmp = data[i,1,6+max_amp_ind-pre_points:6+max_amp_ind+post_points].copy()
+            #if tmp is too small, add zeros to the end
+            if len(tmp) < len(data_txt[2:,i+1]):
+                filled_arr = np.zeros(len(data_txt[2:,i+1]))
+                filled_arr[:len(tmp)] = tmp
+                
+            data_txt[2:,i+1] = tmp
         
         if power_control == 'Filters':
             _,__,___,sample_energy = glass_calculator(
@@ -1544,7 +1555,13 @@ def save_spectr_raw_txt(data,sample, power_control = ''):
         pm_energy = data[i,0,5]
         max_amp_ind = np.argmax(data[i,1,6:])
         if max_amp_ind: #check if data is present
-            data_txt[2:,i+1] = data[i,0,6+max_amp_ind-pre_points:6+max_amp_ind+post_points].copy()
+            tmp = data[i,0,6+max_amp_ind-pre_points:6+max_amp_ind+post_points].copy()
+            #if tmp is too small, add zeros to the end
+            if len(tmp) < len(data_txt[2:,i+1]):
+                filled_arr = np.zeros(len(data_txt[2:,i+1]))
+                filled_arr[:len(tmp)] = tmp
+
+            data_txt[2:,i+1] = tmp
         
         if power_control == 'Filters':
             _,__,___,sample_energy = glass_calculator(
@@ -1887,7 +1904,7 @@ if __name__ == "__main__":
                             if sample == None:
                                 print(f'{bcolors.WARNING}Save terminated!{bcolors.ENDC}')
                                 break
-                        save_spectral_data(sample, spec_data)
+                        sample = save_spectral_data(sample, spec_data)
                     else:
                         print(f'{bcolors.WARNING}Spectral data is missing!{bcolors.ENDC}')
 
