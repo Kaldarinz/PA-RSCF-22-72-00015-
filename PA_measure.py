@@ -971,9 +971,13 @@ def spectra(hardware):
                             print(f'{bcolors.OKBLUE} Average laser = {spec_data[i,0,5]} [uJ]')
                             print(f'Average PA signal = {spec_data[i,0,4]}{bcolors.ENDC}')
                 elif measure_ans == 'Stop measurements':
-                    print(f'{bcolors.WARNING} Spectral measurements terminated!{bcolors.ENDC}')
-                    state['spectral data'] = True
-                    return spec_data
+                    confirm = inquirer.confirm(
+                        message='Are you sure?'
+                    ).execute()
+                    if confirm:
+                        print(f'{bcolors.WARNING} Spectral measurements terminated!{bcolors.ENDC}')
+                        state['spectral data'] = True
+                        return spec_data
                 else:
                     print(f'{bcolors.WARNING}Unknown command in Spectral measure menu!{bcolors.ENDC}')
         
