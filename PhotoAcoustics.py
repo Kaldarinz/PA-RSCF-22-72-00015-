@@ -13,9 +13,11 @@ from InquirerPy.validator import PathValidator
 import matplotlib.gridspec as gridspec
 import keyboard
 import time
+from datetime import datetime
 import math
 from itertools import combinations
 import Validators as vd
+import h5py
 
 # data formats
 # scan_data[X scan points, Y scan points, 4, signal data points]
@@ -301,6 +303,176 @@ class SpectralIndexTracker:
         self.fig.align_labels()
         self.fig.canvas.draw()
 
+class MeasuredData:
+    """Class for data storage and manipulations"""
+
+    def __init__(self) -> None:
+
+        #raw data series for each measured points + dict with attributes
+        self.raw_data = {
+            'attrs': {
+                'max dataset len': 0,
+                'x var name': 'Unknown',
+                'x var units': 'Unknown',
+                'y var name': 'Unknown',
+                'y var units': 'Unknown'
+            }
+        }
+        #filtered data series for each measured points + dict with attributes
+        self.filt_data = {
+            'attrs': {
+                'max dataset len': 0,
+                'x var name': 'Unknown',
+                'x var units': 'Unknown',
+                'y var name': 'Unknown',
+                'y var units': 'Unknown'
+            }
+        } 
+        #FFT of each measured point + dict with attributes
+        self.freq_data = {
+            'attrs': {
+                'max dataset len': 0,
+                'x var name': 'Unknown',
+                'x var units': 'Unknown',
+                'y var name': 'Unknown',
+                'y var units': 'Unknown'
+            }
+        } 
+
+        #attributes of data
+        self.attrs = {
+            'parameter name': 'Unknown',
+            'parameter units': 'Unknown',
+            'created': self._get_cur_time(),
+            'updated': self._get_cur_time(),
+            'path': '',
+            'filename': ''
+        }
+
+    def set_metadata(self, data_group, **metadata):
+        """set attributes for the data_group"""
+
+        if data_group == 'raw_data':
+            self.raw_data['attrs'].update(metadata)
+            self.attrs['updated'] = self._get_cur_time()
+        elif data_group == 'filt_data':
+            self.filt_data['attrs'].update(metadata)
+            self.attrs['updated'] = self._get_cur_time()
+        elif data_group == 'freq_data':
+            self.freq_data['attrs'].update(metadata)
+            self.attrs['updated'] = self._get_cur_time()
+        else:
+            print(f'{bcolors.WARNING}\
+                  Unknown data_group for metadata!\
+                  {bcolors.ENDC}')
+
+    def add_measurement(self, data, **attributes):
+        """Adds a measurement to data"""
+
+        n = len(self.raw_data) - 1
+        if n <10:
+            n = '00' + str(n)
+        elif n<100:
+            n = '0' + str(n)
+        elif n<1000:
+            n = str(n)
+        else:
+            print(f'{bcolors.WARNING}\
+                  Max data points reached! Data cannot be added!\
+                  {bcolors.ENDC}')
+        
+        ds_name = 'point' + n
+        ds = {'data': data}
+        if len(data) > self.raw_data['attrs']['max dataset len']:
+            self.raw_data['attrs']['max dataset len'] = len(data)
+        ds.update(attributes)
+        self.raw_data.update({ds_name:ds})
+        self.attrs['updated'] = self._get_cur_time()
+
+    def _get_cur_time (self):
+        """returns timestamp of current time"""
+        cur_time = time.time()
+        date_time = datetime.fromtimestamp(cur_time)
+        date_time = date_time.strftime("%d-%m-%Y, %H:%M:%S")
+
+        return date_time
+
+    def save(self, filename=None):
+        """Saves data to file"""
+
+        if filename != None:
+            self.attrs['filename'] = filename.split('\\')[-1]
+            self.attrs['path'] = filename.split(self.attrs['filename'])[0] 
+            
+            with h5py.File(filename,'w') as file:
+                general = file.create_group('general')
+                general.attrs.update(self.attrs)
+
+                raw_data = file.create_group('raw data')
+                raw_data.attrs.update(self.raw_data['attrs'])
+                for key, value in self.raw_data.items():
+                    if key !='attrs':
+                        ds_raw = raw_data.create_dataset(key,data=value['data'])
+                        for attr_name, attr_value in value.items():
+                            if attr_name != 'data':
+                                ds_raw.attrs.update({attr_name:attr_value})
+           
+                filt_data = file.create_group('filtered data')
+                filt_data.attrs.update(self.filt_data['attrs'])
+                for key, value in self.filt_data.items():
+                    if key !='attrs':
+                        ds_filt = filt_data.create_dataset(key,data=value['data'])
+                        for attr_name, attr_value in value.items():
+                            if attr_name != 'data':
+                                filt_data.attrs.update({attr_name:attr_value})
+                
+                freq_data = file.create_group('freq data')
+                freq_data.attrs.update(self.freq_data['attrs'])
+                for key, value in self.freq_data.items():
+                    if key !='attrs':
+                        ds_freq = freq_data.create_dataset(key,data=value['data'])
+                        for attr_name, attr_value in value.items():
+                            if attr_name != 'data':
+                                ds_freq.attrs.update({attr_name:attr_value})
+
+        elif self.filename and self.path:
+            pass
+        else:
+            print(f'{bcolors.WARNING}\
+                  Filename is not set. Data cannot be saved!\
+                  {bcolors.ENDC}')
+
+    def load(self, filename):
+        """Loads data from file"""
+
+        self.attrs['filename'] = filename.split('\\')[-1]
+        self.attrs['path'] = filename.split(self.attrs['filename'])[0] 
+
+        with h5py.File(filename,'r') as file:
+            general = file['general']
+            self.attrs.update(general.attrs)
+            
+            raw_data = file['raw data']
+            self.raw_data['attrs'].update(raw_data.attrs)
+            for key in raw_data.keys():
+                self.raw_data.update({key:{}})
+                self.raw_data[key].update({'data': raw_data[key][:]})
+                self.raw_data[key].update(raw_data[key].attrs)
+
+            filt_data = file['filtered data']
+            self.filt_data['attrs'].update(filt_data.attrs)
+            for key in filt_data.keys():
+                self.filt_data.update({key:{}})
+                self.filt_data[key].update({'data': filt_data[key][:]})
+                self.filt_data[key].update(filt_data[key].attrs)
+
+            freq_data = file['freq data']
+            self.freq_data['attrs'].update(freq_data.attrs)
+            for key in freq_data.keys():
+                self.freq_data.update({key:{}})
+                self.freq_data[key].update({'data': freq_data[key][:]})
+                self.freq_data[key].update(freq_data[key].attrs)
+
 def scan_vizualization(data, dt):
     """Vizualization of scan data."""
 
@@ -570,37 +742,39 @@ def save_scan_data(sample, data, dt):
     np.save(filename, data)
     print('Scan data saved to ', filename)
 
-def save_spectral_data(sample, data):
-    """"Saves spectral data.
-    Returns full name of the saved file"""
+def save_data(data):
+    """"Save data"""
 
-    if os.path.exists(sample):
-        sample_tmp = sample.split('Spectral-')[1]
+    if not data.attrs['filename']:
+        filename = inquirer.text(
+            message='Enter Sample name\n(CTRL+Z to cancel)\n',
+            default='Unknown',
+            mandatory=False
+        ).execute()
+        if filename == None:
+            print(f'{bcolors.WARNING}Save terminated!{bcolors.ENDC}')
+            return
+        full_name = 'measuring results/' + filename + '.hdf5'
+    else:
+        filename = data.attrs['filename']
+        full_name = data.attrs['path'] + filename
+
+    if os.path.exists(full_name):
         override = inquirer.confirm(
-            message='Do you want to override file ' + sample_tmp + '?'
+            message='Do you want to override file ' + filename + '?'
         ).execute()
         
-        if override:
-            try:
-                os.remove(sample)
-            except OSError:
-                pass
-            np.save(sample, data)
-            print(f'File updated: {bcolors.OKGREEN}{sample}{bcolors.ENDC}')
-        else:
-            print(f'{bcolors.WARNING}File was not saved!{bcolors.ENDC}')
-    else:
-        Path('measuring results/').mkdir(parents=True, exist_ok=True)
-        filename = 'measuring results/Spectral-' + sample
-        i = 1
-        while (os.path.exists(filename + str(i) + '.npy')):
-            i += 1
-        filename = filename + str(i) + '.npy'
-        
-        np.save(filename, data)
-        print(f'Spectral data saved to {bcolors.OKGREEN}{filename}{bcolors.ENDC}')
-        sample = filename
-    return sample
+        if not override:
+            i = 1
+            full_name_tmp = full_name.split('.hdf5')[0] + str(i) + '.hdf5'
+            while os.path.exists(full_name_tmp):
+                i +=1
+                full_name_tmp = full_name.split('.hdf5')[0] + str(i) + '.hdf5'
+            full_name = full_name_tmp
+
+    data.save(full_name)
+    print(f'File updated: {bcolors.OKGREEN}{filename}{bcolors.ENDC}')
+    return
 
 def save_tmp_data(data):
     """"Saves temp data"""
@@ -615,55 +789,29 @@ def save_tmp_data(data):
         pass
     np.save(filename, data)
 
-def load_data(data_type, old_data):
+def load_data(data):
     """Return loaded data in the related format"""
 
     home_path = str(Path().resolve()) + '\\measuring results\\'
-    if data_type == 'Scan':
-        file_path = inquirer.filepath(
-            message='Choose scan file to load:\n(CTRL+Z to cancel)\n',
-            default=home_path,
-            mandatory=False,
-            validate=PathValidator(is_file=True, message='Input is not a file')
-        ).execute()
-        if file_path == None:
-            print(f'{bcolors.WARNING}Data loading canceled!{bcolors.ENDC}')
-            return 0, 0
-
-        dt = int(file_path.split('dt')[1].split('ns')[0])/1000000000
-        data = np.load(file_path)
-        state['scan data'] = True
-        print(f'...Scan data with shape {data.shape} loaded!')
-        return data, dt
+    file_path = inquirer.filepath(
+        message='Choose spectral file to load:\n(CTRL+Z to cancel)\n',
+        default=home_path,
+        mandatory=False,
+        validate=PathValidator(is_file=True, message='Input is not a file')
+    ).execute()
+    if file_path == None:
+        print(f'{bcolors.WARNING}Data loading canceled!{bcolors.ENDC}')
+        return data
     
-    elif data_type == 'Spectral':
-        file_path = inquirer.filepath(
-            message='Choose spectral file to load:\n(CTRL+Z to cancel)\n',
-            default=home_path,
-            mandatory=False,
-            validate=PathValidator(is_file=True, message='Input is not a file')
-        ).execute()
-        if file_path == None:
-            print(f'{bcolors.WARNING}Data loading canceled!{bcolors.ENDC}')
-            return old_data, ''
-
-        if file_path.split('.')[-1] != 'npy':
-            print(f'{bcolors.WARNING} Wrong data format! *.npy is required{bcolors.ENDC}')
-            return old_data, ''
-        
-        data = np.load(file_path)
-
-        state['spectral data'] = True
-        if data[0,2,2]: #check if freq step in nonzero
-            state['filtered spec data'] = True
-        else:
-            state['filtered spec data'] = False
-
-        print(f'...Spectral data with shape {data.shape} loaded!')
-        return data, file_path
-
-    else:
-        print(f'{bcolors.WARNING}Unknown data type in Load data!{bcolors.ENDC}')
+    if file_path.split('.')[-1] != 'hdf5':
+        print(f'{bcolors.WARNING} Wrong data format! *.hdf5 is required{bcolors.ENDC}')
+        return data
+    new_data = MeasuredData()
+    new_data.load(file_path)
+    data = new_data
+    state['spectral data'] = True
+    print(f'... data with {len(data.raw_data)-1} PA measurements loaded!')
+    return data
 
 def bp_filter(data, data_type='spectral'):
     """Perform bandpass filtration on data
@@ -1752,7 +1900,7 @@ if __name__ == "__main__":
 
     sample = '' # sample name
 
-    spec_data = [] # array for spec_data
+    spec_data = MeasuredData()
     scan_data = [] # array for scan_data
     while True: #main execution loop
         menu_ans = inquirer.rawlist(
@@ -1906,16 +2054,7 @@ if __name__ == "__main__":
 
                 elif data_ans == 'Save data':
                     if state['spectral data']:
-                        if not len(sample):
-                            sample = inquirer.text(
-                                message='Enter Sample name\n(CTRL+Z to cancel)\n',
-                                default='Unknown',
-                                mandatory=False
-                            ).execute()
-                            if sample == None:
-                                print(f'{bcolors.WARNING}Save terminated!{bcolors.ENDC}')
-                                break
-                        sample = save_spectral_data(sample, spec_data)
+                        save_data(spec_data)
                     else:
                         print(f'{bcolors.WARNING}Spectral data is missing!{bcolors.ENDC}')
 
@@ -1923,7 +2062,7 @@ if __name__ == "__main__":
                     export_to_txt(spec_data,sample)
 
                 elif data_ans == 'Load data':
-                    spec_data, sample = load_data('Spectral', spec_data)
+                    spec_data = load_data(spec_data)
 
                 elif data_ans == 'Back to main menu':
                         break         
