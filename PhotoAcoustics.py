@@ -73,237 +73,6 @@ class bcolors:
     BOLD = '\033[1m'
     UNDERLINE = '\033[4m'
 
-class IndexTracker:
-    '''Class for scan image vizualization'''
-
-    def __init__(self, fig, ax_freq, ax_raw, ax_filt, data, dt):
-        
-        self.ax_freq = ax_freq
-        self.ax_raw = ax_raw
-        self.ax_filt = ax_filt
-        self.fig = fig
-        self.dt = dt*1000000
-        self.freq_data = data[0,0,2,:]/1000
-        self.raw_data = data[:,:,0,:]
-        self.filt_data = data[:,:,1,:]
-        self.fft_data = data[:,:,3,:]
-        self.x_max = data.shape[0]
-        self.y_max = data.shape[1]
-        self.x_ind = 0
-        self.y_ind = 0
-
-        self.time_data = np.linspace(0,self.dt*(self.raw_data.shape[2]-1),self.raw_data.shape[2])
-        self.update()
-
-    def on_key_press(self, event):
-        if event.key == 'left':
-            if self.x_ind == 0:
-                pass
-            else:
-                self.x_ind -= 1
-                self.update()
-        elif event.key == 'right':
-            if self.x_ind == (self.x_max - 1):
-                pass
-            else:
-                self.x_ind += 1
-                self.update()
-        elif event.key == 'down':
-            if self.y_ind == 0:
-                pass
-            else: 
-                self.y_ind -= 1
-                self.update()
-        elif event.key == 'up':
-            if self.y_ind == (self.y_max - 1):
-                pass
-            else:
-                self.y_ind += 1
-                self.update()
-
-    def update(self):
-        self.ax_freq.clear()
-        self.ax_raw.clear()
-        self.ax_filt.clear()
-        self.ax_raw.plot(self.time_data, self.raw_data[self.x_ind,self.y_ind,:])
-        self.ax_filt.plot(self.time_data, self.filt_data[self.x_ind,self.y_ind,:])
-        self.ax_freq.plot(self.freq_data, self.fft_data[self.x_ind,self.y_ind,:])
-        title = 'X index = ' + str(self.x_ind) + '/' + str(self.x_max-1) + '. Y index = ' + str(self.y_ind) + '/' + str(self.y_max-1)
-        self.ax_freq.set_title(title)
-        
-        self.ax_raw.set_ylabel('PA detector signal, [V]')
-        self.ax_raw.set_xlabel('Time, [us]')
-        self.ax_filt.set_ylabel('PA detector signal, [V]')
-        self.ax_filt.set_xlabel('Time, [us]')
-        self.ax_freq.set_ylabel('FFT signal amp')
-        self.ax_freq.set_xlabel('Frequency, [kHz]')
-        self.fig.align_labels()
-        self.fig.canvas.draw()
-
-class SpectralIndexTracker:
-    '''Class for spectral data vizualization'''
-
-    def __init__(self, fig, ax_sp, ax_raw, ax_freq, ax_filt, ax_raw_zoom, ax_filt_zoom, data, config):
-        
-        warnings.filterwarnings('ignore', category=MatplotlibDeprecationWarning)
-
-        self.data = data
-        self.fig = fig
-        self.ax_sp = ax_sp
-        self.ax_raw = ax_raw
-        self.ax_freq = ax_freq
-        self.ax_filt = ax_filt
-        self.ax_raw_zoom = ax_raw_zoom
-        self.ax_filt_zoom = ax_filt_zoom
-        
-        self.dt = data[0,0,3]
-        self.dw = data[0,2,2]
-
-        self.pre_points = int(config['pre_time']/1000000/self.dt)
-        self.post_points = int(config['post_time']/1000000/self.dt)
-        
-        self.time_data = np.linspace(0,self.dt*(data.shape[2]-7),data.shape[2]-6)*1000000
-        self.raw_data = data[:,0,6:]
-        self.filt_data = data[:,1,6:]
-
-        self.x_max = data.shape[0]
-        self.x_ind = 0
-        self.step_wl = data[0,0,2]
-        self.start_wl = data[0,0,0]
-        self.stop_wl = data[0,0,1]
-        
-        if self.dw:
-            freq_points = int((data[0,2,1] - data[0,2,0])/self.dw) + 1
-        else:
-            freq_points = 2
-        self.freq_data = np.linspace(data[0,2,0],data[0,2,1],freq_points)/1000
-        self.fft_data = data[:,2,3:(freq_points+3)]
-
-        #plot static spectra
-        wl_points = int((self.stop_wl - self.start_wl)/self.step_wl) + 1
-        if (self.stop_wl-self.start_wl)%self.step_wl:
-            self.wl_data = np.zeros(wl_points+1)
-            self.wl_data[:-1] = np.arange(self.start_wl,self.stop_wl,self.step_wl)
-            self.wl_data[-1] = self.stop_wl
-        else:
-            self.wl_data = np.linspace(self.start_wl,self.stop_wl,wl_points)
-        self.spec_data_raw = data[:,0,4]
-        self.spec_data_filt = data[:,1,4]
-        self.ax_sp.plot(self.wl_data,self.spec_data_raw, label='raw data')
-        self.ax_sp.plot(self.wl_data,self.spec_data_filt, label='filt data')
-        self.ax_sp.legend(loc='upper right')
-        self.ax_sp.set_ylim(bottom=0)
-        self.ax_sp.set_ylabel('Normalizaed PA amp')
-        self.ax_sp.set_xlabel('Wavelength, [nm]')
-        self.selected_raw, = self.ax_sp.plot(self.wl_data[self.x_ind], data[self.x_ind,0,4], 
-                                         'o', alpha=0.4, ms=12, color='yellow')
-        self.selected_filt, = self.ax_sp.plot(self.wl_data[self.x_ind], data[self.x_ind,1,4], 
-                                         'o', alpha=0.4, ms=12, color='yellow')
-        self.update()
-
-    def on_key_press(self, event):
-        if event.key == 'left':
-            if self.x_ind == 0:
-                pass
-            else:
-                self.x_ind -= 1
-                self.update()
-        elif event.key == 'right':
-            if self.x_ind == (self.x_max - 1):
-                pass
-            else:
-                self.x_ind += 1
-                self.update()
-
-    def update(self):
-        
-        #update filt data
-        self.ax_filt.clear()
-        self.ax_filt.plot(self.time_data,
-                          self.filt_data[self.x_ind,:])
-        self.ax_filt.set_ylabel('PA detector signal, [V]')
-        self.ax_filt.set_xlabel('Time, [us]')
-        self.ax_filt.set_title('Filtered PA data')
-        #marker for max value
-        filt_max = np.amax(self.filt_data[self.x_ind,:])
-        filt_max_ind = np.argwhere(self.filt_data[self.x_ind,:]==filt_max)[0][0]
-        filt_max_t = self.time_data[filt_max_ind]
-        self.ax_filt.plot(filt_max_t, filt_max, 'o', alpha=0.4, ms=12, color='yellow')
-        #marker for min value
-        filt_min = np.amin(self.filt_data[self.x_ind,:])
-        filt_min_t = self.time_data[np.argwhere(self.filt_data[self.x_ind,:]==filt_min)[0]]
-        self.ax_filt.plot(filt_min_t, filt_min, 'o', alpha=0.4, ms=12, color='yellow')
-        #marker for zoomed area
-        start_zoom_ind = filt_max_ind-self.pre_points
-        if start_zoom_ind < 0:
-            start_zoom_ind = 0
-        stop_zoom_ind = filt_max_ind + self.post_points
-        if stop_zoom_ind > (len(self.time_data) - 1):
-            stop_zoom_ind = len(self.time_data) - 1
-        self.ax_filt.fill_betweenx([filt_min,filt_max],
-                                   self.time_data[start_zoom_ind],
-                                   self.time_data[stop_zoom_ind],
-                                   alpha=0.3,
-                                   color='g')
-
-        #update raw data
-        self.ax_raw.clear()
-        self.ax_raw.plot(self.time_data,
-                         self.raw_data[self.x_ind,:],)
-        self.ax_raw.set_ylabel('PA detector signal, [V]')
-        self.ax_raw.set_xlabel('Time, [us]')
-        self.ax_raw.set_title('Raw PA data')
-        #marker for max value
-        raw_max = np.amax(self.raw_data[self.x_ind,:])
-        raw_max_ind = np.argwhere(self.raw_data[self.x_ind,:]==raw_max)[0][0]
-        raw_max_t = self.time_data[raw_max_ind]
-        self.ax_raw.plot(raw_max_t, raw_max, 'o', alpha=0.4, ms=12, color='yellow')
-        #marker for min value
-        raw_min = np.amin(self.raw_data[self.x_ind,:])
-        raw_min_t = self.time_data[np.argwhere(self.raw_data[self.x_ind,:]==raw_min)[0]]
-        self.ax_raw.plot(raw_min_t, raw_min, 'o', alpha=0.4, ms=12, color='yellow')
-        #marker for zoomed area
-        self.ax_raw.fill_betweenx([raw_min,raw_max],
-                                   self.time_data[start_zoom_ind],
-                                   self.time_data[stop_zoom_ind],
-                                   alpha=0.3,
-                                   color='g')
-        #update raw zoom data
-        self.ax_raw_zoom.clear()
-        self.ax_raw_zoom.plot(
-            self.time_data[start_zoom_ind:stop_zoom_ind+1],
-            self.raw_data[self.x_ind,start_zoom_ind:stop_zoom_ind+1])
-        self.ax_raw_zoom.set_ylabel('PA detector signal, [V]')
-        self.ax_raw_zoom.set_xlabel('Time, [us]')
-        self.ax_raw_zoom.set_title('Zoom of raw PA data')
-
-        #update raw zoom data
-        self.ax_filt_zoom.clear()
-        self.ax_filt_zoom.plot(
-            self.time_data[start_zoom_ind:stop_zoom_ind+1],
-            self.filt_data[self.x_ind,start_zoom_ind:stop_zoom_ind+1])
-        self.ax_filt_zoom.set_ylabel('PA detector signal, [V]')
-        self.ax_filt_zoom.set_xlabel('Time, [us]')
-        self.ax_filt_zoom.set_title('Zoom of filtered PA data')
-
-        #update freq data
-        self.ax_freq.clear()
-        self.ax_freq.plot(self.freq_data,
-                          self.fft_data[self.x_ind,:])
-        self.ax_freq.set_ylabel('FFT signal amp')
-        self.ax_freq.set_xlabel('Frequency, [kHz]')
-        self.ax_freq.set_title('FFT of PA data')
-        
-        #update Spectrum
-        title = 'Wavelength:' + str(int(self.wl_data[self.x_ind])) + 'nm'
-        self.ax_sp.set_title(title)
-        self.selected_raw.set_data(self.wl_data[self.x_ind], self.data[self.x_ind,0,4])
-        self.selected_filt.set_data(self.wl_data[self.x_ind], self.data[self.x_ind,1,4])
-        
-        #general update
-        self.fig.align_labels()
-        self.fig.canvas.draw()
-
 class MeasuredData:
     """Class for data storage and manipulations.
     Data has 4 dicsts:
@@ -614,10 +383,13 @@ class MeasuredData:
         x_label = self.filt_data['attrs']['x var name'] +\
             ', [' + self.filt_data['attrs']['x var units']+']'
         self._ax_filt.set_xlabel(x_label)
+        self._ax_filt_zoom.set_xlabel(x_label)
 
         y_label = self.filt_data['attrs']['y var name'] +\
             ', [' + self.filt_data['attrs']['y var units']+']'
         self._ax_filt.set_ylabel(y_label)
+        self._ax_filt_zoom.set_ylabel(y_label)
+
         self._ax_filt.set_title('Filtered PA signal')
 
         #marker for max value
@@ -647,41 +419,77 @@ class MeasuredData:
         else:
             print(f'{bcolors.WARNING}\
                   Zoom units do not match x var units!\
-                  {bcolors.ENDC}')     
+                  {bcolors.ENDC}')
+            
+        #update raw data
+        self._ax_raw.clear()
+        self._ax_raw.plot(time_points,
+                         self.raw_data[ds_name]['data'])
+        x_label = self.raw_data['attrs']['x var name'] +\
+            ', [' + self.raw_data['attrs']['x var units']+']'
+        self._ax_raw.set_xlabel(x_label)
+        self._ax_raw_zoom.set_xlabel(x_label)
 
+        y_label = self.raw_data['attrs']['y var name'] +\
+            ', [' + self.raw_data['attrs']['y var units']+']'
+        self._ax_raw.set_ylabel(y_label)
+        self._ax_raw_zoom.set_ylabel(y_label)
+
+        self._ax_raw.set_title('Raw PA signal')
+        #marker for max value
+        raw_max = np.amax(self.raw_data[ds_name]['data'])
+        raw_max_ind = np.argwhere(self.raw_data[ds_name]['data']==raw_max)[0][0]
+        raw_max_t = time_points[raw_max_ind]
+        self._ax_raw.plot(raw_max_t, raw_max, 'o', alpha=0.4, ms=12, color='yellow')
+        #marker for min value
+        raw_min = np.amin(self.raw_data[ds_name]['data'])
+        raw_min_t = time_points[np.argwhere(self.raw_data[ds_name]['data']==raw_min)[0]]
+        self._ax_raw.plot(raw_min_t, raw_min, 'o', alpha=0.4, ms=12, color='yellow')
+        #marker for zoomed area
+        self._ax_raw.fill_betweenx([raw_min,raw_max],
+                                   time_points[start_zoom_ind],
+                                   time_points[stop_zoom_ind],
+                                   alpha=0.3,
+                                   color='g')
+        
+        #update raw zoom data
+        self._ax_raw_zoom.clear()
+        self._ax_raw_zoom.plot(
+            time_points[start_zoom_ind:stop_zoom_ind+1],
+            self.raw_data[ds_name]['data'][start_zoom_ind:stop_zoom_ind+1])
+        self._ax_raw_zoom.set_title('Zoom of raw PA data')
+
+        #update raw zoom data
+        self._ax_filt_zoom.clear()
+        self._ax_filt_zoom.plot(
+            time_points[start_zoom_ind:stop_zoom_ind+1],
+            self.filt_data[ds_name]['data'][start_zoom_ind:stop_zoom_ind+1])
+        self._ax_filt_zoom.set_title('Zoom of filtered PA data')
+
+        #update freq data
+        start_freq = self.freq_data[ds_name]['x var start']
+        step_freq = self.freq_data[ds_name]['x var step']
+        num_freq = len(self.freq_data[ds_name]['data'])
+        stop_freq = (num_freq - 1)*step_freq + start_freq
+        freq_points = np.linspace(start_freq,stop_freq,num_freq)
+
+        self._ax_freq.clear()
+        self._ax_freq.plot(freq_points,
+                          self.freq_data[ds_name]['data'])
+        x_label = self.freq_data['attrs']['x var name'] +\
+            ', [' + self.freq_data['attrs']['x var units']+']'
+        self._ax_freq.set_xlabel(x_label)
+
+        y_label = self.freq_data['attrs']['y var name'] +\
+            ', [' + self.freq_data['attrs']['y var units']+']'
+        self._ax_freq.set_ylabel(y_label)
+        
+        title = self.freq_data['attrs']['y var name']
+        self._ax_freq.set_title(title)
+        
         #general update
         self._fig.align_labels()
         self._fig.canvas.draw()
-
-
-def scan_vizualization(data, dt):
-    """Vizualization of scan data."""
-
-    fig = plt.figure(tight_layout=True)
-    gs = gridspec.GridSpec(2, 2)
-
-    ax_freq = fig.add_subplot(gs[1, :])
-    ax_raw = fig.add_subplot(gs[0,0])
-    ax_filt = fig.add_subplot(gs[0,1])
-    tracker = IndexTracker(fig, ax_freq, ax_raw, ax_filt, data, dt)
-    fig.canvas.mpl_connect('key_press_event', tracker.on_key_press)
-    plt.show()
-
-def spectral_vizualization(data, sample_name, config):
-    """Vizualization of spectral data."""
-
-    fig = plt.figure(tight_layout=True)
-    fig.suptitle(sample_name)
-    gs = gridspec.GridSpec(2,3)
-    ax_sp = fig.add_subplot(gs[0,0])
-    ax_raw = fig.add_subplot(gs[0,1])
-    ax_freq = fig.add_subplot(gs[1,0])
-    ax_filt = fig.add_subplot(gs[1,1])
-    ax_raw_zoom = fig.add_subplot(gs[0,2])
-    ax_filt_zoom = fig.add_subplot(gs[1,2])
-    tracker = SpectralIndexTracker(fig,ax_sp,ax_raw,ax_freq,ax_filt,ax_raw_zoom,ax_filt_zoom,data, config)
-    fig.canvas.mpl_connect('key_press_event', tracker.on_key_press)
-    plt.show()
 
 def set_spec_preamble(data, start, stop, step, d_type='time'):
     """Sets preamble of spectral data"""
