@@ -304,7 +304,13 @@ class SpectralIndexTracker:
         self.fig.canvas.draw()
 
 class MeasuredData:
-    """Class for data storage and manipulations"""
+    """Class for data storage and manipulations.
+    Data has 4 dicsts:
+    {attrs} stores general information about the data
+    other 3 dicts are {raw_data}, {filt_data} and {freq_data}
+    each contains {attrs} dics with specific information about the data group
+    and dicts named {point1}, {point2}, etc, which correspond to the measured datasets
+    each dataset has numpy array with actual data and additional information about the dataset."""
 
     def __init__(self) -> None:
 
@@ -361,27 +367,24 @@ class MeasuredData:
         elif data_group == 'freq_data':
             self.freq_data['attrs'].update(metadata)
             self.attrs['updated'] = self._get_cur_time()
+        elif data_group == 'general':
+            self.attrs.update(metadata)
+            self.attrs['updated'] = self._get_cur_time()
         else:
             print(f'{bcolors.WARNING}\
                   Unknown data_group for metadata!\
                   {bcolors.ENDC}')
 
     def add_measurement(self, data, **attributes):
-        """Adds a measurement to data"""
+        """Adds a datapoint to raw_data"""
 
         n = len(self.raw_data) - 1
-        if n <10:
-            n = '00' + str(n)
-        elif n<100:
-            n = '0' + str(n)
-        elif n<1000:
-            n = str(n)
-        else:
+        ds_name = self.build_ds_name(n)
+        if not ds_name:
             print(f'{bcolors.WARNING}\
                   Max data points reached! Data cannot be added!\
                   {bcolors.ENDC}')
-        
-        ds_name = 'point' + n
+            return
         ds = {'data': data}
         if len(data) > self.raw_data['attrs']['max dataset len']:
             self.raw_data['attrs']['max dataset len'] = len(data)
@@ -391,6 +394,7 @@ class MeasuredData:
 
     def _get_cur_time (self):
         """returns timestamp of current time"""
+        
         cur_time = time.time()
         date_time = datetime.fromtimestamp(cur_time)
         date_time = date_time.strftime("%d-%m-%Y, %H:%M:%S")
@@ -403,44 +407,46 @@ class MeasuredData:
         if filename != None:
             self.attrs['filename'] = filename.split('\\')[-1]
             self.attrs['path'] = filename.split(self.attrs['filename'])[0] 
-            
-            with h5py.File(filename,'w') as file:
-                general = file.create_group('general')
-                general.attrs.update(self.attrs)
-
-                raw_data = file.create_group('raw data')
-                raw_data.attrs.update(self.raw_data['attrs'])
-                for key, value in self.raw_data.items():
-                    if key !='attrs':
-                        ds_raw = raw_data.create_dataset(key,data=value['data'])
-                        for attr_name, attr_value in value.items():
-                            if attr_name != 'data':
-                                ds_raw.attrs.update({attr_name:attr_value})
-           
-                filt_data = file.create_group('filtered data')
-                filt_data.attrs.update(self.filt_data['attrs'])
-                for key, value in self.filt_data.items():
-                    if key !='attrs':
-                        ds_filt = filt_data.create_dataset(key,data=value['data'])
-                        for attr_name, attr_value in value.items():
-                            if attr_name != 'data':
-                                filt_data.attrs.update({attr_name:attr_value})
-                
-                freq_data = file.create_group('freq data')
-                freq_data.attrs.update(self.freq_data['attrs'])
-                for key, value in self.freq_data.items():
-                    if key !='attrs':
-                        ds_freq = freq_data.create_dataset(key,data=value['data'])
-                        for attr_name, attr_value in value.items():
-                            if attr_name != 'data':
-                                ds_freq.attrs.update({attr_name:attr_value})
 
         elif self.filename and self.path:
-            pass
+            filename = self.attrs['path'] + self.attrs['filename']
+        
         else:
             print(f'{bcolors.WARNING}\
                   Filename is not set. Data cannot be saved!\
                   {bcolors.ENDC}')
+            return
+
+        with h5py.File(filename,'w') as file:
+            general = file.create_group('general')
+            general.attrs.update(self.attrs)
+
+            raw_data = file.create_group('raw data')
+            raw_data.attrs.update(self.raw_data['attrs'])
+            for key, value in self.raw_data.items():
+                if key !='attrs':
+                    ds_raw = raw_data.create_dataset(key,data=value['data'])
+                    for attr_name, attr_value in value.items():
+                        if attr_name != 'data':
+                            ds_raw.attrs.update({attr_name:attr_value})
+        
+            filt_data = file.create_group('filtered data')
+            filt_data.attrs.update(self.filt_data['attrs'])
+            for key, value in self.filt_data.items():
+                if key !='attrs':
+                    ds_filt = filt_data.create_dataset(key,data=value['data'])
+                    for attr_name, attr_value in value.items():
+                        if attr_name != 'data':
+                            ds_filt.attrs.update({attr_name:attr_value})
+            
+            freq_data = file.create_group('freq data')
+            freq_data.attrs.update(self.freq_data['attrs'])
+            for key, value in self.freq_data.items():
+                if key !='attrs':
+                    ds_freq = freq_data.create_dataset(key,data=value['data'])
+                    for attr_name, attr_value in value.items():
+                        if attr_name != 'data':
+                            ds_freq.attrs.update({attr_name:attr_value})
 
     def load(self, filename):
         """Loads data from file"""
@@ -472,6 +478,87 @@ class MeasuredData:
                 self.freq_data.update({key:{}})
                 self.freq_data[key].update({'data': freq_data[key][:]})
                 self.freq_data[key].update(freq_data[key].attrs)
+
+    def build_ds_name(self, n):
+        """Builds and returns name of dataset"""
+        
+        if n <10:
+            n = '00' + str(n)
+        elif n<100:
+            n = '0' + str(n)
+        elif n<1000:
+            n = str(n)
+        else:
+            return None
+        return 'point' + n
+    
+    def get_ds_index(self, ds_name):
+        """Returns index from dataset name"""
+
+        n_str = ds_name.split('point')[-1]
+        n = int(n_str)
+        return n
+
+    def plot(self):
+        """Plots current data"""
+
+        self._fig = plt.figure(tight_layout=True)
+        filename = self.attrs['path'] + self.attrs['filename']
+        self._fig.suptitle(filename)
+        gs = gridspec.GridSpec(2,3)
+        self._ax_sp = self._fig.add_subplot(gs[0,0])
+        self._ax_raw = self._fig.add_subplot(gs[0,1])
+        self._ax_freq = self._fig.add_subplot(gs[1,0])
+        self._ax_filt = self._fig.add_subplot(gs[1,1])
+        self._ax_raw_zoom = self._fig.add_subplot(gs[0,2])
+        self._ax_filt_zoom = self._fig.add_subplot(gs[1,2])
+
+        self._max_param_ind = len(self.raw_data) - 1
+        self._param_ind = 0 #index of active data on plot
+
+        #plot max_signal_amp(parameter)
+        self._param_values = np.zeros(self._max_param_ind)
+        self._raw_amps = np.zeros(self._max_param_ind)
+        self._filt_amps = np.zeros(self._max_param_ind)
+        i = 0
+        for ds_name, ds in self.raw_data.items():
+            if ds_name != 'attrs':
+                self._param_values[i] = ds['parameter value']
+                self._raw_amps[i] = ds['max amp']
+                i += 1
+        i = 0
+        for ds_name, ds in self.filt_data.items():
+            if ds_name != 'attrs':
+                self._filt_amps[i] = ds['max amp']
+                i += 1
+        self._ax_sp.plot(
+            self._param_values,
+            self._raw_amps,
+            label='raw data')
+        self._ax_sp.plot(
+            self._param_values,
+            self._filt_amps,
+            label='filt data'
+        )
+        self._ax_sp.legend(loc='upper right')
+        self._ax_sp.set_ylim(bottom=0)
+        x_label = self.attrs['parameter name']+'['+self.attrs['parameter units']+']'
+        self._ax_sp.set_xlabel(x_label)
+        y_label = self.raw_data['attrs']['y var name']
+        self._ax_sp.set_ylabel(y_label)
+
+        self.selected_raw, = self._ax_sp.plot(
+            self._param_values[self._param_ind],
+            self._raw_amps[self._param_ind], 
+            'o', alpha=0.4, ms=12, color='yellow')
+        
+        self.selected_filt, = self._ax_sp.plot(
+            self._param_values[self._param_ind], 
+            self._filt_amps[self._param_ind], 
+            'o', alpha=0.4, ms=12, color='yellow')
+
+        #fig.canvas.mpl_connect('key_press_event', tracker.on_key_press)
+        plt.show()
 
 def scan_vizualization(data, dt):
     """Vizualization of scan data."""
@@ -725,22 +812,6 @@ def scan(hardware):
     dt = 1/osc.sample_rate
     state['scan data'] = True
     return scan_frame, scan_frame_full, dt
-
-def save_scan_data(sample, data, dt):
-    """Saves full data in npy format."""
-
-    Path('measuring results/').mkdir(parents=True, exist_ok=True)
-    dt = dt*1000000000
-
-    filename = 'measuring results/Scan-' + sample + '-dt' + str(int(dt)) + 'ns'
-
-    i = 1
-    while (os.path.exists(filename + str(i) + '.npy')):
-        i += 1
-    filename = filename + str(i) + '.npy'
-    
-    np.save(filename, data)
-    print('Scan data saved to ', filename)
 
 def save_data(data):
     """"Save data"""
@@ -2042,7 +2113,7 @@ if __name__ == "__main__":
 
                 elif data_ans == 'View data':
                     if state['spectral data']:
-                        spectral_vizualization(spec_data, sample, config)
+                        spec_data.plot()
                     else:
                         print(f'{bcolors.WARNING} Spectral data missing!{bcolors.ENDC}')
 

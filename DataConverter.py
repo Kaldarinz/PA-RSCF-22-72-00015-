@@ -69,9 +69,11 @@ if __name__ == '__main__':
 
         for i in range(data.shape[0]):
             if i<10:
-                ds_name = 'measurement0' + str(i)    
+                ds_name = 'point00' + str(i)
+            elif i<100:
+                ds_name = 'point0' + str(i)
             else:
-                ds_name = 'measurement' + str(i)
+                ds_name = 'point' + str(i)
             ds_raw = raw_data.create_dataset(ds_name, data=data[i,0,6:])
             if ds_raw.len() > raw_data.attrs['max dataset len']:
                 raw_data.attrs['max dataset len'] = ds_raw.len()
