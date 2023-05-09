@@ -353,7 +353,10 @@ class MeasuredData:
             'created': self._get_cur_time(),
             'updated': self._get_cur_time(),
             'path': '',
-            'filename': ''
+            'filename': '',
+            'zoom pre time': 0.000002,
+            'zoom post time': 0.000013,
+            'zoom units': 's'
         }
 
     def set_metadata(self, data_group, **metadata):
@@ -561,25 +564,6 @@ class MeasuredData:
             self._param_values[self._param_ind], 
             self._filt_amps[self._param_ind], 
             'o', alpha=0.4, ms=12, color='yellow')
-        
-        #plot filt_data
-        start = self.raw_data['point000']['x var start']
-        step = self.raw_data['point000']['x var step']
-        num = len(self.raw_data['point000']['data'])
-        stop = (num - 1)*step + start
-        time_points = np.linspace(start,stop,num)
-        
-        self._plot_filt, = self._ax_filt.plot(time_points,
-                                             self.filt_data['point000']['data'])
-        
-        x_label = self.filt_data['attrs']['x var name'] +\
-            ', [' + self.filt_data['attrs']['x var units']+']'
-        self._ax_filt.set_xlabel(x_label)
-
-        y_label = self.filt_data['attrs']['y var name'] +\
-            ', [' + self.filt_data['attrs']['y var units']+']'
-        self._ax_filt.set_ylabel(y_label)
-        self._ax_filt.set_title('Filtered PA signal')
 
         self._fig.canvas.mpl_connect('key_press_event', self.on_key_press)
         self.plot_update()
@@ -622,12 +606,48 @@ class MeasuredData:
         self._plot_selected_filt.set_data(
             self._param_values[self._param_ind],
             self._filt_amps[self._param_ind])
-        self._ax_filt.relim()
-        self._ax_filt.autoscale_view(True)
         
         #update filt data
-        self._plot_filt.set_data(time_points,
+        self._ax_filt.clear()
+        self._ax_filt.plot(time_points,
                                  self.filt_data[ds_name]['data'])
+        x_label = self.filt_data['attrs']['x var name'] +\
+            ', [' + self.filt_data['attrs']['x var units']+']'
+        self._ax_filt.set_xlabel(x_label)
+
+        y_label = self.filt_data['attrs']['y var name'] +\
+            ', [' + self.filt_data['attrs']['y var units']+']'
+        self._ax_filt.set_ylabel(y_label)
+        self._ax_filt.set_title('Filtered PA signal')
+
+        #marker for max value
+        filt_max = np.amax(self.filt_data[ds_name]['data'])
+        filt_max_ind = np.argwhere(self.filt_data[ds_name]['data']==filt_max)[0][0]
+        filt_max_t = time_points[filt_max_ind]
+        self._ax_filt.plot(filt_max_t, filt_max, 'o', alpha=0.4, ms=12, color='yellow')
+        #marker for min value
+        filt_min = np.amin(self.filt_data[ds_name]['data'])
+        filt_min_t = time_points[np.argwhere(self.filt_data[ds_name]['data']==filt_min)[0]]
+        self._ax_filt.plot(filt_min_t, filt_min, 'o', alpha=0.4, ms=12, color='yellow')
+        #marker for zoomed area
+        if self.filt_data['attrs']['x var units'] == self.attrs['zoom units']:
+            pre_points = int(self.attrs['zoom pre time']/step)
+            post_points = int(self.attrs['zoom post time']/step)
+            start_zoom_ind = filt_max_ind-pre_points
+            if start_zoom_ind < 0:
+                start_zoom_ind = 0
+            stop_zoom_ind = filt_max_ind + post_points
+            if stop_zoom_ind > (len(time_points) - 1):
+                stop_zoom_ind = len(time_points) - 1
+            self._ax_filt.fill_betweenx([filt_min,filt_max],
+                                    time_points[start_zoom_ind],
+                                    time_points[stop_zoom_ind],
+                                    alpha=0.3,
+                                    color='g')
+        else:
+            print(f'{bcolors.WARNING}\
+                  Zoom units do not match x var units!\
+                  {bcolors.ENDC}')     
 
         #general update
         self._fig.align_labels()
