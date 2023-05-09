@@ -390,7 +390,8 @@ class MeasuredData:
         self._ax_filt.set_ylabel(y_label)
         self._ax_filt_zoom.set_ylabel(y_label)
 
-        self._ax_filt.set_title('Filtered PA signal')
+        title = self.filt_data['attrs']['y var name']
+        self._ax_filt.set_title(title)
 
         #marker for max value
         filt_max = np.amax(self.filt_data[ds_name]['data'])
@@ -435,7 +436,8 @@ class MeasuredData:
         self._ax_raw.set_ylabel(y_label)
         self._ax_raw_zoom.set_ylabel(y_label)
 
-        self._ax_raw.set_title('Raw PA signal')
+        title = self.raw_data['attrs']['y var name']
+        self._ax_raw.set_title(title)
         #marker for max value
         raw_max = np.amax(self.raw_data[ds_name]['data'])
         raw_max_ind = np.argwhere(self.raw_data[ds_name]['data']==raw_max)[0][0]
