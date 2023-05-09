@@ -216,6 +216,7 @@ class SpectralIndexTracker:
                 self.update()
 
     def update(self):
+        
         #update filt data
         self.ax_filt.clear()
         self.ax_filt.plot(self.time_data,
@@ -502,6 +503,9 @@ class MeasuredData:
     def plot(self):
         """Plots current data"""
 
+        #plot initialization
+        warnings.filterwarnings('ignore', category=MatplotlibDeprecationWarning)
+
         self._fig = plt.figure(tight_layout=True)
         filename = self.attrs['path'] + self.attrs['filename']
         self._fig.suptitle(filename)
@@ -531,6 +535,7 @@ class MeasuredData:
             if ds_name != 'attrs':
                 self._filt_amps[i] = ds['max amp']
                 i += 1
+        
         self._ax_sp.plot(
             self._param_values,
             self._raw_amps,
@@ -542,23 +547,92 @@ class MeasuredData:
         )
         self._ax_sp.legend(loc='upper right')
         self._ax_sp.set_ylim(bottom=0)
-        x_label = self.attrs['parameter name']+'['+self.attrs['parameter units']+']'
+        x_label = self.attrs['parameter name']+', ['+self.attrs['parameter units']+']'
         self._ax_sp.set_xlabel(x_label)
         y_label = self.raw_data['attrs']['y var name']
         self._ax_sp.set_ylabel(y_label)
 
-        self.selected_raw, = self._ax_sp.plot(
+        self._plot_selected_raw, = self._ax_sp.plot(
             self._param_values[self._param_ind],
             self._raw_amps[self._param_ind], 
             'o', alpha=0.4, ms=12, color='yellow')
         
-        self.selected_filt, = self._ax_sp.plot(
+        self._plot_selected_filt, = self._ax_sp.plot(
             self._param_values[self._param_ind], 
             self._filt_amps[self._param_ind], 
             'o', alpha=0.4, ms=12, color='yellow')
+        
+        #plot filt_data
+        start = self.raw_data['point000']['x var start']
+        step = self.raw_data['point000']['x var step']
+        num = len(self.raw_data['point000']['data'])
+        stop = (num - 1)*step + start
+        time_points = np.linspace(start,stop,num)
+        
+        self._plot_filt, = self._ax_filt.plot(time_points,
+                                             self.filt_data['point000']['data'])
+        
+        x_label = self.filt_data['attrs']['x var name'] +\
+            ', [' + self.filt_data['attrs']['x var units']+']'
+        self._ax_filt.set_xlabel(x_label)
 
-        #fig.canvas.mpl_connect('key_press_event', tracker.on_key_press)
+        y_label = self.filt_data['attrs']['y var name'] +\
+            ', [' + self.filt_data['attrs']['y var units']+']'
+        self._ax_filt.set_ylabel(y_label)
+        self._ax_filt.set_title('Filtered PA signal')
+
+        self._fig.canvas.mpl_connect('key_press_event', self.on_key_press)
+        self.plot_update()
         plt.show()
+
+    def on_key_press(self, event):
+        """Callback function for changing active data on plot"""
+
+        if event.key == 'left':
+            if self._param_ind == 0:
+                pass
+            else:
+                self._param_ind -= 1
+                self.plot_update()
+        elif event.key == 'right':
+            if self._param_ind == (self._max_param_ind - 1):
+                pass
+            else:
+                self._param_ind += 1
+                self.plot_update()
+
+    def plot_update(self):
+        """Updates plotted data"""
+
+        ds_name = self.build_ds_name(self._param_ind)
+        start = self.raw_data[ds_name]['x var start']
+        step = self.raw_data[ds_name]['x var step']
+        num = len(self.raw_data[ds_name]['data'])
+        stop = (num - 1)*step + start
+        time_points = np.linspace(start,stop,num)
+
+        #update max_signal_amp(parameter) plot
+        title = self.attrs['parameter name'] + ': ' + \
+            str(int(self._param_values[self._param_ind])) + \
+            self.attrs['parameter units']
+        self._ax_sp.set_title(title)
+        self._plot_selected_raw.set_data(
+            self._param_values[self._param_ind],
+            self._raw_amps[self._param_ind])
+        self._plot_selected_filt.set_data(
+            self._param_values[self._param_ind],
+            self._filt_amps[self._param_ind])
+        self._ax_filt.relim()
+        self._ax_filt.autoscale_view(True)
+        
+        #update filt data
+        self._plot_filt.set_data(time_points,
+                                 self.filt_data[ds_name]['data'])
+
+        #general update
+        self._fig.align_labels()
+        self._fig.canvas.draw()
+
 
 def scan_vizualization(data, dt):
     """Vizualization of scan data."""
