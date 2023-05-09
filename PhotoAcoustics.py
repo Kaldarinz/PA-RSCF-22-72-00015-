@@ -119,6 +119,7 @@ class MeasuredData:
         self.attrs = {
             'parameter name': 'Unknown',
             'parameter units': 'Unknown',
+            'data points': 0,
             'created': self._get_cur_time(),
             'updated': self._get_cur_time(),
             'path': '',
@@ -151,8 +152,7 @@ class MeasuredData:
     def add_measurement(self, data, **attributes):
         """Adds a datapoint to raw_data"""
 
-        n = len(self.raw_data) - 1
-        ds_name = self.build_ds_name(n)
+        ds_name = self.build_ds_name(self.attrs['data points'])
         if not ds_name:
             print(f'{bcolors.WARNING}\
                   Max data points reached! Data cannot be added!\
@@ -163,6 +163,7 @@ class MeasuredData:
             self.raw_data['attrs']['max dataset len'] = len(data)
         ds.update(attributes)
         self.raw_data.update({ds_name:ds})
+        self.attrs['data points'] += 1
         self.attrs['updated'] = self._get_cur_time()
 
     def _get_cur_time (self):
@@ -252,6 +253,10 @@ class MeasuredData:
                 self.freq_data[key].update({'data': freq_data[key][:]})
                 self.freq_data[key].update(freq_data[key].attrs)
 
+        #for compatibility with old data
+        if self.attrs.get('data points', default=0) < (len(self.raw_data) - 1):
+            self.attrs.update({'data points': len(self.raw_data) - 1})
+
     def build_ds_name(self, n):
         """Builds and returns name of dataset"""
         
@@ -289,13 +294,12 @@ class MeasuredData:
         self._ax_raw_zoom = self._fig.add_subplot(gs[0,2])
         self._ax_filt_zoom = self._fig.add_subplot(gs[1,2])
 
-        self._max_param_ind = len(self.raw_data) - 1
         self._param_ind = 0 #index of active data on plot
 
         #plot max_signal_amp(parameter)
-        self._param_values = np.zeros(self._max_param_ind)
-        self._raw_amps = np.zeros(self._max_param_ind)
-        self._filt_amps = np.zeros(self._max_param_ind)
+        self._param_values = np.zeros(self.attrs['data points'])
+        self._raw_amps = np.zeros(self.attrs['data points'])
+        self._filt_amps = np.zeros(self.attrs['data points'])
         i = 0
         for ds_name, ds in self.raw_data.items():
             if ds_name != 'attrs':
@@ -334,11 +338,11 @@ class MeasuredData:
             self._filt_amps[self._param_ind], 
             'o', alpha=0.4, ms=12, color='yellow')
 
-        self._fig.canvas.mpl_connect('key_press_event', self.on_key_press)
-        self.plot_update()
+        self._fig.canvas.mpl_connect('key_press_event', self._on_key_press)
+        self._plot_update()
         plt.show()
 
-    def on_key_press(self, event):
+    def _on_key_press(self, event):
         """Callback function for changing active data on plot"""
 
         if event.key == 'left':
@@ -346,15 +350,15 @@ class MeasuredData:
                 pass
             else:
                 self._param_ind -= 1
-                self.plot_update()
+                self._plot_update()
         elif event.key == 'right':
-            if self._param_ind == (self._max_param_ind - 1):
+            if self._param_ind == (self.attrs['data points'] - 1):
                 pass
             else:
                 self._param_ind += 1
-                self.plot_update()
+                self._plot_update()
 
-    def plot_update(self):
+    def _plot_update(self):
         """Updates plotted data"""
 
         ds_name = self.build_ds_name(self._param_ind)
@@ -492,6 +496,46 @@ class MeasuredData:
         #general update
         self._fig.align_labels()
         self._fig.canvas.draw()
+
+    def get_dependance(self, data_group, value):
+        """Returns an array with value from each dataset in the data_group"""
+
+        if not self.attrs['data points']:
+            print(f'{bcolors.WARNING}\
+                  Attempt to read dependence from empty data\
+                  {bcolors.ENDC}')
+            return []
+        
+        if data_group == 'raw_data':
+            ds_name = self.build_ds_name(0)
+            if self.raw_data[ds_name].get(value) == None:
+                print(f'{bcolors.WARNING}\
+                    Attempt to read dependence of unknown VALUE from raw_data\
+                    {bcolors.ENDC}')
+                return []
+        
+        elif data_group == 'filt_data':
+            ds_name = self.build_ds_name(0)
+            if self.filt_data[ds_name].get(value) == None:
+                print(f'{bcolors.WARNING}\
+                    Attempt to read dependence of unknown VALUE from filt_data\
+                    {bcolors.ENDC}')
+                return []
+        
+        elif data_group == 'freq_data':
+            ds_name = self.build_ds_name(0)
+            if self.freq_data[ds_name].get(value) == None:
+                print(f'{bcolors.WARNING}\
+                    Attempt to read dependence of unknown VALUE from freq_data\
+                    {bcolors.ENDC}')
+                return []
+        
+        else:
+            print(f'{bcolors.WARNING}\
+                  Attempt to read dependence from unknow GROUP\
+                  {bcolors.ENDC}')
+            return []
+
 
 def set_spec_preamble(data, start, stop, step, d_type='time'):
     """Sets preamble of spectral data"""
