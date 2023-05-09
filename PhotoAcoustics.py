@@ -510,7 +510,7 @@ class MeasuredData:
             ds_name = self.build_ds_name(0)
             if self.raw_data[ds_name].get(value) == None:
                 print(f'{bcolors.WARNING}\
-                    Attempt to read dependence of unknown VALUE from raw_data\
+                    Attempt to read dependence of unknown VALUE from RAW_data\
                     {bcolors.ENDC}')
                 return []
         
@@ -518,7 +518,7 @@ class MeasuredData:
             ds_name = self.build_ds_name(0)
             if self.filt_data[ds_name].get(value) == None:
                 print(f'{bcolors.WARNING}\
-                    Attempt to read dependence of unknown VALUE from filt_data\
+                    Attempt to read dependence of unknown VALUE from FILT_data\
                     {bcolors.ENDC}')
                 return []
         
@@ -526,7 +526,7 @@ class MeasuredData:
             ds_name = self.build_ds_name(0)
             if self.freq_data[ds_name].get(value) == None:
                 print(f'{bcolors.WARNING}\
-                    Attempt to read dependence of unknown VALUE from freq_data\
+                    Attempt to read dependence of unknown VALUE from FREQ_data\
                     {bcolors.ENDC}')
                 return []
         
