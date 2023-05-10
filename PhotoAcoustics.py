@@ -164,7 +164,7 @@ class MeasuredData:
 
         return date_time
 
-    def save(self, filename=None):
+    def save(self, filename: str=None):
         """Saves data to file"""
 
         if filename != None:
@@ -211,7 +211,7 @@ class MeasuredData:
                         if attr_name != 'data':
                             ds_freq.attrs.update({attr_name:attr_value})
 
-    def load(self, filename):
+    def load(self, filename: str):
         """Loads data from file"""
 
         self.attrs['filename'] = filename.split('\\')[-1]
@@ -246,7 +246,7 @@ class MeasuredData:
         if self.attrs.get('data points', 0) < (len(self.raw_data) - 1):
             self.attrs.update({'data points': len(self.raw_data) - 1})
 
-    def build_ds_name(self, n):
+    def build_ds_name(self, n: int):
         """Builds and returns name of dataset"""
         
         if n <10:
@@ -259,7 +259,7 @@ class MeasuredData:
             return None
         return 'point' + n
     
-    def get_ds_index(self, ds_name):
+    def get_ds_index(self, ds_name: str) -> int:
         """Returns index from dataset name"""
 
         n_str = ds_name.split('point')[-1]
