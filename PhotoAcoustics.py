@@ -19,25 +19,6 @@ from itertools import combinations
 import Validators as vd
 import h5py
 
-# data formats
-# scan_data[X scan points, Y scan points, 4, signal data points]
-# in scan_data.shape[2]: 0 - raw data, 1 - FFT filtered data, 2 - frquencies, 3 - spectral data
-
-# spec_data[WL index, data type, data points]
-# data type: 0 - raw data, 1 - filtered data, 2 - FFT data
-# additional data:
-# spec_data[0,0,0] - start WL 
-# spec_data[0,0,1] - end WL
-# spec_data[0,0,2] - step WL
-# spec_data[:,0,3] - dt
-# spec_data[:,0,4] - max amp raw
-# spec_data[:,1,4] - max amp filtered
-# spec_data[:,0,5] - laser energy (integral) at PM (reflection from glass)
-# spec_data[:,1,5] - laser energy (integral) at sample
-# spec_data[0,2,0] - start freq
-# spec_data[0,2,1] - end freq
-# spec_data[0,2,2] - step freq
-
 config = {
     'pre_time':2, # [us] pre time for zoom in data. Reference is max of filtered PA signal
     'post_time':13 # [us] post time for zoom in data. Reference is max of filtered PA signal
@@ -129,7 +110,7 @@ class MeasuredData:
             'zoom units': 's'
         }
 
-    def set_metadata(self, data_group, **metadata):
+    def set_metadata(self, data_group: str, **metadata):
         """set attributes for the data_group"""
 
         if data_group == 'raw_data':
@@ -149,8 +130,10 @@ class MeasuredData:
                   Unknown data_group for metadata!\
                   {bcolors.ENDC}')
 
-    def add_measurement(self, data, **attributes):
-        """Adds a datapoint to raw_data"""
+    def add_measurement(self, data: np.ndarray, **attributes):
+        """Adds a datapoint to raw_data
+        also adds empty datapoint to other data groups.
+        attributes are set to both raw and filt datapoints"""
 
         ds_name = self.build_ds_name(self.attrs['data points'])
         if not ds_name:
@@ -162,7 +145,13 @@ class MeasuredData:
         if len(data) > self.raw_data['attrs']['max dataset len']:
             self.raw_data['attrs']['max dataset len'] = len(data)
         ds.update(attributes)
+        max_amp = np.amax(data) - np.amin(data)
+        ds.update({'max amp': max_amp})
         self.raw_data.update({ds_name:ds})
+
+        self.filt_data.update({ds_name:{}})
+        self.filt_data[ds_name].update(attributes)
+        self.freq_data.update({ds_name:{}})
         self.attrs['data points'] += 1
         self.attrs['updated'] = self._get_cur_time()
 
@@ -254,7 +243,7 @@ class MeasuredData:
                 self.freq_data[key].update(freq_data[key].attrs)
 
         #for compatibility with old data
-        if self.attrs.get('data points', default=0) < (len(self.raw_data) - 1):
+        if self.attrs.get('data points', 0) < (len(self.raw_data) - 1):
             self.attrs.update({'data points': len(self.raw_data) - 1})
 
     def build_ds_name(self, n):
@@ -297,20 +286,9 @@ class MeasuredData:
         self._param_ind = 0 #index of active data on plot
 
         #plot max_signal_amp(parameter)
-        self._param_values = np.zeros(self.attrs['data points'])
-        self._raw_amps = np.zeros(self.attrs['data points'])
-        self._filt_amps = np.zeros(self.attrs['data points'])
-        i = 0
-        for ds_name, ds in self.raw_data.items():
-            if ds_name != 'attrs':
-                self._param_values[i] = ds['parameter value']
-                self._raw_amps[i] = ds['max amp']
-                i += 1
-        i = 0
-        for ds_name, ds in self.filt_data.items():
-            if ds_name != 'attrs':
-                self._filt_amps[i] = ds['max amp']
-                i += 1
+        self._param_values = self.get_dependance('raw_data','parameter value')
+        self._raw_amps = self.get_dependance('raw_data', 'max amp')
+        self._filt_amps = self.get_dependance('filt_data', 'max amp')
         
         self._ax_sp.plot(
             self._param_values,
@@ -364,8 +342,8 @@ class MeasuredData:
         ds_name = self.build_ds_name(self._param_ind)
         start = self.raw_data[ds_name]['x var start']
         step = self.raw_data[ds_name]['x var step']
+        stop = self.raw_data[ds_name]['x var stop']
         num = len(self.raw_data[ds_name]['data'])
-        stop = (num - 1)*step + start
         time_points = np.linspace(start,stop,num)
 
         #update max_signal_amp(parameter) plot
@@ -497,9 +475,10 @@ class MeasuredData:
         self._fig.align_labels()
         self._fig.canvas.draw()
 
-    def get_dependance(self, data_group, value):
+    def get_dependance(self, data_group: str, value: str):
         """Returns an array with value from each dataset in the data_group"""
 
+        dep = [] #array for return values
         if not self.attrs['data points']:
             print(f'{bcolors.WARNING}\
                   Attempt to read dependence from empty data\
@@ -513,6 +492,10 @@ class MeasuredData:
                     Attempt to read dependence of unknown VALUE from RAW_data\
                     {bcolors.ENDC}')
                 return []
+            for ds_name, ds in self.raw_data.items():
+                if ds_name != 'attrs':
+                    dep.append(ds[value])
+
         
         elif data_group == 'filt_data':
             ds_name = self.build_ds_name(0)
@@ -521,6 +504,9 @@ class MeasuredData:
                     Attempt to read dependence of unknown VALUE from FILT_data\
                     {bcolors.ENDC}')
                 return []
+            for ds_name, ds in self.filt_data.items():
+                if ds_name != 'attrs':
+                    dep.append(ds[value])
         
         elif data_group == 'freq_data':
             ds_name = self.build_ds_name(0)
@@ -529,13 +515,70 @@ class MeasuredData:
                     Attempt to read dependence of unknown VALUE from FREQ_data\
                     {bcolors.ENDC}')
                 return []
+            for ds_name, ds in self.freq_data.items():
+                if ds_name != 'attrs':
+                    dep.append(ds[value])
         
         else:
             print(f'{bcolors.WARNING}\
                   Attempt to read dependence from unknow GROUP\
                   {bcolors.ENDC}')
             return []
+        return dep
 
+    def bp_filter(self, low: int, high: int):
+        """Perform bandpass filtration on data
+        low is high pass cutoff frequency in Hz
+        high is low pass cutoff frequency in Hz"""
+
+        for ds_name, ds in self.raw_data.items():
+            if ds_name != 'attrs':
+                if self.raw_data['attrs']['x var units'] != 's':
+                    print(f'{bcolors.WARNING}\
+                          FFT conversion require x var step in seconds\
+                          {bcolors.ENDC}')
+                    return
+                dt = ds['x var step']
+                W = fftfreq(len(ds['data']), dt) # array with frequencies
+                f_signal = rfft(ds['data']) # signal in f-space
+
+                filtered_f_signal = f_signal.copy()
+                filtered_f_signal[:,(W<low)] = 0   # high pass filtering
+
+                if high > 1/(2.5*dt): # Nyquist frequency check
+                    filtered_f_signal[:,(W>1/(2.5*dt))] = 0 
+                else:
+                    filtered_f_signal[:,(W>high)] = 0
+
+                #pass frequencies
+                filtered_freq = W[(W>low)*(W<high)]
+
+                self.freq_data.update({ds_name:{}})
+                #start freq, end freq, step freq
+                self.freq_data[ds_name].update({'x var start':filtered_freq.min()}) 
+                self.freq_data[ds_name].update({'x var stop':filtered_freq.max()})
+                self.freq_data[ds_name].update({'x var step':filtered_freq[1]-filtered_freq[0]})
+
+                #Fourier amplitudes
+                self.freq_data[ds_name].update({'data':f_signal[:,(W>low)*(W<high)]})
+                freq_points = len(self.freq_data[ds_name]['data'])
+                if self.freq_data['attrs']['max dataset len'] < freq_points:
+                    self.freq_data['attrs'].update({'max dataset len':freq_points})
+
+                #filtered PA data
+                if not self.filt_data.get(ds_name): #check if filt dataset exists
+                    self.filt_data[ds_name].update({'data':irfft(filtered_f_signal)})
+                    for key, value in self.raw_data[ds_name].items():
+                        if key != 'data':
+                            self.filt_data[ds_name].update({key:value})
+                        max_amp = (np.amax(self.filt_data[ds_name]['data'])-
+                            np.amin(self.filt_data[ds_name]['data'])
+                            )
+                        self.filt_data[ds_name].update({'max amp': max_amp})
+                else:
+                    self.filt_data[ds_name].update({'data':irfft(filtered_f_signal)})
+
+        self.attrs['updated'] = self._get_cur_time()
 
 def set_spec_preamble(data, start, stop, step, d_type='time'):
     """Sets preamble of spectral data"""
@@ -1507,7 +1550,7 @@ def glan_check(hardware):
         else:
             print(f'{bcolors.WARNING}Unknown command in Glan chack menu!{bcolors.ENDC}')
 
-def export_to_txt(data, sample, data_type='spectral'):
+def export_to_txt(data):
     """CLI method for export data to txt"""
 
     if data_type == 'spectral':
@@ -1830,8 +1873,7 @@ def save_spectr_freq_txt(data,sample, power_control = ''):
     print(f'Data exported to {bcolors.OKGREEN}{filename}{bcolors.ENDC}')
 
 def save_spectr_txt(data,sample, power_control = ''):
-    """Saves spectral data to txt
-    corrects for sample energy"""
+    """Saves spectral data to txt"""
 
     #path and filename handling
     if not len(sample):
@@ -1919,7 +1961,7 @@ if __name__ == "__main__":
 
     sample = '' # sample name
 
-    spec_data = MeasuredData()
+    data = MeasuredData()
     scan_data = [] # array for scan_data
     while True: #main execution loop
         menu_ans = inquirer.rawlist(
@@ -2057,11 +2099,11 @@ if __name__ == "__main__":
                 ).execute()
                 
                 if data_ans == 'Measure spectrum':
-                    spec_data = spectra(hardware)  
+                    data = spectra(hardware)  
 
                 elif data_ans == 'View data':
                     if state['spectral data']:
-                        spec_data.plot()
+                        data.plot()
                     else:
                         print(f'{bcolors.WARNING} Spectral data missing!{bcolors.ENDC}')
 
@@ -2073,15 +2115,15 @@ if __name__ == "__main__":
 
                 elif data_ans == 'Save data':
                     if state['spectral data']:
-                        save_data(spec_data)
+                        save_data(data)
                     else:
                         print(f'{bcolors.WARNING}Spectral data is missing!{bcolors.ENDC}')
 
                 elif data_ans == 'Export to txt':
-                    export_to_txt(spec_data,sample)
+                    export_to_txt(data)
 
                 elif data_ans == 'Load data':
-                    spec_data = load_data(spec_data)
+                    data = load_data(data)
 
                 elif data_ans == 'Back to main menu':
                         break         
