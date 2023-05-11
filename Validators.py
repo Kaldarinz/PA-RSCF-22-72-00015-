@@ -1,5 +1,7 @@
 from prompt_toolkit.validation import ValidationError, Validator
 
+cancel_option = '\n(press CTRL+Z to cancel)\n'
+
 class ScanRangeValidator(Validator):
     def validate(self, document):
         try:
