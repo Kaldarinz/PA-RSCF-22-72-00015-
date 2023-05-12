@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pylablib.devices import Thorlabs
 from scipy.fftpack import rfft, irfft, fftfreq
 from scipy import signal
@@ -18,7 +20,6 @@ import math
 from itertools import combinations
 import Validators as vd
 import h5py
-from __future__ import annotations
 
 config = {
     'pre_time':2, # [us] pre time for zoom in data. Reference is max of filtered PA signal
