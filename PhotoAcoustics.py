@@ -23,8 +23,8 @@ import h5py
 from typing import Any, Iterable, TypedDict
 
 config = {
-    'pre_time':2, # [us] pre time for zoom in data. Reference is max of filtered PA signal
-    'post_time':13 # [us] post time for zoom in data. Reference is max of filtered PA signal
+    'pre_time':2,#[us] used for zoom data. Ref is max of filt PA signal
+    'post_time':13#[us] same for post time
 }
 
 osc_params = {
@@ -53,13 +53,29 @@ class MeasuredData:
     Data has 4 dicsts:
     {attrs} stores general information about the data
     other 3 dicts are {raw_data}, {filt_data} and {freq_data}
-    each contains {attrs} dics with specific information about the data group
-    and dicts named {point1}, {point2}, etc, which correspond to the measured datasets
-    each dataset has numpy array with actual data and additional information about the dataset."""
+    each contains {attrs} dics with specific information about  
+    the data group and dicts named {point1}, {point2}, etc, 
+    which correspond to the measured datasets.
+    Each dataset has numpy array with actual data and 
+    additional information about the dataset."""
 
     def __init__(self) -> None:
 
-        #raw data series for each measured points + dict with attributes
+        #attributes of data
+        self.attrs = {
+            'parameter name': 'Unknown',
+            'parameter units': 'Unknown',
+            'data points': 0,
+            'created': self._get_cur_time(),
+            'updated': self._get_cur_time(),
+            'path': '',
+            'filename': '',
+            'zoom pre time': 0.000002,
+            'zoom post time': 0.000013,
+            'zoom units': 's'
+        }
+
+        #raw ds for each measured points + dict with attributes
         self.raw_data = {
             'attrs': {
                 'max dataset len': 0,
@@ -69,7 +85,7 @@ class MeasuredData:
                 'y var units': 'Unknown'
             }
         }
-        #filtered data series for each measured points + dict with attributes
+        #filtered ds for each measured points + dict with attributes
         self.filt_data = {
             'attrs': {
                 'max dataset len': 0,
@@ -89,20 +105,6 @@ class MeasuredData:
                 'y var units': 'Unknown'
             }
         } 
-
-        #attributes of data
-        self.attrs = {
-            'parameter name': 'Unknown',
-            'parameter units': 'Unknown',
-            'data points': 0,
-            'created': self._get_cur_time(),
-            'updated': self._get_cur_time(),
-            'path': '',
-            'filename': '',
-            'zoom pre time': 0.000002,
-            'zoom post time': 0.000013,
-            'zoom units': 's'
-        }
 
     def set_metadata(self, data_group: str, metadata: dict) -> None:
         """set attributes for the data_group"""
@@ -170,7 +172,7 @@ class MeasuredData:
 
         if filename != None:
             self.attrs['filename'] = filename.split('\\')[-1]
-            self.attrs['path'] = filename.split(self.attrs['filename'])[0] 
+            self.attrs['path'] = filename.split(self.attrs['filename'])[0]
 
         elif self.attrs['filename'] and self.attrs['path']:
             filename = self.attrs['path'] + self.attrs['filename']
@@ -228,34 +230,57 @@ class MeasuredData:
         """Loads data from file"""
 
         self.attrs['filename'] = filename.split('\\')[-1]
-        self.attrs['path'] = filename.split(self.attrs['filename'])[0] 
+        self.attrs['path'] = filename.split(self.attrs['filename'])[0]
 
         with h5py.File(filename,'r') as file:
+            
+            #load general metadata
             general = file['general']
             self.attrs.update(general.attrs)
             
+            #raw_data
             raw_data = file['raw data']
+            #metadata of raw_data
             self.raw_data['attrs'].update(raw_data.attrs)
-            for key in raw_data.keys(): # type: ignore
-                self.raw_data.update({key:{}})
-                self.raw_data[key].update({'data': raw_data[key][:]}) # type: ignore
-                self.raw_data[key].update(raw_data[key].attrs) # type: ignore
+            #cycle for loading measured points (datasets)
+            for ds_name in raw_data.keys(): # type: ignore
+                self.raw_data.update({ds_name:{}})
+                #load actual data
+                self.raw_data[ds_name].update(
+                    {'data': raw_data[ds_name][:]}) #type: ignore
+                #load metadata of the dataset
+                self.raw_data[ds_name].update(
+                    raw_data[ds_name].attrs) #type: ignore
 
+            #filt_data
             filt_data = file['filtered data']
+            #metadata of filt_data
             self.filt_data['attrs'].update(filt_data.attrs)
-            for key in filt_data.keys(): # type: ignore
-                self.filt_data.update({key:{}})
-                self.filt_data[key].update({'data': filt_data[key][:]}) # type: ignore
-                self.filt_data[key].update(filt_data[key].attrs) # type: ignore
+            #cycle for loading measured points (datasets)
+            for ds_name in filt_data.keys(): # type: ignore
+                self.filt_data.update({ds_name:{}})
+                #load actual data
+                self.filt_data[ds_name].update(
+                    {'data': filt_data[ds_name][:]}) # type: ignore
+                #load metadata of the dataset
+                self.filt_data[ds_name].update(
+                    filt_data[ds_name].attrs) # type: ignore
 
+            #freq_data
             freq_data = file['freq data']
+            #metadata of freq_data
             self.freq_data['attrs'].update(freq_data.attrs)
-            for key in freq_data.keys(): # type: ignore
-                self.freq_data.update({key:{}})
-                self.freq_data[key].update({'data': freq_data[key][:]}) # type: ignore
-                self.freq_data[key].update(freq_data[key].attrs) # type: ignore
+            #cycle for loading measured points (datasets)
+            for ds_name in freq_data.keys(): # type: ignore
+                self.freq_data.update({ds_name:{}})
+                #load actual data
+                self.freq_data[ds_name].update(
+                    {'data': freq_data[ds_name][:]}) # type: ignore
+                #load metadata of the dataset
+                self.freq_data[ds_name].update(
+                    freq_data[ds_name].attrs) # type: ignore
 
-        #for compatibility with old data
+        #set amount of data points for compatibility with old data
         if self.attrs.get('data points', 0) < (len(self.raw_data) - 1):
             self.attrs.update({'data points': len(self.raw_data) - 1})
 
@@ -288,7 +313,8 @@ class MeasuredData:
                   {bcolors.ENDC}')
 
         #plot initialization
-        warnings.filterwarnings('ignore', category=MatplotlibDeprecationWarning)
+        warnings.filterwarnings('ignore',
+                                category=MatplotlibDeprecationWarning)
 
         self._fig = plt.figure(tight_layout=True)
         filename = self.attrs['path'] + self.attrs['filename']
@@ -319,19 +345,22 @@ class MeasuredData:
         )
         self._ax_sp.legend(loc='upper right')
         self._ax_sp.set_ylim(bottom=0)
-        x_label = self.attrs['parameter name']+', ['+self.attrs['parameter units']+']'
+        x_label = self.attrs['parameter name']\
+                  + ', ['\
+                  + self.attrs['parameter units']\
+                  + ']'
         self._ax_sp.set_xlabel(x_label)
         y_label = self.raw_data['attrs']['y var name']
         self._ax_sp.set_ylabel(y_label)
 
         self._plot_selected_raw, = self._ax_sp.plot(
-            self._param_values[self._param_ind],
-            self._raw_amps[self._param_ind], 
+            self._param_values[self._param_ind], # type: ignore
+            self._raw_amps[self._param_ind],  # type: ignore
             'o', alpha=0.4, ms=12, color='yellow')
         
         self._plot_selected_filt, = self._ax_sp.plot(
-            self._param_values[self._param_ind], 
-            self._filt_amps[self._param_ind], 
+            self._param_values[self._param_ind],  # type: ignore
+            self._filt_amps[self._param_ind],  # type: ignore
             'o', alpha=0.4, ms=12, color='yellow')
 
         self._fig.canvas.mpl_connect('key_press_event', self._on_key_press)
@@ -365,16 +394,17 @@ class MeasuredData:
         time_points = np.linspace(start,stop,num)
 
         #update max_signal_amp(parameter) plot
-        title = self.attrs['parameter name'] + ': ' + \
-            str(int(self._param_values[self._param_ind])) + \
-            self.attrs['parameter units']
+        title = self.attrs['parameter name']\
+                + ': '\
+                + str(int(self._param_values[self._param_ind]))\
+                + self.attrs['parameter units']
         self._ax_sp.set_title(title)
         self._plot_selected_raw.set_data(
-            self._param_values[self._param_ind],
-            self._raw_amps[self._param_ind])
+            self._param_values[self._param_ind], # type: ignore
+            self._raw_amps[self._param_ind]) # type: ignore
         self._plot_selected_filt.set_data(
-            self._param_values[self._param_ind],
-            self._filt_amps[self._param_ind])
+            self._param_values[self._param_ind], # type: ignore
+            self._filt_amps[self._param_ind]) # type: ignore
         
         #update filt data
         self._ax_filt.clear()
@@ -395,13 +425,27 @@ class MeasuredData:
 
         #marker for max value
         filt_max = np.amax(self.filt_data[ds_name]['data'])
-        filt_max_ind = np.argwhere(self.filt_data[ds_name]['data']==filt_max)[0][0]
+        filt_max_ind = np.argwhere(
+            self.filt_data[ds_name]['data']==filt_max)[0][0]
         filt_max_t = time_points[filt_max_ind]
-        self._ax_filt.plot(filt_max_t, filt_max, 'o', alpha=0.4, ms=12, color='yellow')
+        self._ax_filt.plot(filt_max_t,
+                           filt_max,
+                           'o',
+                           alpha=0.4,
+                           ms=12,
+                           color='yellow')
+        
         #marker for min value
         filt_min = np.amin(self.filt_data[ds_name]['data'])
-        filt_min_t = time_points[np.argwhere(self.filt_data[ds_name]['data']==filt_min)[0]]
-        self._ax_filt.plot(filt_min_t, filt_min, 'o', alpha=0.4, ms=12, color='yellow')
+        filt_min_t = time_points[
+            np.argwhere(self.filt_data[ds_name]['data']==filt_min)[0]]
+        self._ax_filt.plot(filt_min_t,
+                           filt_min,
+                           'o',
+                           alpha=0.4,
+                           ms=12,
+                           color='yellow')
+        
         #marker for zoomed area
         if self.filt_data['attrs']['x var units'] == self.attrs['zoom units']:
             pre_points = int(self.attrs['zoom pre time']/step)
@@ -438,15 +482,30 @@ class MeasuredData:
 
         title = self.raw_data['attrs']['y var name']
         self._ax_raw.set_title(title)
+
         #marker for max value
         raw_max = np.amax(self.raw_data[ds_name]['data'])
-        raw_max_ind = np.argwhere(self.raw_data[ds_name]['data']==raw_max)[0][0]
+        raw_max_ind = np.argwhere(
+            self.raw_data[ds_name]['data']==raw_max)[0][0]
         raw_max_t = time_points[raw_max_ind]
-        self._ax_raw.plot(raw_max_t, raw_max, 'o', alpha=0.4, ms=12, color='yellow')
+        self._ax_raw.plot(raw_max_t,
+                          raw_max,
+                          'o',
+                          alpha=0.4,
+                          ms=12,
+                          color='yellow')
+
         #marker for min value
         raw_min = np.amin(self.raw_data[ds_name]['data'])
-        raw_min_t = time_points[np.argwhere(self.raw_data[ds_name]['data']==raw_min)[0]]
-        self._ax_raw.plot(raw_min_t, raw_min, 'o', alpha=0.4, ms=12, color='yellow')
+        raw_min_t = time_points[
+            np.argwhere(self.raw_data[ds_name]['data']==raw_min)[0]]
+        self._ax_raw.plot(raw_min_t,
+                          raw_min,
+                          'o',
+                          alpha=0.4,
+                          ms=12,
+                          color='yellow')
+        
         #marker for zoomed area
         self._ax_raw.fill_betweenx([raw_min,raw_max],
                                    time_points[start_zoom_ind],
@@ -494,7 +553,8 @@ class MeasuredData:
         self._fig.canvas.draw()
 
     def get_dependance(self, data_group: str, value: str) -> Iterable:
-        """Returns an array with value from each dataset in the data_group"""
+        """Returns an array with value 
+        from each dataset in the data_group"""
 
         dep = [] #array for return values
         if not self.attrs['data points']:
@@ -557,11 +617,11 @@ class MeasuredData:
                           {bcolors.ENDC}')
                     return
                 dt = ds['x var step']
-                W = fftfreq(len(ds['data']), dt) # array with frequencies
+                W = fftfreq(len(ds['data']), dt) # array with freqs
                 f_signal = rfft(ds['data']) # signal in f-space
 
                 filtered_f_signal = f_signal.copy()
-                filtered_f_signal[:,(W<low)] = 0   # high pass filtering
+                filtered_f_signal[:,(W<low)] = 0 # high pass filtering
 
                 if high > 1/(2.5*dt): # Nyquist frequency check
                     filtered_f_signal[:,(W>1/(2.5*dt))] = 0 
@@ -573,19 +633,27 @@ class MeasuredData:
 
                 self.freq_data.update({ds_name:{}})
                 #start freq, end freq, step freq
-                self.freq_data[ds_name].update({'x var start':filtered_freq.min()}) 
-                self.freq_data[ds_name].update({'x var stop':filtered_freq.max()})
-                self.freq_data[ds_name].update({'x var step':filtered_freq[1]-filtered_freq[0]})
+                self.freq_data[ds_name].update(
+                    {'x var start':filtered_freq.min()})
+                self.freq_data[ds_name].update(
+                    {'x var stop':filtered_freq.max()})
+                self.freq_data[ds_name].update(
+                    {'x var step':filtered_freq[1]-filtered_freq[0]})
 
                 #Fourier amplitudes
-                self.freq_data[ds_name].update({'data':f_signal[:,(W>low)*(W<high)]})
+                self.freq_data[ds_name].update(
+                    {'data':f_signal[:,(W>low)*(W<high)]})
                 freq_points = len(self.freq_data[ds_name]['data'])
                 if self.freq_data['attrs']['max dataset len'] < freq_points:
-                    self.freq_data['attrs'].update({'max dataset len':freq_points})
+                    self.freq_data['attrs'].update(
+                        {'max dataset len':freq_points})
 
                 #filtered PA data
-                if not self.filt_data.get(ds_name): #check if filt dataset exists
-                    self.filt_data[ds_name].update({'data':irfft(filtered_f_signal)})
+                #filt dataset does not exist
+                #then create the datapoints
+                if not self.filt_data.get(ds_name):
+                    self.filt_data[ds_name].update(
+                        {'data':irfft(filtered_f_signal)})
                     for key, value in self.raw_data[ds_name].items():
                         if key != 'data':
                             self.filt_data[ds_name].update({key:value})
@@ -593,8 +661,10 @@ class MeasuredData:
                             np.amin(self.filt_data[ds_name]['data'])
                             )
                         self.filt_data[ds_name].update({'max amp': max_amp})
+                #if the ds already exists, update its values
                 else:
-                    self.filt_data[ds_name].update({'data':irfft(filtered_f_signal)})
+                    self.filt_data[ds_name].update(
+                        {'data':irfft(filtered_f_signal)})
 
         self.attrs['updated'] = self._get_cur_time()
 
@@ -1718,78 +1788,57 @@ def glan_check(hardware: Hardware) -> None:
                   Unknown command in Glan chack menu!\
                   {bcolors.ENDC}')
 
-def export_to_txt(data):
+def export_to_txt(data: MeasuredData) -> None:
     """CLI method for export data to txt"""
 
-    if data_type == 'spectral':
-        if state['spectral data'] and state['filtered spec data']:
-            
-            #backward compatibility with old data format
-            power_control = ''
-            if data[0,1,5] == 0:
-                power_control = inquirer.rawlist(
-                    message='Choose method of power control',
-                    choices=[
-                        'Filters',
-                        'Glan prism'
-                    ]
-                ).execute()
-            export_type = inquirer.rawlist(
-                message='Choose data to export:',
-                choices=[
-                    'Raw data',
-                    'Filtered data',
-                    'Freq data',
-                    'Spectral',
-                    'All',
-                    'back'
-                ]
-            ).execute()
-            
-            if export_type == 'back':
-                return
-            elif export_type == 'Raw data':
-                if len(power_control):
-                    save_spectr_raw_txt(data,sample,power_control)
-                else:
-                    save_spectr_raw_txt(data,sample)
-            elif export_type == 'Filtered data':
-                if len(power_control):
-                    save_spectr_filt_txt(data,sample,power_control)
-                else:
-                    save_spectr_filt_txt(data,sample)
-            elif export_type == 'Freq data':
-                if len(power_control):
-                    save_spectr_freq_txt(data,sample, power_control)
-                else:
-                    save_spectr_freq_txt(data,sample)
-            elif export_type == 'Spectral':
-                if len(power_control):
-                    save_spectr_txt(data,sample,power_control)
-                else:
-                    save_spectr_txt(data,sample)
-            elif export_type == 'All':
-                if len(power_control):
-                    save_spectr_raw_txt(data,sample,power_control)
-                    save_spectr_filt_txt(data,sample, power_control)
-                    save_spectr_freq_txt(data,sample, power_control)
-                    save_spectr_txt(data,sample, power_control)
-                else:
-                    save_spectr_raw_txt(data,sample)
-                    save_spectr_filt_txt(data,sample)
-                    save_spectr_freq_txt(data,sample)
-                    save_spectr_txt(data,sample)
-            else:
-                print(f'{bcolors.WARNING} Unknown command in data export menu {bcolors.ENDC}')
-
+    export_type = inquirer.rawlist(
+        message='Choose data to export:',
+        choices=[
+            'Raw data',
+            'Filtered data',
+            'Freq data',
+            'Spectral',
+            'All',
+            'back'
+        ]
+    ).execute()
+    
+    if export_type == 'back':
+        return
+    elif export_type == 'Raw data':
+        if len(power_control):
+            save_spectr_raw_txt(data,sample,power_control)
         else:
-            if not state['spectral data']:
-                print(f'{bcolors.WARNING}Spectral data is missing!{bcolors.ENDC}')
-            elif not state['filtered spec data']:
-                print(f'{bcolors.WARNING}Spectral data is not filtered!{bcolors.ENDC}')
-            else:
-                print(f'{bcolors.WARNING}Unknown state of spectral data!{bcolors.ENDC}')
-            return
+            save_spectr_raw_txt(data,sample)
+    elif export_type == 'Filtered data':
+        if len(power_control):
+            save_spectr_filt_txt(data,sample,power_control)
+        else:
+            save_spectr_filt_txt(data,sample)
+    elif export_type == 'Freq data':
+        if len(power_control):
+            save_spectr_freq_txt(data,sample, power_control)
+        else:
+            save_spectr_freq_txt(data,sample)
+    elif export_type == 'Spectral':
+        if len(power_control):
+            save_spectr_txt(data,sample,power_control)
+        else:
+            save_spectr_txt(data,sample)
+    elif export_type == 'All':
+        if len(power_control):
+            save_spectr_raw_txt(data,sample,power_control)
+            save_spectr_filt_txt(data,sample, power_control)
+            save_spectr_freq_txt(data,sample, power_control)
+            save_spectr_txt(data,sample, power_control)
+        else:
+            save_spectr_raw_txt(data,sample)
+            save_spectr_filt_txt(data,sample)
+            save_spectr_freq_txt(data,sample)
+            save_spectr_txt(data,sample)
+    else:
+        print(f'{bcolors.WARNING} Unknown command in data export menu {bcolors.ENDC}')
+
 
 def save_spectr_filt_txt(data,sample, power_control = ''):
     """Saves filtered data to txt
