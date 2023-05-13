@@ -35,15 +35,6 @@ osc_params = {
     'trigger_channel': 'CHAN1',
     'pa_channel': 'CHAN2',
 }
-
-#state = {
-#    'stages init': False,
-#    'osc init': False,
-#    'scan data': False,
-#    'spectral data': False,
-#    'filtered spec data': False,
-#    'filtered scan data': False,
-#}
        
 class bcolors:
     HEADER = '\033[95m'
