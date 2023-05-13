@@ -13,7 +13,7 @@ class bcolors:
     BOLD = '\033[1m'
     UNDERLINE = '\033[4m'
 
-# oscilloscope class for Rigol MS1000Z device. Intended to be used as a module in other scripts.
+
 class Oscilloscope:
     
     #defaults
@@ -37,7 +37,12 @@ class Oscilloscope:
     bad_read = False
     not_found = True
 
-    def __init__(self,
+    def __init__(self) -> None:
+        """oscilloscope class for Rigol MS1000Z device.
+        Intended to be used as a module in other scripts.
+        Call 'initialize' before working with Oscilloscope."""
+        
+    def initialize(self,
                  chan1_pre: int=100, #[us] pre time for channel 1
                  chan1_post: int=150, #[us] post time for channel 1
                  chan2_pre: int=100, #[us] pre time for channel 2
@@ -80,7 +85,7 @@ class Oscilloscope:
         self.not_found = False
 
         print(f'{bcolors.OKBLUE}Oscilloscope{bcolors.ENDC} initiation complete!')
-        
+
     def query(self, message: str) -> str:
         """Sends a querry to the oscilloscope"""
 
@@ -296,6 +301,8 @@ class Oscilloscope:
                     data = self.baseline_correction(data)
                 if raw:
                     self.ch1_scr_data = data.astype(np.uint8)
+                else:
+                    self.ch1_scr_data = data.copy()
                 self.ch1_scr_raw = raw
                 self.ch1_scr_amp = abs(np.amax(self.ch1_scr_data)-
                                        np.amin(self.ch1_scr_data))
@@ -380,3 +387,96 @@ class Oscilloscope:
                                    np.amin(self.ch2_data))
         
         self.__osc.write(':RUN') # type: ignore
+
+class PowerMeter:
+    ###DEFAULTS###
+
+    #scalar coef to convert integral readings into [uJ]
+    sclr_sens = 2500000
+    ch = 'CHAN1'
+    osc = Oscilloscope()
+    # percentage of max amp, when we set begining of the impulse
+    threshold = 0.05
+    data = np.zeros((0))
+
+    def __init__(self, 
+                 osc: Oscilloscope,
+                 chan: str='CHAN1',
+                 threshold: float=0.05) -> None:
+        """PowerMeter class for working with
+        Thorlabs ES111C pyroelectric detector.
+        osc is as instance of Oscilloscope class, which is used for reading data.
+        chan is a channel to which the detector is connected."""
+
+        self.osc = osc
+        self.ch = chan
+        self.threshold = threshold
+
+    def get_energy_scr(self) -> float:
+        """Measure energy from screen (fast)."""
+
+        if self.osc.not_found:
+            print(f'{bcolors.WARNING}\
+                  Attempt to measure energy from not init oscilloscope\
+                  {bcolors.ENDC}')
+            return 0
+        
+        if self.ch == 'CHAN1':
+            self.osc.measure_scr(read_ch2=False,
+                                 correct_bl=True)
+        elif self.ch == 'CHAN2':
+            self.osc.measure_scr(read_ch1=False,
+                                 correct_bl=True)
+
+        #return 0, if read data was not successfull
+        #Oscilloscope class will promt warning
+        if self.osc.bad_read:
+            return 0
+        
+        self.data = self.osc.ch1_scr_data.copy()
+        laser_amp = self.energy_from_data(self.data, self.osc.sample_rate)
+
+        return laser_amp
+    
+    def energy_from_data(self, data: np.ndarray, srat: float) -> float:
+        """Calculate laser energy from data.
+        srat is sample rate for the data."""
+
+        #indexes for start and stop of laser impulse
+        start_index = 0
+        stop_index = 1
+
+        if len(data) < 10:
+            print(f'{bcolors.WARNING}\
+                  Data for energy calculation is too short, len(data)={len(data)}\
+                  {bcolors.ENDC}')
+            return 0
+
+        max_amp = np.amax(data)
+        try:
+            start_index = np.where(data>(max_amp*self.threshold))[0][0]
+        except IndexError:
+            print(f'{bcolors.WARNING}\
+                  Problem in set_laser_amp start_index. Laser amp set to 0!\
+                  {bcolors.ENDC}')
+            return 0
+
+        try:
+            stop_index = np.where(data[start_index:] < 0)[0][0]
+        except IndexError:
+            print(f'{bcolors.WARNING}\
+                  Problem in set_laser_amp stop_index. Laser amp set to 0!\
+                  {bcolors.ENDC}')
+            return 0
+
+        laser_amp = np.sum(
+            data[start_index:(start_index + stop_index)])/srat*self.sclr_sens
+        
+        print(f'Laser amp = {laser_amp:.1f}')
+
+        return laser_amp
+    
+    def set_channel(self, chan: str) -> None:
+        """Sets read channel"""
+
+        self.ch = chan

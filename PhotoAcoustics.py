@@ -20,6 +20,7 @@ import math
 from itertools import combinations
 import Validators as vd
 import h5py
+from typing import Any, Iterable, TypedDict
 
 config = {
     'pre_time':2, # [us] pre time for zoom in data. Reference is max of filtered PA signal
@@ -103,7 +104,7 @@ class MeasuredData:
             'zoom units': 's'
         }
 
-    def set_metadata(self, data_group: str, **metadata):
+    def set_metadata(self, data_group: str, metadata: dict) -> None:
         """set attributes for the data_group"""
 
         if data_group == 'raw_data':
@@ -123,8 +124,8 @@ class MeasuredData:
                   Unknown data_group for metadata!\
                   {bcolors.ENDC}')
 
-    def add_measurement(self, data: np.ndarray, **attributes):
-        """Adds a datapoint to raw_data
+    def add_measurement(self, data: np.ndarray, attributes: dict) -> None:
+        """Adds a datapoint to raw_data,
         also adds empty datapoint to other data groups.
         attributes are set to both raw and filt datapoints"""
 
@@ -134,12 +135,19 @@ class MeasuredData:
                   Max data points reached! Data cannot be added!\
                   {bcolors.ENDC}')
             return
-        ds = {'data': data}
+        ds = {}
+        ds.update({'data': data,
+                   'parameter value': 0,
+                   'x var step': 0,
+                   'x var start': 0,
+                   'x var stop': 0,
+                   'PM energy': 0,
+                   'sample energy': 0,
+                   'max amp': 0})
+
         if len(data) > self.raw_data['attrs']['max dataset len']:
             self.raw_data['attrs']['max dataset len'] = len(data)
         ds.update(attributes)
-        max_amp = np.amax(data) - np.amin(data)
-        ds.update({'max amp': max_amp})
         self.raw_data.update({ds_name:ds})
 
         self.filt_data.update({ds_name:{}})
@@ -148,7 +156,7 @@ class MeasuredData:
         self.attrs['data points'] += 1
         self.attrs['updated'] = self._get_cur_time()
 
-    def _get_cur_time (self):
+    def _get_cur_time (self) -> str:
         """returns timestamp of current time"""
         
         cur_time = time.time()
@@ -157,14 +165,14 @@ class MeasuredData:
 
         return date_time
 
-    def save(self, filename: str=None):
+    def save(self, filename: str='') -> None:
         """Saves data to file"""
 
         if filename != None:
             self.attrs['filename'] = filename.split('\\')[-1]
             self.attrs['path'] = filename.split(self.attrs['filename'])[0] 
 
-        elif self.filename and self.path:
+        elif self.attrs['filename'] and self.attrs['path']:
             filename = self.attrs['path'] + self.attrs['filename']
         
         else:
@@ -172,6 +180,18 @@ class MeasuredData:
                   Filename is not set. Data cannot be saved!\
                   {bcolors.ENDC}')
             return
+        
+        self._flush(filename)
+
+    def save_tmp(self) -> None:
+        """saves current data to TmpData.hdf5"""
+
+        Path('measuring results/').mkdir(parents=True, exist_ok=True)
+        filename = 'measuring results/TmpData.hdf5'
+        self._flush(filename)
+
+    def _flush(self, filename: str) -> None:
+        """Actually writes to disk"""
 
         with h5py.File(filename,'w') as file:
             general = file.create_group('general')
@@ -204,7 +224,7 @@ class MeasuredData:
                         if attr_name != 'data':
                             ds_freq.attrs.update({attr_name:attr_value})
 
-    def load(self, filename: str):
+    def load(self, filename: str) -> None:
         """Loads data from file"""
 
         self.attrs['filename'] = filename.split('\\')[-1]
@@ -216,41 +236,41 @@ class MeasuredData:
             
             raw_data = file['raw data']
             self.raw_data['attrs'].update(raw_data.attrs)
-            for key in raw_data.keys():
+            for key in raw_data.keys(): # type: ignore
                 self.raw_data.update({key:{}})
-                self.raw_data[key].update({'data': raw_data[key][:]})
-                self.raw_data[key].update(raw_data[key].attrs)
+                self.raw_data[key].update({'data': raw_data[key][:]}) # type: ignore
+                self.raw_data[key].update(raw_data[key].attrs) # type: ignore
 
             filt_data = file['filtered data']
             self.filt_data['attrs'].update(filt_data.attrs)
-            for key in filt_data.keys():
+            for key in filt_data.keys(): # type: ignore
                 self.filt_data.update({key:{}})
-                self.filt_data[key].update({'data': filt_data[key][:]})
-                self.filt_data[key].update(filt_data[key].attrs)
+                self.filt_data[key].update({'data': filt_data[key][:]}) # type: ignore
+                self.filt_data[key].update(filt_data[key].attrs) # type: ignore
 
             freq_data = file['freq data']
             self.freq_data['attrs'].update(freq_data.attrs)
-            for key in freq_data.keys():
+            for key in freq_data.keys(): # type: ignore
                 self.freq_data.update({key:{}})
-                self.freq_data[key].update({'data': freq_data[key][:]})
-                self.freq_data[key].update(freq_data[key].attrs)
+                self.freq_data[key].update({'data': freq_data[key][:]}) # type: ignore
+                self.freq_data[key].update(freq_data[key].attrs) # type: ignore
 
         #for compatibility with old data
         if self.attrs.get('data points', 0) < (len(self.raw_data) - 1):
             self.attrs.update({'data points': len(self.raw_data) - 1})
 
-    def build_ds_name(self, n: int):
+    def build_ds_name(self, n: int) -> str:
         """Builds and returns name of dataset"""
         
         if n <10:
-            n = '00' + str(n)
+            n_str = '00' + str(n)
         elif n<100:
-            n = '0' + str(n)
+            n_str = '0' + str(n)
         elif n<1000:
-            n = str(n)
+            n_str = str(n)
         else:
-            return None
-        return 'point' + n
+            return ''
+        return 'point' + n_str
     
     def get_ds_index(self, ds_name: str) -> int:
         """Returns index from dataset name"""
@@ -259,8 +279,13 @@ class MeasuredData:
         n = int(n_str)
         return n
 
-    def plot(self):
+    def plot(self) -> None:
         """Plots current data"""
+
+        if not self.attrs['data points']:
+            print(f'{bcolors.WARNING}\
+                  No data to display\
+                  {bcolors.ENDC}')
 
         #plot initialization
         warnings.filterwarnings('ignore', category=MatplotlibDeprecationWarning)
@@ -313,7 +338,7 @@ class MeasuredData:
         self._plot_update()
         plt.show()
 
-    def _on_key_press(self, event):
+    def _on_key_press(self, event) -> None:
         """Callback function for changing active data on plot"""
 
         if event.key == 'left':
@@ -329,7 +354,7 @@ class MeasuredData:
                 self._param_ind += 1
                 self._plot_update()
 
-    def _plot_update(self):
+    def _plot_update(self) -> None:
         """Updates plotted data"""
 
         ds_name = self.build_ds_name(self._param_ind)
@@ -468,7 +493,7 @@ class MeasuredData:
         self._fig.align_labels()
         self._fig.canvas.draw()
 
-    def get_dependance(self, data_group: str, value: str):
+    def get_dependance(self, data_group: str, value: str) -> Iterable:
         """Returns an array with value from each dataset in the data_group"""
 
         dep = [] #array for return values
@@ -519,7 +544,7 @@ class MeasuredData:
             return []
         return dep
 
-    def bp_filter(self, low: int, high: int):
+    def bp_filter(self, low: int, high: int) -> None:
         """Perform bandpass filtration on data
         low is high pass cutoff frequency in Hz
         high is low pass cutoff frequency in Hz"""
@@ -573,73 +598,72 @@ class MeasuredData:
 
         self.attrs['updated'] = self._get_cur_time()
 
-def set_spec_preamble(data, start, stop, step, d_type='time'):
-    """Sets preamble of spectral data"""
+class Hardware_base(TypedDict):
+    """Base TypedDict for references to hardware"""
 
-    if d_type == 'time':
-        data[:,0:2,0] = start
-        data[:,0:2,1] = stop
-        data[:,0:2,2] = step
-    elif d_type == 'freq':
-        data[:,2,0] = start
-        data[:,2,1] = stop
-        data[:,2,2] = step
+    stage_x: Any
+    stage_y: Any
+    osc: Oscilloscope.Oscilloscope
 
-    return data
+class Hardware(Hardware_base, total=False):
+    """TypedDict for refernces to hardware"""
+    
+    power_meter: Oscilloscope.PowerMeter
 
-def init_hardware(hardware: dict, osc_params: dict) -> None:
+def init_hardware(hardware: Hardware) -> None:
     """Initialize all hardware"""
 
-    if not hardware['stage x'] and not hardware['stage y']:
+    if not hardware['stage_x'] and not hardware['stage_y']:
         init_stages(hardware)   
     else:
         print(f'{bcolors.WARNING}Stages already initiated!{bcolors.ENDC}')
 
-    if not hardware['osc']:
-        osc = Oscilloscope.Oscilloscope(osc_params)
-        if not osc.not_found:
-            hardware.update({'osc':osc})
+    if hardware['osc'].not_found:
+        hardware['osc'].initialize()
     else:
         print(f'{bcolors.WARNING}Oscilloscope already initiated!{bcolors.ENDC}')
 
-    if hardware['stage x'] and hardware['stage y'] and hardware['osc']:
+    if hardware['stage_x'] and hardware['stage_y'] and not hardware['osc'].not_found:
+        hardware['power_meter'] = Oscilloscope.PowerMeter(hardware['osc'])
         print(f'{bcolors.OKGREEN}Initialization complete!{bcolors.ENDC}')
 
-def init_stages(hardware: dict) -> None:
+def init_stages(hardware: Hardware) -> None:
     """Initiate stages."""
 
     print('Initializing stages...')
-    stages = Thorlabs.list_kinesis_devices()
+    stages = Thorlabs.list_kinesis_devices() # type: ignore
 
     if len(stages) < 2:
         print(f'{bcolors.WARNING}Less than 2 stages detected! Try again!{bcolors.ENDC}')
 
     else:
         stage1_ID = stages.pop()[0]
-        stage1 = Thorlabs.KinesisMotor(stage1_ID, scale='stage') #motor units [m]
+        #motor units [m]
+        stage1 = Thorlabs.KinesisMotor(stage1_ID, scale='stage') # type: ignore
         print(f'{bcolors.OKBLUE}Stage X{bcolors.ENDC} initiated. Stage X ID = {stage1_ID}')
-        hardware.update({'stage x': stage1})
+        hardware['stage_x'] = stage1
 
         stage2_ID = stages.pop()[0]
-        stage2 = Thorlabs.KinesisMotor(stage2_ID, scale='stage') #motor units [m]
+        #motor units [m]
+        stage2 = Thorlabs.KinesisMotor(stage2_ID, scale='stage') # type: ignore
         print(f'{bcolors.OKBLUE}Stage Y{bcolors.ENDC} initiated. Stage X ID = {stage2_ID}')
-        hardware.update({'stage y': stage2})
+        hardware['stage_y'] = stage2
 
-def move_to(X: float, Y: float, hardware: dict) -> None:
+def move_to(X: float, Y: float, hardware: Hardware) -> None:
     """Move PA detector to (X,Y) position.
     Coordinates are in mm."""
     
-    hardware['stage x'].move_to(X/1000)
-    hardware['stage y'].move_to(Y/1000)
+    hardware['stage_x'].move_to(X/1000)
+    hardware['stage_y'].move_to(Y/1000)
 
-def wait_stages_stop(hardware: dict) -> None:
+def wait_stages_stop(hardware: Hardware) -> None:
     """Waits untill all specified stages stop"""
 
-    if hardware['stage x']:
-        hardware['stage x'].wait_for_stop()
+    if hardware['stage_x']:
+        hardware['stage_x'].wait_for_stop()
     
-    if hardware['stage y']:
-        hardware['stage y'].wait_for_stop()
+    if hardware['stage_y']:
+        hardware['stage_y'].wait_for_stop()
 
 def scan(hardware):
     """Scan an area, which starts at 
@@ -795,7 +819,7 @@ def scan(hardware):
     state['scan data'] = True
     return scan_frame, scan_frame_full, dt
 
-def save_data(data):
+def save_data(data: MeasuredData) -> None:
     """"Save data"""
 
     if not data.attrs['filename']:
@@ -827,22 +851,8 @@ def save_data(data):
 
     data.save(full_name)
     print(f'File updated: {bcolors.OKGREEN}{filename}{bcolors.ENDC}')
-    return
 
-def save_tmp_data(data):
-    """"Saves temp data"""
-
-    Path('measuring results/').mkdir(parents=True, exist_ok=True)
-
-    filename = 'measuring results/TmpData'
-
-    try:
-        os.remove(filename)
-    except OSError:
-        pass
-    np.save(filename, data)
-
-def load_data(data):
+def load_data(old_data: MeasuredData) -> MeasuredData:
     """Return loaded data in the related format"""
 
     home_path = str(Path().resolve()) + '\\measuring results\\'
@@ -854,19 +864,17 @@ def load_data(data):
     ).execute()
     if file_path == None:
         print(f'{bcolors.WARNING}Data loading canceled!{bcolors.ENDC}')
-        return data
+        return old_data
     
     if file_path.split('.')[-1] != 'hdf5':
         print(f'{bcolors.WARNING} Wrong data format! *.hdf5 is required{bcolors.ENDC}')
-        return data
+        return old_data
     new_data = MeasuredData()
     new_data.load(file_path)
-    data = new_data
-    state['spectral data'] = True
-    print(f'... data with {len(data.raw_data)-1} PA measurements loaded!')
-    return data
+    print(f'... data with {len(new_data.raw_data)-1} PA measurements loaded!')
+    return new_data
 
-def bp_filter(data: MeasuredData, data_type='spectral'):
+def bp_filter(data: MeasuredData) -> None:
     """Perform bandpass filtration on data
     low is high pass cutoff frequency in Hz
     high is low pass cutoff frequency in Hz
@@ -878,11 +886,10 @@ def bp_filter(data: MeasuredData, data_type='spectral'):
         mandatory=False,
         validate=vd.FreqValidator()
     ).execute()
-    if low_cutof == None:
+    if low_cutof is None:
         print(f'{bcolors.WARNING}Intup terminated!{bcolors.WARNING}')
-        return data
-    else:
-        low_cutof = int(low_cutof)
+        return
+    low_cutof = int(low_cutof)
 
     high_cutof = inquirer.text(
         message='Enter high cutoff frequency [Hz]' + vd.cancel_option,
@@ -890,54 +897,19 @@ def bp_filter(data: MeasuredData, data_type='spectral'):
         mandatory=False,
         validate=vd.FreqValidator()
     ).execute()
-    if high_cutof == None:
+    if high_cutof is None:
         print(f'{bcolors.WARNING}Intup terminated!{bcolors.WARNING}')
-        return data
-    else:
-        high_cutof = int(high_cutof)
+        return
+    high_cutof = int(high_cutof)
 
-    if data_type == 'spectral':
-        temp_data = data[:,0,6:].copy()
-        dt = data[0,0,3]
-        W = fftfreq(temp_data.shape[1], dt) # array with frequencies
-        f_signal = rfft(temp_data[:,:]) # signal in f-space
+    data.bp_filter(low_cutof,high_cutof)
 
-        filtered_f_signal = f_signal.copy()
-        filtered_f_signal[:,(W<low_cutof)] = 0   # high pass filtering
-
-        if high_cutof > 1/(2.5*dt): # Nyquist frequency check
-            filtered_f_signal[:,(W>1/(2.5*dt))] = 0 
-        else:
-            filtered_f_signal[:,(W>high_cutof)] = 0
-
-        #pass frequencies
-        filtered_freq = W[(W>low_cutof)*(W<high_cutof)]
-
-        #start freq, end freq, step freq
-        data[:,2,0] = filtered_freq.min()
-        data[:,2,1] = filtered_freq.max()
-        data[:,2,2] = filtered_freq[1]-filtered_freq[0]
-
-        #Fourier amplitudes
-        data[:,2,3:len(filtered_freq)+3] = f_signal[:,(W>low_cutof)*(W<high_cutof)]
-        
-        #filtered PA data
-        data[:,1,6:] = irfft(filtered_f_signal)
-
-        #norm filtered laser amp
-        data[:,1,4] = np.amax(data[:,1,6:], axis=1)-np.amin(data[:,1,6:], axis=1)
-
-        state['filtered spec data'] = True
-        print(f'{bcolors.OKGREEN} FFT filtration of spectral data complete!{bcolors.ENDC}')
-    
-    return data
-
-def print_status(hardware: dict) -> None:
+def print_status(hardware: Hardware) -> None:
     """Prints current status and position of stages and oscilloscope"""
     
-    if hardware['stage x'] and hardware['stage y']:
-        stage_X = hardware['stage x']
-        stage_Y = hardware['stage y']
+    if hardware['stage_x'] and hardware['stage_y']:
+        stage_X = hardware['stage_x']
+        stage_Y = hardware['stage_y']
         print(f'{bcolors.OKBLUE}Stages are initiated!{bcolors.ENDC}')
         print(f'{bcolors.OKBLUE}X stage{bcolors.ENDC} \
               homing status: {stage_X.is_homed()}, \
@@ -950,40 +922,50 @@ def print_status(hardware: dict) -> None:
     else:
         print(f'{bcolors.WARNING}Stages are not initialized!{bcolors.ENDC}')
 
-    if hardware['osc']:
+    if not hardware['osc'].not_found:
         print(f'{bcolors.OKBLUE}Oscilloscope is initiated!{bcolors.ENDC}')
     else:
         print(f'{bcolors.WARNING} Oscilloscope is not initialized!{bcolors.ENDC}')
 
-    if hardware['stage x'] and hardware['stage y'] and hardware['osc']:
+    if hardware['stage_x'] and hardware['stage_y'] and not hardware['osc'].not_found:
         print(f'{bcolors.OKGREEN} All hardware is initiated!{bcolors.ENDC}')
 
-def home(hardware: dict) -> None:
+def home(hardware: Hardware) -> None:
     """Homes stages"""
 
-    if hardware['stage x'] and hardware['stage y']:
-        hardware['stage x'].home(sync=False,force=True)
-        hardware['stage y'].home(sync=False,force=True)
+    if hardware['stage_x'] and hardware['stage_y']:
+        hardware['stage_x'].home(sync=False,force=True)
+        hardware['stage_y'].home(sync=False,force=True)
         print('Homing started...')
         wait_stages_stop(hardware)
         print(f'{bcolors.OKGREEN}...Homing complete!{bcolors.ENDC}')
     else:
         print(f'{bcolors.WARNING} Stages are not initialized!{bcolors.ENDC}')
 
-def spectra(hardware: dict, old_data: MeasuredData) -> MeasuredData:
-    """Measures spectral data"""
+def spectra(hardware: Hardware,
+            old_data: MeasuredData,
+            store_raw: bool=False,
+            chan_pm: str='CHAN1',
+            chan_pa: str='CHAN2') -> MeasuredData:
+    """Measures spectral data.
+    store_raw flag will result in saving datapoints in uint8 format
+    chan_pa ='CHAN1'|'CHAN2', is channel to which PA sendor is connected"""
 
     osc = hardware['osc']
 
+    #set read channel for power meter
+    hardware['power_meter'].set_channel(chan_pm) #type:ignore
+    pm = hardware['power_meter'] #type:ignore
+
     #return old data if osc is not init
-    if osc == 0:
+    if osc.not_found:
         print(f'{bcolors.WARNING}\
               Oscilloscope is not initializaed!\
               {bcolors.ENDC}')
         return old_data
     
     #CLI to get measuring options
-    power_control = inquirer.select(
+    power_control = inquirer.select( # type: ignore
         message='Choose method for laser energy control:',
         choices=[
             'Glan prism',
@@ -995,7 +977,7 @@ def spectra(hardware: dict, old_data: MeasuredData) -> MeasuredData:
         print(f'{bcolors.WARNING}Intup terminated!{bcolors.WARNING}')
         return old_data
 
-    start_wl = inquirer.text(
+    start_wl = inquirer.text( # type: ignore
         message='Set start wavelength, [nm]' + vd.cancel_option,
         default='950',
         mandatory=False,
@@ -1006,7 +988,7 @@ def spectra(hardware: dict, old_data: MeasuredData) -> MeasuredData:
         return old_data
     start_wl = int(start_wl)
 
-    end_wl = inquirer.text(
+    end_wl = inquirer.text( # type: ignore
         message='Set end wavelength, [nm]' + vd.cancel_option,
         default='690',
         mandatory=False,
@@ -1017,7 +999,7 @@ def spectra(hardware: dict, old_data: MeasuredData) -> MeasuredData:
         return old_data
     end_wl = int(end_wl)
 
-    step = inquirer.text(
+    step = inquirer.text( # type: ignore
         message='Set step, [nm]' + vd.cancel_option,
         default='10',
         mandatory=False,
@@ -1028,7 +1010,7 @@ def spectra(hardware: dict, old_data: MeasuredData) -> MeasuredData:
         return old_data
     step = int(step)
 
-    target_energy = inquirer.text(
+    target_energy = inquirer.text( # type: ignore
         message='Set target energy in [mJ]' + vd.cancel_option,
         default='0.5',
         mandatory=False,
@@ -1054,7 +1036,7 @@ def spectra(hardware: dict, old_data: MeasuredData) -> MeasuredData:
             return old_data
         max_combinations = int(max_combinations)
 
-    averaging = inquirer.text(
+    averaging = inquirer.text( # type: ignore
         message='Set averaging' + vd.cancel_option,
         default='5',
         mandatory=False,
@@ -1080,119 +1062,229 @@ def spectra(hardware: dict, old_data: MeasuredData) -> MeasuredData:
     else:
         spectral_points = int(d_wl/step) + 1
 
-    frame_size = osc.time_to_points(osc.frame_duration)
-    spec_data = np.zeros((spectral_points,3,frame_size+6))
-    spec_data = set_spec_preamble(spec_data,start_wl,end_wl,step)
+    #create data class and set basic metadata
+    data = MeasuredData()
+    data.set_metadata(data_group='general', metadata={
+        'parameter name': 'wavelength',
+        'parameter units': 'nm'
+    })
+    data.set_metadata(data_group='raw_data', metadata={
+        'x var name': 'time',
+        'x var units': 's',
+        'y var name': 'PA signal',
+        'y var units': 'V'
+    })
 
+    #main measurement cycle
     for i in range(spectral_points):
+        
+        #calculate current wavelength
         if abs(step*i) < abs(d_wl):
             current_wl = start_wl + step*i
         else:
             current_wl = end_wl
 
+        # temp vars for averaging
+        # should be reset in each sycle
         tmp_signal = 0
         tmp_laser = 0
         counter = 0
-        print(f'\n{bcolors.HEADER}Start measuring point {(i+1)}{bcolors.ENDC}')
-        print(f'Current wavelength is {bcolors.OKBLUE}{current_wl}{bcolors.ENDC}. Please set it!')
+
+        print(f'\n{bcolors.HEADER}\
+              Start measuring point {(i+1)}\
+              {bcolors.ENDC}')
+        print(f'Current wavelength is \
+              {bcolors.OKBLUE}{current_wl}{bcolors.ENDC}.\
+               Please set it!')
+        
+        #adjust laser energy with color glasses
         if power_control == 'Filters':
-            print(f'{bcolors.UNDERLINE}Please remove all filters!{bcolors.ENDC}')
+            print(f'{bcolors.UNDERLINE}\
+                  Please remove all filters!\
+                  {bcolors.ENDC}')
+            #measure mean energy at glass reflection
             energy = track_power(hardware, 50)
             print(f'Power meter energy = {energy:.0f} [uJ]')
-            filters,_,_ = glass_calculator(current_wl,energy,target_energy,max_combinations,no_print=True)
-            if len(filters):
-                print(f'{bcolors.WARNING} WARNING! No valid filter combination for {current_wl} [nm]!{bcolors.ENDC}')
-                cont_ans = inquirer.confirm(message='Do you want to continue?').execute()
-                if not cont_ans:
-                    print(f'{bcolors.WARNING} Spectral measurements terminated!{bcolors.ENDC}')
-                    return spec_data
 
-            _, target_pm_value,_ = glass_calculator(current_wl,energy,target_energy, max_combinations)
+            #find valid filters combinations for current parameters
+            filters,_,_ = glass_calculator(
+                current_wl,
+                energy,
+                target_energy,
+                max_combinations,
+                no_print=True)
+            if not len(filters):
+                print(f'{bcolors.WARNING}\
+                      WARNING! No valid filter combination for {current_wl} [nm]!\
+                      {bcolors.ENDC}')
+                cont_ans = inquirer.confirm( # type: ignore
+                    message='Do you want to continue?').execute()
+                if not cont_ans:
+                    print(f'{bcolors.WARNING}\
+                          Spectral measurements terminated!\
+                          {bcolors.ENDC}')
+                    return old_data
+
+            #call glass_calculator again to print valid filter combinations
+            _, target_pm_value,_ = glass_calculator(
+                current_wl,
+                energy,
+                target_energy,
+                max_combinations)
+            
             print(f'Target power meter energy is {target_pm_value}!')
-            print(f'Please set it using {bcolors.UNDERLINE}laser software{bcolors.ENDC}')
+            print(f'Please set it using\
+                  {bcolors.UNDERLINE}laser software{bcolors.ENDC}')
+        
         elif power_control == 'Glan prism':
+            #for energy control by Glan prism target power meter
+            #energy have to be calculated only once
             if i == 0:
                 target_pm_value = glan_calc_reverse(target_energy*1000)
-            print(f'Target power meter energy is {target_pm_value}!')
+            print(f'Target power meter energy is {target_pm_value}!') #type: ignore
             print(f'Please set it using {bcolors.UNDERLINE}Glan prism{bcolors.ENDC}!')
             _ = track_power(hardware, 50)
         else:
-            print(f'{bcolors.WARNING}Unknown power control method! Measurements terminated!')
-            return 0
+            print(f'{bcolors.WARNING}\
+                  Unknown power control method! Measurements terminated!\
+                  {bcolors.ENDC}')
+            return old_data
 
+        #start measurements and averaging
         while counter < averaging:
-            print(f'Signal at current WL should be measured {averaging-counter} more times.')
-            measure_ans = inquirer.rawlist(
+            print(f'Signal at current WL should be measured\
+                  {averaging-counter} more times.')
+            measure_ans = inquirer.rawlist( #type: ignore
                 message='Chose an action:',
                 choices=['Tune power','Measure','Stop measurements']
             ).execute()
 
+            #adjust energy
             if measure_ans == 'Tune power':
                 track_power(hardware, 40)
 
+            #actual measurement
             elif measure_ans == 'Measure':
+                
+                #measure data on both channels
                 osc.measure()
                 dt = 1/osc.sample_rate
 
+                #set signal data depending on channel assignment
+                if chan_pa == 'CHAN1':
+                    pa_signal = osc.ch1_data
+                    pa_amp = osc.ch1_amp
+                    pm_signal = osc.ch2_data
+                elif chan_pa == 'CHAN2':
+                    pa_signal = osc.ch2_data
+                    pa_amp = osc.ch2_amp
+                    pm_signal = osc.ch1_data
+                else:
+                    print(f'{bcolors.WARNING}\
+                          Uknown channel assignment in spectra\
+                          {bcolors.ENDC}')
+                    return old_data
+                
+                #calculate laser energy at power meter
+                cur_pm_laser = pm.energy_from_data(
+                        pm_signal,
+                        osc.sample_rate)
+
+                #show measured data to visually check if data is OK
                 fig = plt.figure(tight_layout=True)
                 gs = gridspec.GridSpec(1,2)
                 ax_pm = fig.add_subplot(gs[0,0])
-                ax_pm.plot(signal.decimate(osc.current_pm_data, 100))
+                ax_pm.plot(signal.decimate(pm_signal, 100))
                 ax_pa = fig.add_subplot(gs[0,1])
-                ax_pa.plot(osc.current_pa_data)
+                ax_pa.plot(pa_signal)
                 plt.show()
 
-                good_data = inquirer.confirm(message='Data looks good?').execute()
+                #confirm that the data is OK
+                good_data = inquirer.confirm( #type: ignore
+                    message='Data looks good?').execute()
                 if good_data:
-                    tmp_signal += osc.signal_amp
-                    tmp_laser += osc.laser_amp
+                    #note that tmp_signal is only amplitude of signal for averaging
+                    tmp_signal += pa_amp
+                    tmp_laser += cur_pm_laser
                     counter += 1
                     if counter == averaging:
-                        spec_data[i,0:2,3] = dt
-                        spec_data[i,0,5] = tmp_laser/averaging #PM laser energy
                         if power_control == 'Filters':
-                            _, ___, spec_data[i,1,5] = glass_calculator(
+                            _, ___, sample_energy_aver = glass_calculator(
                                 current_wl,
-                                spec_data[i,0,5], #cuz average energy is saved
+                                tmp_laser/averaging, #average energy
                                 target_energy,
                                 max_combinations,
                                 no_print=True)
-                            spec_data[i,0,4] = tmp_signal/(averaging*spec_data[i,1,5]) # PA signal norm to sample energy
-                            _, ___, sample_energy = glass_calculator(
+
+                            _, ___, sample_energy_cur = glass_calculator(
                                 current_wl,
-                                osc.laser_amp, #cuz signal is normed to this particular energy
+                                cur_pm_laser, #current energy
                                 target_energy,
                                 max_combinations,
                                 no_print=True)
-                            spec_data[i,0,6:] = osc.current_pa_data/sample_energy
+
+                            #add datapoint with metadata
+                            max_amp = tmp_signal/(averaging*sample_energy_aver)
+                            data.add_measurement(
+                                pa_signal/sample_energy_cur, #normalized data of last mesure
+                                {'parameter value': current_wl,
+                                'x var step': dt,
+                                'x var start': 0,
+                                'x var stop': dt*(len(pa_signal)-1),
+                                'PM energy': tmp_laser/averaging,
+                                'sample energy': sample_energy_aver,
+                                'max amp': max_amp})
+                            
+                            print(f'{bcolors.OKBLUE}\
+                                  Average laser at sample = {sample_energy_aver:.0f} [uJ]')
+                            print(f'Average PA signal = {max_amp}\
+                                  {bcolors.ENDC}')
+                            
                         elif power_control == 'Glan prism':
-                            spec_data[i,1,5] = glan_calc(spec_data[i,0,5]) #energy at sample in average
-                            spec_data[i,0,4] = tmp_signal/(averaging*spec_data[i,1,5]) # PA signal norm to sample energy
-                            spec_data[i,0,6:] = osc.current_pa_data/glan_calc(osc.laser_amp) #norm to this particular energy
+                            #add datapoint with metadata
+                            sample_energy_aver = glan_calc(tmp_laser/averaging)
+                            max_amp = tmp_signal/(averaging*sample_energy_aver)
+                            data.add_measurement(
+                                pa_signal/glan_calc(cur_pm_laser), #normalized data of last mesure
+                                {'parameter value': current_wl,
+                                'x var step': dt,
+                                'x var start': 0,
+                                'x var stop': dt*(len(pa_signal)-1),
+                                'PM energy': tmp_laser/averaging,
+                                'sample energy': sample_energy_aver,
+                                'max amp': max_amp})
+                            
+                            print(f'{bcolors.OKBLUE}\
+                                  Average laser at sample = {sample_energy_aver:.0f} [uJ]')
+                            print(f'Average PA signal = {max_amp}\
+                                  {bcolors.ENDC}')
+                            
                         else:
                             print(f'{bcolors.WARNING}\
                                     Unknown power control method in writing laser energy\
                                     {bcolors.ENDC}')
-                        save_tmp_data(spec_data)
-                        print(f'{bcolors.OKBLUE} Average laser = {spec_data[i,0,5]} [uJ]')
-                        print(f'Average PA signal = {spec_data[i,0,4]}{bcolors.ENDC}')
+                        data.save_tmp()
+                        
             elif measure_ans == 'Stop measurements':
                 confirm = inquirer.confirm(
                     message='Are you sure?'
                 ).execute()
                 if confirm:
-                    print(f'{bcolors.WARNING} Spectral measurements terminated!{bcolors.ENDC}')
-                    state['spectral data'] = True
-                    return spec_data
+                    print(f'{bcolors.WARNING}\
+                          Spectral measurements terminated!\
+                          {bcolors.ENDC}')
+                    return data
             else:
-                print(f'{bcolors.WARNING}Unknown command in Spectral measure menu!{bcolors.ENDC}')
+                print(f'{bcolors.WARNING}\
+                      Unknown command in Spectral measure menu!\
+                      {bcolors.ENDC}')
     
-    print(f'{bcolors.OKGREEN}Spectral scanning complete!{bcolors.ENDC}')
-    state['spectral data'] = True
-    return spec_data
-       
-    
-def track_power(hardware: dict, tune_width: int) -> float:
+    print(f'{bcolors.OKGREEN}\
+          Spectral scanning complete!\
+          {bcolors.ENDC}')
+    return data
+          
+def track_power(hardware: Hardware, tune_width: int) -> float:
     """Build energy graph.
     Return mean energy for last aver=10 measurements"""
 
@@ -1200,16 +1292,10 @@ def track_power(hardware: dict, tune_width: int) -> float:
     #Averaging for mean and std calculations
     aver = 10
     # ignore read if it is smaller than threshold*mean
-    threshold = 0.1
+    threshold = 0.01
     ###
 
-    osc = hardware['osc']
-    #check if osc is initialized
-    if not osc:
-        print(f'{bcolors.WARNING}\
-                Oscilloscope in not initialized!\
-                {bcolors.ENDC}')
-        return 0
+    pm = hardware['power_meter'] #type: ignore
     
     #tune_width cannot be smaller than averaging
     if tune_width < aver:
@@ -1236,79 +1322,68 @@ def track_power(hardware: dict, tune_width: int) -> float:
     
     #mean energy
     mean = 0
-    #flag to ignore bad reads
-    bad_read_flag = False
 
     #measuring loop
     i = 0
     while True:
+        laser_amp = pm.get_energy_scr()
+        if not laser_amp:
+            continue
         if i == 0:
-            osc.read_screen(osc.pm_channel)
-            bad_read_flag = osc.bad_read
-            if osc.screen_laser_amp < 1:
-                bad_read_flag = True
-            title = f'Energy={osc.screen_laser_amp:.1f} [uJ],\
-                 Mean (last {aver}) = {osc.screen_laser_amp:.1f} [uJ],\
-                      Std (last {aver}) = {data[:i+1].std():.1f} [uJ]'
-            if not bad_read_flag:
-                data[i] = osc.screen_laser_amp
+            title = f'Energy={laser_amp:.1f} [uJ],\
+                Mean (last {aver}) = {laser_amp:.1f} [uJ],\
+                    Std (last {aver}) = {data[:i+1].std():.1f} [uJ]'
+            data[i] = laser_amp
+            mean = laser_amp
 
         elif i < tune_width:
-            osc.read_screen(osc.pm_channel)
-            bad_read_flag = osc.bad_read
-
-            if i <11:
-                if osc.screen_laser_amp < threshold*data[:i].mean():
-                    bad_read_flag = True
+            if i < aver:
+                if laser_amp < threshold*data[:i].mean():
+                    continue
                 mean = data[:i].mean()
-                title = f'Energy={osc.screen_laser_amp:.1f} [uJ],\
+                title = f'Energy={laser_amp:.1f} [uJ],\
                       Mean (last {aver}) = {mean:.1f} [uJ],\
                           Std (last {aver}) = {data[:i].std():.1f} [uJ]'
             else:
-                if osc.screen_laser_amp < threshold*data[i-11:i].mean():
-                    bad_read_flag = True
+                if laser_amp < threshold*data[i-11:i].mean():
+                    continue
                 mean = data[i-11:i].mean()
-                title = f'Energy={osc.screen_laser_amp:.1f} [uJ],\
+                title = f'Energy={laser_amp:.1f} [uJ],\
                       Mean (last {aver}) = {mean:.1f} [uJ],\
                           Std (last {aver}) = {data[i-11:i].std():.1f} [uJ]'
-            if not bad_read_flag:
-                data[i] = osc.screen_laser_amp
+            data[i] = laser_amp
         
         else:
             tmp_data[:-1] = data[1:].copy()
-            osc.read_screen(osc.pm_channel)
-            bad_read_flag = osc.bad_read
-            tmp_data[tune_width-1] = osc.screen_laser_amp
+            tmp_data[tune_width-1] = laser_amp
             mean = tmp_data[tune_width-11:-1].mean()
-            title = f'Energy={osc.screen_laser_amp:.1f} [uJ],\
+            title = f'Energy={laser_amp:.1f} [uJ],\
                   Mean (last {aver}) = {mean:.1f} [uJ],\
                       Std (last {aver}) = {tmp_data[tune_width-11:-1].std():.1f} [uJ]'
             if tmp_data[tune_width-1] < threshold*tmp_data[tune_width-11:-1].mean():
-                bad_read_flag = True
-            else:
-                data = tmp_data.copy()
+                continue
+            data = tmp_data.copy()
         
+        #increase index
+        i += 1
         #plotting data
         ax_pm.clear()
         ax_pa.clear()
-        ax_pm.plot(osc.screen_data)
+        ax_pm.plot(pm.data)
         ax_pa.plot(data)
         ax_pa.set_ylabel('Laser energy, [uJ]')
         ax_pa.set_title(title)
         ax_pa.set_ylim(bottom=0)
         fig.canvas.draw()
         plt.pause(0.1)
-        if bad_read_flag:
-            bad_read_flag = False
-        else:
-            i += 1
+            
         if keyboard.is_pressed('q'):
             break
         time.sleep(0.1)
 
     return mean
 
-def set_new_position(hardware: dict) -> None:
+def set_new_position(hardware: Hardware) -> None:
     """Queries new position and move PA detector to this position"""
 
     if not hardware['stage x'] or not hardware['stage y']:
@@ -1392,10 +1467,9 @@ def glass_calculator(wavelength: int,
     to the required energy at sample and current energy at sample.
     Accept only wavelengthes, which are present in 'ColorGlass.txt'
     Units:
-    wavelength [nm]
-    current_energy_pm [uJ]
-    target_energy [uJ]
-    Returns a dict with """
+    wavelength [nm];
+    current_energy_pm [uJ];
+    target_energy [uJ]"""
 
     #dict for storing found valid combinations
     result = {}
@@ -1497,7 +1571,7 @@ def glass_calculator(wavelength: int,
 
     return result, target_pm_value, laser_energy
 
-def calc_filters_for_energy(hardware: dict) -> None:
+def calc_filters_for_energy(hardware: Hardware) -> None:
     """Provides required filter combination for an energy"""
 
     #max filters for calculation
@@ -1569,9 +1643,9 @@ def glan_calc(energy: float) -> float:
     #return the value of polynom at energy
     return fit(energy)
 
-def glan_calc_reverse(target_energy):
-    """Calculates energy at power meter placed at glass reflection
-    to obtain target_energy"""
+def glan_calc_reverse(target_energy: float) -> float:
+    """Calculates energy at power meter placed 
+    at glass reflection to obtain target_energy"""
 
     filename = 'GlanCalibr.txt' # file with Glan calibrations
     fit_order = 1 #order of the polynom for fitting data
@@ -1579,12 +1653,16 @@ def glan_calc_reverse(target_energy):
     try:
         calibr_data = np.loadtxt(filename)
     except FileNotFoundError:
-        print(f'{bcolors.WARNING} File with color glass data not found!{bcolors.ENDC}')
-        return [0]
+        print(f'{bcolors.WARNING}\
+              File with color glass data not found!\
+              {bcolors.ENDC}')
+        return 0
     except ValueError as er:
         print(f'Error message: {str(er)}')
-        print(f'{bcolors.WARNING} Error while loading color glass data!{bcolors.ENDC}')
-        return [0]
+        print(f'{bcolors.WARNING}\
+              Error while loading color glass data!\
+              {bcolors.ENDC}')
+        return 0
 
     coef = np.polyfit(calibr_data[:,0], calibr_data[:,1],fit_order)
 
@@ -1592,12 +1670,14 @@ def glan_calc_reverse(target_energy):
         # target_energy = coef[0]*energy + coef[1]
         energy = (target_energy - coef[1])/coef[0]
     else:
-        print(f'{bcolors.WARNING} Reverse Glan calculation for nonlinear fit is not realized!{bcolors.ENDC}')
-        return None    
+        print(f'{bcolors.WARNING}\
+              Reverse Glan calculation for nonlinear fit is not realized!\
+              {bcolors.ENDC}')
+        return 0
     
     return energy
 
-def glan_check(hardware: dict) -> None:
+def glan_check(hardware: Hardware) -> None:
     """Used to check glan performance"""
 
     # [uJ] maximum value, which does not damage PM
@@ -2042,10 +2122,10 @@ def save_spectr_txt(data,sample, power_control = ''):
 if __name__ == "__main__":
     
     #dict for keeping references to hardware
-    hardware = {
-        'stage x': 0,
-        'stage y': 0,
-        'osc': 0
+    hardware: Hardware = {
+        'stage_x': 0,
+        'stage_y': 0,
+        'osc': Oscilloscope.Oscilloscope()
     }
 
     # init class for data storage
@@ -2079,7 +2159,7 @@ if __name__ == "__main__":
             ).execute()
 
                 if stat_ans == 'Init hardware':
-                    init_hardware(hardware, osc_params)
+                    init_hardware(hardware)
 
                 elif stat_ans == 'Home stages':
                     home(hardware)
@@ -2181,22 +2261,13 @@ if __name__ == "__main__":
                     data = spectra(hardware, data)  
 
                 elif data_ans == 'View data':
-                    if state['spectral data']:
-                        data.plot()
-                    else:
-                        print(f'{bcolors.WARNING} Spectral data missing!{bcolors.ENDC}')
+                    data.plot()
 
                 elif data_ans == 'FFT filtration':
-                   if state['spectral data']:
-                       bp_filter(spec_data)
-                   else:
-                       print(f'{bcolors.WARNING}Spectral data is missing!{bcolors.ENDC}')
+                    bp_filter(data)
 
                 elif data_ans == 'Save data':
-                    if state['spectral data']:
-                        save_data(data)
-                    else:
-                        print(f'{bcolors.WARNING}Spectral data is missing!{bcolors.ENDC}')
+                    save_data(data)
 
                 elif data_ans == 'Export to txt':
                     export_to_txt(data)
@@ -2215,9 +2286,10 @@ if __name__ == "__main__":
                 message='Do you really want to exit?'
                 ).execute()
             if exit_ans:
-                if state['stages init']:
-                    hardware['stage x'].close()
-                    hardware['stage y'].close()
+                if hardware['stage_x']:
+                    hardware['stage_x'].close()
+                if hardware['stage_y']:
+                    hardware['stage_y'].close()
                 exit()
 
         else:
