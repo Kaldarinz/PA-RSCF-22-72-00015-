@@ -20,7 +20,8 @@ import math
 from itertools import combinations
 import Validators as vd
 import h5py
-from typing import Any, Iterable, TypedDict
+from typing import Any, Iterable
+from typing import TypedDict
 
 config = {
     'pre_time':2,#[us] used for zoom data. Ref is max of filt PA signal
@@ -99,9 +100,9 @@ class MeasuredData:
         self.freq_data = {
             'attrs': {
                 'max dataset len': 0,
-                'x var name': 'Unknown',
-                'x var units': 'Unknown',
-                'y var name': 'Unknown',
+                'x var name': 'Frequency',
+                'x var units': 'Hz',
+                'y var name': 'FFT amplitude',
                 'y var units': 'Unknown'
             }
         } 
@@ -393,6 +394,10 @@ class MeasuredData:
         num = len(self.raw_data[ds_name]['data'])
         time_points = np.linspace(start,stop,num)
 
+        #check if datapoint is empty
+        if not step:
+            return None
+
         #update max_signal_amp(parameter) plot
         title = self.attrs['parameter name']\
                 + ': '\
@@ -554,7 +559,9 @@ class MeasuredData:
 
     def get_dependance(self, data_group: str, value: str) -> Iterable:
         """Returns an array with value 
-        from each dataset in the data_group"""
+        from each dataset in the data_group.
+        data_group: 'raw_data'|'filt_data|'freq_data'
+        """
 
         dep = [] #array for return values
         if not self.attrs['data points']:
@@ -565,7 +572,7 @@ class MeasuredData:
         
         if data_group == 'raw_data':
             ds_name = self.build_ds_name(0)
-            if self.raw_data[ds_name].get(value) == None:
+            if self.raw_data[ds_name].get(value) is None:
                 print(f'{bcolors.WARNING}\
                     Attempt to read dependence of unknown VALUE from RAW_data\
                     {bcolors.ENDC}')
@@ -577,7 +584,7 @@ class MeasuredData:
         
         elif data_group == 'filt_data':
             ds_name = self.build_ds_name(0)
-            if self.filt_data[ds_name].get(value) == None:
+            if self.filt_data[ds_name].get(value) is None:
                 print(f'{bcolors.WARNING}\
                     Attempt to read dependence of unknown VALUE from FILT_data\
                     {bcolors.ENDC}')
@@ -588,7 +595,7 @@ class MeasuredData:
         
         elif data_group == 'freq_data':
             ds_name = self.build_ds_name(0)
-            if self.freq_data[ds_name].get(value) == None:
+            if self.freq_data[ds_name].get(value) is None:
                 print(f'{bcolors.WARNING}\
                     Attempt to read dependence of unknown VALUE from FREQ_data\
                     {bcolors.ENDC}')
@@ -604,8 +611,10 @@ class MeasuredData:
             return []
         return dep
 
-    def bp_filter(self, low: int, high: int) -> None:
-        """Perform bandpass filtration on data
+    def bp_filter(self,
+                  low: int = 1000000,
+                  high: int = 10000000) -> None:
+        """Perform bandpass filtration on data.
         low is high pass cutoff frequency in Hz
         high is low pass cutoff frequency in Hz"""
 
@@ -644,6 +653,7 @@ class MeasuredData:
                 self.freq_data[ds_name].update(
                     {'data':f_signal[:,(W>low)*(W<high)]})
                 freq_points = len(self.freq_data[ds_name]['data'])
+                #update 'max dataset len' metadata
                 if self.freq_data['attrs']['max dataset len'] < freq_points:
                     self.freq_data['attrs'].update(
                         {'max dataset len':freq_points})
@@ -657,15 +667,19 @@ class MeasuredData:
                     for key, value in self.raw_data[ds_name].items():
                         if key != 'data':
                             self.filt_data[ds_name].update({key:value})
-                        max_amp = (np.amax(self.filt_data[ds_name]['data'])-
-                            np.amin(self.filt_data[ds_name]['data'])
-                            )
+                        max_amp = (np.amax(self.filt_data[ds_name]['data'])
+                                 - np.amin(self.filt_data[ds_name]['data']))
                         self.filt_data[ds_name].update({'max amp': max_amp})
                 #if the ds already exists, update its values
                 else:
                     self.filt_data[ds_name].update(
                         {'data':irfft(filtered_f_signal)})
+                    max_amp = (np.amax(self.filt_data[ds_name]['data'])
+                             - np.amin(self.filt_data[ds_name]['data']))
+                    self.filt_data[ds_name].update({'max amp': max_amp})
 
+        #update metadata
+        self.freq_data['attrs']['y var units'] = self.raw_data['attrs']['y var units']
         self.attrs['updated'] = self._get_cur_time()
 
 class Hardware_base(TypedDict):
@@ -1142,7 +1156,13 @@ def spectra(hardware: Hardware,
         'x var name': 'time',
         'x var units': 's',
         'y var name': 'PA signal',
-        'y var units': 'V'
+        'y var units': 'V/uJ'
+    })
+    data.set_metadata(data_group='filt_data', metadata={
+        'x var name': 'time',
+        'x var units': 's',
+        'y var name': 'PA signal',
+        'y var units': 'V/uJ'
     })
 
     #main measurement cycle
@@ -1343,6 +1363,7 @@ def spectra(hardware: Hardware,
                     print(f'{bcolors.WARNING}\
                           Spectral measurements terminated!\
                           {bcolors.ENDC}')
+                    data.bp_filter()
                     return data
             else:
                 print(f'{bcolors.WARNING}\
@@ -1352,6 +1373,7 @@ def spectra(hardware: Hardware,
     print(f'{bcolors.OKGREEN}\
           Spectral scanning complete!\
           {bcolors.ENDC}')
+    data.bp_filter()
     return data
           
 def track_power(hardware: Hardware, tune_width: int) -> float:
@@ -1798,44 +1820,253 @@ def export_to_txt(data: MeasuredData) -> None:
             'Filtered data',
             'Freq data',
             'Spectral',
-            'All',
             'back'
         ]
     ).execute()
     
     if export_type == 'back':
         return
-    elif export_type == 'Raw data':
-        if len(power_control):
-            save_spectr_raw_txt(data,sample,power_control)
+    
+    elif export_type in ('Raw data', 'Filtered data', 'Freq data'):
+        #build full filename
+        filename = data.attrs['path'] + data.attrs['filename']
+        if not filename:
+            filename = 'measuring results/txt data/Spectral-Unknown'
         else:
-            save_spectr_raw_txt(data,sample)
-    elif export_type == 'Filtered data':
-        if len(power_control):
-            save_spectr_filt_txt(data,sample,power_control)
-        else:
-            save_spectr_filt_txt(data,sample)
-    elif export_type == 'Freq data':
-        if len(power_control):
-            save_spectr_freq_txt(data,sample, power_control)
-        else:
-            save_spectr_freq_txt(data,sample)
+            filename = filename.split('.hdf5')[0]
+        if export_type == 'Raw data':
+            filename += '-raw.txt'
+        elif export_type == 'Filtered data':
+            filename += '-filt.txt'
+        elif export_type == 'Freq data':
+            filename += '-freq.txt'
+
+        #if file already exists, ask to override it
+        if os.path.exists(filename):
+            override = inquirer.confirm(
+                message=f'Do you want to override file {filename}?'
+            ).execute()
+            if override:
+                try:
+                    os.remove(filename)
+                except OSError:
+                    pass
+            else:
+                filename_tmp = filename.split('.txt')[0]
+                i = 1
+                while os.path.exists(filename_tmp + str(i) + '.txt'):
+                    i += 1
+                filename = filename_tmp + str(i) + '.txt'
+        
+        #build file header; h1,h2,h3 lines of header
+        h1 = ''
+        h2 = ''
+        h3 = ''
+        ds_data = np.empty(1)
+
+        #build arra for txt data
+        if export_type in ('Raw data', 'Filtered data'):
+
+            ds_name = ''
+            if export_type == 'Raw data':
+                ds_name = 'raw_data'
+            elif export_type == 'Filtered data':
+                ds_name = 'filt_data'
+            # 1D array with values of parameter
+            param_vals = np.array(
+                data.get_dependance(ds_name,'parameter value'))
+            #1D array with values of laser at sample
+            laser_vals = np.array(
+                data.get_dependance(ds_name, 'sample energy'))
+            #2D array with Y values of datasets for each datapoint
+            y_data = np.array(data.get_dependance(ds_name,'data')).T
+            # filt data will be used to find signal position
+            y_data_filt = np.array(data.get_dependance('filt_data','data')).T
+
+            #build 2D array with dataset in format (X,Y) for all data points
+            start_vals = np.array(
+                data.get_dependance(ds_name, 'x var start'))
+            step_vals = np.array(
+                data.get_dependance(ds_name, 'x var step'))
+            stop_vals = np.array(
+                data.get_dependance(ds_name, 'x var stop'))
+            
+            #init array with NaNs, which will not be saved to the file
+            ds_data = np.empty((y_data.shape[0] + 2, 2*y_data.shape[1]))
+            ds_data[:] = np.nan
+
+            #loop for filling data
+            for start, stop, step, col in zip(start_vals,
+                                            stop_vals,
+                                            step_vals,
+                                            range(len(param_vals))):
+                #find indexes of signal within pre_time:post_time limits
+                filt = y_data_filt[:,col]
+                filt_max = np.amax(filt)
+                #check if dataset is empty
+                if stop:
+                    #convert pre and post time to points
+                    pre_points = int(data.attrs['zoom pre time']/step)
+                    post_points = int(data.attrs['zoom post time']/step)
+                    
+                    #index of maximum of filt data
+                    max_ind = 0
+                    #check if there is some non zero data in filt
+                    if filt_max:
+                        max_ind = np.argwhere(filt == filt_max)[0][0]
+                    #check not go outside of dataset boundaries
+                    if pre_points > max_ind:
+                        pre_points = max_ind
+                    if (post_points + max_ind) > len(filt):
+                        post_points = len(filt) - max_ind
+                    
+                    zoom = pre_points + post_points
+                    start_ind = max_ind - pre_points
+                    stop_ind = max_ind + post_points
+
+                    #add (X,Y) data of the dataset and fill headers lines
+                    x_vals = np.arange(start, stop, step)
+                    ds_data[2:zoom+2,2*col] = x_vals[start_ind:stop_ind].T
+                    h1 += data.raw_data['attrs']['x var name'] + ';'
+                    h2 += data.raw_data['attrs']['x var units'] + ';'
+                    ds_data[2:zoom+2,2*col+1] = y_data[start_ind:stop_ind,col]
+                    h1 += data.raw_data['attrs']['y var name'] + ';'
+                    h2 += data.raw_data['attrs']['y var units'] + ';'
+
+                #add parameter and laser values
+                ds_data[0,2*col:2*col+2] = param_vals[col]
+                ds_data[1,2*col:2*col+2] = laser_vals[col]
+
+            #build last line of header
+            param = data.attrs['parameter name']
+            param_units = data.attrs['parameter units']
+            h3 = (f'First line is {param} in [{param_units}].'
+                + 'Second line is laser energy in [uJ]')
+    
+        if export_type == 'Freq data':
+
+            ds_name = 'freq_data'
+            # 1D array with values of parameter
+            param_vals = np.array(
+                data.get_dependance(ds_name,'parameter value'))
+            #2D array with Y values of datasets for each datapoint
+            y_data = np.array(data.get_dependance(ds_name,'data')).T
+
+            #build 2D array with dataset in format (X,Y) for all data points
+            start_vals = np.array(
+                data.get_dependance(ds_name, 'x var start'))
+            step_vals = np.array(
+                data.get_dependance(ds_name, 'x var step'))
+            stop_vals = np.array(
+                data.get_dependance(ds_name, 'x var stop'))
+            
+            #init array with NaNs, which will not be saved to the file
+            ds_data = np.empty((y_data.shape[0] + 1, 2*y_data.shape[1]))
+            ds_data[:] = np.nan
+
+            #loop for filling data
+            for start, stop, step, col in zip(start_vals,
+                                            stop_vals,
+                                            step_vals,
+                                            range(len(param_vals))):
+
+                #check if dataset is empty
+                if stop:
+                    #add (X,Y) data of the dataset and fill headers lines
+                    x_vals = np.arange(start, stop, step)
+                    ds_data[1:,2*col] = x_vals.T
+                    h1 += data.freq_data['attrs']['x var name'] + ';'
+                    h2 += data.freq_data['attrs']['x var units'] + ';'
+                    ds_data[1:,2*col+1] = y_data[:,col]
+                    h1 += data.freq_data['attrs']['y var name'] + ';'
+                    h2 += data.freq_data['attrs']['y var units'] + ';'
+
+                #add parameter values
+                ds_data[0,2*col:2*col+2] = param_vals[col]
+
+            #build last line of header
+            param = data.attrs['parameter name']
+            param_units = data.attrs['parameter units']
+            h3 = (f'First line is {param} in [{param_units}].')
+        
+        header = h1 + '\n' + h2 + '\n' + h3
+        #save the data to the file
+        np.savetxt(
+            filename,
+            ds_data,
+            header=header,
+            delimiter=';')
+        print(f'Data exported to \
+              {bcolors.OKGREEN}{filename}{bcolors.ENDC}')
+
     elif export_type == 'Spectral':
-        if len(power_control):
-            save_spectr_txt(data,sample,power_control)
+        
+        #build full filename
+        filename = data.attrs['path'] + data.attrs['filename']
+        if not filename:
+            filename = 'measuring results/txt data/Spectral-Unknown'
         else:
-            save_spectr_txt(data,sample)
-    elif export_type == 'All':
-        if len(power_control):
-            save_spectr_raw_txt(data,sample,power_control)
-            save_spectr_filt_txt(data,sample, power_control)
-            save_spectr_freq_txt(data,sample, power_control)
-            save_spectr_txt(data,sample, power_control)
-        else:
-            save_spectr_raw_txt(data,sample)
-            save_spectr_filt_txt(data,sample)
-            save_spectr_freq_txt(data,sample)
-            save_spectr_txt(data,sample)
+            filename = filename.split('.hdf5')[0]
+        filename += '-spectral.txt'
+
+        #if file already exists, ask to override it
+        if os.path.exists(filename):
+            override = inquirer.confirm(
+                message=f'Do you want to override file {filename}?'
+            ).execute()
+            if override:
+                try:
+                    os.remove(filename)
+                except OSError:
+                    pass
+            else:
+                filename_tmp = filename.split('.txt')[0]
+                i = 1
+                while os.path.exists(filename_tmp + str(i) + '.txt'):
+                    i += 1
+                filename = filename_tmp + str(i) + '.txt'
+        
+        #build data array and header
+        param_vals = np.array(data.get_dependance(
+            'raw_data',
+            'parameter value'))
+        h1 = data.attrs['parameter name'] + ';'
+        h2 = data.attrs['parameter units'] + ';'
+
+        laser_vals = np.array(data.get_dependance(
+            'raw_data',
+            'sample energy'))
+        h1 += 'Laser;'
+        h2 += 'uJ;'
+
+        raw_amps = np.array(data.get_dependance(
+            'raw_data',
+            'max amp'))
+        h1 += data.raw_data['attrs']['y var name'] + ';'
+        h2 += data.raw_data['attrs']['y var units'] + ';'
+        
+        filt_amps = np.array(data.get_dependance(
+            'filt_data',
+            'max amp'))
+        h1 += data.filt_data['attrs']['y var name'] + ';'
+        h2 += data.filt_data['attrs']['y var units'] + ';'
+
+        ds_data = np.column_stack((
+            param_vals,
+            laser_vals,
+            raw_amps,
+            filt_amps))
+        header = h1 + '\n' + h2
+
+        #save the data to the file
+        np.savetxt(
+            filename,
+            ds_data,
+            header=header,
+            delimiter=';')
+        print(f'Data exported to \
+              {bcolors.OKGREEN}{filename}{bcolors.ENDC}')
+
     else:
         print(f'{bcolors.WARNING} Unknown command in data export menu {bcolors.ENDC}')
 

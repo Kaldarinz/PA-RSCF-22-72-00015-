@@ -107,7 +107,9 @@ if __name__ == '__main__':
             ds_freq = freq_data.create_dataset(ds_name,data=data[i,2,3:freq_range+3])
             if ds_freq.len() > freq_data.attrs['max dataset len']:
                 freq_data.attrs['max dataset len'] = ds_freq.len()
+            ds_freq.attrs['parameter value'] = wl
             ds_freq.attrs['x var step'] = data[0,2,2]
             ds_freq.attrs['x var start'] = data[0,2,0]
             ds_freq.attrs['x var stop'] = data[0,2,1]
-
+            ds_freq.attrs['PM energy'] = data[i,0,5]
+            ds_freq.attrs['sample energy'] = data[i,1,5]

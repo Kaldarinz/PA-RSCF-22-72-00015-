@@ -1,3 +1,5 @@
-from pylablib.devices import Thorlabs
+from InquirerPy import inquirer
 
-stages = Thorlabs.list_kinesis_devices()
+
+a = 10
+inquirer.confirm(message=f'Test mes = {a}').execute()
