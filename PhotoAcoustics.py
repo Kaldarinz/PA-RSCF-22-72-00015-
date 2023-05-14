@@ -1035,7 +1035,7 @@ def spectra(hardware: Hardware,
         return old_data
     
     #CLI to get measuring options
-    power_control = inquirer.select( # type: ignore
+    power_control = inquirer.select(
         message='Choose method for laser energy control:',
         choices=[
             'Glan prism',
@@ -1047,7 +1047,7 @@ def spectra(hardware: Hardware,
         print(f'{bcolors.WARNING}Intup terminated!{bcolors.WARNING}')
         return old_data
 
-    start_wl = inquirer.text( # type: ignore
+    start_wl = inquirer.text(
         message='Set start wavelength, [nm]' + vd.cancel_option,
         default='950',
         mandatory=False,
@@ -1058,7 +1058,7 @@ def spectra(hardware: Hardware,
         return old_data
     start_wl = int(start_wl)
 
-    end_wl = inquirer.text( # type: ignore
+    end_wl = inquirer.text(
         message='Set end wavelength, [nm]' + vd.cancel_option,
         default='690',
         mandatory=False,
@@ -1069,7 +1069,7 @@ def spectra(hardware: Hardware,
         return old_data
     end_wl = int(end_wl)
 
-    step = inquirer.text( # type: ignore
+    step = inquirer.text(
         message='Set step, [nm]' + vd.cancel_option,
         default='10',
         mandatory=False,
@@ -1080,7 +1080,7 @@ def spectra(hardware: Hardware,
         return old_data
     step = int(step)
 
-    target_energy = inquirer.text( # type: ignore
+    target_energy = inquirer.text(
         message='Set target energy in [mJ]' + vd.cancel_option,
         default='0.5',
         mandatory=False,
@@ -1106,7 +1106,7 @@ def spectra(hardware: Hardware,
             return old_data
         max_combinations = int(max_combinations)
 
-    averaging = inquirer.text( # type: ignore
+    averaging = inquirer.text(
         message='Set averaging' + vd.cancel_option,
         default='5',
         mandatory=False,
@@ -1187,7 +1187,7 @@ def spectra(hardware: Hardware,
                 print(f'{bcolors.WARNING}\
                       WARNING! No valid filter combination for {current_wl} [nm]!\
                       {bcolors.ENDC}')
-                cont_ans = inquirer.confirm( # type: ignore
+                cont_ans = inquirer.confirm(
                     message='Do you want to continue?').execute()
                 if not cont_ans:
                     print(f'{bcolors.WARNING}\
@@ -1224,7 +1224,7 @@ def spectra(hardware: Hardware,
         while counter < averaging:
             print(f'Signal at current WL should be measured\
                   {averaging-counter} more times.')
-            measure_ans = inquirer.rawlist( #type: ignore
+            measure_ans = inquirer.rawlist(
                 message='Chose an action:',
                 choices=['Tune power','Measure','Stop measurements']
             ).execute()
@@ -1270,7 +1270,7 @@ def spectra(hardware: Hardware,
                 plt.show()
 
                 #confirm that the data is OK
-                good_data = inquirer.confirm( #type: ignore
+                good_data = inquirer.confirm(
                     message='Data looks good?').execute()
                 if good_data:
                     #note that tmp_signal is only amplitude of signal for averaging
@@ -1838,7 +1838,6 @@ def export_to_txt(data: MeasuredData) -> None:
             save_spectr_txt(data,sample)
     else:
         print(f'{bcolors.WARNING} Unknown command in data export menu {bcolors.ENDC}')
-
 
 def save_spectr_filt_txt(data,sample, power_control = ''):
     """Saves filtered data to txt
