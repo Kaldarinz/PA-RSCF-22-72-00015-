@@ -1,27 +1,28 @@
 from __future__ import annotations
 
+import warnings
+import os.path
+from pathlib import Path
+import time
+import math
+from itertools import combinations
+from typing import Any, Iterable, TypedDict
+from datetime import datetime
+
 from pylablib.devices import Thorlabs
 from scipy.fftpack import rfft, irfft, fftfreq
 from scipy import signal
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import MatplotlibDeprecationWarning # type: ignore
-import warnings
-import os.path
-from pathlib import Path
-import Oscilloscope
 from InquirerPy import inquirer
 from InquirerPy.validator import PathValidator
 import matplotlib.gridspec as gridspec
 import keyboard
-import time
-from datetime import datetime
-import math
-from itertools import combinations
-import Validators as vd
 import h5py
-from typing import Any, Iterable
-from typing import TypedDict
+
+import Validators as vd
+import oscilloscope
 
 config = {
     'pre_time':2,#[us] used for zoom data. Ref is max of filt PA signal
@@ -687,12 +688,12 @@ class Hardware_base(TypedDict):
 
     stage_x: Any
     stage_y: Any
-    osc: Oscilloscope.Oscilloscope
+    osc: oscilloscope.Oscilloscope
 
 class Hardware(Hardware_base, total=False):
     """TypedDict for refernces to hardware"""
     
-    power_meter: Oscilloscope.PowerMeter
+    power_meter: oscilloscope.PowerMeter
 
 def init_hardware(hardware: Hardware) -> None:
     """Initialize all hardware"""
@@ -708,7 +709,7 @@ def init_hardware(hardware: Hardware) -> None:
         print(f'{bcolors.WARNING}Oscilloscope already initiated!{bcolors.ENDC}')
 
     if hardware['stage_x'] and hardware['stage_y'] and not hardware['osc'].not_found:
-        hardware['power_meter'] = Oscilloscope.PowerMeter(hardware['osc'])
+        hardware['power_meter'] = oscilloscope.PowerMeter(hardware['osc'])
         print(f'{bcolors.OKGREEN}Initialization complete!{bcolors.ENDC}')
 
 def init_stages(hardware: Hardware) -> None:
@@ -2070,341 +2071,13 @@ def export_to_txt(data: MeasuredData) -> None:
     else:
         print(f'{bcolors.WARNING} Unknown command in data export menu {bcolors.ENDC}')
 
-def save_spectr_filt_txt(data,sample, power_control = ''):
-    """Saves filtered data to txt
-    corrects for sample energy"""
-
-    if not len(sample):
-        filename = 'measuring results/txt data/Spectral-Unknown-filt.txt'
-    else:
-        filename = sample.split('.npy')[0]
-        filename += '-filt.txt'
-    if os.path.exists(filename):
-        filename_tmp = filename.split('/')[-1]
-        override = inquirer.confirm(
-            message='Do you want to override file ' + filename_tmp + '?'
-        ).execute()
-        if override:
-            try:
-                os.remove(filename)
-            except OSError:
-                pass
-        else:
-            filename_tmp = filename.split('.txt')[0]
-            i = 1
-            while os.path.exists(filename_tmp + str(i) + '.txt'):
-                i += 1
-            filename = filename_tmp + str(i) + '.txt'
-
-    start_freq = data[0,2,0]/1000000
-    end_freq = data[0,2,1]/1000000
-
-    dt = data[0,0,3]
-    start_wl = data[0,0,0]
-    end_wl = data[0,0,1]
-    step_wl = data[0,0,2]
-    duration = (config['pre_time'] + config['post_time'])/1000000
-    spectr_points = int(duration/dt)+1
-    pre_points = int(config['pre_time']/1000000/dt)
-    post_points = spectr_points - pre_points
-    data_txt = np.zeros((spectr_points+2,data.shape[0]+1))
-
-    header = 'Time;'
-    for _ in range(data_txt.shape[1]-1):
-        header +='filt signal;'
-    header += '\nus;'
-    for _ in range(data_txt.shape[1]-1):
-        header +='V;'
-    header += '\n'
-    header += f'Filtered data with band pass filter ({start_freq:.1f}:{end_freq:.1f}) MHz\n'
-    header += 'First line is WL, Second line is laser energy in [uJ]'
-    
-    #build aray for txt data
-    for i in range(data.shape[0]):
-        if i < (data.shape[0]-1):
-            data_txt[0,i+1] = start_wl + i*step_wl
-        else: #handels case when the last step is smaller then others
-            data_txt[0,i+1] = end_wl
-
-        pm_energy = data[i,0,5]
-        max_amp_ind = np.argmax(data[i,1,6:])
-        #copy zoom data and check not go outside boundaries
-        if (max_amp_ind-pre_points) > 0 and (6+max_amp_ind+post_points)< data.shape[2]+1:
-            tmp = data[i,1,6+max_amp_ind-pre_points:6+max_amp_ind+post_points].copy()
-        elif (max_amp_ind-pre_points) < 0:
-            tmp = data[i,1,6:6+max_amp_ind+post_points].copy()
-        elif (6+max_amp_ind+post_points)> data.shape[2]+1:
-            tmp = data[i,1,6+max_amp_ind-pre_points:-1].copy()
-        #if tmp is too small, add zeros to the end
-        if len(tmp) < len(data_txt[2:,i+1]):
-            filled_arr = np.zeros(len(data_txt[2:,i+1]))
-            filled_arr[:len(tmp)] = tmp
-            data_txt[2:,i+1] = filled_arr
-        else:
-            data_txt[2:,i+1] = tmp
-        
-        if power_control == 'Filters':
-            _,__,___,sample_energy = glass_calculator(
-               data_txt[0,i+1],
-               pm_energy,
-               pm_energy*20,
-               2,
-               no_print=True
-            )
-            data_txt[1,i+1] = sample_energy #laser energy at sample
-            data_txt[2:,i+1] = data_txt[2:,i+1]*pm_energy/sample_energy
-        elif power_control == 'Glan prism':
-            sample_energy = glan_calc(pm_energy)
-            data_txt[1,i+1] = sample_energy #laser energy at sample
-            data_txt[2:,i+1] = data_txt[2:,i+1]*pm_energy/sample_energy
-        else:
-            data_txt[1,i+1] = data[i,1,5] #laser energy
-
-    for i in range(spectr_points):
-        data_txt[i+2,0] = i*dt*1000000
-    
-    np.savetxt(filename,data_txt,header=header,fmt='%1.3e', delimiter=';')
-    print(f'Data exported to {bcolors.OKGREEN}{filename}{bcolors.ENDC}')
-
-def save_spectr_raw_txt(data,sample, power_control = ''):
-    """Saves raw data to txt"""
-
-    if not len(sample):
-        filename = 'measuring results/txt data/Spectral-Unknown-raw.txt'
-    else:
-        filename = sample.split('.npy')[0]
-        filename += '-raw.txt'
-    if os.path.exists(filename):
-        filename_tmp = filename.split('/')[-1]
-        override = inquirer.confirm(
-            message='Do you want to override file ' + filename_tmp + '?'
-        ).execute()
-        if override:
-            try:
-                os.remove(filename)
-            except OSError:
-                pass
-        else:
-            filename_tmp = filename.split('.txt')[0]
-            i = 1
-            while os.path.exists(filename_tmp + str(i) + '.txt'):
-                i += 1
-            filename = filename_tmp + str(i) + '.txt'
-
-    dt = data[0,0,3]
-    start_wl = data[0,0,0]
-    end_wl = data[0,0,1]
-    step_wl = data[0,0,2]
-    duration = (config['pre_time'] + config['post_time'])/1000000
-    spectr_points = int(duration/dt)+1
-    pre_points = int(config['pre_time']/1000000/dt)
-    post_points = spectr_points - pre_points
-    data_txt = np.zeros((spectr_points+2,data.shape[0]+1))
-
-    header = 'Time;'
-    for _ in range(data_txt.shape[1]-1):
-        header +='raw signal;'
-    header += '\nus;'
-    for _ in range(data_txt.shape[1]-1):
-        header +='V;'
-    header += '\n'
-    header += f'Raw data\n'
-    header += 'First line is WL, Second line is laser energy in [uJ]'
-    
-    #build aray for txt data
-    for i in range(data.shape[0]):
-        if i < (data.shape[0]-1):
-            data_txt[0,i+1] = start_wl + i*step_wl
-        else: #handels case when the last step is smaller then others
-            data_txt[0,i+1] = end_wl
-
-        
-        pm_energy = data[i,0,5]
-        max_amp_ind = np.argmax(data[i,1,6:])
-        #copy zoom data and check not go outside boundaries
-        if (max_amp_ind-pre_points) > 0 and (6+max_amp_ind+post_points)< data.shape[2]+1:
-            tmp = data[i,0,6+max_amp_ind-pre_points:6+max_amp_ind+post_points].copy()
-        elif (max_amp_ind-pre_points) < 0:
-            tmp = data[i,0,6:6+max_amp_ind+post_points].copy()
-        elif (6+max_amp_ind+post_points)> data.shape[2]+1:
-            tmp = data[i,0,6+max_amp_ind-pre_points:-1].copy()
-        
-        data_txt[2:len(tmp),i+1] = tmp
-        
-        if power_control == 'Filters':
-            _,__,___,sample_energy = glass_calculator(
-               data_txt[0,i+1],
-               pm_energy,
-               pm_energy*20,
-               2,
-               no_print=True
-            )
-            data_txt[1,i+1] = sample_energy #laser energy at sample
-            data_txt[2:,i+1] = data_txt[2:,i+1]*pm_energy/sample_energy
-        elif power_control == 'Glan prism':
-            sample_energy = glan_calc(pm_energy)
-            data_txt[1,i+1] = sample_energy #laser energy at sample
-            data_txt[2:,i+1] = data_txt[2:,i+1]*pm_energy/sample_energy
-        else:
-            data_txt[1,i+1] = data[i,1,5] #laser energy
-
-    for i in range(spectr_points):
-        data_txt[i+2,0] = i*dt*1000000
-    
-    np.savetxt(filename,data_txt,header=header,fmt='%1.3e', delimiter=';')
-    print(f'Data exported to {bcolors.OKGREEN}{filename}{bcolors.ENDC}')
-
-def save_spectr_freq_txt(data,sample, power_control = ''):
-    """Saves freq data to txt"""
-
-    if not len(sample):
-        filename = 'measuring results/txt data/Spectral-Unknown-freq.txt'
-    else:
-        filename = sample.split('.npy')[0]
-        filename += '-freq.txt'
-    if os.path.exists(filename):
-        filename_tmp = filename.split('/')[-1]
-        override = inquirer.confirm(
-            message='Do you want to override file ' + filename_tmp + '?'
-        ).execute()
-        if override:
-            try:
-                os.remove(filename)
-            except OSError:
-                pass
-        else:
-            filename_tmp = filename.split('.txt')[0]
-            i = 1
-            while os.path.exists(filename_tmp + str(i) + '.txt'):
-                i += 1
-            filename = filename_tmp + str(i) + '.txt'
-
-    start_freq = data[0,2,0]/1000000
-    end_freq = data[0,2,1]/1000000
-
-    start_wl = data[0,0,0]
-    end_wl = data[0,0,1]
-    step_wl = data[0,0,2]
-    start_freq = data[0,2,0]
-    end_freq = data[0,2,1]
-    step_freq = data[0,2,2]
-    spectr_points = int((end_freq-start_freq)/step_freq)+1
-    data_txt = np.zeros((spectr_points+2,data.shape[0]+1))
-
-    header = 'Frequency;'
-    for _ in range(data_txt.shape[1]-1):
-        header +='FFT amplitude;'
-    header += '\nMHz;'
-    for _ in range(data_txt.shape[1]-1):
-        header +='V;'
-    header += '\n'
-    header += f'Filtered data with band pass filter ({start_freq:.1f}:{end_freq:.1f}) MHz\n'
-    header += 'First line is WL, Second line is laser energy in [uJ]'
-    
-    #build aray for txt data
-    for i in range(data.shape[0]):
-        if i < (data.shape[0]-1):
-            data_txt[0,i+1] = start_wl + i*step_wl
-        else: #handels case when the last step is smaller then others
-            data_txt[0,i+1] = end_wl
-        if data[i,1,5]:
-            data_txt[1,i+1] = data[i,1,5]#laser energy at sample
-        else:
-            data_txt[1,i+1] = data[i,0,5] #laser energy at PM
-        data_txt[2:,i+1] = data[i,2,3:3+spectr_points].copy()
-
-    for i in range(spectr_points):
-        data_txt[i+2,0] = (start_freq + i*step_freq)/1000000
-    
-    np.savetxt(filename,data_txt,header=header,fmt='%1.3e', delimiter=';')
-    print(f'Data exported to {bcolors.OKGREEN}{filename}{bcolors.ENDC}')
-
-def save_spectr_txt(data,sample, power_control = ''):
-    """Saves spectral data to txt"""
-
-    #path and filename handling
-    if not len(sample):
-        filename = 'measuring results/txt data/Spectral-Unknown-spectral.txt'
-    else:
-        filename = sample.split('.npy')[0]
-        filename += '-spectral.txt'
-    if os.path.exists(filename):
-        filename_tmp = filename.split('/')[-1]
-        override = inquirer.confirm(
-            message='Do you want to override file ' + filename_tmp + '?'
-        ).execute()
-        if override:
-            try:
-                os.remove(filename)
-            except OSError:
-                pass
-        else:
-            filename_tmp = filename.split('.txt')[0]
-            i = 1
-            while os.path.exists(filename_tmp + str(i) + '.txt'):
-                i += 1
-            filename = filename_tmp + str(i) + '.txt'
-
-    #formation of data
-    start_freq = data[0,2,0]/1000000
-    end_freq = data[0,2,1]/1000000
-
-    header = ''
-    header +='Wavelength   laser   raw filt\n'
-    header +='nm   uJ  V   V\n'
-    header +=f'Filtered data in range ({start_freq:.1f}:{end_freq:.1f}) MHz\n'
-    header +='First col is wavelength in [nm]\n'
-    header +='Second col is laser energy in [uJ]\n'
-    header +='Third col is normalized (to laser energy) raw PA amp in [V]\n'
-    header +='Forth col is normalized (to laser energy) filt PA amp in [V]'
-
-    start_wl = data[0,0,0]
-    end_wl = data[0,0,1]
-    step_wl = data[0,0,2]
-    data_txt = np.zeros((data.shape[0],4))
-    
-    for i in range(data.shape[0]):
-        if i < (data.shape[0]-1):
-            data_txt[i,0] = start_wl + i*step_wl
-        else: #handels case when the last step is smaller then others
-            data_txt[i,0] = end_wl
-        pm_energy = data[i,0,5]
-        if power_control == 'Filters':
-            _,__,___,sample_energy = glass_calculator(
-                data_txt[i,0],
-                pm_energy,
-                pm_energy*20,
-                2,
-                no_print=True
-            )
-            if not sample_energy:
-                data_txt[i,1] = sample_energy #laser energy
-                data_txt[i,2] = data[i,0,4]*pm_energy/sample_energy #raw norm PA amp
-                data_txt[i,3] = data[i,1,4]*pm_energy/sample_energy #filt norm PA amp
-            else:
-                data_txt[i,1] = 0 #laser energy
-                data_txt[i,2] = 0 #raw norm PA amp
-                data_txt[i,3] = 0 #filt norm PA amp
-        elif power_control == 'Glan prism':
-            sample_energy = glan_calc(pm_energy)
-            data_txt[i,1] = sample_energy #laser energy
-            data_txt[i,2] = data[i,0,4]*pm_energy/sample_energy #raw norm PA amp
-            data_txt[i,3] = data[i,1,4]*pm_energy/sample_energy #filt norm PA amp
-        else:
-            data_txt[i,1] = data[i,1,5] #laser energy
-            data_txt[i,2] = data[i,0,4] #raw norm PA amp
-            data_txt[i,3] = data[i,1,4] #filt norm PA amp
-    
-    np.savetxt(filename,data_txt,header=header,fmt='%1.3e')
-    print(f'Data exported to {bcolors.OKGREEN}{filename}{bcolors.ENDC}')
-
 if __name__ == "__main__":
     
     #dict for keeping references to hardware
     hardware: Hardware = {
         'stage_x': 0,
         'stage_y': 0,
-        'osc': Oscilloscope.Oscilloscope()
+        'osc': oscilloscope.Oscilloscope()
     }
 
     # init class for data storage
