@@ -1,3 +1,4 @@
+from re import X
 import pyvisa as pv
 import numpy as np
 import time
@@ -472,21 +473,21 @@ class PowerMeter:
             return 0
 
         try:
-            stop_ind_arr = np.where(data[start_index:] < 0)[0]
+            stop_ind_arr = np.where(data[start_index:] < 0)[0] + start_index
             stop_index = 0
             #check interval. If data at index + check_int less than zero
             #then we assume that the laser pulse is really finished
             check_ind = int(len(data)/100)
             for x in stop_ind_arr:
                 if (x+check_ind) < len(data) and data[x+check_ind] < 0:
-                    x = stop_index
+                    stop_index = x
                     break
             if not stop_index:
                 print(f'{bcolors.WARNING}'
                       + 'End of laser impulse was not found'
                       + f'{bcolors.ENDC}')
                 return 0
-            self.stop_ind = stop_index + self.start_ind
+            self.stop_ind = stop_index
         except IndexError:
             print(f'{bcolors.WARNING}\
                   Problem in set_laser_amp stop_index. Laser amp set to 0!\
@@ -494,9 +495,9 @@ class PowerMeter:
             return 0
 
         laser_amp = np.sum(
-            data[start_index:(start_index + stop_index)])*step*self.sclr_sens
+            data[start_index:stop_index])*step*self.sclr_sens
         
-        print(f'Laser amp = {laser_amp:.5f} [uJ]')
+        print(f'Laser amp = {laser_amp:.1f} [uJ]')
 
         return laser_amp
     

@@ -155,10 +155,14 @@ class MeasuredData:
         ds.update(attributes)
         self.raw_data.update({ds_name:ds})
 
-        self.filt_data.update({ds_name:{}})
+        #create data point in filt_data and copy attrs from raw_data
+        self.filt_data.update({ds_name:{'data':np.zeros(1)}})
         self.filt_data[ds_name].update(attributes)
-        self.freq_data.update({ds_name:{}})
+        #create data point in freq_data
+        self.freq_data.update({ds_name:{'data':np.zeros(1)}})
+        #update amount of datapoints
         self.attrs['data points'] += 1
+        #set time of correction
         self.attrs['updated'] = self._get_cur_time()
 
     def _get_cur_time (self) -> str:
@@ -644,12 +648,12 @@ class MeasuredData:
                 f_signal = rfft(ds['data']) # signal in f-space
 
                 filtered_f_signal = f_signal.copy()
-                filtered_f_signal[:,(W<low)] = 0 # high pass filtering
+                filtered_f_signal[W<low] = 0 # high pass filtering
 
                 if high > 1/(2.5*dt): # Nyquist frequency check
-                    filtered_f_signal[:,(W>1/(2.5*dt))] = 0 
+                    filtered_f_signal[W>1/(2.5*dt)] = 0 
                 else:
-                    filtered_f_signal[:,(W>high)] = 0
+                    filtered_f_signal[W>high] = 0
 
                 #pass frequencies
                 filtered_freq = W[(W>low)*(W<high)]
@@ -665,7 +669,7 @@ class MeasuredData:
 
                 #Fourier amplitudes
                 self.freq_data[ds_name].update(
-                    {'data':f_signal[:,(W>low)*(W<high)]})
+                    {'data':f_signal[(W>low)*(W<high)]})
                 freq_points = len(self.freq_data[ds_name]['data'])
                 #update 'max dataset len' metadata
                 if self.freq_data['attrs']['max dataset len'] < freq_points:
@@ -1293,8 +1297,6 @@ def spectra(hardware: Hardware,
                 cur_pm_laser = pm.energy_from_data(
                         pm_signal,
                         1/osc.sample_rate)
-                print(f'Start ind = {pm.start_ind}')
-                print(f'Stop ind = {pm.stop_ind}')
                 #show measured data to visually check if data is OK
                 fig = plt.figure(tight_layout=True)
                 gs = gridspec.GridSpec(1,2)
@@ -1360,7 +1362,7 @@ def spectra(hardware: Hardware,
                             print(f'{bcolors.OKBLUE}'
                                   + 'Average laser at sample = '
                                   + f'{sample_energy_aver:.0f} [uJ]')
-                            print(f'Average PA signal = {max_amp}'
+                            print(f'Average PA signal = {max_amp:}'
                                   + f'{bcolors.ENDC}')
                             
                         elif power_control == 'Glan prism':
@@ -1382,7 +1384,7 @@ def spectra(hardware: Hardware,
                             print(f'{bcolors.OKBLUE}'
                                   + 'Average laser at sample = '
                                   + f'{sample_energy_aver:.0f} [uJ]')
-                            print(f'Average PA signal = {max_amp}'
+                            print(f'Average PA signal = {max_amp:.3e}'
                                   + f'{bcolors.ENDC}')
                             
                         else:
@@ -1978,7 +1980,7 @@ def export_to_txt(data: MeasuredData) -> None:
                     if pre_points > max_ind:
                         pre_points = max_ind
                     if (post_points + max_ind) > len(filt):
-                        post_points = len(filt) - max_ind
+                        post_points = len(filt) - max_ind - 1
                     
                     zoom = pre_points + post_points
                     start_ind = max_ind - pre_points
@@ -1986,6 +1988,8 @@ def export_to_txt(data: MeasuredData) -> None:
 
                     #add (X,Y) data of the dataset and fill headers lines
                     x_vals = np.arange(start, stop, step)
+                    print(f'ds_data len = {len(ds_data[2:zoom+2,2*col])}')
+                    print(f'x_vals len = {len(x_vals[start_ind:stop_ind])}')
                     ds_data[2:zoom+2,2*col] = x_vals[start_ind:stop_ind].T
                     h1 += data.raw_data['attrs']['x var name'] + ';'
                     h2 += data.raw_data['attrs']['x var units'] + ';'
