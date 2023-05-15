@@ -1988,8 +1988,6 @@ def export_to_txt(data: MeasuredData) -> None:
 
                     #add (X,Y) data of the dataset and fill headers lines
                     x_vals = np.arange(start, stop, step)
-                    print(f'ds_data len = {len(ds_data[2:zoom+2,2*col])}')
-                    print(f'x_vals len = {len(x_vals[start_ind:stop_ind])}')
                     ds_data[2:zoom+2,2*col] = x_vals[start_ind:stop_ind].T
                     h1 += data.raw_data['attrs']['x var name'] + ';'
                     h2 += data.raw_data['attrs']['x var units'] + ';'
@@ -2058,7 +2056,7 @@ def export_to_txt(data: MeasuredData) -> None:
         #remove extra NaNs
         max_len = 0
         for col in range(ds_data.shape[1]):
-            ind = np.isnan(ds_data[:,col])[0]
+            ind = np.where(np.isnan(ds_data[:,col]))[0][0]
             if ind > max_len:
                 max_len = ind
         ds_data = ds_data[:max_len,:].copy()
