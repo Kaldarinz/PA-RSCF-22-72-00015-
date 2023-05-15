@@ -472,7 +472,7 @@ class PowerMeter:
         laser_amp = np.sum(
             data[start_index:(start_index + stop_index)])/srat*self.sclr_sens
         
-        print(f'Laser amp = {laser_amp:.1f}')
+        print(f'Laser amp = {laser_amp:.1f} [uJ]')
 
         return laser_amp
     

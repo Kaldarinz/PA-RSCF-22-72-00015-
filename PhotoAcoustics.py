@@ -21,7 +21,7 @@ import matplotlib.gridspec as gridspec
 import keyboard
 import h5py
 
-import Validators as vd
+import validators as vd
 import oscilloscope
 
 config = {
