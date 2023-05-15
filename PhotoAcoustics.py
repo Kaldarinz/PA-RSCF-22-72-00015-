@@ -2054,6 +2054,15 @@ def export_to_txt(data: MeasuredData) -> None:
             h3 = (f'First line is {param} in [{param_units}].')
         
         header = h1 + '\n' + h2 + '\n' + h3
+
+        #remove extra NaNs
+        max_len = 0
+        for col in range(ds_data.shape[1]):
+            ind = np.isnan(ds_data[:,col])[0]
+            if ind > max_len:
+                max_len = ind
+        ds_data = ds_data[:max_len,:].copy()
+
         #save the data to the file
         np.savetxt(
             filename,
