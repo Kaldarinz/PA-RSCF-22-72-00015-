@@ -1,4 +1,5 @@
 from __future__ import annotations
+from traceback import print_tb
 
 import warnings
 import os.path
@@ -1255,7 +1256,7 @@ def spectra(hardware: Hardware,
 
         #start measurements and averaging
         while counter < averaging:
-            print('Signal at current WL should be measured'
+            print('Signal at current WL should be measured '
                   + f'{averaging-counter} more times.')
             measure_ans = inquirer.rawlist(
                 message='Chose an action:',
@@ -1291,13 +1292,30 @@ def spectra(hardware: Hardware,
                 #calculate laser energy at power meter
                 cur_pm_laser = pm.energy_from_data(
                         pm_signal,
-                        osc.sample_rate)
-
+                        1/osc.sample_rate)
+                print(f'Start ind = {pm.start_ind}')
+                print(f'Stop ind = {pm.stop_ind}')
                 #show measured data to visually check if data is OK
                 fig = plt.figure(tight_layout=True)
                 gs = gridspec.GridSpec(1,2)
                 ax_pm = fig.add_subplot(gs[0,0])
-                ax_pm.plot(signal.decimate(pm_signal, 100))
+                ax_pm.plot(pm_signal)
+                #ax_pm.plot(signal.decimate(pm_signal, 100))
+                #add markers for data start and stop
+                ax_pm.plot(
+                    pm.start_ind,
+                    pm_signal[pm.start_ind],
+                    'o',
+                    alpha=0.4,
+                    ms=12,
+                    color='green')
+                ax_pm.plot(
+                    pm.stop_ind,
+                    pm_signal[pm.stop_ind],
+                    'o',
+                    alpha=0.4,
+                    ms=12,
+                    color='red')
                 ax_pa = fig.add_subplot(gs[0,1])
                 ax_pa.plot(pa_signal)
                 plt.show()

@@ -44,7 +44,7 @@ class Oscilloscope:
         
     def initialize(self,
                  chan1_pre: int=100, #[us] pre time for channel 1
-                 chan1_post: int=150, #[us] post time for channel 1
+                 chan1_post: int=2500, #[us] post time for channel 1
                  chan2_pre: int=100, #[us] pre time for channel 2
                  chan2_post: int=150, #[us] post time for channel 2
                  ra_kernel_size: int=20 #smoothing by rolling average kernel
@@ -472,7 +472,20 @@ class PowerMeter:
             return 0
 
         try:
-            stop_index = np.where(data[start_index:] < 0)[0][0]
+            stop_ind_arr = np.where(data[start_index:] < 0)[0]
+            stop_index = 0
+            #check interval. If data at index + check_int less than zero
+            #then we assume that the laser pulse is really finished
+            check_ind = int(len(data)/100)
+            for x in stop_ind_arr:
+                if (x+check_ind) < len(data) and data[x+check_ind] < 0:
+                    x = stop_index
+                    break
+            if not stop_index:
+                print(f'{bcolors.WARNING}'
+                      + 'End of laser impulse was not found'
+                      + f'{bcolors.ENDC}')
+                return 0
             self.stop_ind = stop_index + self.start_ind
         except IndexError:
             print(f'{bcolors.WARNING}\
