@@ -4,7 +4,7 @@ import os.path
 from pathlib import Path
 from InquirerPy import inquirer
 from InquirerPy.validator import PathValidator
-import Validators as vd
+import validators as vd
 
 class bcolors:
     HEADER = '\033[95m'

@@ -292,7 +292,12 @@ class Oscilloscope:
             self.__osc.write(':WAV:DATA?') # type: ignore
             data_chunk = np.frombuffer(self.__osc.read_raw(), # type: ignore
                                        dtype=np.uint8) 
-            data = data_chunk[12:].astype(np.float64)
+            #choose format, in which to store data
+            if raw:
+                data = data_chunk[12:].copy()
+            else:
+                dy = self.preamble['yincrement']
+                data = data_chunk[12:].astype(np.float64)*dy
 
             if len(data) == self.scr_data_p:
                 if smooth:
@@ -392,7 +397,7 @@ class PowerMeter:
     ###DEFAULTS###
 
     #scalar coef to convert integral readings into [uJ]
-    sclr_sens = 2500000
+    sclr_sens = 2630000
     ch = 'CHAN1'
     osc = Oscilloscope()
     # percentage of max amp, when we set begining of the impulse
@@ -437,13 +442,14 @@ class PowerMeter:
             return 0
         
         self.data = self.osc.ch1_scr_data.copy()
-        laser_amp = self.energy_from_data(self.data, self.osc.sample_rate)
+        laser_amp = self.energy_from_data(self.data,
+                                          self.osc.preamble['xincrement'])
 
         return laser_amp
     
-    def energy_from_data(self, data: np.ndarray, srat: float) -> float:
+    def energy_from_data(self, data: np.ndarray, step: float) -> float:
         """Calculate laser energy from data.
-        srat is sample rate for the data."""
+        step is time step for the data."""
 
         #indexes for start and stop of laser impulse
         start_index = 0
@@ -475,9 +481,9 @@ class PowerMeter:
             return 0
 
         laser_amp = np.sum(
-            data[start_index:(start_index + stop_index)])/srat*self.sclr_sens
+            data[start_index:(start_index + stop_index)])*step*self.sclr_sens
         
-        print(f'Laser amp = {laser_amp:.1f} [uJ]')
+        print(f'Laser amp = {laser_amp:.5f} [uJ]')
 
         return laser_amp
     
