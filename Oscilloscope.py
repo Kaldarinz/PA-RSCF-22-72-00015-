@@ -398,6 +398,9 @@ class PowerMeter:
     # percentage of max amp, when we set begining of the impulse
     threshold = 0.05
     data = np.zeros((0))
+    #start and stop indexes of the measured signal
+    start_ind = 0
+    stop_ind = 0
 
     def __init__(self, 
                  osc: Oscilloscope,
@@ -455,6 +458,7 @@ class PowerMeter:
         max_amp = np.amax(data)
         try:
             start_index = np.where(data>(max_amp*self.threshold))[0][0]
+            self.start_ind = start_index
         except IndexError:
             print(f'{bcolors.WARNING}\
                   Problem in set_laser_amp start_index. Laser amp set to 0!\
@@ -463,6 +467,7 @@ class PowerMeter:
 
         try:
             stop_index = np.where(data[start_index:] < 0)[0][0]
+            self.stop_ind = stop_index + self.start_ind
         except IndexError:
             print(f'{bcolors.WARNING}\
                   Problem in set_laser_amp stop_index. Laser amp set to 0!\

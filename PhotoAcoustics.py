@@ -1386,6 +1386,8 @@ def track_power(hardware: Hardware, tune_width: int) -> float:
     aver = 10
     # ignore read if it is smaller than threshold*mean
     threshold = 0.01
+    # time delay between measurements in s
+    measure_delya = 0.05
     ###
 
     pm = hardware['power_meter'] #type: ignore
@@ -1438,22 +1440,22 @@ def track_power(hardware: Hardware, tune_width: int) -> float:
                       Mean (last {aver}) = {mean:.1f} [uJ],\
                           Std (last {aver}) = {data[:i].std():.1f} [uJ]'
             else:
-                if laser_amp < threshold*data[i-11:i].mean():
+                if laser_amp < threshold*data[i-aver:i].mean():
                     continue
-                mean = data[i-11:i].mean()
+                mean = data[i-aver:i].mean()
                 title = f'Energy={laser_amp:.1f} [uJ],\
                       Mean (last {aver}) = {mean:.1f} [uJ],\
-                          Std (last {aver}) = {data[i-11:i].std():.1f} [uJ]'
+                          Std (last {aver}) = {data[i-aver:i].std():.1f} [uJ]'
             data[i] = laser_amp
         
         else:
             tmp_data[:-1] = data[1:].copy()
             tmp_data[tune_width-1] = laser_amp
-            mean = tmp_data[tune_width-11:-1].mean()
+            mean = tmp_data[tune_width-aver:-1].mean()
             title = f'Energy={laser_amp:.1f} [uJ],\
                   Mean (last {aver}) = {mean:.1f} [uJ],\
-                      Std (last {aver}) = {tmp_data[tune_width-11:-1].std():.1f} [uJ]'
-            if tmp_data[tune_width-1] < threshold*tmp_data[tune_width-11:-1].mean():
+                      Std (last {aver}) = {tmp_data[tune_width-aver:-1].std():.1f} [uJ]'
+            if tmp_data[tune_width-1] < threshold*tmp_data[tune_width-aver:-1].mean():
                 continue
             data = tmp_data.copy()
         
@@ -1463,16 +1465,31 @@ def track_power(hardware: Hardware, tune_width: int) -> float:
         ax_pm.clear()
         ax_pa.clear()
         ax_pm.plot(pm.data)
+        #add markers for data start and stop
+        ax_pm.plot(
+            pm.start_ind,
+            pm.data[pm.start_ind],
+            'o',
+            alpha=0.4,
+            ms=12,
+            color='green')
+        ax_pm.plot(
+            pm.stop_ind,
+            pm.data[pm.stop_ind],
+            'o',
+            alpha=0.4,
+            ms=12,
+            color='red')
         ax_pa.plot(data)
         ax_pa.set_ylabel('Laser energy, [uJ]')
         ax_pa.set_title(title)
         ax_pa.set_ylim(bottom=0)
         fig.canvas.draw()
-        plt.pause(0.1)
+        plt.pause(0.01)
             
         if keyboard.is_pressed('q'):
             break
-        time.sleep(0.1)
+        time.sleep(measure_delya)
 
     return mean
 
