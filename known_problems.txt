@@ -1,0 +1,7 @@
+List of known problems and their fixes
+
+1. Problem: Thorlabs stages initialization using pylablib package results in error:
+AttributeError: module 'pylablib.core.devio.backend' has no attribute 'FT232DeviceBackend'
+
+Solution: copy ftd2xx64.dll from C:\Program Files\Thorlabs\APT\Drivers\APT\USB Driver\amd64
+to C:\Windows\System32 and rename it to ftd2xx.dll
