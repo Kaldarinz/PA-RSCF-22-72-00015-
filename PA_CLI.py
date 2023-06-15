@@ -5,9 +5,7 @@ from pathlib import Path
 import time
 import math
 from itertools import combinations
-from typing import Any, TypedDict
 
-from pylablib.devices import Thorlabs
 from scipy import signal
 import numpy as np
 import matplotlib.pyplot as plt
@@ -16,9 +14,11 @@ from InquirerPy.validator import PathValidator
 import matplotlib.gridspec as gridspec
 import keyboard
 
-import Validators as vd
-import Oscilloscope
-from PaData import PaData
+import modules.validators as vd
+from modules.PaData import PaData
+from modules.bcolors import bcolors
+import modules.oscilloscope as oscilloscope
+import modules.pa_logic as pa_logic
 
 config = {
     'pre_time':2,#[us] used for zoom data. Ref is max of filt PA signal
@@ -34,77 +34,15 @@ osc_params = {
     'trigger_channel': 'CHAN1',
     'pa_channel': 'CHAN2',
 }
-       
-class bcolors:
-    HEADER = '\033[95m'
-    OKBLUE = '\033[94m'
-    OKCYAN = '\033[96m'
-    OKGREEN = '\033[92m'
-    WARNING = '\033[93m'
-    FAIL = '\033[91m'
-    ENDC = '\033[0m'
-    BOLD = '\033[1m'
-    UNDERLINE = '\033[4m'
 
-class Hardware_base(TypedDict):
-    """Base TypedDict for references to hardware"""
-
-    stage_x: Any
-    stage_y: Any
-    osc: Oscilloscope.Oscilloscope
-
-class Hardware(Hardware_base, total=False):
-    """TypedDict for refernces to hardware"""
-    
-    power_meter: Oscilloscope.PowerMeter
-
-def init_hardware(hardware: Hardware) -> None:
-    """Initialize all hardware"""
-
-    if not hardware['stage_x'] and not hardware['stage_y']:
-        init_stages(hardware)   
-    else:
-        print(f'{bcolors.WARNING}Stages already initiated!{bcolors.ENDC}')
-
-    if hardware['osc'].not_found:
-        hardware['osc'].initialize()
-    else:
-        print(f'{bcolors.WARNING}Oscilloscope already initiated!{bcolors.ENDC}')
-
-    if hardware['stage_x'] and hardware['stage_y'] and not hardware['osc'].not_found:
-        hardware['power_meter'] = Oscilloscope.PowerMeter(hardware['osc'])
-        print(f'{bcolors.OKGREEN}Initialization complete!{bcolors.ENDC}')
-
-def init_stages(hardware: Hardware) -> None:
-    """Initiate stages."""
-
-    print('Initializing stages...')
-    stages = Thorlabs.list_kinesis_devices() # type: ignore
-
-    if len(stages) < 2:
-        print(f'{bcolors.WARNING}Less than 2 stages detected! Try again!{bcolors.ENDC}')
-
-    else:
-        stage1_ID = stages.pop()[0]
-        #motor units [m]
-        stage1 = Thorlabs.KinesisMotor(stage1_ID, scale='stage') # type: ignore
-        print(f'{bcolors.OKBLUE}Stage X{bcolors.ENDC} initiated. Stage X ID = {stage1_ID}')
-        hardware['stage_x'] = stage1
-
-        stage2_ID = stages.pop()[0]
-        #motor units [m]
-        stage2 = Thorlabs.KinesisMotor(stage2_ID, scale='stage') # type: ignore
-        print(f'{bcolors.OKBLUE}Stage Y{bcolors.ENDC} initiated. Stage X ID = {stage2_ID}')
-        hardware['stage_y'] = stage2
-
-def move_to(X: float, Y: float, hardware: Hardware) -> None:
+def move_to(X: float, Y: float, hardware: pa_logic.Hardware) -> None:
     """Move PA detector to (X,Y) position.
     Coordinates are in mm."""
     
     hardware['stage_x'].move_to(X/1000)
     hardware['stage_y'].move_to(Y/1000)
 
-def wait_stages_stop(hardware: Hardware) -> None:
+def wait_stages_stop(hardware: pa_logic.Hardware) -> None:
     """Waits untill all specified stages stop"""
 
     if hardware['stage_x']:
@@ -352,7 +290,7 @@ def bp_filter(data: PaData) -> None:
 
     data.bp_filter(low_cutof,high_cutof)
 
-def print_status(hardware: Hardware) -> None:
+def print_status(hardware: pa_logic.Hardware) -> None:
     """Prints current status and position of stages and oscilloscope"""
     
     if hardware['stage_x'] and hardware['stage_y']:
@@ -378,7 +316,7 @@ def print_status(hardware: Hardware) -> None:
     if hardware['stage_x'] and hardware['stage_y'] and not hardware['osc'].not_found:
         print(f'{bcolors.OKGREEN} All hardware is initiated!{bcolors.ENDC}')
 
-def home(hardware: Hardware) -> None:
+def home(hardware: pa_logic.Hardware) -> None:
     """Homes stages"""
 
     if hardware['stage_x'] and hardware['stage_y']:
@@ -390,7 +328,7 @@ def home(hardware: Hardware) -> None:
     else:
         print(f'{bcolors.WARNING} Stages are not initialized!{bcolors.ENDC}')
 
-def spectra(hardware: Hardware,
+def spectra(hardware: pa_logic.Hardware,
             old_data: PaData,
             store_raw: bool=False,
             chan_pm: str='CHAN1',
@@ -760,7 +698,7 @@ def spectra(hardware: Hardware,
     data.bp_filter()
     return data
           
-def track_power(hardware: Hardware, tune_width: int) -> float:
+def track_power(hardware: pa_logic.Hardware, tune_width: int) -> float:
     """Build energy graph.
     Return mean energy for last aver=10 measurements"""
 
@@ -878,7 +816,7 @@ def track_power(hardware: Hardware, tune_width: int) -> float:
 
     return mean
 
-def set_new_position(hardware: Hardware) -> None:
+def set_new_position(hardware: pa_logic.Hardware) -> None:
     """Queries new position and move PA detector to this position"""
 
     if not hardware['stage_x'] or not hardware['stage_y']:
@@ -1066,7 +1004,7 @@ def glass_calculator(wavelength: int,
 
     return result, target_pm_value, laser_energy
 
-def calc_filters_for_energy(hardware: Hardware) -> None:
+def calc_filters_for_energy(hardware: pa_logic.Hardware) -> None:
     """Provides required filter combination for an energy"""
 
     #max filters for calculation
@@ -1177,7 +1115,7 @@ def glan_calc_reverse(target_energy: float) -> float:
     
     return energy
 
-def glan_check(hardware: Hardware) -> None:
+def glan_check(hardware: pa_logic.Hardware) -> None:
     """Used to check glan performance"""
 
     # [uJ] maximum value, which does not damage PM
@@ -1490,10 +1428,10 @@ def export_to_txt(data: PaData) -> None:
 if __name__ == "__main__":
     
     #dict for keeping references to hardware
-    hardware: Hardware = {
+    hardware: pa_logic.Hardware = {
         'stage_x': 0,
         'stage_y': 0,
-        'osc': Oscilloscope.Oscilloscope()
+        'osc': oscilloscope.Oscilloscope()
     }
 
     # init class for data storage
@@ -1527,7 +1465,8 @@ if __name__ == "__main__":
             ).execute()
 
                 if stat_ans == 'Init hardware':
-                    init_hardware(hardware)
+                    pa_logic.init_hardware(hardware)
+                    print(hardware)
 
                 elif stat_ans == 'Home stages':
                     home(hardware)

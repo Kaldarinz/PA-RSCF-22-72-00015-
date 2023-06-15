@@ -1,21 +1,16 @@
+"""
+converter of old .npy format to the first version of .h5py format
+"""
+
 import h5py
 import numpy as np
 import os.path
 from pathlib import Path
 from InquirerPy import inquirer
 from InquirerPy.validator import PathValidator
-import validators as vd
 
-class bcolors:
-    HEADER = '\033[95m'
-    OKBLUE = '\033[94m'
-    OKCYAN = '\033[96m'
-    OKGREEN = '\033[92m'
-    WARNING = '\033[93m'
-    FAIL = '\033[91m'
-    ENDC = '\033[0m'
-    BOLD = '\033[1m'
-    UNDERLINE = '\033[4m'
+import modules.validators as vd
+from modules.bcolors import bcolors
 
 def load_data(old_data):
     """Loads data from a file"""

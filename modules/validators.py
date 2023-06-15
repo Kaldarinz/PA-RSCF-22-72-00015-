@@ -1,3 +1,7 @@
+"""
+module with imput validators for CLI
+"""
+
 from prompt_toolkit.validation import ValidationError, Validator
 
 cancel_option = '\n(press CTRL+Z to cancel)\n'

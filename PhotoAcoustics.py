@@ -16,9 +16,10 @@ from InquirerPy.validator import PathValidator
 import matplotlib.gridspec as gridspec
 import keyboard
 
-import Validators as vd
-import Oscilloscope
-from PaData import PaData
+import modules.validators as vd
+import modules.oscilloscope as oscilloscope
+from modules.PaData import PaData
+from modules.bcolors import bcolors
 
 config = {
     'pre_time':2,#[us] used for zoom data. Ref is max of filt PA signal
@@ -34,29 +35,18 @@ osc_params = {
     'trigger_channel': 'CHAN1',
     'pa_channel': 'CHAN2',
 }
-       
-class bcolors:
-    HEADER = '\033[95m'
-    OKBLUE = '\033[94m'
-    OKCYAN = '\033[96m'
-    OKGREEN = '\033[92m'
-    WARNING = '\033[93m'
-    FAIL = '\033[91m'
-    ENDC = '\033[0m'
-    BOLD = '\033[1m'
-    UNDERLINE = '\033[4m'
 
 class Hardware_base(TypedDict):
     """Base TypedDict for references to hardware"""
 
     stage_x: Any
     stage_y: Any
-    osc: Oscilloscope.Oscilloscope
+    osc: oscilloscope.Oscilloscope
 
 class Hardware(Hardware_base, total=False):
     """TypedDict for refernces to hardware"""
     
-    power_meter: Oscilloscope.PowerMeter
+    power_meter: oscilloscope.PowerMeter
 
 def init_hardware(hardware: Hardware) -> None:
     """Initialize all hardware"""
@@ -72,7 +62,7 @@ def init_hardware(hardware: Hardware) -> None:
         print(f'{bcolors.WARNING}Oscilloscope already initiated!{bcolors.ENDC}')
 
     if hardware['stage_x'] and hardware['stage_y'] and not hardware['osc'].not_found:
-        hardware['power_meter'] = Oscilloscope.PowerMeter(hardware['osc'])
+        hardware['power_meter'] = oscilloscope.PowerMeter(hardware['osc'])
         print(f'{bcolors.OKGREEN}Initialization complete!{bcolors.ENDC}')
 
 def init_stages(hardware: Hardware) -> None:
@@ -1493,7 +1483,7 @@ if __name__ == "__main__":
     hardware: Hardware = {
         'stage_x': 0,
         'stage_y': 0,
-        'osc': Oscilloscope.Oscilloscope()
+        'osc': oscilloscope.Oscilloscope()
     }
 
     # init class for data storage
