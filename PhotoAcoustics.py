@@ -969,7 +969,7 @@ def glass_calculator(wavelength: int,
     #dict for storing found valid combinations
     result = {}
     #file with filter's properties
-    filename = 'ColorGlass.txt'
+    filename = 'rsc\ColorGlass.txt'
 
     try:
         data = np.loadtxt(filename,skiprows=1)
@@ -1121,7 +1121,7 @@ def calc_filters_for_energy(hardware: Hardware) -> None:
 def glan_calc(energy: float) -> float:
     """Calculates energy at sample for a given energy"""
 
-    filename = 'GlanCalibr.txt' # file with Glan calibrations
+    filename = 'rsc\GlanCalibr.txt' # file with Glan calibrations
     fit_order = 1 #order of the polynom for fitting data
 
     try:
@@ -1147,7 +1147,7 @@ def glan_calc_reverse(target_energy: float) -> float:
     """Calculates energy at power meter placed 
     at glass reflection to obtain target_energy"""
 
-    filename = 'GlanCalibr.txt' # file with Glan calibrations
+    filename = 'rsc\GlanCalibr.txt' # file with Glan calibrations
     fit_order = 1 #order of the polynom for fitting data
 
     try:

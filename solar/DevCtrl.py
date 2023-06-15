@@ -1,13 +1,13 @@
-#!/usr/bin/env python
-""" Simple examples of calling C functions through ctypes module. """
+
 import ctypes
 import sys
 import pathlib
 from ctypes import wintypes
-from traceback import print_tb
+
 
 if __name__ == "__main__":
     libname = str(pathlib.Path().absolute())
+    libname += '\solar'
     print("libname: ", libname)
 
     # Load the shared library into c types.
@@ -27,11 +27,11 @@ if __name__ == "__main__":
 
     DevCtrl.InitDeviceEx2.argtypes = [wintypes.HWND, ctypes.c_byte, ctypes.c_char_p, ctypes.c_bool]
     DevCtrl.InitDeviceEx2.restype = ctypes.c_bool
-    path_to_cfg = b'C:\Users\antonpopov\python\solar\MS5204_15098.cfg\n'
-    initDev = DevCtrl.InitDeviceEx2(459460, 0, path_to_cfg, True)
-    print(f'Init = {initDev}')
+    path_to_cfg = bytes(libname, 'utf-8')
+    #initDev = DevCtrl.InitDeviceEx2(0, 1, path_to_cfg, True)
+    #print(f'Init = {initDev}')
 
-    DevCtrl.CheckConnection.restype = ctypes.c_bool
-    print(f'Init = {DevCtrl.CheckConnection()}')
+    DevCtrl.GetDevCtrlVersion.restype = ctypes.c_int
+    print(f'Init = {DevCtrl.GetDevCtrlVersion()}')
 
    

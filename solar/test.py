@@ -81,6 +81,7 @@ def main():
     print(f'HWND = {hWnd}')
         
     libname = str(pathlib.Path().absolute())
+    libname += '\solar'
     print("libname: ", libname)
 
     # Load the shared library into c types.
@@ -90,12 +91,6 @@ def main():
         print('Program terminated!')
 
     # You need tell ctypes that the function returns a float
-    DevCtrl.InitDeviceEx2.argtypes = [wintypes.HWND, ctypes.c_byte, ctypes.c_char_p, ctypes.c_bool]
-    DevCtrl.InitDeviceEx2.restype = ctypes.c_bool
-    path_to_cfg = b'C:\Users\antonpopov\python\solar\MS5204_15098.cfg\n'
-    initDev = DevCtrl.InitDeviceEx2(hWnd, 0, path_to_cfg, True)
-    print(f'Init = {initDev}')
-    
     if not hWnd:
         print('Failed to create window')
         exit(0)
