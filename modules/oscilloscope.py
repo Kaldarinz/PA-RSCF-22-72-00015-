@@ -7,6 +7,7 @@ import numpy as np
 import time
 
 from modules.bcolors import bcolors
+import modules.exceptions as exceptions
 
 class Oscilloscope:
     
@@ -44,18 +45,14 @@ class Oscilloscope:
                  ra_kernel_size: int=20 #smoothing by rolling average kernel
                  ) -> None:
         
-        print('Initiating oscilloscope...')
         rm = pv.ResourceManager()
         all_instruments = rm.list_resources()
         instrument_name = list(filter(lambda x: 'USB0::0x1AB1::0x04CE::DS1ZD212100403::INSTR' in x,
                                     all_instruments))
         if len(instrument_name) == 0:
-            print(f'{bcolors.WARNING}Oscilloscope was not found!{bcolors.ENDC}')
-            self.not_found = True
-            return
+            raise exceptions.OscilloscopeError('Oscilloscope was not found')
         else:
             self.__osc = rm.open_resource(instrument_name[0])
-            print('Oscilloscope found!')
         
         self.set_preamble()
         self.set_sample_rate()
@@ -77,8 +74,6 @@ class Oscilloscope:
         self.ch_points()
         
         self.not_found = False
-
-        print(f'{bcolors.OKBLUE}Oscilloscope{bcolors.ENDC} initiation complete!')
 
     def query(self, message: str) -> str:
         """Sends a querry to the oscilloscope"""

@@ -15,195 +15,11 @@ import matplotlib.gridspec as gridspec
 import keyboard
 
 import modules.validators as vd
-from modules.PaData import PaData
+from modules.pa_data import PaData
 from modules.bcolors import bcolors
 import modules.oscilloscope as oscilloscope
 import modules.pa_logic as pa_logic
-
-config = {
-    'pre_time':2,#[us] used for zoom data. Ref is max of filt PA signal
-    'post_time':13#[us] same for post time
-}
-
-osc_params = {
-    'pre_time': 100, # [us] start time of data storage before trigger
-    'frame_duration': 250, # [us] whole duration of the stored frame
-    'pm_response_time': 2500, # [us] response time of the power meter
-    'pm_pre_time': 300,
-    'laser_calib_uj': 2500000,
-    'trigger_channel': 'CHAN1',
-    'pa_channel': 'CHAN2',
-}
-
-def move_to(X: float, Y: float, hardware: pa_logic.Hardware) -> None:
-    """Move PA detector to (X,Y) position.
-    Coordinates are in mm."""
-    
-    hardware['stage_x'].move_to(X/1000)
-    hardware['stage_y'].move_to(Y/1000)
-
-def wait_stages_stop(hardware: pa_logic.Hardware) -> None:
-    """Waits untill all specified stages stop"""
-
-    if hardware['stage_x']:
-        hardware['stage_x'].wait_for_stop()
-    
-    if hardware['stage_y']:
-        hardware['stage_y'].wait_for_stop()
-
-def scan(hardware):
-    """Scan an area, which starts at 
-    at (x_start, y_start) and has a size (x_size, y_size) in mm.
-    Checks upper scan boundary.
-    Returns 2D array with normalized signal amplitudes and
-    3D array with the whole normalized PA data for each scan point.
-    Updates global state."""
-
-    stage_X = hardware['stage x']
-    stage_Y = hardware['stage y']
-    osc = hardware['osc']
-
-    if state['stages init'] and state['osc init']:
-        x_start = inquirer.text(
-            message='Enter X starting position [mm] ' + vd.cancel_option,
-            default='1.0',
-            mandatory=False,
-            validate=vd.ScanRangeValidator()
-        ).execute()
-        if x_start == None:
-            print(f'{bcolors.WARNING} Intput terminated!{bcolors.ENDC}')
-            return hardware
-        else:
-            x_start = float(x_start)
-        
-        y_start = inquirer.text(
-            message='Enter Y starting position [mm] ' + vd.cancel_option,
-            default='1.0',
-            mandatory=False,
-            validate=vd.ScanRangeValidator()
-        ).execute()
-        if y_start == None:
-            print(f'{bcolors.WARNING} Intput terminated!{bcolors.ENDC}')
-            return hardware
-        else:
-            y_start = float(y_start)
-
-        x_size = inquirer.text(
-            message='Enter X scan size [mm] ' + vd.cancel_option,
-            default= str(x_start + 3.0),
-            mandatory=False,
-            validate=vd.ScanRangeValidator()
-        ).execute()
-        if x_size == None:
-            print(f'{bcolors.WARNING} Intput terminated!{bcolors.ENDC}')
-            return hardware
-        else:
-            x_size = float(x_size)
-
-        y_size = inquirer.text(
-            message='Enter Y scan size [mm] ' + vd.cancel_option,
-            default= str(y_start + 3.0),
-            mandatory=False,
-            validate=vd.ScanRangeValidator()
-        ).execute()
-        if y_size == None:
-            print(f'{bcolors.WARNING} Intput terminated!{bcolors.ENDC}')
-            return hardware
-        else:
-            y_size = float(y_size)
-
-        x_points = inquirer.text(
-            message='Enter number of X scan points ' + vd.cancel_option,
-            default= '5',
-            mandatory=False,
-            validate=vd.ScanPointsValidator()
-        ).execute()
-        if x_points == None:
-            print(f'{bcolors.WARNING} Intput terminated!{bcolors.ENDC}')
-            return hardware
-        else:
-            x_points = int(x_points)
-
-        y_points = inquirer.text(
-            message='Enter number of Y scan points' + vd.cancel_option,
-            default= '5',
-            mandatory=False,
-            validate=vd.ScanPointsValidator()
-        ).execute()
-        if y_points == None:
-            print(f'{bcolors.WARNING} Intput terminated!{bcolors.ENDC}')
-            return hardware
-        else: 
-            y_points = int(y_points)
-
-        scan_frame = np.zeros((x_points,y_points)) #scan image of normalized amplitudes
-        scan_frame_full = np.zeros((x_points,y_points,4,osc.pa_frame_size)) #0-raw data, 1-filt data, 2-freq, 3-FFT
-
-        print('Scan starting...')
-        move_to(x_start, y_start, hardware) # move to starting point
-        wait_stages_stop(hardware)
-
-        fig, ax = plt.subplots(1,1)
-        im = ax.imshow(scan_frame)
-        fig.show()
-
-        for i in range(x_points):
-            for j in range(y_points):
-                x = x_start + i*(x_size/x_points)
-                y = y_start + j*(y_size/y_points)
-
-                move_to(x,y,hardware)
-                wait_stages_stop(hardware)
-
-                osc.measure()
-                if not osc.bad_read:
-                    if osc.laser_amp >1:
-                        scan_frame[i,j] = osc.signal_amp/osc.laser_amp
-                        scan_frame_full[i,j,0,:] = osc.current_pa_data/osc.laser_amp
-                        print(f'normalizaed amp at ({i}, {j}) is {scan_frame[i,j]:.3f}\n')
-                    else:
-                        scan_frame[i,j] = 0
-                        scan_frame_full[i,j,0,:] = 0
-                        print(f'{bcolors.WARNING} Bad data at point ({i},{j}){bcolors.ENDC}\n')
-                else:
-                    scan_frame[i,j] = 0
-                    scan_frame_full[i,j,0,:] = 0
-                    print(f'{bcolors.WARNING} Bad data at point ({i},{j}){bcolors.ENDC}\n')
-                    
-                im.set_data(scan_frame.transpose())
-                im.set_clim(vmax=np.amax(scan_frame))
-                fig.canvas.draw()
-                plt.pause(0.1)
-
-        print(f'{bcolors.OKGREEN}...Scan complete!{bcolors.ENDC}')
-
-        max_amp_index = np.unravel_index(scan_frame.argmax(), scan_frame.shape) # find position with max PA amp
-        if x_points > 1 and y_points > 1:
-            opt_x = x_start + max_amp_index[0]*x_size/(x_points-1)
-            opt_y = y_start + max_amp_index[1]*y_size/(y_points-1)
-            print(f'best pos indexes {max_amp_index}')
-            print(f'best X pos = {opt_x:.2f}')
-            print(f'best Y pos = {opt_y:.2f}')
-
-            confirm_move = inquirer.confirm(message='Move to optimal position?').execute()
-            if confirm_move:
-                print(f'Start moving to the optimal position...')
-                move_to(opt_x, opt_y, hardware)
-                wait_stages_stop(hardware)
-                print(f'{bcolors.OKGREEN}PA detector came to the optimal position!{bcolors.ENDC}')
-            
-            print(f'{bcolors.UNDERLINE} Do not forget to adjust datactor position along laser beam (manually)!{bcolors.ENDC}')
-
-    else:
-        if not state['stages init']:
-            print(f'{bcolors.WARNING} Stages are not initialized!{bcolors.ENDC}')
-        if not state['osc init']:
-            print(f'{bcolors.WARNING} Oscilloscope is not initialized!{bcolors.ENDC}')
-        return 0, 0, 0 
-
-    dt = 1/osc.sample_rate
-    state['scan data'] = True
-    return scan_frame, scan_frame_full, dt
+import modules.exceptions as exceptions
 
 def save_data(data: PaData) -> None:
     """"Save data"""
@@ -1425,6 +1241,37 @@ def export_to_txt(data: PaData) -> None:
     else:
         print(f'{bcolors.WARNING} Unknown command in data export menu {bcolors.ENDC}')
 
+def warn_print(statement: str) -> None:
+    """Prints in yellow"""
+
+    print(f'{bcolors.WARNING}Warning! {statement}!{bcolors.ENDC}')
+
+def success_print(statement: str) -> None:
+    """prints in OK blue"""
+
+    print(f'{bcolors.OKBLUE}{statement}!{bcolors.ENDC}')
+
+def green_print(statement: str) -> None:
+    """prints in OK green"""
+
+    print(f'{bcolors.OKGREEN}{statement}!{bcolors.ENDC}')
+
+def init(hardware: pa_logic.Hardware) -> None:
+    """Hardware initiation"""
+
+    print('Start hardware initialization...')
+    try:
+        pa_logic.init_hardware(hardware)
+    except exceptions.StageError as err:
+        warn_print(err.value)
+    except exceptions.OscilloscopeError as err:
+        warn_print(err.value)
+    else:
+        success_print(f'Stage X initiated. Stage X ID = {hardware["stage_x"]}')
+        success_print(f'Stage Y initiated. Stage Y ID = {hardware["stage_y"]}')
+        success_print('Oscilloscope was initiated')
+        green_print('Initialization complete')
+
 if __name__ == "__main__":
     
     #dict for keeping references to hardware
@@ -1465,8 +1312,7 @@ if __name__ == "__main__":
             ).execute()
 
                 if stat_ans == 'Init hardware':
-                    pa_logic.init_hardware(hardware)
-                    print(hardware)
+                    init(hardware)
 
                 elif stat_ans == 'Home stages':
                     home(hardware)
