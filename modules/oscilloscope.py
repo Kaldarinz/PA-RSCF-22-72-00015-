@@ -75,6 +75,13 @@ class Oscilloscope:
         
         self.not_found = False
 
+    def connection_check(self) -> None:
+        """Checks connection to the oscilloscope"""
+        self.__osc.write(':SYST:RAM?') # type: ignore
+        data = np.frombuffer(self.__osc.read_raw(), dtype=np.uint8)[13] # type: ignore
+        print(type(data))
+        print(data)
+
     def query(self, message: str) -> str:
         """Sends a querry to the oscilloscope"""
 

@@ -20,23 +20,24 @@ class Hardware(Hardware_base, total=False):
     """TypedDict for refernces to hardware"""
     
     power_meter: oscilloscope.PowerMeter
+    stage_z: Any
 
 def init_hardware(hardware: Hardware) -> None:
     """Initialize all hardware"""
 
-    if not hardware['stage_x'] and not hardware['stage_y']:
-        init_stages(hardware)
+    staes_amount = 2 #can be only 2 or 3
+    init_stages(hardware, staes_amount)
 
-    if hardware['osc'].not_found:
-        hardware['osc'].initialize()
+    hardware['osc'].initialize()
+    hardware['osc'].connection_check()
 
-def init_stages(hardware: Hardware) -> None:
-    """Initiate Thorlabs KDC based stages."""
+def init_stages(hardware: Hardware, amount: int) -> None:
+    """Initiate <amount> Thorlabs KDC based stages"""
 
     stages = Thorlabs.list_kinesis_devices() # type: ignore
 
-    if len(stages) < 2:
-        raise exceptions.StageError('Less than 2 stages found!')
+    if len(stages) < amount:
+        raise exceptions.StageError(f'Less than {amount} stages found!')
     else:
         stage1_ID = stages.pop()[0]
         #motor units [m]
@@ -47,6 +48,12 @@ def init_stages(hardware: Hardware) -> None:
         #motor units [m]
         stage2 = Thorlabs.KinesisMotor(stage2_ID, scale='stage') # type: ignore
         hardware['stage_y'] = stage2
+
+        if amount == 3:
+            stage3_ID = stages.pop()[0]
+            #motor units [m]
+            stage3 = Thorlabs.KinesisMotor(stage3_ID, scale='stage') # type: ignore
+            hardware['stage_z'] = stage3
 
 def move_to(X: float, Y: float, hardware: Hardware) -> None:
     """Move PA detector to (X,Y) position.
@@ -63,3 +70,13 @@ def wait_stages_stop(hardware: Hardware) -> None:
     
     if hardware['stage_y']:
         hardware['stage_y'].wait_for_stop()
+
+def home(hardware: Hardware) -> None:
+    """Homes stages"""
+
+    if hardware['stage_x'] and hardware['stage_y']:
+        hardware['stage_x'].home(sync=False,force=True)
+        hardware['stage_y'].home(sync=False,force=True)
+        wait_stages_stop(hardware)
+    else:
+        raise exceptions.StageError('Stages are not initialized')

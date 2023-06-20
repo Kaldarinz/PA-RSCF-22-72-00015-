@@ -2,8 +2,23 @@
 import ctypes
 import sys
 import pathlib
-from ctypes import wintypes
+from ctypes import c_char_p, wintypes
+import win32gui
 
+class Handle():
+
+    def __init__(self) -> None:
+        self.hwnd = 0
+
+    def enum_handler(self, hwnd, lParam):
+        if win32gui.GetWindowText(hwnd) == 'MS5204i_15098':
+            print(f'HWND = {hwnd}')
+            self.hwnd = hwnd
+    
+    def get_handle(self):
+        win32gui.EnumWindows(self.enum_handler, None)
+
+    
 
 if __name__ == "__main__":
     libname = str(pathlib.Path().absolute())
@@ -16,20 +31,13 @@ if __name__ == "__main__":
     else:
         print('Program terminated!')
 
-    # You need tell ctypes that the function returns a float
-
-    DevCtrl.GetSupportedDevicesCount.restype = ctypes.c_int
-    answer = DevCtrl.GetSupportedDevicesCount()
-    print(f"Answer = {answer}")
-
-    DevCtrl.InitInstrument.restype = ctypes.c_bool
-    print(f'Init = {DevCtrl.InitInstrument()}')
-
     DevCtrl.InitDeviceEx2.argtypes = [wintypes.HWND, ctypes.c_byte, ctypes.c_char_p, ctypes.c_bool]
     DevCtrl.InitDeviceEx2.restype = ctypes.c_bool
-    path_to_cfg = bytes(libname, 'utf-8')
-    #initDev = DevCtrl.InitDeviceEx2(0, 1, path_to_cfg, True)
-    #print(f'Init = {initDev}')
+    path_to_cfg = ctypes.c_char_p(bytes(libname, 'utf-8'))
+    handle = Handle()
+    handle.get_handle()
+    initDev = DevCtrl.InitDeviceEx2(handle.hwnd, 0, path_to_cfg, True)
+    print(f'Init = {initDev}')
 
     DevCtrl.GetDevCtrlVersion.restype = ctypes.c_int
     print(f'Init = {DevCtrl.GetDevCtrlVersion()}')

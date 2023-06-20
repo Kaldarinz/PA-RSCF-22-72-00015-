@@ -133,16 +133,15 @@ def print_status(hardware: pa_logic.Hardware) -> None:
         print(f'{bcolors.OKGREEN} All hardware is initiated!{bcolors.ENDC}')
 
 def home(hardware: pa_logic.Hardware) -> None:
-    """Homes stages"""
+    """CLI for Homes stages"""
 
-    if hardware['stage_x'] and hardware['stage_y']:
-        hardware['stage_x'].home(sync=False,force=True)
-        hardware['stage_y'].home(sync=False,force=True)
-        print('Homing started...')
-        wait_stages_stop(hardware)
-        print(f'{bcolors.OKGREEN}...Homing complete!{bcolors.ENDC}')
+    print('Homing started...')
+    try:
+        pa_logic.home(hardware)
+    except exceptions.StageError as err:
+        warn_print(err.value)
     else:
-        print(f'{bcolors.WARNING} Stages are not initialized!{bcolors.ENDC}')
+        green_print('...Homing complete')
 
 def spectra(hardware: pa_logic.Hardware,
             old_data: PaData,
@@ -1259,7 +1258,7 @@ def green_print(statement: str) -> None:
 def init(hardware: pa_logic.Hardware) -> None:
     """Hardware initiation"""
 
-    print('Start hardware initialization...')
+    print('Starting hardware initialization...')
     try:
         pa_logic.init_hardware(hardware)
     except exceptions.StageError as err:
