@@ -28,17 +28,29 @@ def init_hardware(hardware: Hardware) -> None:
     staes_amount = 2 #can be only 2 or 3
     init_stages(hardware, staes_amount)
 
-    hardware['osc'].initialize()
-    hardware['osc'].connection_check()
+    try:
+        hardware['osc'].connection_check()
+    except exceptions.OscilloscopeError:
+        hardware['osc'].initialize()
+    
 
 def init_stages(hardware: Hardware, amount: int) -> None:
     """Initiate <amount> Thorlabs KDC based stages"""
 
     stages = Thorlabs.list_kinesis_devices() # type: ignore
 
+    connected = True
+    try:
+        hardware['stage_x'].get_position()
+        hardware['stage_y'].get_position()
+        if amount == 3:
+            hardware['stage_z'].get_position()
+    except:
+        connected = False
+
     if len(stages) < amount:
         raise exceptions.StageError(f'Less than {amount} stages found!')
-    else:
+    elif not connected:
         stage1_ID = stages.pop()[0]
         #motor units [m]
         stage1 = Thorlabs.KinesisMotor(stage1_ID, scale='stage') # type: ignore

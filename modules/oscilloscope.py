@@ -53,6 +53,7 @@ class Oscilloscope:
             raise exceptions.OscilloscopeError('Oscilloscope was not found')
         else:
             self.__osc = rm.open_resource(instrument_name[0])
+            print(self.__osc)
         
         self.set_preamble()
         self.set_sample_rate()
@@ -77,10 +78,11 @@ class Oscilloscope:
 
     def connection_check(self) -> None:
         """Checks connection to the oscilloscope"""
-        self.__osc.write(':SYST:RAM?') # type: ignore
-        data = np.frombuffer(self.__osc.read_raw(), dtype=np.uint8)[13] # type: ignore
-        print(type(data))
-        print(data)
+        try:
+            self.__osc.write(':SYST:GAM?') # type: ignore
+            np.frombuffer(self.__osc.read_raw(), dtype=np.uint8) # type: ignore
+        except:
+            raise exceptions.OscilloscopeError('No connection to the oscilloscope')
 
     def query(self, message: str) -> str:
         """Sends a querry to the oscilloscope"""
