@@ -10,22 +10,35 @@ from modules.bcolors import bcolors
 import modules.exceptions as exceptions
 
 class Oscilloscope:
-    
+    """Rigol MSO1000Z/DS1000Z"""  
+
     #defaults
-    max_read_points = 250000
-    scr_data_p = 1200
-    preamble = {}
+    MAX_MEMORY_READ = 250000 #max read data points from osc memory
+    MAX_SCR_POINTS = 1200 # fixed length of screen data
+    HEADER_LEN = 12 # length of header in read data
+
+    #attributes
     sample_rate = 0
-    ch1_data = np.zeros(0)
-    ch1_amp = 0
-    ch1_raw = False
+    format = None # 0 - BYTE, 1 - WORD, 2 - ASC 
+    read_type = None # 0 - NORMal, 1 - MAXimum, 2 RAW
+    points = 0 # between 1 and 240000000
+    averages = 0 # number of averages in average mode, 1 in other modes
+    xincrement = 0 # time difference brtween two points
+    xorigin = 0 # start time of the waveform data
+    xreference = 0 # reference time of the data point
+    yincrement = 0 # the waveform increment in the Y direction
+    yorigin = 0 # vertical offset relative to the yreference
+    yreference = 0 # vertical reference position in the Y direction
+    ch1_data = np.zeros(0) # array with data from channel 1
+    ch1_amp = 0 # amplitude of data in channel 1
+    ch1_raw = False # format of data in ch1_data 
     ch2_data = np.zeros(0)
     ch2_amp = 0
     ch2_raw = False
-    ch1_scr_data = np.zeros(scr_data_p)
+    ch1_scr_data = np.zeros(MAX_SCR_POINTS)
     ch1_scr_amp = 0
     ch1_scr_raw = False
-    ch2_scr_data = np.zeros(scr_data_p)
+    ch2_scr_data = np.zeros(MAX_SCR_POINTS)
     ch2_scr_amp = 0
     ch2_scr_raw = False
     
@@ -93,18 +106,16 @@ class Oscilloscope:
         """Set or update preamble"""
 
         preamble_raw = self.__osc.query(':WAV:PRE?').split(',') # type: ignore
-        self.preamble.update({
-            'format': int(preamble_raw[0]), # 0 - BYTE, 1 - WORD, 2 - ASC 
-            'type': int(preamble_raw[1]), # 0 - NORMal, 1 - MAXimum, 2 RAW
-            'points': int(preamble_raw[2]), # between 1 and 240000000
-            'count': int(preamble_raw[3]), # the number of averages in the average sample mode and 1 in other modes
-            'xincrement': float(preamble_raw[4]), # the time difference brtween two neighboring points in the X direction
-            'xorigin': float(preamble_raw[5]), # the start time of the waveform data in the X direction
-            'xreference': float(preamble_raw[6]), # the reference time of the data point in the X direction
-            'yincrement': float(preamble_raw[7]), # the waveform increment in the Y direction
-            'yorigin': float(preamble_raw[8]), # the vertical offset relative to the "Vertical Reference Position" in the Y direction
-            'yreference': float(preamble_raw[9]) #the vertical reference position in the Y direction
-        })
+        self.format = int(preamble_raw[0]) 
+        self.read_type = int(preamble_raw[1])
+        self.points = int(preamble_raw[2])
+        self.averages = int(preamble_raw[3])
+        self.xincrement = float(preamble_raw[4])
+        self.xorigin = float(preamble_raw[5])
+        self.xreference = float(preamble_raw[6])
+        self.yincrement = float(preamble_raw[7])
+        self.yorigin = float(preamble_raw[8])
+        self.yreference = float(preamble_raw[9])
 
     def set_sample_rate(self) -> None:
         """Updates sample rate"""
@@ -166,20 +177,20 @@ class Oscilloscope:
             data = np.zeros(self.ch1_dur_p)
             
             # по факту триггерный сигнал в середине сохранённого диапазона.
-            data_start = (int(self.preamble['points']/2) - self.ch1_pre_p) # выбираем начальную точку
+            data_start = (int(self.points/2) - self.ch1_pre_p) # выбираем начальную точку
             
             #if we can read the whole data in 1 read
-            if self.max_read_points > self.ch1_dur_p:
+            if self.MAX_MEMORY_READ > self.ch1_dur_p:
                 self.__osc.write(':WAV:STAR ' + str(data_start + 1)) # type: ignore
                 self.__osc.write(':WAV:STOP ' + str(self.ch1_dur_p + data_start)) # type: ignore
                 self.__osc.write(':WAV:DATA?') # type: ignore
                 data_chunk = np.frombuffer(self.__osc.read_raw(), dtype=np.uint8) # type: ignore
                 if not raw:
-                    data_chunk = (data_chunk - 
-                                  self.preamble['xreference'] - 
-                                  self.preamble['yorigin']) * self.preamble['yincrement']
-                if self.ch1_dur_p == len(data_chunk[12:]):
-                    data = data_chunk[12:]
+                    data_chunk = (data_chunk
+                                  - self.xreference
+                                  - self.yorigin) * self.yincrement
+                if self.ch1_dur_p == len(data_chunk[self.HEADER_LEN:]):
+                    data = data_chunk[self.HEADER_LEN:]
                 else:
                     self.bad_read = True
             #if several read are necessary
@@ -197,32 +208,32 @@ class Oscilloscope:
                     self.__osc.write(':WAV:DATA?') # type: ignore
                     data_chunk = np.frombuffer(self.__osc.read_raw(), dtype=np.uint8) # type: ignore
                     if not raw:
-                        data_chunk = (data_chunk -
-                                      self.preamble['xreference'] -
-                                      self.preamble['yorigin']) * self.preamble['yincrement']
+                        data_chunk = (data_chunk
+                                      - self.xreference
+                                      - self.yorigin) * self.yincrement
                     if (self.ch1_dur_p - (i+1)*250000) > 0:
-                        data[i*250000:(i+1)*250000] = data_chunk[12:].copy()
+                        data[i*250000:(i+1)*250000] = data_chunk[self.HEADER_LEN:].copy()
                     else:
-                        data[i*250000:-1] = data_chunk[12:].copy()
+                        data[i*250000:-1] = data_chunk[self.HEADER_LEN:].copy()
 
         elif channel == 'CHAN2':
             data = np.zeros(self.ch2_dur_p)
             
             # по факту триггерный сигнал в середине сохранённого диапазона.
-            data_start = (int(self.preamble['points']/2) - self.ch2_pre_p) # выбираем начальную точку
+            data_start = (int(self.points/2) - self.ch2_pre_p) # выбираем начальную точку
             
             #if we can read the whole data in 1 read
-            if self.max_read_points > self.ch2_dur_p:
+            if self.MAX_MEMORY_READ > self.ch2_dur_p:
                 self.__osc.write(':WAV:STAR ' + str(data_start + 1)) # type: ignore
                 self.__osc.write(':WAV:STOP ' + str(self.ch2_dur_p + data_start)) # type: ignore
                 self.__osc.write(':WAV:DATA?') # type: ignore
                 data_chunk = np.frombuffer(self.__osc.read_raw(), dtype=np.uint8) # type: ignore
                 if not raw:
-                    data_chunk = (data_chunk - 
-                                  self.preamble['xreference'] - 
-                                  self.preamble['yorigin']) * self.preamble['yincrement']
-                if self.ch2_dur_p == len(data_chunk[12:]):
-                    data = data_chunk[12:]
+                    data_chunk = (data_chunk
+                                  - self.xreference
+                                  - self.yorigin) * self.yincrement
+                if self.ch2_dur_p == len(data_chunk[self.HEADER_LEN:]):
+                    data = data_chunk[self.HEADER_LEN:]
                 else:
                     self.bad_read = True
             #if several read are necessary
@@ -240,13 +251,13 @@ class Oscilloscope:
                     self.__osc.write(':WAV:DATA?') # type: ignore
                     data_chunk = np.frombuffer(self.__osc.read_raw(), dtype=np.uint8) # type: ignore
                     if not raw:
-                        data_chunk = (data_chunk -
-                                      self.preamble['xreference'] -
-                                      self.preamble['yorigin']) * self.preamble['yincrement']
+                        data_chunk = (data_chunk
+                                      - self.xreference
+                                      - self.yorigin) * self.yincrement
                     if (self.ch2_dur_p - (i+1)*250000) > 0:
-                        data[i*250000:(i+1)*250000] = data_chunk[12:].copy()
+                        data[i*250000:(i+1)*250000] = data_chunk[self.HEADER_LEN:].copy()
                     else:
-                        data[i*250000:-1] = data_chunk[12:].copy()
+                        data[i*250000:-1] = data_chunk[self.HEADER_LEN:].copy()
         else:
             print('Wrong channel for read!')
             self.bad_read = True
@@ -286,18 +297,18 @@ class Oscilloscope:
             self.__osc.write(':WAV:MODE NORM') # type: ignore
             self.__osc.write(':WAV:FORM BYTE') # type: ignore
             self.__osc.write(':WAV:STAR 1') # type: ignore
-            self.__osc.write(':WAV:STOP ' + str(self.scr_data_p)) # type: ignore
+            self.__osc.write(':WAV:STOP ' + str(self.MAX_SCR_POINTS)) # type: ignore
             self.__osc.write(':WAV:DATA?') # type: ignore
             data_chunk = np.frombuffer(self.__osc.read_raw(), # type: ignore
                                        dtype=np.uint8) 
             #choose format, in which to store data
             if raw:
-                data = data_chunk[12:].copy()
+                data = data_chunk[self.HEADER_LEN:].copy()
             else:
-                dy = self.preamble['yincrement']
-                data = data_chunk[12:].astype(np.float64)*dy
+                dy = self.yincrement
+                data = data_chunk[self.HEADER_LEN:].astype(np.float64)*dy
 
-            if len(data) == self.scr_data_p:
+            if len(data) == self.MAX_SCR_POINTS:
                 if smooth:
                     data = self.rolling_average(data)
                 if correct_bl:
@@ -320,13 +331,13 @@ class Oscilloscope:
             self.__osc.write(':WAV:MODE NORM') # type: ignore
             self.__osc.write(':WAV:FORM BYTE') # type: ignore
             self.__osc.write(':WAV:STAR 1') # type: ignore
-            self.__osc.write(':WAV:STOP ' + str(self.scr_data_p)) # type: ignore
+            self.__osc.write(':WAV:STOP ' + str(self.MAX_SCR_POINTS)) # type: ignore
             self.__osc.write(':WAV:DATA?') # type: ignore
             data_chunk = np.frombuffer(self.__osc.read_raw(), # type: ignore
                                        dtype=np.uint8) 
-            data = data_chunk[12:].astype(np.float64)
+            data = data_chunk[self.HEADER_LEN:].astype(np.float64)
 
-            if len(data) == self.scr_data_p:
+            if len(data) == self.MAX_SCR_POINTS:
                 if smooth:
                     data = self.rolling_average(data)
                 if correct_bl:
@@ -441,7 +452,7 @@ class PowerMeter:
         
         self.data = self.osc.ch1_scr_data.copy()
         laser_amp = self.energy_from_data(self.data,
-                                          self.osc.preamble['xincrement'])
+                                          self.osc.xincrement)
 
         return laser_amp
     
