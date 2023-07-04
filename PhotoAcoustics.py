@@ -1,3 +1,8 @@
+"""
+Stable version at the end of May 2023
+Only for bux fixes
+"""
+
 from __future__ import annotations
 
 import os.path

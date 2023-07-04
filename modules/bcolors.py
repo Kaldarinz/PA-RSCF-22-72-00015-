@@ -1,5 +1,5 @@
 """
-This module is imported for command line prompt coloration
+Text highlight for command line prompt
 """
 
 class bcolors:

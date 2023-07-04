@@ -1,5 +1,5 @@
 """
-Classes for oscilloscope based devices
+Oscilloscope based devices
 """
 
 import pyvisa as pv
