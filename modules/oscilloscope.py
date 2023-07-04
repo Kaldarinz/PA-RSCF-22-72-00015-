@@ -16,6 +16,7 @@ class Oscilloscope:
     MAX_MEMORY_READ = 250000 #max read data points from osc memory
     MAX_SCR_POINTS = 1200 # fixed length of screen data
     HEADER_LEN = 12 # length of header in read data
+    OSC_ID = 'USB0::0x1AB1::0x04CE::DS1ZD212100403::INSTR' # osc name
 
     #attributes
     sample_rate = 0
@@ -23,9 +24,9 @@ class Oscilloscope:
     read_type = None # 0 - NORMal, 1 - MAXimum, 2 RAW
     points = 0 # between 1 and 240000000
     averages = 0 # number of averages in average mode, 1 in other modes
-    xincrement = 0 # time difference brtween two points
-    xorigin = 0 # start time of the waveform data
-    xreference = 0 # reference time of the data point
+    xincrement = 0 # [s] time difference brtween two points
+    xorigin = 0 # [s] start time of the waveform data
+    xreference = 0 # [s] reference time of the data point
     yincrement = 0 # the waveform increment in the Y direction
     yorigin = 0 # vertical offset relative to the yreference
     yreference = 0 # vertical reference position in the Y direction
@@ -42,11 +43,11 @@ class Oscilloscope:
     ch2_scr_amp = 0
     ch2_scr_raw = False
     
-    bad_read = False
-    not_found = True
+    bad_read = False # flag for indication of error during read
+    not_found = True # flag for state of osc
 
     def __init__(self) -> None:
-        """oscilloscope class for Rigol MS1000Z device.
+        """oscilloscope class for Rigol MSO1000Z/DS1000Z device.
         Intended to be used as a module in other scripts.
         Call 'initialize' before working with Oscilloscope."""
         
@@ -55,12 +56,12 @@ class Oscilloscope:
                  chan1_post: int=2500, #[us] post time for channel 1
                  chan2_pre: int=100, #[us] pre time for channel 2
                  chan2_post: int=150, #[us] post time for channel 2
-                 ra_kernel_size: int=20 #smoothing by rolling average kernel
+                 ra_kernel_size: int=20 #smoothing by rolling average
                  ) -> None:
         
         rm = pv.ResourceManager()
         all_instruments = rm.list_resources()
-        instrument_name = list(filter(lambda x: 'USB0::0x1AB1::0x04CE::DS1ZD212100403::INSTR' in x,
+        instrument_name = list(filter(lambda x: self.OSC_ID in x,
                                     all_instruments))
         if len(instrument_name) == 0:
             raise exceptions.OscilloscopeError('Oscilloscope was not found')
@@ -103,7 +104,7 @@ class Oscilloscope:
         return self.__osc.query(message) # type: ignore
         
     def set_preamble(self) -> None:
-        """Set or update preamble"""
+        """Sets osc params"""
 
         preamble_raw = self.__osc.query(':WAV:PRE?').split(',') # type: ignore
         self.format = int(preamble_raw[0]) 
