@@ -13,6 +13,7 @@ import typing
 
 import pyvisa as pv
 import numpy as np
+import numpy.typing as npt
 import time
 import pint
 
@@ -49,8 +50,8 @@ class Oscilloscope:
     ch1_pre_p: int = 0 # same in points
     ch1_post_p: int = 0
     ch1_dur_p: int = 0
-    ch1_data: typing.Union[np.ndarray,
-                           pint.Quantity] = np.zeros(0).astype(np.uint8)
+    ch1_data: pint.Quantity
+    ch1_data_raw: npt.NDArray[np.uint8]
     ch1_amp: float = 0 # amplitude of data in channel 1
     ch1_raw = False # format of data in ch1_data
     ch1_scr_data = np.zeros(MAX_SCR_POINTS)
@@ -63,7 +64,8 @@ class Oscilloscope:
     ch1_pre_p: int = 0 # same in points
     ch1_post_p: int = 0
     ch1_dur_p: int = 0
-    ch2_data = np.zeros(0)
+    ch2_data: pint.Quantity
+    ch2_data_raw: npt.NDArray[np.uint8]
     ch2_amp: float = 0
     ch2_raw = False
     ch2_scr_data = np.zeros(MAX_SCR_POINTS)
@@ -200,7 +202,9 @@ class Oscilloscope:
         tmp_array[-(border):] = tmp_array[-border]
         return tmp_array
 
-    def _one_chunk_read(self, start: int, dur: int) -> np.ndarray:
+    def _one_chunk_read(self,
+                        start: int,
+                        dur: int) -> npt.NDArray[np.uint8]:
         """read from memory in single chunk"""
 
         self.__osc.write(':WAV:STAR ' # type: ignore
@@ -208,13 +212,16 @@ class Oscilloscope:
         self.__osc.write(':WAV:STOP ' # type: ignore
                             + str(dur + start))
         self.__osc.write(':WAV:DATA?') # type: ignore
-        return np.frombuffer(self.__osc.read_raw(), # type: ignore
+        data = np.frombuffer(self.__osc.read_raw(), # type: ignore
                              dtype=np.uint8)[self.HEADER_LEN:]
+        return data.astype(np.uint8)
 
-    def _multi_chunk_read(self, start: int, dur: int) -> np.ndarray:
+    def _multi_chunk_read(self,
+                          start: int,
+                          dur: int) -> npt.NDArray[np.uint8]:
         """reads from memory in multiple chunks"""
 
-        data = np.zeros(dur)
+        data = np.zeros(dur).astype(np.uint8)
         data_frames = int(dur/self.MAX_MEMORY_READ) + 1
         for i in range(data_frames):
             start_i = i*self.MAX_MEMORY_READ
@@ -243,7 +250,7 @@ class Oscilloscope:
 
         return data
 
-    def to_volts(self, data: np.ndarray) -> pint.Quantity:
+    def to_volts(self, data: npt.NDArray[np.uint8]) -> pint.Quantity:
         """converts data to volts"""
 
         return (data
@@ -251,7 +258,7 @@ class Oscilloscope:
                 - self.yorigin)*self.yincrement*ureg('volt')
     
     def _ok_read(self, dur: int,
-                 data_chunk: typing.Union[np.ndarray, pint.Quantity]) -> bool:
+                 data_chunk: npt.NDArray[np.uint8]) -> bool:
         """verify that read data have necessary size"""
 
         if dur == len(data_chunk):
@@ -260,7 +267,7 @@ class Oscilloscope:
             self.bad_read = True
             return False
 
-    def read_data(self, channel: str, raw: bool) -> None:
+    def read_data(self, channel: str) -> None:
         """Reads data from the specified channel.
         Automatically handles read size"""
 
@@ -284,10 +291,9 @@ class Oscilloscope:
             else:
                 data_chunk = self._multi_chunk_read(data_start,
                                                     self.ch1_dur_p)
-            if not raw:
-                data_chunk = self.to_volts(data_chunk)
+ 
             if self._ok_read(self.ch1_dur_p, data_chunk):
-                self.ch1_data = data_chunk
+                self.ch1_data_raw = data_chunk
 
         elif channel == 'CHAN2':
             # trigger is in the mid of memory
@@ -297,14 +303,12 @@ class Oscilloscope:
             #if we can read the whole data in 1 read
             if self.MAX_MEMORY_READ > self.ch2_dur_p:
                 data_chunk = self._one_chunk_read(data_start,
-                                                  self.ch2_dur_p).astype(np.uint8)
+                                                  self.ch2_dur_p)
             else:
                 data_chunk = self._multi_chunk_read(data_start,
-                                                    self.ch2_dur_p).astype(np.uint8)
-            if not raw:
-                data_chunk = self.to_volts(data_chunk)
+                                                    self.ch2_dur_p)
             if self._ok_read(self.ch2_dur_p, data_chunk):
-                self.ch2_data = data_chunk
+                self.ch2_data_raw = data_chunk
         
         else:
             self.bad_read = True
@@ -417,6 +421,7 @@ class Oscilloscope:
             self.read_data('CHAN1', raw)
             if not self.bad_read:
                 if smooth:
+                    # здесь надо менять, если данные в raw, то их не выйдет усреднять
                     self.ch1_data = self.rolling_average(self.ch1_data)
                 if correct_bl:
                     data = self.baseline_correction(data)
