@@ -1,11 +1,15 @@
 import pint
+import numpy as np
 
-ureg = pint.UnitRegistry()
-ureg.default_format ='P'
+ureg = pint.UnitRegistry(auto_reduce_dimensions=True)
 
-accel = 1.3 * ureg('um/second**2')
+arr = np.ones(50)
+t = ureg('1ns')
+arr2 = arr*t
 
-def test_func(quant: pint.Quantity):
-    print(f'{quant:~P}')
+print(arr2)
 
-test_func(accel)
+kernel = np.ones(4)
+arr2 = np.convolve(arr2.magnitude,kernel)*arr2.units
+
+print(type(arr2))

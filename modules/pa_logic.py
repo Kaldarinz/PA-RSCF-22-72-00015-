@@ -6,8 +6,9 @@ from typing import Any, TypedDict
 
 from pylablib.devices import Thorlabs
 import modules.oscilloscope as oscilloscope
-from modules.bcolors import bcolors
+import modules.bcolors as bcolors
 import modules.exceptions as exceptions
+
 
 class Hardware_base(TypedDict):
     """Base TypedDict for references to hardware"""
