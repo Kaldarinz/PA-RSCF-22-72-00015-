@@ -6,8 +6,9 @@ import pyvisa as pv
 import numpy as np
 import time
 
-from modules.bcolors import bcolors
-import modules.exceptions as exceptions
+import bcolors
+import exceptions
+from . import pint, ureg
 
 class Oscilloscope:
     """Rigol MSO1000Z/DS1000Z"""  
@@ -52,7 +53,7 @@ class Oscilloscope:
         Call 'initialize' before working with Oscilloscope."""
         
     def initialize(self,
-                 chan1_pre: int=100, #[us] pre time for channel 1
+                 chan1_pre: pint.Quantity=ureg('150us'), #pre time for channel 1
                  chan1_post: int=2500, #[us] post time for channel 1
                  chan2_pre: int=100, #[us] pre time for channel 2
                  chan2_post: int=150, #[us] post time for channel 2
