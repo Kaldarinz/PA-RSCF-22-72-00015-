@@ -6,17 +6,17 @@ General usage procedure:
 1. Create class instance
 2. Call initialize
 3. Call measure or measure_scr
+4. check bad_read flag
+5. read data from corresponding 'data' attribute
 
 data can be accessed from ch_data or ch_scr_data accordingly.
 """
-import typing
 
 import pyvisa as pv
 import numpy as np
 import numpy.typing as npt
 import time
 import pint
-from zmq import CHANNEL
 
 import modules.exceptions as exceptions
 from . import ureg
@@ -31,6 +31,8 @@ class Oscilloscope:
     SMOOTH_LEN_FACTOR = 10 # determines minimum len of data for smoothing
     BL_LENGTH = 0.02 #fraction of datapoints for calculation of baseline
     OSC_ID = 'USB0::0x1AB1::0x04CE::DS1ZD212100403::INSTR' # osc name
+    CHANNELS = 2 # amount of channels
+    CH_IDS = ['CHAN1', 'CHAN2'] # channel names
 
     #attributes
     sample_rate: pint.Quantity
@@ -45,31 +47,23 @@ class Oscilloscope:
     yorigin: float # vertical offset relative to the yreference
     yreference: float # vertical reference position in the Y direction
 
-    ch1_pre: pint.Quantity # time bef trig to save chan 1
-    ch1_post: pint.Quantity # time after trigger
-    ch1_dur: pint.Quantity # duration of data
-    ch1_pre_p: int # same in points
-    ch1_post_p: int 
-    ch1_dur_p: int 
+    #channels attributes
+    pre_t: pint.Quantity # time before trig to save data
+    post_t: pint.Quantity # time after trigger
+    dur_t: pint.Quantity # duration of data
+    pre_p: npt.NDArray[np.int64] # same in points
+    post_p: npt.NDArray[np.int64]
+    dur_p: npt.NDArray[np.int64] 
+    amp: pint.Quantity # amplitude of data in channel 1
+    scr_data: pint.Quantity
+    scr_data_raw: npt.NDArray[np.uint8]
+    scr_amp: pint.Quantity
+
     ch1_data: pint.Quantity
     ch1_data_raw: npt.NDArray[np.uint8]
-    ch1_amp: pint.Quantity # amplitude of data in channel 1
-    ch1_scr_data: pint.Quantity
-    ch1_scr_data_raw: npt.NDArray[np.uint8]
-    ch1_scr_amp: pint.Quantity
 
-    ch2_pre: pint.Quantity # time bef trig to save chan 2
-    ch2_post: pint.Quantity # time after trigger
-    ch2_dur: pint.Quantity # duration of data
-    ch1_pre_p: int # same in points
-    ch1_post_p: int 
-    ch1_dur_p: int 
     ch2_data: pint.Quantity
     ch2_data_raw: npt.NDArray[np.uint8]
-    ch2_amp: pint.Quantity
-    ch2_scr_data: pint.Quantity
-    ch2_scr_data_raw: npt.NDArray[np.uint8]
-    ch2_scr_amp: pint.Quantity
 
     # data smoothing parameters
     ra_kernel: int# kernel size for rolling average smoothing
@@ -109,15 +103,14 @@ class Oscilloscope:
         #smoothing parameters
         self.ra_kernel = ra_kernel_size
 
-        #set time intervals for reading frame from chan1 in [us]
-        self.ch1_pre = chan1_pre
-        self.ch1_post = chan1_post
-        self.ch1_dur = chan1_pre + chan1_post # type: ignore
+        #set time intervals for channels
+        self.pre_t[0] = chan1_pre
+        self.post_t[0] = chan1_post
+        self.dur_t[0] = chan1_pre + chan1_post
 
-        #set time intervals for reading frame from chan2 in [us]
-        self.ch2_pre = chan2_pre
-        self.ch2_post = chan2_post
-        self.ch2_dur = chan2_pre + chan2_post # type: ignore
+        self.pre_t[1] = chan2_pre
+        self.post_t[1] = chan2_post
+        self.dur_t[1] = chan2_pre + chan2_post
 
         #update time intervals for both channels in points
         self.ch_points()
@@ -166,16 +159,13 @@ class Oscilloscope:
         return points
 
     def ch_points(self) -> None:
-        """Updates len of pre, post and dur points for both channels"""
+        """Updates len of pre, post and dur points for all channels"""
 
         self.set_sample_rate()
-        self.ch1_pre_p = self.time_to_points(self.ch1_pre)
-        self.ch1_post_p = self.time_to_points(self.ch1_post)
-        self.ch1_dur_p = self.time_to_points(self.ch1_dur)
-
-        self.ch2_pre_p = self.time_to_points(self.ch2_pre)
-        self.ch2_post_p = self.time_to_points(self.ch2_post)
-        self.ch2_dur_p = self.time_to_points(self.ch2_dur)
+        for i in range(self.CHANNELS):
+            self.pre_p[i] = self.time_to_points(self.pre_t[i])
+            self.post_p[i] = self.time_to_points(self.post_t[i])
+            self.dur_p[i] = self.time_to_points(self.dur_t[i])
 
     def rolling_average(self,
                         data: npt.NDArray[np.uint8]
@@ -199,7 +189,9 @@ class Oscilloscope:
     def _one_chunk_read(self,
                         start: int,
                         dur: int) -> npt.NDArray[np.uint8]:
-        """read from memory in single chunk"""
+        """read from memory in single chunk.
+        Returns data without header.
+        """
 
         self.__osc.write(':WAV:STAR ' # type: ignore
                                  + str(start + 1))
@@ -213,7 +205,9 @@ class Oscilloscope:
     def _multi_chunk_read(self,
                           start: int,
                           dur: int) -> npt.NDArray[np.uint8]:
-        """reads from memory in multiple chunks"""
+        """reads from memory in multiple chunks.
+        Returns data without header.
+        """
 
         data = np.zeros(dur).astype(np.uint8)
         data_frames = int(dur/self.MAX_MEMORY_READ) + 1
@@ -268,52 +262,34 @@ class Oscilloscope:
             self.bad_read = True
             return False
 
-    def read_data(self, channel: str) -> None:
+    def read_data(self, ch_id: int) -> npt.NDArray[np.uint8]:
         """Reads data from the specified channel.
         Sets data to ch_data_raw attribute"""
 
-        self.__osc.write(':WAV:SOUR ' + channel) # type: ignore
+        self.__osc.write(':WAV:SOUR ' + self.CH_IDS[ch_id]) # type: ignore
         self.__osc.write(':WAV:MODE RAW') # type: ignore
         self.__osc.write(':WAV:FORM BYTE') # type: ignore
         
         #update preamble, sample rate and len of channel points
         self.set_preamble()
         self.ch_points()
-
-        if channel == 'CHAN1':   
-            # trigger is in the mid of memory
-            # set starting point
-            data_start = (int(self.points/2) - self.ch1_pre_p)
-            
-            #if one can read the whole data in 1 read
-            if self.MAX_MEMORY_READ > self.ch1_dur_p:
-                data_chunk = self._one_chunk_read(data_start,
-                                                  self.ch1_dur_p)
-            else:
-                data_chunk = self._multi_chunk_read(data_start,
-                                                    self.ch1_dur_p)
  
-            if self._ok_read(self.ch1_dur_p, data_chunk):
-                self.ch1_data_raw = data_chunk
-
-        elif channel == 'CHAN2':
-            # trigger is in the mid of memory
-            # set starting point
-            data_start = (int(self.points/2) - self.ch2_pre_p)
-            
-            #if we can read the whole data in 1 read
-            if self.MAX_MEMORY_READ > self.ch2_dur_p:
-                data_chunk = self._one_chunk_read(data_start,
-                                                  self.ch2_dur_p)
-            else:
-                data_chunk = self._multi_chunk_read(data_start,
-                                                    self.ch2_dur_p)
-            if self._ok_read(self.ch2_dur_p, data_chunk):
-                self.ch2_data_raw = data_chunk
+        # trigger is in the mid of memory
+        # set starting point
+        data_start = (int(self.points/2) - self.pre_p[ch_id])
         
+        #if one can read the whole data in 1 read
+        if self.MAX_MEMORY_READ > self.dur_p[ch_id]:
+            data_chunk = self._one_chunk_read(data_start,
+                                                self.dur_p[ch_id])
         else:
-            self.bad_read = True
-            raise exceptions.OscilloscopeError('Wrong read channel name')
+            data_chunk = self._multi_chunk_read(data_start,
+                                                self.dur_p[ch_id])
+
+        if self._ok_read(self.dur_p[ch_id], data_chunk):
+            return data_chunk
+        else:
+            return np.zeros(self.dur_p[ch_id]).astype(np.uint8)
 
     def baseline_correction(self,
                             data: npt.NDArray[np.uint8]
@@ -325,19 +301,22 @@ class Oscilloscope:
         data -= int(baseline)
         return data
 
-    def read_scr(self, channel: str) -> npt.NDArray[np.uint8]:
+    def read_scr(self, ch_id: int) -> npt.NDArray[np.uint8]:
         """reads screen data for the channel"""
 
-        self.__osc.write(':WAV:SOUR ' + channel) # type: ignore
+        self.__osc.write(':WAV:SOUR ' + self.CH_IDS[ch_id]) # type: ignore
         self.__osc.write(':WAV:MODE NORM') # type: ignore
         self.__osc.write(':WAV:FORM BYTE') # type: ignore
         self.__osc.write(':WAV:STAR 1') # type: ignore
         self.__osc.write(':WAV:STOP ' + str(self.MAX_SCR_POINTS)) # type: ignore
         self.__osc.write(':WAV:DATA?') # type: ignore
         data_chunk = np.frombuffer(self.__osc.read_raw(), # type: ignore
-                                    dtype=np.uint8) 
+                                    dtype=np.uint8)[self.HEADER_LEN:]
         
-        return data_chunk[self.HEADER_LEN:].astype(np.uint8)
+        if self._ok_read(self.MAX_SCR_POINTS, data_chunk):
+            return data_chunk.astype(np.uint8)
+        else:
+            return np.zeros(self.MAX_SCR_POINTS).astype(np.uint8)
 
     def measure_scr(self, 
                     read_ch1: bool=True, #read channel 1
@@ -352,29 +331,17 @@ class Oscilloscope:
 
         self.set_preamble()
 
-        if read_ch1:
-            self.ch1_scr_data_raw = self.read_scr('CHAN1')
-            if self._ok_read(self.MAX_SCR_POINTS,
-                             self.ch1_data_raw):
+        for i, read_flag in enumerate([read_ch1, read_ch2]):
+            if read_flag:
+                data_raw = self.read_scr(i)
                 if smooth:
-                    self.ch1_scr_data_raw = self.rolling_average(self.ch1_scr_data_raw)
+                    data_raw = self.rolling_average(data_raw)
                 if correct_bl:
-                    self.ch1_scr_data_raw = self.baseline_correction(self.ch1_scr_data_raw)
-                self.ch1_scr_data = self.to_volts_scr(self.ch1_data_raw)
-                self.ch1_scr_amp = abs(np.amax(self.ch1_scr_data)
-                                       - np.amin(self.ch1_scr_data))
-
-        if read_ch2:
-            self.ch2_scr_data_raw = self.read_scr('CHAN2')
-            if self._ok_read(self.MAX_SCR_POINTS,
-                             self.ch2_data_raw):
-                if smooth:
-                    self.ch2_scr_data_raw = self.rolling_average(self.ch2_scr_data_raw)
-                if correct_bl:
-                    self.ch2_scr_data_raw = self.baseline_correction(self.ch2_scr_data_raw)
-                self.ch2_scr_data = self.to_volts_scr(self.ch2_data_raw)
-                self.ch2_scr_amp = abs(np.amax(self.ch2_scr_data)
-                                       - np.amin(self.ch2_scr_data))
+                    data_raw = self.baseline_correction(data_raw)
+                data = self.to_volts_scr(data_raw)
+                self.scr_amp[i] = abs(np.amax(data) - np.amin(data))
+                self.scr_data_raw[i] = data_raw
+                self.scr_data[i] = data
 
     def measure(self,
                 read_ch1: bool=True, #read channel 1
@@ -393,33 +360,20 @@ class Oscilloscope:
 
         # data from memory can be read only in STOP mode
         self.__osc.write(':STOP') # type: ignore
-        if read_ch1:
-            self.read_data('CHAN1')
-            if not self.bad_read:
+        for i, read_flag in enumerate([read_ch1, read_ch2]):
+            if read_flag:
+                data_raw = self.read_data(i)
                 if smooth:
-                    self.ch1_data_raw = self.rolling_average(
-                        self.ch1_data_raw)
+                    data_raw = self.rolling_average(data_raw)
                 if correct_bl:
-                    self.ch1_data_raw = self.baseline_correction(
-                        self.ch1_data_raw)
-                self.ch1_data = self.to_volts(self.ch1_data_raw)
-                self.ch1_amp = abs(np.amax(self.ch1_data)
-                                    - np.amin(self.ch1_data))
-
-        if read_ch2:
-            self.read_data('CHAN2')
-            if not self.bad_read:
-                if smooth:
-                    self.ch2_data_raw = self.rolling_average(
-                        self.ch2_data_raw)
-                if correct_bl:
-                    self.ch2_data_raw = self.baseline_correction(
-                        self.ch2_data_raw)
-
-                self.ch2_data = self.to_volts(self.ch2_data_raw)
-                self.ch2_amp = abs(np.amax(self.ch2_data)-
-                                   np.amin(self.ch2_data))
-        
+                    data_raw = self.baseline_correction(data_raw)
+                data = self.to_volts(data_raw)
+                ch_var_raw = 'self.ch' + str(i+1) + '_data_raw'
+                ch_var = 'self.ch' + str(i+1) + '_data'
+                exec(ch_var_raw + ' = data_raw')
+                exec(ch_var + ' = data')
+                self.amp[i] = abs(np.amax(data) - np.amin(data))
+        # run the oscilloscope again
         self.__osc.write(':RUN') # type: ignore
 
 class PowerMeter:
