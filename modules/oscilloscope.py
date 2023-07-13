@@ -7,10 +7,11 @@ General usage procedure:
 2. Call initialize
 3. Call measure or measure_scr
 4. check bad_read flag
-5. read data from corresponding 'data' attribute
+5. read data from data or data_raw list
 
 data can be accessed from ch_data or ch_scr_data accordingly.
 """
+from typing import List
 
 import pyvisa as pv
 import numpy as np
@@ -48,22 +49,18 @@ class Oscilloscope:
     yreference: float # vertical reference position in the Y direction
 
     #channels attributes
-    pre_t: pint.Quantity # time before trig to save data
-    post_t: pint.Quantity # time after trigger
-    dur_t: pint.Quantity # duration of data
-    pre_p: npt.NDArray[np.int64] # same in points
-    post_p: npt.NDArray[np.int64]
-    dur_p: npt.NDArray[np.int64] 
-    amp: pint.Quantity # amplitude of data in channel 1
-    scr_data: pint.Quantity
-    scr_data_raw: npt.NDArray[np.uint8]
-    scr_amp: pint.Quantity
-
-    ch1_data: pint.Quantity
-    ch1_data_raw: npt.NDArray[np.uint8]
-
-    ch2_data: pint.Quantity
-    ch2_data_raw: npt.NDArray[np.uint8]
+    pre_t: List[pint.Quantity] # time before trig to save data
+    post_t: List[pint.Quantity] # time after trigger
+    dur_t: List[pint.Quantity] # duration of data
+    pre_p: List[int] # same in points
+    post_p: List[int]
+    dur_p: List[int]
+    data: List[List[pint.Quantity]]
+    data_raw: List[npt.NDArray[np.uint8]]
+    amp: List[pint.Quantity] # amplitude of data
+    scr_data: List[List[pint.Quantity]]
+    scr_data_raw: List[npt.NDArray[np.uint8]]
+    scr_amp: List[pint.Quantity]
 
     # data smoothing parameters
     ra_kernel: int# kernel size for rolling average smoothing
@@ -96,7 +93,7 @@ class Oscilloscope:
             raise exceptions.OscilloscopeError('Oscilloscope was not found')
         else:
             self.__osc = rm.open_resource(instrument_name[0])
-        
+
         self.set_preamble()
         self.set_sample_rate()
 
@@ -106,11 +103,11 @@ class Oscilloscope:
         #set time intervals for channels
         self.pre_t[0] = chan1_pre
         self.post_t[0] = chan1_post
-        self.dur_t[0] = chan1_pre + chan1_post
+        self.dur_t[0] = chan1_pre + chan1_post # type: ignore
 
         self.pre_t[1] = chan2_pre
         self.post_t[1] = chan2_post
-        self.dur_t[1] = chan2_pre + chan2_post
+        self.dur_t[1] = chan2_pre + chan2_post # type: ignore
 
         #update time intervals for both channels in points
         self.ch_points()
@@ -238,7 +235,8 @@ class Oscilloscope:
 
         return data
 
-    def to_volts(self, data: npt.NDArray[np.uint8]) -> pint.Quantity:
+    def to_volts(self,
+                 data: npt.NDArray[np.uint8]) -> List[pint.Quantity]:
         """converts data to volts"""
 
         return (data.astype(np.float64)
@@ -246,7 +244,7 @@ class Oscilloscope:
                 - self.yorigin)*self.yincrement*ureg('volt')
     
     def to_volts_scr(self,
-                     data: npt.NDArray[np.uint8]) -> pint.Quantity:
+                     data: npt.NDArray[np.uint8]) -> List[pint.Quantity]:
         """converts screen data to volts"""
 
         dy = self.yincrement
@@ -368,94 +366,82 @@ class Oscilloscope:
                 if correct_bl:
                     data_raw = self.baseline_correction(data_raw)
                 data = self.to_volts(data_raw)
-                ch_var_raw = 'self.ch' + str(i+1) + '_data_raw'
-                ch_var = 'self.ch' + str(i+1) + '_data'
-                exec(ch_var_raw + ' = data_raw')
-                exec(ch_var + ' = data')
+                self.data[i] = data
+                self.data_raw[i] = data_raw
                 self.amp[i] = abs(np.amax(data) - np.amin(data))
         # run the oscilloscope again
         self.__osc.write(':RUN') # type: ignore
 
 class PowerMeter:
+    
     ###DEFAULTS###
+    SENS = 2630000 #scalar coef to convert integral readings into [uJ]
 
-    #scalar coef to convert integral readings into [uJ]
-    sclr_sens = 2630000
-    ch = 'CHAN1'
-    osc = Oscilloscope()
-    # percentage of max amp, when we set begining of the impulse
-    threshold = 0.05
-    data = np.zeros((0))
+    ch: int # channel ID number
+    osc: Oscilloscope
+    threshold: float # fraction of max amp for signal start
+    
+    data: List[pint.Quantity]
+    laser_amp: pint.Quantity
     #start and stop indexes of the measured signal
-    start_ind = 0
-    stop_ind = 0
+    start_ind: int = 0
+    stop_ind: int = 1
 
     def __init__(self, 
                  osc: Oscilloscope,
-                 chan: str='CHAN1',
+                 ch_id: int=0,
                  threshold: float=0.05) -> None:
         """PowerMeter class for working with
         Thorlabs ES111C pyroelectric detector.
-        osc is as instance of Oscilloscope class, which is used for reading data.
-        chan is a channel to which the detector is connected."""
+        osc is as instance of Oscilloscope class, 
+        which is used for reading data.
+        ch_id is number of channel (starting from 0) 
+        to which the detector is connected."""
 
         self.osc = osc
-        self.ch = chan
+        self.ch = ch_id
         self.threshold = threshold
 
-    def get_energy_scr(self) -> float:
-        """Measure energy from screen (fast)."""
+    def get_energy_scr(self) -> pint.Quantity:
+        """Measure energy from screen (fast)"""
 
         if self.osc.not_found:
-            print(f'{bcolors.WARNING}\
-                  Attempt to measure energy from not init oscilloscope\
-                  {bcolors.ENDC}')
-            return 0
+            msg = 'Oscilloscope not found'
+            raise exceptions.OscilloscopeError(msg)
         
-        if self.ch == 'CHAN1':
-            self.osc.measure_scr(read_ch2=False,
-                                 correct_bl=True)
-        elif self.ch == 'CHAN2':
-            self.osc.measure_scr(read_ch1=False,
-                                 correct_bl=True)
-
+        self.osc.measure_scr()
         #return 0, if read data was not successfull
         #Oscilloscope class will promt warning
         if self.osc.bad_read:
-            return 0
+            return 0*ureg('joule')
         
-        self.data = self.osc.ch1_scr_data.copy()
+        self.data = self.osc.scr_data[self.ch]
         laser_amp = self.energy_from_data(self.data,
                                           self.osc.xincrement)
 
         return laser_amp
     
-    def energy_from_data(self, data: np.ndarray, step: float) -> float:
+    def energy_from_data(self,
+                         data: List[pint.Quantity],
+                         step: pint.Quantity) -> pint.Quantity:
         """Calculate laser energy from data.
         step is time step for the data."""
 
-        #indexes for start and stop of laser impulse
-        start_index = 0
-        stop_index = 1
-
         if len(data) < 10:
-            print(f'{bcolors.WARNING}\
-                  Data for energy calculation is too short, len(data)={len(data)}\
-                  {bcolors.ENDC}')
-            return 0
+            msg = 'data too small for laser energy calc'
+            raise exceptions.OscilloscopeError(msg)
 
         max_amp = np.amax(data)
         try:
-            start_index = np.where(data>(max_amp*self.threshold))[0][0]
-            self.start_ind = start_index
+            str_ind = np.where(data>(max_amp*self.threshold))[0][0]
+            self.start_ind = str_ind
         except IndexError:
-            print(f'{bcolors.WARNING}\
-                  Problem in set_laser_amp start_index. Laser amp set to 0!\
-                  {bcolors.ENDC}')
-            return 0
+            msg = 'Problem in set_laser_amp start_index'
+            raise exceptions.OscilloscopeError(msg)
 
         try:
-            stop_ind_arr = np.where(data[start_index:] < 0)[0] + start_index
+            neg_data = np.where(data[self.start_ind:].magnitude < 0)[0] # type: ignore
+            stop_ind_arr = neg_data + self.start_ind
             stop_index = 0
             #check interval. If data at index + check_int less than zero
             #then we assume that the laser pulse is really finished
@@ -465,25 +451,19 @@ class PowerMeter:
                     stop_index = x
                     break
             if not stop_index:
-                print(f'{bcolors.WARNING}'
-                      + 'End of laser impulse was not found'
-                      + f'{bcolors.ENDC}')
-                return 0
+                msg = 'End of laser impulse was not found'
+                raise exceptions.OscilloscopeError(msg)
             self.stop_ind = stop_index
         except IndexError:
-            print(f'{bcolors.WARNING}\
-                  Problem in set_laser_amp stop_index. Laser amp set to 0!\
-                  {bcolors.ENDC}')
-            return 0
+            msg = 'Problem in set_laser_amp stop_index'
+            raise exceptions.OscilloscopeError(msg)
 
         laser_amp = np.sum(
-            data[start_index:stop_index])*step*self.sclr_sens
-        
-        print(f'Laser amp = {laser_amp:.1f} [uJ]')
+            data[self.start_ind:self.stop_ind])*step*self.SENS
 
         return laser_amp
     
-    def set_channel(self, chan: str) -> None:
+    def set_channel(self, chan: int) -> None:
         """Sets read channel"""
 
         self.ch = chan
