@@ -1,10 +1,8 @@
-from pprint import pprint
-import pint
-import numpy as np
-import modules.oscilloscope as osc
-import inspect
+import os.path
+import os
 
-rigol = osc.Oscilloscope()
-
-print('hello', end=' ')
-print('hello', end=' ')
+sub_fold = 'measuring results'
+filename = 'example.log'
+cwd = os.path.abspath(os.getcwd())
+full_path = os.path.join(cwd,sub_fold, filename)
+print(full_path)

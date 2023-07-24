@@ -5,16 +5,16 @@ Data structure:
     
     Measured data:
     |--'attrs'
-    |  |--'parameter_name': str - independent parameter, changed between measured PA signals
-    |  |--'parameter_units': str - parameters units
-    |  |--'data_points': int - amount of stored PA signals
+    |  |--'parameter name': str - independent parameter, changed between measured PA signals
+    |  |--'parameter units': str - parameters units
+    |  |--'data points': int - amount of stored PA signals
     |  |--'created': timestamp - date and time of data measurement
     |  |--'updated': timestamp - date and time of last data update
     |  |--'path': str - relative path to the datafile.
     |  |--'filename': str - name of the file where data is stored
-    |  |--'zoom_pre_time': float - start time from the center of the data frame for zoom in data view
-    |  |--'zoom_post_time': float - end time from the center of the data frame for zoom in data view
-    |  |--'zoom_units': str - units for pre and post zoom time
+    |  |--'zoom pre time': float - start time from the center of the data frame for zoom in data view
+    |  |--'zoom post time': float - end time from the center of the data frame for zoom in data view
+    |  |--'zoom units': str - units for pre and post zoom time
     |
     |--'raw_data'
     |  |--'attrs'
@@ -64,7 +64,7 @@ Data structure:
     |
     |--'freq_data'
     |  |--'attrs'
-    |  |  |--'max dataset len': int - amount of frequency data_points
+    |  |  |--'max dataset len': int - amount of frequency data points
     |  |  |--'x var name': str - name of the X variable
     |  |  |--'x var units': str - units of the X variable
     |  |  |--'y var name': str - name of the Y variable
@@ -86,36 +86,18 @@ Data structure:
     |  ...
 """
 import warnings
-from typing import Iterable, Union, Any, TypedDict
+from typing import Iterable
 import numpy as np
 from datetime import datetime
 import h5py
 import time
-import os, os.path
-import logging
-
+from pathlib import Path
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from matplotlib import MatplotlibDeprecationWarning # type: ignore
 from scipy.fftpack import rfft, irfft, fftfreq
-import pint
 
-logger = logging.getLogger(__name__)
-
-class BaseMetadata(TypedDict):
-    """Typed dict for general metadata"""
-
-    parameter_name: str
-    parameter_units: str
-    data_points: int
-    created: str
-    updated: str
-    file_path: Union[str, bytes, os.PathLike]
-    filename: Union[str, bytes, os.PathLike]
-    zoom_pre_time: float
-    zoom_post_time: float
-    zoom_units: str
-
+from modules.bcolors import bcolors
 
 class PaData:
     """Class for PA data storage and manipulations"""
@@ -123,19 +105,18 @@ class PaData:
     def __init__(self) -> None:
 
         #general metadata
-        self.attrs: BaseMetadata
         self.attrs = {
-            'parameter_name': 'Unknown',
-            'parameter_units': 'Unknown',
-            'data_points': 0,
+            'parameter name': 'Unknown',
+            'parameter units': 'Unknown',
+            'data points': 0,
             'created': self._get_cur_time(),
             'updated': self._get_cur_time(),
-            'file_path': '',
+            'path': '',
             'filename': '',
-            'zoom_pre_time': 0.000002,
-            'zoom_post_time': 0.000013,
-            'zoom_units': 's'
-}
+            'zoom pre time': 0.000002,
+            'zoom post time': 0.000013,
+            'zoom units': 's'
+        }
 
         #raw ds for each measured points + dict with attributes
         self.raw_data = {
@@ -166,15 +147,11 @@ class PaData:
                 'y var name': 'FFT amplitude',
                 'y var units': 'Unknown'
             }
-        }
-        
-        logger.debug('PaData instance created')
+        } 
 
     def set_metadata(self, data_group: str, metadata: dict) -> None:
         """set attributes for the data_group"""
 
-        logger.debug(f'Updating metadata for {data_group} in '
-                     + f'{self.attrs["filename"]}')
         if data_group == 'raw_data':
             self.raw_data['attrs'].update(metadata)
             self.attrs['updated'] = self._get_cur_time()
@@ -197,10 +174,10 @@ class PaData:
         also adds empty datapoint to other data groups.
         attributes are set to both raw and filt datapoints"""
 
-        ds_name = self.build_ds_name(self.attrs['data_points'])
+        ds_name = self.build_ds_name(self.attrs['data points'])
         if not ds_name:
             print(f'{bcolors.WARNING}\
-                  Max data_points reached! Data cannot be added!\
+                  Max data points reached! Data cannot be added!\
                   {bcolors.ENDC}')
             return
         ds = {}
@@ -221,7 +198,7 @@ class PaData:
         self.filt_data.update({ds_name:{}})
         self.filt_data[ds_name].update(attributes)
         self.freq_data.update({ds_name:{}})
-        self.attrs['data_points'] += 1
+        self.attrs['data points'] += 1
         self.attrs['updated'] = self._get_cur_time()
 
     def _get_cur_time (self) -> str:
@@ -295,21 +272,14 @@ class PaData:
     def load(self, filename: str) -> None:
         """Loads data from file"""
 
-        logger.debug('load procedure is starting...')
-        file_path, file_name = os.path.split(filename)
-        self.attrs['file_path'] = file_path
-        logger.debug(f'"file_path" set to {file_path}')
-        self.attrs['filename'] = file_name
-        logger.debug(f'"filename" set to {file_name}')
+        self.attrs['filename'] = filename.split('\\')[-1]
+        self.attrs['path'] = filename.split(self.attrs['filename'])[0]
 
         with h5py.File(filename,'r') as file:
             
             #load general metadata
             general = file['general']
-            self.attrs.update(general.attrs) # type: ignore
-            logger.debug(f'General metadata with {len(general.attrs)}'
-                         + ' records loaded.')
-            logger.debug(self.attrs)
+            self.attrs.update(general.attrs)
             
             #raw_data
             raw_data = file['raw data']
@@ -353,9 +323,9 @@ class PaData:
                 self.freq_data[ds_name].update(
                     freq_data[ds_name].attrs) # type: ignore
 
-        #set amount of data_points for compatibility with old data
-        if self.attrs.get('data_points', 0) < (len(self.raw_data) - 1):
-            self.attrs.update({'data_points': len(self.raw_data) - 1})
+        #set amount of data points for compatibility with old data
+        if self.attrs.get('data points', 0) < (len(self.raw_data) - 1):
+            self.attrs.update({'data points': len(self.raw_data) - 1})
 
     def build_ds_name(self, n: int) -> str:
         """Builds and returns name of dataset"""
@@ -380,7 +350,7 @@ class PaData:
     def plot(self) -> None:
         """Plots current data"""
 
-        if not self.attrs['data_points']:
+        if not self.attrs['data points']:
             print(f'{bcolors.WARNING}\
                   No data to display\
                   {bcolors.ENDC}')
@@ -418,9 +388,9 @@ class PaData:
         )
         self._ax_sp.legend(loc='upper right')
         self._ax_sp.set_ylim(bottom=0)
-        x_label = self.attrs['parameter_name']\
+        x_label = self.attrs['parameter name']\
                   + ', ['\
-                  + self.attrs['parameter_units']\
+                  + self.attrs['parameter units']\
                   + ']'
         self._ax_sp.set_xlabel(x_label)
         y_label = self.raw_data['attrs']['y var name']
@@ -450,7 +420,7 @@ class PaData:
                 self._param_ind -= 1
                 self._plot_update()
         elif event.key == 'right':
-            if self._param_ind == (self.attrs['data_points'] - 1):
+            if self._param_ind == (self.attrs['data points'] - 1):
                 pass
             else:
                 self._param_ind += 1
@@ -471,10 +441,10 @@ class PaData:
             return None
 
         #update max_signal_amp(parameter) plot
-        title = self.attrs['parameter_name']\
+        title = self.attrs['parameter name']\
                 + ': '\
                 + str(int(self._param_values[self._param_ind]))\
-                + self.attrs['parameter_units']
+                + self.attrs['parameter units']
         self._ax_sp.set_title(title)
         self._plot_selected_raw.set_data(
             self._param_values[self._param_ind], # type: ignore
@@ -524,9 +494,9 @@ class PaData:
                            color='yellow')
         
         #marker for zoomed area
-        if self.filt_data['attrs']['x var units'] == self.attrs['zoom_units']:
-            pre_points = int(self.attrs['zoom_pre_time']/step)
-            post_points = int(self.attrs['zoom_post_time']/step)
+        if self.filt_data['attrs']['x var units'] == self.attrs['zoom units']:
+            pre_points = int(self.attrs['zoom pre time']/step)
+            post_points = int(self.attrs['zoom post time']/step)
             start_zoom_ind = filt_max_ind-pre_points
             if start_zoom_ind < 0:
                 start_zoom_ind = 0
@@ -540,7 +510,7 @@ class PaData:
                                     color='g')
         else:
             print(f'{bcolors.WARNING}\
-                  zoom_units do not match x var units!\
+                  Zoom units do not match x var units!\
                   {bcolors.ENDC}')
             
         #update raw data
@@ -636,7 +606,7 @@ class PaData:
         """
 
         dep = [] #array for return values
-        if not self.attrs['data_points']:
+        if not self.attrs['data points']:
             print(f'{bcolors.WARNING}\
                   Attempt to read dependence from empty data\
                   {bcolors.ENDC}')

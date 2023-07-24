@@ -4,8 +4,8 @@ Latest developing version
 
 from __future__ import annotations
 
+import os
 import os.path
-from pathlib import Path
 import time
 import math
 from itertools import combinations
@@ -112,6 +112,7 @@ def save_data(data: PaData) -> None:
             default='Unknown',
             mandatory=False
         ).execute()
+        logger.debug(f'"{filename}" filename entered')
         if filename == None:
             print(f'{bcolors.WARNING}Save terminated!{bcolors.ENDC}')
             return
@@ -124,6 +125,7 @@ def save_data(data: PaData) -> None:
         override = inquirer.confirm(
             message='Do you want to override file ' + filename + '?'
         ).execute()
+        logger.debug(f'"{filename}" override confirmed')
         
         if not override:
             i = 1
@@ -139,23 +141,33 @@ def save_data(data: PaData) -> None:
 def load_data(old_data: PaData) -> PaData:
     """Return loaded data in the related format"""
 
-    home_path = str(Path().resolve()) + '\\measuring results\\'
+    logger.debug('Start loading data...')
+    cwd = os.path.abspath(os.getcwd())
+    sub_folder = 'measuring results'
+    home_path = os.path.join(cwd, sub_folder)
+    logger.debug(f'Default folder for data file search: {home_path}')
+    
     file_path = inquirer.filepath(
         message='Choose spectral file to load:' + vd.cancel_option,
         default=home_path,
         mandatory=False,
         validate=PathValidator(is_file=True, message='Input is not a file')
     ).execute()
+    logger.debug(f'"{file_path}" entered for loading data')
+    
     if file_path == None:
-        print(f'{bcolors.WARNING}Data loading canceled!{bcolors.ENDC}')
+        logger.info('Data loading canceled by user')
         return old_data
     
-    if file_path.split('.')[-1] != 'hdf5':
-        print(f'{bcolors.WARNING} Wrong data format! *.hdf5 is required{bcolors.ENDC}')
+    file_ext = os.path.splitext(file_path)[-1]
+    if file_ext != '.hdf5':
+        logger.warning(f'Wrong data format = "{file_ext}", while '
+                       + '".hdf5" is required')
         return old_data
+    
     new_data = PaData()
     new_data.load(file_path)
-    print(f'... data with {len(new_data.raw_data)-1} PA measurements loaded!')
+    logger.info(f'Data with {len(new_data.raw_data)-1} PA measurements loaded!')
     return new_data
 
 def bp_filter(data: PaData) -> None:
@@ -170,6 +182,7 @@ def bp_filter(data: PaData) -> None:
         mandatory=False,
         validate=vd.FreqValidator()
     ).execute()
+
     if low_cutof is None:
         print(f'{bcolors.WARNING}Intup terminated!{bcolors.WARNING}')
         return
@@ -1306,6 +1319,7 @@ if __name__ == "__main__":
             message='Choose an action',
             choices=[
                 'Init and status',
+                'Data',
                 'Power meter',
                 'Energy',
                 'Move to',
@@ -1313,8 +1327,8 @@ if __name__ == "__main__":
                 'Spectral scanning',
                 'Exit'
             ],
-            height=9
-        ).execute()
+            height=9).execute()
+        logger.debug(f'"{menu_ans}" menu option choosen')
 
         if menu_ans == 'Init and status':
             while True:
@@ -1325,8 +1339,8 @@ if __name__ == "__main__":
                     'Get status',
                     'Home stages',
                     'Back'
-                ]
-            ).execute()
+                ]).execute()
+                logger.debug(f'"{stat_ans}" menu option choosen')
 
                 if stat_ans == 'Init hardware':
                     init(hardware)
@@ -1339,6 +1353,42 @@ if __name__ == "__main__":
 
                 elif stat_ans == 'Back':
                     break
+
+        elif menu_ans == 'Data':
+            while True:
+                data_ans = inquirer.rawlist(
+                    message='Choose data action',
+                    choices=[
+                        'Load data',
+                        'View data', 
+                        'FFT filtration',
+                        'Save data',
+                        'Export to txt',
+                        'Back to main menu'
+                    ]
+                ).execute()
+                logger.debug(f'"{data_ans}" menu option choosen')
+
+                if data_ans == 'Load data':
+                    data = load_data(data)
+                
+                elif data_ans == 'View data':
+                    data.plot()
+
+                elif data_ans == 'FFT filtration':
+                    bp_filter(data)
+
+                elif data_ans == 'Save data':
+                    save_data(data)
+
+                elif data_ans == 'Export to txt':
+                    export_to_txt(data)
+
+                elif data_ans == 'Back to main menu':
+                        break         
+
+                else:
+                    print(f'{bcolors.WARNING}Unknown command in Spectral scanning menu!{bcolors.ENDC}')
 
         elif menu_ans == 'Power meter':
             _ = track_power(hardware, 100)
@@ -1353,6 +1403,8 @@ if __name__ == "__main__":
                         'Back'
                     ]
                 ).execute()
+                logger.debug(f'"{energy_ans}" menu option choosen')
+
                 if energy_menu == 'Glan check':
                     glan_check(hardware)
                 elif energy_menu == 'Filter caclulation':
@@ -1378,6 +1430,7 @@ if __name__ == "__main__":
                         'Back to main menu'
                     ]
                 ).execute()
+                logger.debug(f'"{data_ans}" menu option choosen')
                 
                 if data_ans == 'Scan':
                     scan_image, scan_data, dt = scan(hardware)
@@ -1422,6 +1475,7 @@ if __name__ == "__main__":
                         'Back to main menu'
                     ]
                 ).execute()
+                logger.debug(f'"{data_ans}" menu option choosen')
                 
                 if data_ans == 'Measure spectrum':
                     data = spectra(hardware, data)  
