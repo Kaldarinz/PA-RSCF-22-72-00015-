@@ -17,6 +17,10 @@ handlers:
     formatter: simple
     filename: logs/PA_CLI.log
 loggers:
-  pa_cli:
+  modules:
     level: DEBUG
     handlers: [console,file]
+    propagate: no
+root:
+  level: DEBUG
+  handlers: [console, file]

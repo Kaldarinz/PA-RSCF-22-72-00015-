@@ -29,21 +29,79 @@ import modules.oscilloscope as oscilloscope
 import modules.pa_logic as pa_logic
 import modules.exceptions as exceptions
 
-with open('log_config.yaml', 'r') as f:
-    log_config = yaml.load(f, Loader=yaml.FullLoader)
+def init_logs() -> logging.Logger:
+    """Initiate logging"""
 
-for i in (log_config["handlers"].keys()):
-    # Check if filename in handler.
-    # Console handlers might be present in config file
-    if 'filename' in log_config['handlers'][i]:
-        log_filename = log_config["handlers"][i]["filename"]
-        base, extension = os.path.splitext(log_filename)
-        today = datetime.today().strftime("_%Y_%m_%d")
-        log_filename = f"{base}{today}{extension}"
-        log_config["handlers"][i]["filename"] = log_filename
+    with open('log_config.yaml', 'r') as f:
+        log_config = yaml.load(f, Loader=yaml.FullLoader)
 
-logging.config.dictConfig(log_config)
-logger = logging.getLogger('pa_cli')
+    for i in (log_config["handlers"].keys()):
+        # Check if filename in handler.
+        # Console handlers might be present in config file
+        if 'filename' in log_config['handlers'][i]:
+            log_filename = log_config["handlers"][i]["filename"]
+            base, extension = os.path.splitext(log_filename)
+            today = datetime.today().strftime("_%Y_%m_%d")
+            log_filename = f"{base}{today}{extension}"
+            log_config["handlers"][i]["filename"] = log_filename
+
+    logging.config.dictConfig(log_config)
+    return logging.getLogger('pa_cli')
+
+def init(hardware: pa_logic.Hardware) -> None:
+    """Hardware initiation"""
+
+    logger.info('Starting hardware initialization...')
+    try:
+        pa_logic.init_hardware(hardware)
+    except exceptions.StageError as err:
+        logger.error(err.value)
+    except exceptions.OscilloscopeError as err:
+        logger.error(err.value)
+    else:
+        logger.info(f'Stage X initiated. Stage X ID = {hardware["stage_x"]}')
+        logger.info(f'Stage Y initiated. Stage Y ID = {hardware["stage_y"]}')
+        logger.info('Oscilloscope was initiated')
+        logger.info('Initialization complete')
+
+def home(hardware: pa_logic.Hardware) -> None:
+    """CLI for Homes stages"""
+
+    logger.info('Homing started...')
+    try:
+        pa_logic.home(hardware)
+    except exceptions.StageError as err:
+        logger.error(err.value)
+    else:
+        logger.info('...Homing complete')
+
+def print_status(hardware: pa_logic.Hardware) -> None:
+    """Prints current status and position of stages and oscilloscope"""
+    
+    logger.debug('print_status called')
+    stage_X = hardware['stage_x']
+    stage_Y = hardware['stage_y']
+    osc = hardware['osc']
+    if hardware['stage_x'] and hardware['stage_y']:
+        logger.info('Stages are initiated!')
+        logger.info(f'X stage'
+              + f'homing status: {stage_X.is_homed()}, '
+              + f'status: {stage_X.get_status()}, '
+              + f'position: {stage_X.get_position()*1000:.2f} mm.')
+        logger.info(f'Y stage '
+              + f'homing status: {stage_Y.is_homed()}, '
+              + f'status: {stage_Y.get_status()}, '
+              + f'position: {stage_Y.get_position()*1000:.2f} mm.')
+    else:
+        logger.warning('Stages are not initialized!')
+
+    if not osc.not_found:
+        logger.info('Oscilloscope is initiated!')
+    else:
+        logger.warning('Oscilloscope is not initialized!')
+
+    if stage_X and stage_Y and not osc.not_found:
+        logger.info('All hardware is initiated!')
 
 def save_data(data: PaData) -> None:
     """"Save data"""
@@ -129,43 +187,6 @@ def bp_filter(data: PaData) -> None:
     high_cutof = int(high_cutof)
 
     data.bp_filter(low_cutof,high_cutof)
-
-def print_status(hardware: pa_logic.Hardware) -> None:
-    """Prints current status and position of stages and oscilloscope"""
-    
-    if hardware['stage_x'] and hardware['stage_y']:
-        stage_X = hardware['stage_x']
-        stage_Y = hardware['stage_y']
-        print(f'{bcolors.OKBLUE}Stages are initiated!{bcolors.ENDC}')
-        print(f'{bcolors.OKBLUE}X stage{bcolors.ENDC} '
-              + f'homing status: {stage_X.is_homed()}, '
-              + f'status: {stage_X.get_status()}, '
-              + f'position: {stage_X.get_position()*1000:.2f} mm.')
-        print(f'{bcolors.OKBLUE}Y stage{bcolors.ENDC} '
-              + f'homing status: {stage_Y.is_homed()}, '
-              + f'status: {stage_Y.get_status()}, '
-              + f'position: {stage_Y.get_position()*1000:.2f} mm.')
-    else:
-        print(f'{bcolors.WARNING}Stages are not initialized!{bcolors.ENDC}')
-
-    if not hardware['osc'].not_found:
-        print(f'{bcolors.OKBLUE}Oscilloscope is initiated!{bcolors.ENDC}')
-    else:
-        print(f'{bcolors.WARNING} Oscilloscope is not initialized!{bcolors.ENDC}')
-
-    if hardware['stage_x'] and hardware['stage_y'] and not hardware['osc'].not_found:
-        print(f'{bcolors.OKGREEN} All hardware is initiated!{bcolors.ENDC}')
-
-def home(hardware: pa_logic.Hardware) -> None:
-    """CLI for Homes stages"""
-
-    print('Homing started...')
-    try:
-        pa_logic.home(hardware)
-    except exceptions.StageError as err:
-        warn_print(err.value)
-    else:
-        green_print('...Homing complete')
 
 def spectra(hardware: pa_logic.Hardware,
             old_data: PaData,
@@ -1264,24 +1285,9 @@ def export_to_txt(data: PaData) -> None:
     else:
         print(f'{bcolors.WARNING} Unknown command in data export menu {bcolors.ENDC}')
 
-def init(hardware: pa_logic.Hardware) -> None:
-    """Hardware initiation"""
-
-    logger.info('Starting hardware initialization...')
-    try:
-        pa_logic.init_hardware(hardware)
-    except exceptions.StageError as err:
-        logger.error(err.value)
-    except exceptions.OscilloscopeError as err:
-        logger.error(err.value)
-    else:
-        logger.info(f'Stage X initiated. Stage X ID = {hardware["stage_x"]}')
-        logger.info(f'Stage Y initiated. Stage Y ID = {hardware["stage_y"]}')
-        logger.info('Oscilloscope was initiated')
-        logger.info('Initialization complete')
-
 if __name__ == "__main__":
     
+    logger = init_logs()
     logger.info('Starting application')
 
     logger.debug('Creating a dict for storing hardware refs')
@@ -1294,8 +1300,8 @@ if __name__ == "__main__":
     logger.debug('Initializing PaData class for storing data')
     data = PaData()
 
+    logger.debug('Entering main CLI execution loop')
     while True:
-        logger.debug('Entering main CLI execution loop')
         menu_ans = inquirer.rawlist(
             message='Choose an action',
             choices=[
@@ -1354,7 +1360,7 @@ if __name__ == "__main__":
                 elif energy_menu == 'Back':
                     break
                 else:
-                    logger.warn('Unknown command in energy menu!')
+                    logger.warning('Unknown command in energy menu!')
 
         elif menu_ans == 'Move to':
             set_new_position(hardware)
