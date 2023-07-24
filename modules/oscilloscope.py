@@ -8,10 +8,9 @@ General usage procedure:
 3. Call measure or measure_scr
 4. check bad_read flag
 5. read data from data or data_raw list
-
-data can be accessed from ch_data or ch_scr_data accordingly.
 """
 from typing import List
+import logging
 
 import pyvisa as pv
 import numpy as np
@@ -21,6 +20,9 @@ import pint
 
 import modules.exceptions as exceptions
 from . import ureg
+
+logger_name = 'pa_cli.' + __name__
+logger = logging.getLogger(logger_name)
 
 class Oscilloscope:
     """Rigol MSO1000Z/DS1000Z"""  
@@ -73,6 +75,8 @@ class Oscilloscope:
         """oscilloscope class for Rigol MSO1000Z/DS1000Z device.
         Intended to be used as a module in other scripts.
         Call 'initialize' before working with Oscilloscope."""
+
+        logger.debug('Oscilloscope class instantiated!')
         
     def initialize(self,
                  chan1_pre: pint.Quantity=ureg('150us'),

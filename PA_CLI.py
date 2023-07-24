@@ -9,6 +9,10 @@ from pathlib import Path
 import time
 import math
 from itertools import combinations
+import logging
+import logging.config
+import yaml
+from datetime import datetime
 
 from scipy import signal
 import numpy as np
@@ -24,6 +28,22 @@ from modules.bcolors import bcolors
 import modules.oscilloscope as oscilloscope
 import modules.pa_logic as pa_logic
 import modules.exceptions as exceptions
+
+with open('log_config.yaml', 'r') as f:
+    log_config = yaml.load(f, Loader=yaml.FullLoader)
+
+for i in (log_config["handlers"].keys()):
+    # Check if filename in handler.
+    # Console handlers might be present in config file
+    if 'filename' in log_config['handlers'][i]:
+        log_filename = log_config["handlers"][i]["filename"]
+        base, extension = os.path.splitext(log_filename)
+        today = datetime.today().strftime("_%Y_%m_%d")
+        log_filename = f"{base}{today}{extension}"
+        log_config["handlers"][i]["filename"] = log_filename
+
+logging.config.dictConfig(log_config)
+logger = logging.getLogger('pa_cli')
 
 def save_data(data: PaData) -> None:
     """"Save data"""
@@ -1244,50 +1264,38 @@ def export_to_txt(data: PaData) -> None:
     else:
         print(f'{bcolors.WARNING} Unknown command in data export menu {bcolors.ENDC}')
 
-def warn_print(statement: str) -> None:
-    """Prints in yellow"""
-
-    print(f'{bcolors.WARNING}Warning! {statement}!{bcolors.ENDC}')
-
-def success_print(statement: str) -> None:
-    """prints in OK blue"""
-
-    print(f'{bcolors.OKBLUE}{statement}!{bcolors.ENDC}')
-
-def green_print(statement: str) -> None:
-    """prints in OK green"""
-
-    print(f'{bcolors.OKGREEN}{statement}!{bcolors.ENDC}')
-
 def init(hardware: pa_logic.Hardware) -> None:
     """Hardware initiation"""
 
-    print('Starting hardware initialization...')
+    logger.info('Starting hardware initialization...')
     try:
         pa_logic.init_hardware(hardware)
     except exceptions.StageError as err:
-        warn_print(err.value)
+        logger.error(err.value)
     except exceptions.OscilloscopeError as err:
-        warn_print(err.value)
+        logger.error(err.value)
     else:
-        success_print(f'Stage X initiated. Stage X ID = {hardware["stage_x"]}')
-        success_print(f'Stage Y initiated. Stage Y ID = {hardware["stage_y"]}')
-        success_print('Oscilloscope was initiated')
-        green_print('Initialization complete')
+        logger.info(f'Stage X initiated. Stage X ID = {hardware["stage_x"]}')
+        logger.info(f'Stage Y initiated. Stage Y ID = {hardware["stage_y"]}')
+        logger.info('Oscilloscope was initiated')
+        logger.info('Initialization complete')
 
 if __name__ == "__main__":
     
-    #dict for keeping references to hardware
+    logger.info('Starting application')
+
+    logger.debug('Creating a dict for storing hardware refs')
     hardware: pa_logic.Hardware = {
         'stage_x': 0,
         'stage_y': 0,
         'osc': oscilloscope.Oscilloscope()
     }
 
-    # init class for data storage
+    logger.debug('Initializing PaData class for storing data')
     data = PaData()
 
-    while True: #main execution loop
+    while True:
+        logger.debug('Entering main CLI execution loop')
         menu_ans = inquirer.rawlist(
             message='Choose an action',
             choices=[
@@ -1346,9 +1354,7 @@ if __name__ == "__main__":
                 elif energy_menu == 'Back':
                     break
                 else:
-                    print(f'{bcolors.WARNING}'
-                          + 'Unknown command in energy menu!'
-                          + f'{bcolors.ENDC}')
+                    logger.warn('Unknown command in energy menu!')
 
         elif menu_ans == 'Move to':
             set_new_position(hardware)
@@ -1371,9 +1377,7 @@ if __name__ == "__main__":
                     scan_image, scan_data, dt = scan(hardware)
 
                 elif data_ans == 'View data':
-                    print(f'{bcolors.WARNING}'
-                          + 'Scan data view is not implemented!'
-                          + f'{bcolors.ENDC}')
+                    logger.error('Scan data view is not implemented!')
 
                 elif data_ans == 'FFT filtration':
                     print(f'{bcolors.WARNING}'
@@ -1438,6 +1442,7 @@ if __name__ == "__main__":
                     print(f'{bcolors.WARNING}Unknown command in Spectral scanning menu!{bcolors.ENDC}')
 
         elif menu_ans == 'Exit':
+            logger.info('Stopping application')
             exit_ans = inquirer.confirm(
                 message='Do you really want to exit?'
                 ).execute()
