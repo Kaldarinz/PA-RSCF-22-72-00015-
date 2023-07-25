@@ -110,8 +110,8 @@ class BaseMetadata(TypedDict):
     data_points: int
     created: str
     updated: str
-    file_path: Union[str, bytes, os.PathLike]
-    filename: Union[str, bytes, os.PathLike]
+    file_path: os.PathLike
+    filename: os.PathLike
     zoom_pre_time: float
     zoom_post_time: float
     zoom_units: str
@@ -130,8 +130,8 @@ class PaData:
             'data_points': 0,
             'created': self._get_cur_time(),
             'updated': self._get_cur_time(),
-            'file_path': '',
-            'filename': '',
+            'file_path': '', # type: ignore
+            'filename': '', # type: ignore
             'zoom_pre_time': 0.000002,
             'zoom_post_time': 0.000013,
             'zoom_units': 's'
@@ -390,7 +390,8 @@ class PaData:
                                 category=MatplotlibDeprecationWarning)
 
         self._fig = plt.figure(tight_layout=True)
-        filename = self.attrs['path'] + self.attrs['filename']
+        filename = os.path.join(self.attrs['file_path'],
+                                self.attrs['filename'])
         self._fig.suptitle(filename)
         gs = gridspec.GridSpec(2,3)
         self._ax_sp = self._fig.add_subplot(gs[0,0])

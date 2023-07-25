@@ -12,6 +12,7 @@ import logging
 import logging.config
 import yaml
 from datetime import datetime
+from collections import deque
 
 from scipy import signal
 import numpy as np
@@ -20,6 +21,7 @@ from InquirerPy import inquirer
 from InquirerPy.validator import PathValidator
 import matplotlib.gridspec as gridspec
 import keyboard
+import pint
 
 import modules.validators as vd
 from modules.pa_data import PaData
@@ -54,7 +56,7 @@ def init_hardware(hardware: pa_logic.Hardware) -> None:
     try:
         pa_logic.init_hardware(hardware)
     except exceptions.HardwareError as err:
-        logger.error(err.value)
+        logger.error('Hardware initialization failed')
 
 def home(hardware: pa_logic.Hardware) -> None:
     """CLI for Homes stages"""
@@ -62,7 +64,7 @@ def home(hardware: pa_logic.Hardware) -> None:
     try:
         pa_logic.home(hardware)
     except exceptions.StageError as err:
-        logger.error(err.value)
+        logger.error('Homing command failed')
 
 def print_status(hardware: pa_logic.Hardware) -> None:
     """Prints current status and position of stages and oscilloscope"""
@@ -82,13 +84,13 @@ def print_status(hardware: pa_logic.Hardware) -> None:
               + f'status: {stage_Y.get_status()}, '
               + f'position: {stage_Y.get_position()*1000:.2f} mm.')
     except:
-        logger.warning('Stages are not responding!')
+        logger.error('Stages are not responding!')
         stages_connected = False
 
     if not osc.not_found:
         logger.info('Oscilloscope is initiated!')
     else:
-        logger.warning('Oscilloscope is not initialized!')
+        logger.error('Oscilloscope is not initialized!')
 
     if stages_connected and not osc.not_found:
         logger.info('All hardware is initiated!')
@@ -120,7 +122,7 @@ def save_data(data: PaData) -> None:
             cwd = os.path.abspath(os.getcwd())
             sub_folder = 'measuring results'
             file_path = os.path.join(cwd, sub_folder)
-        full_name = os.path.join(file_path, filename) # type: ignore
+        full_name = os.path.join(file_path, filename)
 
     logger.debug(f'Trying to save to {full_name}')
     if os.path.exists(full_name):
@@ -577,37 +579,31 @@ def spectra(hardware: pa_logic.Hardware,
     data.bp_filter()
     return data
           
-def track_power(hardware: pa_logic.Hardware, tune_width: int) -> float:
+def track_power(hardware: pa_logic.Hardware, tune_width: int) -> pint.Quantity:
     """Build energy graph.
-    Return mean energy for last aver=10 measurements"""
+    Return averaged mean energy"""
 
     ### config parameters
     #Averaging for mean and std calculations
     aver = 10
-    # ignore read if it is smaller than threshold*mean
+    # ignore energy read if it is smaller than threshold*mean
     threshold = 0.01
-    # time delay between measurements in s
-    measure_delya = 0.05
+    # time delay between measurements
+    measure_delay = ureg('50ms')
     ###
-
+    logger.debug('track_power is starting with config params: '
+                 + f'{aver=}, {threshold=}, {measure_delay=}')
     pm = hardware['power_meter'] #type: ignore
     
     #tune_width cannot be smaller than averaging
     if tune_width < aver:
-        print(f'{bcolors.WARNING}'
-              + 'Wrong tune_width value!'
-              + f'{bcolors.ENDC}')
-        return 0
-    
-    print(f'{bcolors.OKGREEN}'
-          + 'Hold q button to stop power measurements'
-          + f'{bcolors.ENDC}')
-    
-    # init arrays for data storage
-    data = np.zeros(tune_width)
-    tmp_data = np.zeros(tune_width)
+        logger.warning(f'{tune_width=} is smaller than averaging='
+                       + f'{aver}. tune_width set to {aver}.')
+        tune_width = aver
+    data = deque(maxlen=tune_width)
 
-    #init plot
+    logger.info('Hold "q" button to stop power measurements')
+    logger.debug('Initializing plt')
     fig = plt.figure(tight_layout=True)
     gs = gridspec.GridSpec(1,2)
     #axis for signal from osc
@@ -615,54 +611,27 @@ def track_power(hardware: pa_logic.Hardware, tune_width: int) -> float:
     #axis for energy graph
     ax_pa = fig.add_subplot(gs[0,1])
     
-    #mean energy
-    mean = 0
-
-    #measuring loop
-    i = 0
+    mean = 0*ureg('J')
+    logger.debug('Entering measuring loop')
     while True:
-        laser_amp = pm.get_energy_scr()
+        try:
+            laser_amp = pm.get_energy_scr()
+        except exceptions.OscilloscopeError as err:
+            logger.warning(f'{err.value}. Laser energy = {mean}')
+            return mean
+
+        logger.debug(f'measured {laser_amp=}')
         if not laser_amp:
             continue
-        if i == 0:
-            title = (f'Energy={laser_amp:.1f} [uJ], '
-                     + f'Mean (last {aver}) = {laser_amp:.1f} [uJ], '
-                     + f'Std (last {aver}) = {data[:i+1].std():.1f} [uJ]')
-            data[i] = laser_amp
-            mean = laser_amp
-
-        elif i < tune_width:
-            if i < aver:
-                if laser_amp < threshold*data[:i].mean():
-                    continue
-                mean = data[:i].mean()
-                title = (f'Energy={laser_amp:.1f} [uJ], '
-                         + f'Mean (last {aver}) = {mean:.1f} [uJ], '
-                         + f'Std (last {aver}) = {data[:i].std():.1f} [uJ]')
-            else:
-                if laser_amp < threshold*data[i-aver:i].mean():
-                    continue
-                mean = data[i-aver:i].mean()
-                title = (f'Energy={laser_amp:.1f} [uJ], '
-                         + f'Mean (last {aver}) = {mean:.1f} [uJ], '
-                         + f'Std (last {aver}) = '
-                         + f'{data[i-aver:i].std():.1f} [uJ]')
-            data[i] = laser_amp
+        data.append(laser_amp)
         
-        else:
-            tmp_data[:-1] = data[1:].copy()
-            tmp_data[tune_width-1] = laser_amp
-            mean = tmp_data[tune_width-aver:-1].mean()
-            title = (f'Energy={laser_amp:.1f} [uJ], '
-                     + f'Mean (last {aver}) = {mean:.1f} [uJ], '
-                     + f'Std (last {aver}) = '
-                     + f'{tmp_data[tune_width-aver:-1].std():.1f} [uJ]')
-            if tmp_data[tune_width-1] < threshold*tmp_data[tune_width-aver:-1].mean():
-                continue
-            data = tmp_data.copy()
-        
-        #increase index
-        i += 1
+        tmp_data = pint.Quantity.from_list([x for x in data])
+        mean = tmp_data.mean() # type: ignore
+        std = tmp_data.std() # type: ignore
+        title = (f'Energy={laser_amp:~P}, '
+                + f'Mean (last {aver}) = {mean:~P}, '
+                + f'Std (last {aver}) = {std:~P}')
+        logger.debug(f'plot {title=}')
         #plotting data
         ax_pm.clear()
         ax_pa.clear()
@@ -682,8 +651,7 @@ def track_power(hardware: pa_logic.Hardware, tune_width: int) -> float:
             alpha=0.4,
             ms=12,
             color='red')
-        ax_pa.plot(data)
-        ax_pa.set_ylabel('Laser energy, [uJ]')
+        ax_pa.plot(tmp_data)
         ax_pa.set_title(title)
         ax_pa.set_ylim(bottom=0)
         fig.canvas.draw()
@@ -691,7 +659,7 @@ def track_power(hardware: pa_logic.Hardware, tune_width: int) -> float:
             
         if keyboard.is_pressed('q'):
             break
-        time.sleep(measure_delya)
+        time.sleep(measure_delay.to('s').m)
 
     return mean
 
@@ -1305,9 +1273,15 @@ def export_to_txt(data: PaData) -> None:
         print(f'{bcolors.WARNING} Unknown command in data export menu {bcolors.ENDC}')
 
 if __name__ == "__main__":
-    
+
     logger = init_logs()
     logger.info('Starting application')
+
+    ureg = pint.UnitRegistry(auto_reduce_dimensions=True)
+    logger.debug('Pint activated (measured values with units)')
+    ureg.setup_matplotlib(True)
+    logger.debug('MatplotLib handlers for pint activated')
+
 
     logger.debug('Creating a dict for storing hardware refs')
     hardware: pa_logic.Hardware = {
@@ -1326,11 +1300,8 @@ if __name__ == "__main__":
             choices=[
                 'Init and status',
                 'Data',
-                'Power meter',
-                'Energy',
-                'Move to',
-                'Stage scanning',
-                'Spectral scanning',
+                'Utils',
+                'Measurements',
                 'Exit'
             ],
             height=9).execute()
@@ -1396,123 +1367,70 @@ if __name__ == "__main__":
                 else:
                     print(f'{bcolors.WARNING}Unknown command in Spectral scanning menu!{bcolors.ENDC}')
 
-        elif menu_ans == 'Power meter':
-            _ = track_power(hardware, 100)
-
-        elif menu_ans == 'Energy':
+        elif menu_ans == 'Utils':
             while True:
-                energy_menu = inquirer.rawlist(
+                utils_menu = inquirer.rawlist(
                     message='Choose an option',
                     choices = [
+                        'Power meter',
                         'Glan check',
                         'Filter caclulation',
                         'Back'
                     ]
                 ).execute()
-                logger.debug(f'"{energy_ans}" menu option choosen')
+                logger.debug(f'"{utils_menu}" menu option choosen')
 
-                if energy_menu == 'Glan check':
+                if utils_menu == 'Power meter':
+                    _ = track_power(hardware, 100)
+                elif utils_menu == 'Glan check':
                     glan_check(hardware)
-                elif energy_menu == 'Filter caclulation':
+                elif utils_menu == 'Filter caclulation':
                     calc_filters_for_energy(hardware)
-                elif energy_menu == 'Back':
+                elif utils_menu == 'Move to':
+                    set_new_position(hardware)
+                elif utils_menu == 'Back':
                     break
                 else:
-                    logger.warning('Unknown command in energy menu!')
+                    logger.warning('Unknown command in utils menu!')
 
-        elif menu_ans == 'Move to':
-            set_new_position(hardware)
-
-        elif menu_ans == 'Stage scanning':
+        elif menu_ans == 'Measurements':
             while True:
-                data_ans = inquirer.rawlist(
-                    message='Choose scan action',
+                measure_ans = inquirer.rawlist(
+                    message='Choose measurement action',
                     choices=[
-                        'Scan',
-                        'View data', 
-                        'FFT filtration',
-                        'Load data',
-                        'Save data',
+                        'Measure 0D data',
+                        'Measure 1D data',
+                        'Measure 2D data',
+                        'View measured data',
                         'Back to main menu'
                     ]
                 ).execute()
-                logger.debug(f'"{data_ans}" menu option choosen')
+                logger.debug(f'"{measure_ans}" menu option choosen')
                 
-                if data_ans == 'Scan':
-                    scan_image, scan_data, dt = scan(hardware)
+                if measure_ans == 'Measure 0D data':
+                    data = spectra(hardware, data)
 
-                elif data_ans == 'View data':
-                    logger.error('Scan data view is not implemented!')
+                elif measure_ans == 'Measure 1D data':
+                    data = spectra(hardware, data)
 
-                elif data_ans == 'FFT filtration':
-                    print(f'{bcolors.WARNING}'
-                          + 'FFT of scan data is not implemented!'
-                          + f'{bcolors.ENDC}')
+                elif measure_ans == 'Measure 2D data':
+                    data = spectra(hardware, data)
 
-                elif data_ans == 'Save data':
-                    print(f'{bcolors.WARNING}'
-                          + 'Save scan data is not implemented!'
-                          + f'{bcolors.ENDC}')
-
-                elif data_ans == 'Load data':
-                    print(f'{bcolors.WARNING}'
-                          + 'Load scan data is not implemented!'
-                          + f'{bcolors.ENDC}')
-
-                elif data_ans == 'Back to main menu':
-                        break
-                
-                else:
-                    print(f'{bcolors.WARNING}'
-                          + 'Unknown option is stage scanning menu!'
-                          + f'{bcolors.ENDC}')
-
-        elif menu_ans == 'Spectral scanning':
-            while True:
-                data_ans = inquirer.rawlist(
-                    message='Choose spectral data action',
-                    choices=[
-                        'Measure spectrum',
-                        'View data', 
-                        'FFT filtration',
-                        'Load data',
-                        'Save data',
-                        'Export to txt',
-                        'Back to main menu'
-                    ]
-                ).execute()
-                logger.debug(f'"{data_ans}" menu option choosen')
-                
-                if data_ans == 'Measure spectrum':
-                    data = spectra(hardware, data)  
-
-                elif data_ans == 'View data':
+                elif measure_ans == 'View measured data':
                     data.plot()
 
-                elif data_ans == 'FFT filtration':
-                    bp_filter(data)
-
-                elif data_ans == 'Save data':
-                    save_data(data)
-
-                elif data_ans == 'Export to txt':
-                    export_to_txt(data)
-
-                elif data_ans == 'Load data':
-                    data = load_data(data)
-
-                elif data_ans == 'Back to main menu':
+                elif measure_ans == 'Back to main menu':
                         break         
 
                 else:
-                    print(f'{bcolors.WARNING}Unknown command in Spectral scanning menu!{bcolors.ENDC}')
+                    logger.warning(f'Unknown command "{measure_ans}" in measurement menu')
 
         elif menu_ans == 'Exit':
-            logger.info('Stopping application')
             exit_ans = inquirer.confirm(
                 message='Do you really want to exit?'
                 ).execute()
             if exit_ans:
+                logger.info('Stopping application')
                 if hardware['stage_x']:
                     hardware['stage_x'].close()
                 if hardware['stage_y']:
@@ -1520,4 +1438,4 @@ if __name__ == "__main__":
                 exit()
 
         else:
-            print(f'{bcolors.WARNING}Unknown action in the main menu!{bcolors.ENDC}')
+            logger.warning(f'Unknown command "{menu_ans}" in the main menu!')

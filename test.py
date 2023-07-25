@@ -1,8 +1,13 @@
-import os.path
-import os
+import matplotlib.pyplot as plt
+import numpy as np
+import pint
 
-sub_fold = 'measuring results'
-filename = 'example.log'
-cwd = os.path.abspath(os.getcwd())
-full_path = os.path.join(cwd,sub_fold, filename)
-print(full_path)
+ureg = pint.UnitRegistry()
+ureg.setup_matplotlib(True)
+
+y = np.linspace(0, 30) * ureg.miles
+x = np.linspace(0, 5) * ureg.hours
+
+fig, ax = plt.subplots()
+ax.plot(y)
+plt.show()

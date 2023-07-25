@@ -495,7 +495,7 @@ class PowerMeter:
         logger.debug('Starting fast energy measuring')
         logger.debug('Checking if oscilloscope is available')
         if self.osc.not_found:
-            logger.debug('not_found flag in osc instance is set')
+            logger.debug('not_found flag in osc instance is set. Terminating energy measurement.')
             msg = 'Oscilloscope not found'
             raise exceptions.OscilloscopeError(msg)
         
@@ -504,7 +504,7 @@ class PowerMeter:
         #Oscilloscope class will promt warning
         if self.osc.bad_read:
             logger.warning('Energy measurement failed. 0 is returned')
-            return 0*ureg('joule')
+            return 0*ureg('J')
         
         logger.debug('PowerMeter response obtained')
         self.data = self.osc.scr_data[self.ch]

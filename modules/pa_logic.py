@@ -36,10 +36,12 @@ def init_hardware(hardware: Hardware) -> None:
         raise exceptions.HardwareError(str(err))
 
     #do not work
+    osc = hardware['osc']
     try:
-        hardware['osc'].connection_check()
+        osc.connection_check()
     except exceptions.OscilloscopeError:
-        hardware['osc'].initialize()
+        osc.initialize()
+        hardware.update({'power_meter': oscilloscope.PowerMeter(osc)})
 
     logger.info('Hardware initialization complete')
     
