@@ -4,8 +4,7 @@ Latest developing version
 
 from __future__ import annotations
 
-import os
-import os.path
+import os, os.path
 import time
 import math
 from itertools import combinations
@@ -35,6 +34,7 @@ def init_logs() -> logging.Logger:
     with open('log_config.yaml', 'r') as f:
         log_config = yaml.load(f, Loader=yaml.FullLoader)
 
+    # adding current data to name of log files
     for i in (log_config["handlers"].keys()):
         # Check if filename in handler.
         # Console handlers might be present in config file
@@ -48,32 +48,21 @@ def init_logs() -> logging.Logger:
     logging.config.dictConfig(log_config)
     return logging.getLogger('pa_cli')
 
-def init(hardware: pa_logic.Hardware) -> None:
-    """Hardware initiation"""
+def init_hardware(hardware: pa_logic.Hardware) -> None:
+    """CLI for hardware init"""
 
-    logger.info('Starting hardware initialization...')
     try:
         pa_logic.init_hardware(hardware)
-    except exceptions.StageError as err:
+    except exceptions.HardwareError as err:
         logger.error(err.value)
-    except exceptions.OscilloscopeError as err:
-        logger.error(err.value)
-    else:
-        logger.info(f'Stage X initiated. Stage X ID = {hardware["stage_x"]}')
-        logger.info(f'Stage Y initiated. Stage Y ID = {hardware["stage_y"]}')
-        logger.info('Oscilloscope was initiated')
-        logger.info('Initialization complete')
 
 def home(hardware: pa_logic.Hardware) -> None:
     """CLI for Homes stages"""
 
-    logger.info('Homing started...')
     try:
         pa_logic.home(hardware)
     except exceptions.StageError as err:
         logger.error(err.value)
-    else:
-        logger.info('...Homing complete')
 
 def print_status(hardware: pa_logic.Hardware) -> None:
     """Prints current status and position of stages and oscilloscope"""
@@ -82,8 +71,8 @@ def print_status(hardware: pa_logic.Hardware) -> None:
     stage_X = hardware['stage_x']
     stage_Y = hardware['stage_y']
     osc = hardware['osc']
-    if hardware['stage_x'] and hardware['stage_y']:
-        logger.info('Stages are initiated!')
+    stages_connected = True
+    try:
         logger.info(f'X stage'
               + f'homing status: {stage_X.is_homed()}, '
               + f'status: {stage_X.get_status()}, '
@@ -92,21 +81,24 @@ def print_status(hardware: pa_logic.Hardware) -> None:
               + f'homing status: {stage_Y.is_homed()}, '
               + f'status: {stage_Y.get_status()}, '
               + f'position: {stage_Y.get_position()*1000:.2f} mm.')
-    else:
-        logger.warning('Stages are not initialized!')
+    except:
+        logger.warning('Stages are not responding!')
+        stages_connected = False
 
     if not osc.not_found:
         logger.info('Oscilloscope is initiated!')
     else:
         logger.warning('Oscilloscope is not initialized!')
 
-    if stage_X and stage_Y and not osc.not_found:
+    if stages_connected and not osc.not_found:
         logger.info('All hardware is initiated!')
 
 def save_data(data: PaData) -> None:
     """"Save data"""
 
     if not data.attrs['filename']:
+        logger.debug('Filename is missing in data, '
+                     + 'asking to set filename.')
         filename = inquirer.text(
             message='Enter Sample name' + vd.cancel_option,
             default='Unknown',
@@ -114,18 +106,30 @@ def save_data(data: PaData) -> None:
         ).execute()
         logger.debug(f'"{filename}" filename entered')
         if filename == None:
-            print(f'{bcolors.WARNING}Save terminated!{bcolors.ENDC}')
+            logger.debug('Save terminated by user')
             return
-        full_name = 'measuring results/' + filename + '.hdf5'
+        suffix = '.hdf5'
+        cwd = os.path.abspath(os.getcwd())
+        sub_folder = 'measuring results'
+        full_name = os.path.join(cwd, sub_folder, filename+suffix)
     else:
         filename = data.attrs['filename']
-        full_name = data.attrs['path'] + filename
+        if data.attrs['file_path']:
+            file_path = data.attrs['file_path']
+        else:
+            cwd = os.path.abspath(os.getcwd())
+            sub_folder = 'measuring results'
+            file_path = os.path.join(cwd, sub_folder)
+        full_name = os.path.join(file_path, filename) # type: ignore
 
+    logger.debug(f'Trying to save to {full_name}')
     if os.path.exists(full_name):
+        logger.debug('File already exists')
         override = inquirer.confirm(
-            message='Do you want to override file ' + filename + '?'
+            message=('Do you want to override file '
+            + str(filename) + '?')
         ).execute()
-        logger.debug(f'"{filename}" override confirmed')
+        logger.debug(f'{override=} have chosen')
         
         if not override:
             i = 1
@@ -135,8 +139,10 @@ def save_data(data: PaData) -> None:
                 full_name_tmp = full_name.split('.hdf5')[0] + str(i) + '.hdf5'
             full_name = full_name_tmp
 
+    logger.debug(f'Data will be saved to {full_name}')
     data.save(full_name)
-    print(f'File updated: {bcolors.OKGREEN}{filename}{bcolors.ENDC}')
+    filename = os.path.basename(full_name)
+    logger.info(f'Data saved to {filename}')
 
 def load_data(old_data: PaData) -> PaData:
     """Return loaded data in the related format"""
@@ -1308,7 +1314,7 @@ if __name__ == "__main__":
         'stage_x': 0,
         'stage_y': 0,
         'osc': oscilloscope.Oscilloscope()
-    }
+    } # type: ignore
 
     logger.debug('Initializing PaData class for storing data')
     data = PaData()
@@ -1343,7 +1349,7 @@ if __name__ == "__main__":
                 logger.debug(f'"{stat_ans}" menu option choosen')
 
                 if stat_ans == 'Init hardware':
-                    init(hardware)
+                    init_hardware(hardware)
 
                 elif stat_ans == 'Home stages':
                     home(hardware)
@@ -1360,9 +1366,9 @@ if __name__ == "__main__":
                     message='Choose data action',
                     choices=[
                         'Load data',
-                        'View data', 
-                        'FFT filtration',
+                        'View data',
                         'Save data',
+                        'FFT filtration',
                         'Export to txt',
                         'Back to main menu'
                     ]
@@ -1372,14 +1378,14 @@ if __name__ == "__main__":
                 if data_ans == 'Load data':
                     data = load_data(data)
                 
+                elif data_ans == 'Save data':
+                    save_data(data)
+
                 elif data_ans == 'View data':
                     data.plot()
 
                 elif data_ans == 'FFT filtration':
                     bp_filter(data)
-
-                elif data_ans == 'Save data':
-                    save_data(data)
 
                 elif data_ans == 'Export to txt':
                     export_to_txt(data)
