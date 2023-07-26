@@ -25,7 +25,6 @@ import pint
 
 import modules.validators as vd
 from modules.pa_data import PaData
-from modules.bcolors import bcolors
 import modules.oscilloscope as oscilloscope
 import modules.pa_logic as pa_logic
 import modules.exceptions as exceptions
@@ -591,6 +590,7 @@ def track_power(hardware: pa_logic.Hardware, tune_width: int) -> pint.Quantity:
     # time delay between measurements
     measure_delay = ureg('50ms')
     ###
+
     logger.debug('track_power is starting with config params: '
                  + f'{aver=}, {threshold=}, {measure_delay=}')
     pm = hardware['power_meter'] #type: ignore
@@ -603,6 +603,7 @@ def track_power(hardware: pa_logic.Hardware, tune_width: int) -> pint.Quantity:
     data = deque(maxlen=tune_width)
 
     logger.info('Hold "q" button to stop power measurements')
+    
     logger.debug('Initializing plt')
     fig = plt.figure(tight_layout=True)
     gs = gridspec.GridSpec(1,2)
@@ -625,17 +626,21 @@ def track_power(hardware: pa_logic.Hardware, tune_width: int) -> pint.Quantity:
             continue
         data.append(laser_amp)
         
-        tmp_data = pint.Quantity.from_list([x for x in data])
+        #ndarray for up to last <aver> values
+        tmp_data = pint.Quantity.from_list(
+            [x for i,x in enumerate(data) if i<aver])
         mean = tmp_data.mean() # type: ignore
         std = tmp_data.std() # type: ignore
         title = (f'Energy={laser_amp:~P}, '
                 + f'Mean (last {aver}) = {mean:~P}, '
                 + f'Std (last {aver}) = {std:~P}')
         logger.debug(f'plot {title=}')
+        
         #plotting data
         ax_pm.clear()
         ax_pa.clear()
         ax_pm.plot(pm.data)
+        
         #add markers for data start and stop
         ax_pm.plot(
             pm.start_ind,
@@ -666,8 +671,10 @@ def track_power(hardware: pa_logic.Hardware, tune_width: int) -> pint.Quantity:
 def set_new_position(hardware: pa_logic.Hardware) -> None:
     """Queries new position and move PA detector to this position"""
 
-    if not hardware['stage_x'] or not hardware['stage_y']:
-        print(f'{bcolors.WARNING} Stages are not initialized!{bcolors.ENDC}')
+    logger.debug('Setting new position...')
+    if not pa_logic.stages_open(hardware):
+        logger.error('Setting new position failed')
+        return
 
     x_dest = inquirer.text(
         message='Enter X destination [mm] ' + vd.cancel_option,
@@ -675,8 +682,9 @@ def set_new_position(hardware: pa_logic.Hardware) -> None:
         validate=vd.ScanRangeValidator(),
         mandatory=False
     ).execute()
+    logger.debug(f'{x_dest=} set')
     if x_dest is None:
-        print(f'{bcolors.WARNING} Input terminated! {bcolors.ENDC}')
+        logger.warning('Input terminated by user')
         return
     x_dest = float(x_dest)
     
@@ -686,19 +694,24 @@ def set_new_position(hardware: pa_logic.Hardware) -> None:
         validate=vd.ScanRangeValidator(),
         mandatory=False
     ).execute()
+    logger.debug(f'{y_dest=} set')
     if y_dest is None:
-        print(f'{bcolors.WARNING} Input terminated! {bcolors.ENDC}')
+        logger.warning('Input terminated by user')
         return
     y_dest = float(y_dest)
 
-    print(f'Moving to ({x_dest},{y_dest})...')
-    move_to(x_dest, y_dest, hardware)
-    wait_stages_stop(hardware)
-    pos_x = hardware['stage_x'].get_position(scale=True)*1000
-    pos_y = hardware['stage_y'].get_position(scale=True)*1000
-    print(f'{bcolors.OKGREEN}'
-          + f'...Mooving complete!{bcolors.ENDC}'
-          + f'Current position ({pos_x:.2f},{pos_y:.2f})')
+    logger.info(f'Moving to ({x_dest:.2f},{y_dest:.2f})...')
+    try:
+        pa_logic.move_to(x_dest, y_dest, hardware)
+        pa_logic.wait_stages_stop(hardware)
+        pos_x = hardware['stage_x'].get_position(scale=True)*1000
+        pos_y = hardware['stage_y'].get_position(scale=True)*1000
+    except:
+        logger.error('Error during communicating with stages')
+        return
+    
+    logger.info('Moving complete!')
+    logger.info(f'Current position ({pos_x:.2f},{pos_y:.2f})')
 
 def remove_zeros(data: np.ndarray) -> np.ndarray:
     """Replaces zeros in filters data by linear fit from nearest values"""
@@ -1375,18 +1388,19 @@ if __name__ == "__main__":
                         'Power meter',
                         'Glan check',
                         'Filter caclulation',
+                        'Move detector',
                         'Back'
                     ]
                 ).execute()
                 logger.debug(f'"{utils_menu}" menu option choosen')
 
                 if utils_menu == 'Power meter':
-                    _ = track_power(hardware, 100)
+                    track_power(hardware, 100)
                 elif utils_menu == 'Glan check':
                     glan_check(hardware)
                 elif utils_menu == 'Filter caclulation':
                     calc_filters_for_energy(hardware)
-                elif utils_menu == 'Move to':
+                elif utils_menu == 'Move detector':
                     set_new_position(hardware)
                 elif utils_menu == 'Back':
                     break

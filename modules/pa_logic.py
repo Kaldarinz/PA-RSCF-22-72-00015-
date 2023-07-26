@@ -134,8 +134,42 @@ def init_stages(hardware: Hardware, amount: int) -> None:
     
     logger.info('Stage initiation is complete')
 
+def stages_open(hardware: Hardware) -> bool:
+    """Return True if all stages are responding and open.
+    Never raises exceptions."""
+
+    logger.debug('Starting connection check to stages')
+    connected = True
+    try:
+        if not hardware['stage_x'].is_opened():
+            logger.warning('Stage X is not open')
+            connected = False
+        else:
+            logger.debug('Stage X is open')
+        if not hardware['stage_y'].is_opened():
+            logger.warning('Stage Y is not open')
+            connected = False
+        else:
+            logger.debug('Stage Y is open')
+        stage_z = hardware.get('stage_z', default=None)
+        if not stage_z is None:
+            if not hardware['stage_z'].is_opened():
+                logger.warning('Stage Z is not open')
+                connected = False
+            else:
+                logger.debug('Stage Z is open')
+    except:
+        logger.error('Error during stages connection check')
+        connected = False
+    
+    if connected:
+        logger.debug('All stages are connected and open')
+
+    return connected
+
 def move_to(X: float, Y: float, hardware: Hardware) -> None:
-    """Move PA detector to (X,Y) position.
+    """Sends PA detector to (X,Y) position.
+    Does not wait for stop moving.
     Coordinates are in mm."""
     
     x_dest_mm = X/1000
@@ -199,5 +233,3 @@ def home(hardware: Hardware) -> None:
     
     wait_stages_stop(hardware)
     
-def check_stage():
-    pass

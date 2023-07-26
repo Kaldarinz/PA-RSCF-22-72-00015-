@@ -1,13 +1,13 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import pint
+from collections import deque
 
 ureg = pint.UnitRegistry()
-ureg.setup_matplotlib(True)
+q = deque(maxlen=5)
 
-y = np.linspace(0, 30) * ureg.miles
-x = np.linspace(0, 5) * ureg.hours
-
-fig, ax = plt.subplots()
-ax.plot(y)
-plt.show()
+for i in range(7):
+    q.appendleft(i*ureg('s'))
+    #print(q)
+    qlist = pint.Quantity.from_list([x for i,x in enumerate(q) if i<3])
+    print(qlist)
