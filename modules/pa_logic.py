@@ -6,7 +6,7 @@ from typing import Any, TypedDict, Union
 import logging
 
 from pylablib.devices import Thorlabs
-import modules.oscilloscope as oscilloscope
+import modules.osc_devices as osc_devices
 import modules.exceptions as exceptions
 
 logger = logging.getLogger(__name__)
@@ -16,12 +16,12 @@ class Hardware_base(TypedDict):
 
     stage_x: Thorlabs.KinesisMotor
     stage_y: Thorlabs.KinesisMotor
-    osc: oscilloscope.Oscilloscope
+    osc: osc_devices.Oscilloscope
 
 class Hardware(Hardware_base, total=False):
     """TypedDict for refernces to hardware"""
     
-    power_meter: oscilloscope.PowerMeter
+    power_meter: osc_devices.PowerMeter
     stage_z: Thorlabs.KinesisMotor
 
 def init_hardware(hardware: Hardware) -> None:
@@ -41,7 +41,7 @@ def init_hardware(hardware: Hardware) -> None:
         osc.connection_check()
     except exceptions.OscilloscopeError:
         osc.initialize()
-        hardware.update({'power_meter': oscilloscope.PowerMeter(osc)})
+        hardware.update({'power_meter': osc_devices.PowerMeter(osc)})
 
     logger.info('Hardware initialization complete')
     
@@ -165,6 +165,28 @@ def stages_open(hardware: Hardware) -> bool:
     if connected:
         logger.debug('All stages are connected and open')
 
+    return connected
+
+def osc_open(hardware: Hardware) -> bool:
+    """Returns true if oscilloscope is connected"""
+
+    logger.debug('Starting connection check to oscilloscope')
+    hardware['osc'].connection_check()
+    connected = not hardware['osc'].not_found
+    logger.debug(f'Oscilloscope {connected=}')
+    return connected
+
+def pm_open(hardware: Hardware) -> bool:
+    """Returns true if power meter is configured"""
+
+    logger.debug('Starting power meter connection check')
+
+    if hardware.get('power_meter', default=None) is None:
+        logger.warning('Power meter is not initialized')
+        connected = False
+    else:
+        connected = osc_open(hardware)
+        logger.debug(f'Power meter {connected=}')
     return connected
 
 def move_to(X: float, Y: float, hardware: Hardware) -> None:

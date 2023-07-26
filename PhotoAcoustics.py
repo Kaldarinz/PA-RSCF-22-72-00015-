@@ -22,7 +22,7 @@ import matplotlib.gridspec as gridspec
 import keyboard
 
 import modules.validators as vd
-import modules.oscilloscope as oscilloscope
+import modules.osc_devices as osc_devices
 from modules.PaData import PaData
 from modules.bcolors import bcolors
 
@@ -46,12 +46,12 @@ class Hardware_base(TypedDict):
 
     stage_x: Any
     stage_y: Any
-    osc: oscilloscope.Oscilloscope
+    osc: osc_devices.Oscilloscope
 
 class Hardware(Hardware_base, total=False):
     """TypedDict for refernces to hardware"""
     
-    power_meter: oscilloscope.PowerMeter
+    power_meter: osc_devices.PowerMeter
 
 def init_hardware(hardware: Hardware) -> None:
     """Initialize all hardware"""
@@ -67,7 +67,7 @@ def init_hardware(hardware: Hardware) -> None:
         print(f'{bcolors.WARNING}Oscilloscope already initiated!{bcolors.ENDC}')
 
     if hardware['stage_x'] and hardware['stage_y'] and not hardware['osc'].not_found:
-        hardware['power_meter'] = oscilloscope.PowerMeter(hardware['osc'])
+        hardware['power_meter'] = osc_devices.PowerMeter(hardware['osc'])
         print(f'{bcolors.OKGREEN}Initialization complete!{bcolors.ENDC}')
 
 def init_stages(hardware: Hardware) -> None:
@@ -1488,7 +1488,7 @@ if __name__ == "__main__":
     hardware: Hardware = {
         'stage_x': 0,
         'stage_y': 0,
-        'osc': oscilloscope.Oscilloscope()
+        'osc': osc_devices.Oscilloscope()
     }
 
     # init class for data storage

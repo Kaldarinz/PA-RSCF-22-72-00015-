@@ -25,14 +25,14 @@ import pint
 
 import modules.validators as vd
 from modules.pa_data import PaData
-import modules.oscilloscope as oscilloscope
+import modules.osc_devices as osc_devices
 import modules.pa_logic as pa_logic
 import modules.exceptions as exceptions
 
 def init_logs() -> logging.Logger:
     """Initiate logging"""
 
-    with open('log_config.yaml', 'r') as f:
+    with open('rsc/log_config.yaml', 'r') as f:
         log_config = yaml.load(f, Loader=yaml.FullLoader)
 
     # adding current data to name of log files
@@ -68,6 +68,7 @@ def home(hardware: pa_logic.Hardware) -> None:
 def print_status(hardware: pa_logic.Hardware) -> None:
     """Prints current status and position of stages and oscilloscope"""
     
+    # todo: add information about channels to which PM and PA sensor are connected
     logger.debug('print_status called')
     stage_X = hardware['stage_x']
     stage_Y = hardware['stage_y']
@@ -95,7 +96,7 @@ def print_status(hardware: pa_logic.Hardware) -> None:
         logger.info('All hardware is initiated!')
 
 def save_data(data: PaData) -> None:
-    """"Save data"""
+    """"CLI for saving data to a file"""
 
     if not data.attrs['filename']:
         logger.debug('Filename is missing in data, '
@@ -176,6 +177,177 @@ def load_data(old_data: PaData) -> PaData:
     new_data.load(file_path)
     logger.info(f'Data with {len(new_data.raw_data)-1} PA measurements loaded!')
     return new_data
+          
+def track_power(hardware: pa_logic.Hardware, tune_width: int) -> pint.Quantity:
+    """Build energy graph.
+    Return averaged mean energy"""
+
+    ### config parameters
+    #Averaging for mean and std calculations
+    aver = 10
+    # ignore energy read if it is smaller than threshold*mean
+    threshold = 0.01
+    # time delay between measurements
+    measure_delay = ureg('50ms')
+    ###
+
+    logger.debug('track_power is starting with config params: '
+                 + f'{aver=}, {threshold=}, {measure_delay=}')
+    pm = hardware['power_meter'] #type: ignore
+    
+    #tune_width cannot be smaller than averaging
+    if tune_width < aver:
+        logger.warning(f'{tune_width=} is smaller than averaging='
+                       + f'{aver}. tune_width set to {aver}.')
+        tune_width = aver
+    data = deque(maxlen=tune_width)
+
+    logger.info('Hold "q" button to stop power measurements')
+    
+    logger.debug('Initializing plt')
+    fig = plt.figure(tight_layout=True)
+    gs = gridspec.GridSpec(1,2)
+    #axis for signal from osc
+    ax_pm = fig.add_subplot(gs[0,0])
+    #axis for energy graph
+    ax_pa = fig.add_subplot(gs[0,1])
+    
+    mean = 0*ureg('J')
+    logger.debug('Entering measuring loop')
+    while True:
+        try:
+            laser_amp = pm.get_energy_scr()
+        except exceptions.OscilloscopeError as err:
+            logger.warning(f'{err.value}. Laser energy = {mean}')
+            return mean
+
+        logger.debug(f'measured {laser_amp=}')
+        if not laser_amp:
+            continue
+        data.append(laser_amp)
+        
+        #ndarray for up to last <aver> values
+        tmp_data = pint.Quantity.from_list(
+            [x for i,x in enumerate(data) if i<aver])
+        mean = tmp_data.mean() # type: ignore
+        std = tmp_data.std() # type: ignore
+        title = (f'Energy={laser_amp:~P}, '
+                + f'Mean (last {aver}) = {mean:~P}, '
+                + f'Std (last {aver}) = {std:~P}')
+        logger.debug(f'plot {title=}')
+        
+        #plotting data
+        ax_pm.clear()
+        ax_pa.clear()
+        ax_pm.plot(pm.data)
+        
+        #add markers for data start and stop
+        ax_pm.plot(
+            pm.start_ind,
+            pm.data[pm.start_ind],
+            'o',
+            alpha=0.4,
+            ms=12,
+            color='green')
+        ax_pm.plot(
+            pm.stop_ind,
+            pm.data[pm.stop_ind],
+            'o',
+            alpha=0.4,
+            ms=12,
+            color='red')
+        ax_pa.plot(tmp_data)
+        ax_pa.set_title(title)
+        ax_pa.set_ylim(bottom=0)
+        fig.canvas.draw()
+        plt.pause(0.01)
+            
+        if keyboard.is_pressed('q'):
+            break
+        time.sleep(measure_delay.to('s').m)
+
+    return mean
+
+def set_new_position(hardware: pa_logic.Hardware) -> None:
+    """Queries new position and move PA detector to this position"""
+
+    logger.debug('Setting new position...')
+    if not pa_logic.stages_open(hardware):
+        logger.error('Setting new position cannot start')
+        return
+
+    x_dest = inquirer.text(
+        message='Enter X destination [mm] ' + vd.cancel_option,
+        default='0.0',
+        validate=vd.ScanRangeValidator(),
+        mandatory=False
+    ).execute()
+    logger.debug(f'{x_dest=} set')
+    if x_dest is None:
+        logger.warning('Input terminated by user')
+        return
+    x_dest = float(x_dest)
+    
+    y_dest = inquirer.text(
+        message='Enter Y destination [mm] ' + vd.cancel_option,
+        default='0.0',
+        validate=vd.ScanRangeValidator(),
+        mandatory=False
+    ).execute()
+    logger.debug(f'{y_dest=} set')
+    if y_dest is None:
+        logger.warning('Input terminated by user')
+        return
+    y_dest = float(y_dest)
+
+    logger.info(f'Moving to ({x_dest:.2f},{y_dest:.2f})...')
+    try:
+        pa_logic.move_to(x_dest, y_dest, hardware)
+        pa_logic.wait_stages_stop(hardware)
+        pos_x = hardware['stage_x'].get_position(scale=True)*1000
+        pos_y = hardware['stage_y'].get_position(scale=True)*1000
+    except:
+        logger.error('Error during communicating with stages')
+        return
+    
+    logger.info('Moving complete!')
+    logger.info(f'Current position ({pos_x:.2f},{pos_y:.2f})')
+
+def measure_0d(hardware: pa_logic.Hardware,
+               old_data: PaData) -> PaData:
+    """CLI for single PA measurement"""
+    logger.warning('measure 0D not implemented')
+    return old_data
+
+def measure_1d(hardware: pa_logic.Hardware,
+               old_data: PaData) -> PaData:
+    """CLI for 1D PA measurements"""
+
+    data = old_data
+    while True:
+        measure_ans = inquirer.rawlist(
+                message='Choose measurement',
+                choices=[
+                    'Spectral scanning',
+                    'Back'
+                ]).execute()
+        logger.debug(f'"{measure_ans}" menu option choosen')
+
+        if measure_ans == 'Spectral scanning':
+            data = spectra(hardware, data)
+        elif measure_ans == 'Back':
+            break
+        else:
+            logger.warning(f'Unknown command "{measure_ans}" '
+                           + 'in Measure 1D menu')
+
+    return data
+
+def measure_2d(hardware: pa_logic.Hardware,
+               old_data: PaData) -> PaData:
+    """CLI for 2D PA measurements"""
+    logger.warning('measure 2D not implemented')
+    return old_data
 
 def bp_filter(data: PaData) -> None:
     """Perform bandpass filtration on data
@@ -209,13 +381,8 @@ def bp_filter(data: PaData) -> None:
     data.bp_filter(low_cutof,high_cutof)
 
 def spectra(hardware: pa_logic.Hardware,
-            old_data: PaData,
-            store_raw: bool=False,
-            chan_pm: str='CHAN1',
-            chan_pa: str='CHAN2') -> PaData:
-    """Measures spectral data.
-    store_raw flag will result in saving datapoints in uint8 format
-    chan_pa ='CHAN1'|'CHAN2', is channel to which PA sendor is connected"""
+            old_data: PaData,) -> PaData:
+    """CLI for PA spectral measurement"""
 
     osc = hardware['osc']
 
@@ -577,141 +744,6 @@ def spectra(hardware: pa_logic.Hardware,
           + f'{bcolors.ENDC}')
     data.bp_filter()
     return data
-          
-def track_power(hardware: pa_logic.Hardware, tune_width: int) -> pint.Quantity:
-    """Build energy graph.
-    Return averaged mean energy"""
-
-    ### config parameters
-    #Averaging for mean and std calculations
-    aver = 10
-    # ignore energy read if it is smaller than threshold*mean
-    threshold = 0.01
-    # time delay between measurements
-    measure_delay = ureg('50ms')
-    ###
-
-    logger.debug('track_power is starting with config params: '
-                 + f'{aver=}, {threshold=}, {measure_delay=}')
-    pm = hardware['power_meter'] #type: ignore
-    
-    #tune_width cannot be smaller than averaging
-    if tune_width < aver:
-        logger.warning(f'{tune_width=} is smaller than averaging='
-                       + f'{aver}. tune_width set to {aver}.')
-        tune_width = aver
-    data = deque(maxlen=tune_width)
-
-    logger.info('Hold "q" button to stop power measurements')
-    
-    logger.debug('Initializing plt')
-    fig = plt.figure(tight_layout=True)
-    gs = gridspec.GridSpec(1,2)
-    #axis for signal from osc
-    ax_pm = fig.add_subplot(gs[0,0])
-    #axis for energy graph
-    ax_pa = fig.add_subplot(gs[0,1])
-    
-    mean = 0*ureg('J')
-    logger.debug('Entering measuring loop')
-    while True:
-        try:
-            laser_amp = pm.get_energy_scr()
-        except exceptions.OscilloscopeError as err:
-            logger.warning(f'{err.value}. Laser energy = {mean}')
-            return mean
-
-        logger.debug(f'measured {laser_amp=}')
-        if not laser_amp:
-            continue
-        data.append(laser_amp)
-        
-        #ndarray for up to last <aver> values
-        tmp_data = pint.Quantity.from_list(
-            [x for i,x in enumerate(data) if i<aver])
-        mean = tmp_data.mean() # type: ignore
-        std = tmp_data.std() # type: ignore
-        title = (f'Energy={laser_amp:~P}, '
-                + f'Mean (last {aver}) = {mean:~P}, '
-                + f'Std (last {aver}) = {std:~P}')
-        logger.debug(f'plot {title=}')
-        
-        #plotting data
-        ax_pm.clear()
-        ax_pa.clear()
-        ax_pm.plot(pm.data)
-        
-        #add markers for data start and stop
-        ax_pm.plot(
-            pm.start_ind,
-            pm.data[pm.start_ind],
-            'o',
-            alpha=0.4,
-            ms=12,
-            color='green')
-        ax_pm.plot(
-            pm.stop_ind,
-            pm.data[pm.stop_ind],
-            'o',
-            alpha=0.4,
-            ms=12,
-            color='red')
-        ax_pa.plot(tmp_data)
-        ax_pa.set_title(title)
-        ax_pa.set_ylim(bottom=0)
-        fig.canvas.draw()
-        plt.pause(0.01)
-            
-        if keyboard.is_pressed('q'):
-            break
-        time.sleep(measure_delay.to('s').m)
-
-    return mean
-
-def set_new_position(hardware: pa_logic.Hardware) -> None:
-    """Queries new position and move PA detector to this position"""
-
-    logger.debug('Setting new position...')
-    if not pa_logic.stages_open(hardware):
-        logger.error('Setting new position failed')
-        return
-
-    x_dest = inquirer.text(
-        message='Enter X destination [mm] ' + vd.cancel_option,
-        default='0.0',
-        validate=vd.ScanRangeValidator(),
-        mandatory=False
-    ).execute()
-    logger.debug(f'{x_dest=} set')
-    if x_dest is None:
-        logger.warning('Input terminated by user')
-        return
-    x_dest = float(x_dest)
-    
-    y_dest = inquirer.text(
-        message='Enter Y destination [mm] ' + vd.cancel_option,
-        default='0.0',
-        validate=vd.ScanRangeValidator(),
-        mandatory=False
-    ).execute()
-    logger.debug(f'{y_dest=} set')
-    if y_dest is None:
-        logger.warning('Input terminated by user')
-        return
-    y_dest = float(y_dest)
-
-    logger.info(f'Moving to ({x_dest:.2f},{y_dest:.2f})...')
-    try:
-        pa_logic.move_to(x_dest, y_dest, hardware)
-        pa_logic.wait_stages_stop(hardware)
-        pos_x = hardware['stage_x'].get_position(scale=True)*1000
-        pos_y = hardware['stage_y'].get_position(scale=True)*1000
-    except:
-        logger.error('Error during communicating with stages')
-        return
-    
-    logger.info('Moving complete!')
-    logger.info(f'Current position ({pos_x:.2f},{pos_y:.2f})')
 
 def remove_zeros(data: np.ndarray) -> np.ndarray:
     """Replaces zeros in filters data by linear fit from nearest values"""
@@ -1300,7 +1332,7 @@ if __name__ == "__main__":
     hardware: pa_logic.Hardware = {
         'stage_x': 0,
         'stage_y': 0,
-        'osc': oscilloscope.Oscilloscope()
+        'osc': osc_devices.Oscilloscope()
     } # type: ignore
 
     logger.debug('Initializing PaData class for storing data')
@@ -1334,15 +1366,15 @@ if __name__ == "__main__":
 
                 if stat_ans == 'Init hardware':
                     init_hardware(hardware)
-
                 elif stat_ans == 'Home stages':
                     home(hardware)
-
                 elif stat_ans == 'Get status':
                     print_status(hardware)
-
                 elif stat_ans == 'Back':
                     break
+                else:
+                    logger.warning(f'Unknown command "{stat_ans}" '
+                                   + 'in init and status menu!')
 
         elif menu_ans == 'Data':
             while True:
@@ -1422,13 +1454,13 @@ if __name__ == "__main__":
                 logger.debug(f'"{measure_ans}" menu option choosen')
                 
                 if measure_ans == 'Measure 0D data':
-                    data = spectra(hardware, data)
+                    data = measure_0d(hardware, data)
 
                 elif measure_ans == 'Measure 1D data':
-                    data = spectra(hardware, data)
+                    data = measure_1d(hardware, data)
 
                 elif measure_ans == 'Measure 2D data':
-                    data = spectra(hardware, data)
+                    data = measure_2d(hardware, data)
 
                 elif measure_ans == 'View measured data':
                     data.plot()

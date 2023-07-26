@@ -1,13 +1,5 @@
 """
 Oscilloscope based devices
-
-General usage procedure:
-
-1. Create class instance
-2. Call initialize
-3. Call measure or measure_scr
-4. check bad_read flag
-5. read data from data or data_raw list
 """
 from typing import List
 import logging
@@ -24,7 +16,15 @@ from . import ureg
 logger = logging.getLogger(__name__)
 
 class Oscilloscope:
-    """Rigol MSO1000Z/DS1000Z"""  
+    """Rigol MSO1000Z/DS1000Z
+    
+    General usage procedure:
+    1. Create class instance
+    2. Call initialize
+    3. Call measure or measure_scr
+    4. check bad_read flag
+    5. read data from data or data_raw list
+    """  
 
     #defaults
     MAX_MEMORY_READ = 250000 #max read data points from osc memory
@@ -124,12 +124,18 @@ class Oscilloscope:
 
     def connection_check(self) -> None:
         """Checks connection to the oscilloscope.
-        Does not work."""
+        Sets not_found flag"""
+
+        logger.debug('Trying to read and write from the oscilloscope')
         try:
             self.__osc.write(':SYST:GAM?') # type: ignore
             np.frombuffer(self.__osc.read_raw(), dtype=np.uint8) # type: ignore
-        except:
-            raise exceptions.OscilloscopeError('No connection to the oscilloscope')
+            logger.debug('Operations complete')
+            self.not_found = False
+        except Exception as err:
+            logger.debug(f'Operation failed with error {type(err)}')
+            logger.warning('Oscilloscope is not connected')
+            self.not_found = True
 
     def query(self, message: str) -> str:
         """Sends a querry to the oscilloscope"""
@@ -571,6 +577,24 @@ class PowerMeter:
         logger.debug(f'Calculated value of energy is {laser_amp}')
         return laser_amp
     
+    def set_channel(self, chan: int) -> None:
+        """Sets read channel"""
+
+        logger.debug(f'PowerMeter channel set to {self.osc.CH_IDS[chan]}')
+        self.ch = chan
+
+class PhotoAcousticSensOlymp:
+    
+
+    ch: int # channel ID number
+    osc: Oscilloscope
+
+    def __init__(self) -> None:
+        """PA sensor class for working with
+        oscilloscope based 1-channel Olympus US transducer"""
+
+        pass
+
     def set_channel(self, chan: int) -> None:
         """Sets read channel"""
 
