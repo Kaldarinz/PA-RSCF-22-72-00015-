@@ -1332,7 +1332,8 @@ if __name__ == "__main__":
     hardware: pa_logic.Hardware = {
         'stage_x': 0,
         'stage_y': 0,
-        'osc': osc_devices.Oscilloscope()
+        'osc': osc_devices.Oscilloscope(),
+        'config_loaded': False
     } # type: ignore
 
     logger.debug('Initializing PaData class for storing data')

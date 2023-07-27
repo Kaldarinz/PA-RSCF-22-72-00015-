@@ -97,6 +97,8 @@ class Oscilloscope:
         instrument_name = list(filter(lambda x: self.OSC_ID in x,
                                     all_instruments))
         if len(instrument_name) == 0:
+            logger.debug('Oscilloscope was not found among VISA '
+                         + 'devices. Init failed')
             raise exceptions.OscilloscopeError('Oscilloscope was not found')
         else:
             self.__osc = rm.open_resource(instrument_name[0])
@@ -124,7 +126,8 @@ class Oscilloscope:
 
     def connection_check(self) -> None:
         """Checks connection to the oscilloscope.
-        Sets not_found flag"""
+        Sets not_found flag.
+        Never raises exceptions."""
 
         logger.debug('Trying to read and write from the oscilloscope')
         try:
@@ -480,7 +483,7 @@ class PowerMeter:
 
     def __init__(self, 
                  osc: Oscilloscope,
-                 ch_id: int=0,
+                 ch_id: int=1,
                  threshold: float=0.05) -> None:
         """PowerMeter class for working with
         Thorlabs ES111C pyroelectric detector.
@@ -589,11 +592,16 @@ class PhotoAcousticSensOlymp:
     ch: int # channel ID number
     osc: Oscilloscope
 
-    def __init__(self) -> None:
+    def __init__(self,
+                 osc: Oscilloscope,
+                 ch_id: int=0) -> None:
         """PA sensor class for working with
         oscilloscope based 1-channel Olympus US transducer"""
 
-        pass
+        logger.debug('Instantiating PA sensor connected to '
+                     + f'{osc.CH_IDS[ch_id]}.')
+        self.osc = osc
+        self.ch = ch_id
 
     def set_channel(self, chan: int) -> None:
         """Sets read channel"""

@@ -1,0 +1,11 @@
+hardware:
+  oscilloscope:
+    channels: !!int 2 #not implemented
+  power_meter:
+    connected: !!bool True
+    connected_chan: !!int 2
+  pa_sensor:
+    connected: !!bool True
+    connected_chan: !!int 1
+  stages:
+    axes: !!int 2
