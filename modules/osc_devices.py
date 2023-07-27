@@ -3,11 +3,11 @@ Oscilloscope based devices
 """
 from typing import List
 import logging
+import time
 
 import pyvisa as pv
 import numpy as np
 import numpy.typing as npt
-import time
 import pint
 
 import modules.exceptions as exceptions
@@ -73,7 +73,8 @@ class Oscilloscope:
     def __init__(self) -> None:
         """oscilloscope class for Rigol MSO1000Z/DS1000Z device.
         Intended to be used as a module in other scripts.
-        Call 'initialize' before working with Oscilloscope."""
+        Call 'initialize' before working with Oscilloscope.
+        """
 
         logger.debug('Oscilloscope class instantiated!')
         
@@ -86,7 +87,8 @@ class Oscilloscope:
                  ) -> None:
         """Oscilloscope initializator.
         chan_pre and chan_post are time intervals before and after
-        trigger for saving data from corresponding channels"""
+        trigger for saving data from corresponding channels.
+        """
         
         logger.debug('Starting actual initialization of an oscilloscope...')
         rm = pv.ResourceManager()
@@ -127,7 +129,8 @@ class Oscilloscope:
     def connection_check(self) -> None:
         """Checks connection to the oscilloscope.
         Sets not_found flag.
-        Never raises exceptions."""
+        Never raises exceptions.
+        """
 
         logger.debug('Trying to read and write from the oscilloscope')
         try:
@@ -196,6 +199,7 @@ class Oscilloscope:
                         data: npt.NDArray[np.uint8]
                         ) -> npt.NDArray[np.uint8]:
         """Smooth data using rolling average method"""
+        
         logger.debug('Starting rolling_average smoothing...')
         min_signal_size = int(self.SMOOTH_LEN_FACTOR*self.ra_kernel)
         if len(data)<min_signal_size:
@@ -324,7 +328,8 @@ class Oscilloscope:
 
     def read_data(self, ch_id: int) -> npt.NDArray[np.uint8]:
         """Reads data from the specified channel.
-        Sets data to ch_data_raw attribute"""
+        Sets data to ch_data_raw attribute.
+        """
 
         logger.debug(f'Start reading from {self.CH_IDS[ch_id]} method')
 
@@ -370,7 +375,8 @@ class Oscilloscope:
                             data: npt.NDArray[np.uint8]
                             ) -> npt.NDArray[np.uint8]:
         """Corrects baseline for the data.
-        Assumes that baseline as at the start of measured signal"""
+        Assumes that baseline as at the start of measured signal.
+        """
 
         bl_points = int(len(data)*self.BL_LENGTH)
         logger.debug('Starting baseline correction on signal with '
@@ -490,7 +496,8 @@ class PowerMeter:
         osc is as instance of Oscilloscope class, 
         which is used for reading data.
         ch_id is number of channel (starting from 0) 
-        to which the detector is connected."""
+        to which the detector is connected.
+        """
 
         logger.debug('Instantiating PowerMeter connected to '
                      + f'{osc.CH_IDS[ch_id]}.')
@@ -527,7 +534,8 @@ class PowerMeter:
                          step: pint.Quantity) -> pint.Quantity:
         """Calculate laser energy from data.
         step is time step for the data.
-        Data must be baseline corrected."""
+        Data must be baseline corrected.
+        """
 
         logger.debug('Starting convertion of raw signal to energy')
         if len(data) < 10:
@@ -596,7 +604,8 @@ class PhotoAcousticSensOlymp:
                  osc: Oscilloscope,
                  ch_id: int=0) -> None:
         """PA sensor class for working with
-        oscilloscope based 1-channel Olympus US transducer"""
+        oscilloscope based 1-channel Olympus US transducer.
+        """
 
         logger.debug('Instantiating PA sensor connected to '
                      + f'{osc.CH_IDS[ch_id]}.')

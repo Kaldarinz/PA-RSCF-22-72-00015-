@@ -4,8 +4,9 @@ PA backend
 
 from typing import Any, TypedDict, Union
 import logging
-import yaml
 import os
+
+import yaml
 
 from pylablib.devices import Thorlabs
 import modules.osc_devices as osc_devices
@@ -88,7 +89,8 @@ def init_hardware(hardware: Hardware) -> bool:
 
 def load_config(hardware: Hardware) -> dict:
     """Load hardware configuration.
-    Adds keys for all optional devices to hardware"""
+    Adds keys for all optional devices to hardware.
+    """
 
     logger.debug('Start loading config...')
     
@@ -196,7 +198,8 @@ def init_stages(hardware: Hardware) -> bool:
 def init_osc(hardware: Hardware) -> bool:
     """Initialization of oscilloscope.
     Returns true if connection is already established or
-    initialization is successfull"""
+    initialization is successfull.
+    """
     
     logger.debug('Init_osc is starting...')
     logger.debug('Checking if connection is already estblished')
@@ -217,7 +220,8 @@ def init_osc(hardware: Hardware) -> bool:
 
 def stages_open(hardware: Hardware) -> bool:
     """Return True if all stages are responding and open.
-    Never raises exceptions."""
+    Never raises exceptions.
+    """
 
     logger.debug('Starting connection check to stages')
     connected = True
@@ -233,7 +237,7 @@ def stages_open(hardware: Hardware) -> bool:
         else:
             logger.debug('Stage Y is open')
         stage_z = hardware.get('stage_z', default=None)
-        if not stage_z is None:
+        if stage_z is not None:
             if not hardware['stage_z'].is_opened():
                 logger.warning('Stage Z is not open')
                 connected = False
@@ -273,7 +277,8 @@ def pm_open(hardware: Hardware) -> bool:
 def move_to(X: float, Y: float, hardware: Hardware) -> None:
     """Sends PA detector to (X,Y) position.
     Does not wait for stop moving.
-    Coordinates are in mm."""
+    Coordinates are in mm.
+    """
     
     x_dest_mm = X/1000
     y_dest_mm = Y/1000
