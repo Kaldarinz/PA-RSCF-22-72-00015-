@@ -15,7 +15,7 @@ import modules.exceptions as exceptions
 logger = logging.getLogger(__name__)
 
 class Hardware_base(TypedDict):
-    """Base TypedDict for references to hardware"""
+    """Base TypedDict for references to hardware."""
 
     stage_x: Thorlabs.KinesisMotor
     stage_y: Thorlabs.KinesisMotor
@@ -23,14 +23,14 @@ class Hardware_base(TypedDict):
     config_loaded: bool
 
 class Hardware(Hardware_base, total=False):
-    """TypedDict for refernces to hardware"""
+    """TypedDict for refernces to hardware."""
     
     power_meter: osc_devices.PowerMeter
     pa_sens: osc_devices.PhotoAcousticSensOlymp
     stage_z: Thorlabs.KinesisMotor
 
 def init_hardware(hardware: Hardware) -> bool:
-    """Initialize all hardware"""
+    """Initialize all hardware."""
 
     logger.info('Starting hardware initialization...')
     
@@ -88,8 +88,8 @@ def init_hardware(hardware: Hardware) -> bool:
     return True
 
 def load_config(hardware: Hardware) -> dict:
-    """Load hardware configuration.
-    Adds keys for all optional devices to hardware.
+    """Load hardware configuration and return it as dict.
+    Additionally add all optional devices to hardware dict.
     """
 
     logger.debug('Start loading config...')
@@ -120,7 +120,7 @@ def load_config(hardware: Hardware) -> dict:
     return config
 
 def init_stages(hardware: Hardware) -> bool:
-    """Initiate Thorlabs KDC based stages"""
+    """Initiate Thorlabs KDC based stages."""
 
     logger.debug(f'Init_stages is starting...')
     logger.debug('Checking if connection to stages is '
@@ -196,8 +196,8 @@ def init_stages(hardware: Hardware) -> bool:
     return connected
 
 def init_osc(hardware: Hardware) -> bool:
-    """Initialization of oscilloscope.
-    Returns true if connection is already established or
+    """Initialize oscilloscope.
+    Return true if connection is already established or
     initialization is successfull.
     """
     
@@ -220,7 +220,7 @@ def init_osc(hardware: Hardware) -> bool:
 
 def stages_open(hardware: Hardware) -> bool:
     """Return True if all stages are responding and open.
-    Never raises exceptions.
+    Never raise exceptions.
     """
 
     logger.debug('Starting connection check to stages')
@@ -253,7 +253,7 @@ def stages_open(hardware: Hardware) -> bool:
     return connected
 
 def osc_open(hardware: Hardware) -> bool:
-    """Returns true if oscilloscope is connected."""
+    """Return true if oscilloscope is connected."""
 
     logger.debug('Starting connection check to oscilloscope')
     hardware['osc'].connection_check()
@@ -262,7 +262,7 @@ def osc_open(hardware: Hardware) -> bool:
     return connected
 
 def pm_open(hardware: Hardware) -> bool:
-    """Returns true if power meter is configured"""
+    """Return true if power meter is configured."""
 
     logger.debug('Starting power meter connection check')
 
@@ -275,8 +275,8 @@ def pm_open(hardware: Hardware) -> bool:
     return connected
 
 def move_to(X: float, Y: float, hardware: Hardware) -> None:
-    """Sends PA detector to (X,Y) position.
-    Does not wait for stop moving.
+    """Send PA detector to (X,Y) position.
+    Do not wait for stop moving.
     Coordinates are in mm.
     """
     
@@ -300,7 +300,7 @@ def move_to(X: float, Y: float, hardware: Hardware) -> None:
         raise exceptions.StageError(msg)
 
 def wait_stages_stop(hardware: Hardware) -> None:
-    """Waits untill all (2) stages stop"""
+    """Wait untill all (2) stages stop."""
 
     logger.debug('waiting untill stages complete moving')
     try:
@@ -320,7 +320,7 @@ def wait_stages_stop(hardware: Hardware) -> None:
         raise exceptions.StageError(msg)
 
 def home(hardware: Hardware) -> None:
-    """Homes all (2) stages"""
+    """Home all (2) stages."""
 
     logger.debug('homing is starting...')
     try:
