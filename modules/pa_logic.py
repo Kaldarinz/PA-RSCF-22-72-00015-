@@ -8,6 +8,7 @@ import os
 
 import yaml
 import pint
+import numpy as np
 
 from pylablib.devices import Thorlabs
 import modules.osc_devices as osc_devices
@@ -420,17 +421,14 @@ def spectrum(
             current_wl = end_wl
 
         # temp vars for averaging
-        # should be reset in each sycle
+        # should be reset in each cycle
         tmp_signal = 0
         tmp_laser = 0
         counter = 0
 
-        print(f'\n{bcolors.HEADER}'
-              + f'Start measuring point {(i+1)}'
-              + f'{bcolors.ENDC}')
-        print('Current wavelength is'
-              + f'{bcolors.OKBLUE}{current_wl}{bcolors.ENDC}.'
-              + 'Please set it!')
+        logger.info(f'Start measuring point {(i+1)}')
+        logger.info(f'Current wavelength is {current_wl}.'
+                    +'Please set it!')
         
         #adjust laser energy with color glasses
         if power_control == 'Filters':
@@ -640,3 +638,122 @@ def spectrum(
           + f'{bcolors.ENDC}')
     data.bp_filter()
     return data
+
+def glass_calculator(wavelength: pint.Quantity,
+                     current_energy_pm: pint.Quantity,
+                     target_energy: pint.Quantity,
+                     max_combinations: int,
+                     no_print: bool=False
+                     ) -> tuple[dict,pint.Quantity,pint.Quantity]:
+    """Calculate filter combination to get required energy on sample.
+    
+    Return a dict with filter combinations, 
+    having the closest transmissions,
+    which are higher than required but not more than 2.5 folds higher.
+    Also returns energy at glass reflection, which will correspond
+    to the required energy at sample. 
+    The last returned value is current energy at sample.
+    Accept only wavelengthes, which are present in rsc/ColorGlass.txt.
+    """
+
+    #dict for storing found valid combinations
+    result = {}
+    #file with filter's properties
+    sub_folder = 'rsc'
+    filename = 'ColorGlass.txt'
+    filename = os.path.join(sub_folder,filename)
+
+    try:
+        data = np.loadtxt(filename,skiprows=1)
+        header = open(filename).readline()
+    except FileNotFoundError:
+        print(f'{bcolors.WARNING}'
+              + 'File with color glass data not found!'
+              + f'{bcolors.ENDC}')
+        return ({},0,0)
+    
+    except ValueError as er:
+        print(f'Error message: {str(er)}')
+        print(f'{bcolors.WARNING}'
+              + 'Error while loading color glass data!'
+              + f'{bcolors.ENDC}')
+        return ({},0,0)
+    
+    data = remove_zeros(data)
+    data = calc_od(data)
+    filter_titles = header.split('\n')[0].split('\t')[2:]
+
+    #find index of wavelength
+    try:
+        wl_index = np.where(data[1:,0] == wavelength)[0][0] + 1
+    except IndexError:
+        print(f'{bcolors.WARNING}'
+              + 'Target WL is missing in color glass data table!'
+              + f'{bcolors.ENDC}')
+        return ({},0,0)
+
+    #{filter_name: OD at wavelength} for all filters
+    filter_dict = {}
+    for key, value in zip(filter_titles,data[wl_index,2:]):
+        filter_dict.update({key:value})
+
+    #build a dict with all possible combinations of filters
+    #and convert OD to transmission for the combinations
+    filter_combinations = {}
+    for i in range(max_combinations):
+        for comb in combinations(filter_dict.items(),i+1):
+            key = ''
+            value = 0
+            for k,v in comb:
+                key +=k
+                value+=v
+            filter_combinations.update({key:math.pow(10,-value)})    
+
+    # calculated laser energy at sample
+    laser_energy = current_energy_pm/data[wl_index,1]*100
+
+    if laser_energy == 0:
+        print(f'{bcolors.WARNING} Laser radiation is not detected!{bcolors.ENDC}')
+        return ({},0,0)
+    
+    #required total transmission of filters
+    target_transm = target_energy/laser_energy
+    
+    if not no_print:
+        print(f'Target energy = {target_energy} [uJ]')
+        print(f'Current laser output = {laser_energy:.0f} [uJ]')
+        print(f'Target transmission = {target_transm*100:.1f} %')
+        print(f'{bcolors.HEADER} Valid filter combinations:{bcolors.ENDC}')
+    
+    #sort filter combinations by transmission
+    filter_combinations = dict(sorted(
+        filter_combinations.copy().items(),
+        key=lambda item: item[1]))
+
+    #build dict with filter combinations,
+    #which have transmissions higher that required,
+    #but not more than 2.5 folds higher
+    i=0
+    for key, value in filter_combinations.items():
+        if (value-target_transm) > 0 and value/target_transm < 2.5:
+            result.update({key: value})
+            #print up to 5 best combinations with color code
+            if not no_print:
+                if (value/target_transm < 1.25) and i<5:
+                    print(f'{bcolors.OKGREEN} {key}, transmission = {value*100:.1f}%{bcolors.ENDC} (target= {target_transm*100:.1f}%)')
+                elif (value/target_transm < 1.5) and i<5:
+                    print(f'{bcolors.OKCYAN} {key}, transmission = {value*100:.1f}%{bcolors.ENDC} (target= {target_transm*100:.1f}%)')
+                elif value/target_transm < 2 and i<5:
+                    print(f'{bcolors.OKBLUE} {key}, transmission = {value*100:.1f}%{bcolors.ENDC} (target= {target_transm*100:.1f}%)')
+                elif value/target_transm < 2.5 and i<5:
+                    print(f'{bcolors.WARNING} {key}, transmission = {value*100:.1f}%{bcolors.ENDC} (target= {target_transm*100:.1f}%)')
+            i+=1
+    
+    if not no_print:
+        print('\n')
+
+    # energy at glass reflection, which correspond to 
+    #the required energy at sample
+    target_pm_value = target_energy*data[wl_index,1]/100
+
+    return result, target_pm_value, laser_energy
