@@ -9,3 +9,4 @@ hardware:
     connected_chan: !!int 1
   stages:
     axes: !!int 2
+  power_control: ['Glan prism', 'Filters']

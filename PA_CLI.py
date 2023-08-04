@@ -13,6 +13,7 @@ import logging.config
 import yaml
 from datetime import datetime
 from collections import deque
+from typing import Union
 
 from scipy import signal
 import numpy as np
@@ -22,12 +23,17 @@ from InquirerPy.validator import PathValidator
 import matplotlib.gridspec as gridspec
 import keyboard
 import pint
+from modules import pa_data
 
 import modules.validators as vd
 from modules.pa_data import PaData
 import modules.osc_devices as osc_devices
 import modules.pa_logic as pa_logic
 import modules.exceptions as exceptions
+
+MESSAGES = {
+    'cancel_in': 'Input terminated!'
+}
 
 def init_logs() -> logging.Logger:
     """Initiate logging"""
@@ -321,7 +327,7 @@ def measure_0d(hardware: pa_logic.Hardware,
 
 def measure_1d(hardware: pa_logic.Hardware,
                old_data: PaData) -> PaData:
-    """CLI for 1D PA measurements"""
+    """CLI for 1D PA measurements."""
 
     data = old_data
     while True:
@@ -334,7 +340,9 @@ def measure_1d(hardware: pa_logic.Hardware,
         logger.debug(f'"{measure_ans}" menu option choosen')
 
         if measure_ans == 'Spectral scanning':
-            data = spectra(hardware, data)
+            new_data = spectra(hardware)
+            if new_data is not None:
+                data = new_data
         elif measure_ans == 'Back':
             break
         else:
@@ -380,35 +388,26 @@ def bp_filter(data: PaData) -> None:
 
     data.bp_filter(low_cutof,high_cutof)
 
-def spectra(hardware: pa_logic.Hardware,
-            old_data: PaData,) -> PaData:
+def spectra(hardware: pa_logic.Hardware) -> Union[PaData,None]:
     """CLI for PA spectral measurement"""
 
+    if not pa_logic.osc_open(hardware) or not pa_logic.pm_open(hardware):
+        logger.error('Error in spectral measure: hardware is not open.')
+        return None
+
     osc = hardware['osc']
-
-    #set read channel for power meter
-    hardware['power_meter'].set_channel(chan_pm) #type:ignore
-    pm = hardware['power_meter'] #type:ignore
-
-    #return old data if osc is not init
-    if osc.not_found:
-        print(f'{bcolors.WARNING}'
-              + 'Oscilloscope is not initializaed!'
-              + f'{bcolors.ENDC}')
-        return old_data
+    pm = hardware['power_meter'] #type: ignore
     
     #CLI to get measuring options
     power_control = inquirer.select(
         message='Choose method for laser energy control:',
-        choices=[
-            'Glan prism',
-            'Filters'
-        ],
+        choices=hardware['power_control'],
         mandatory=False
     ).execute()
+    logger.debug(f'"{power_control}" set as laser energy control')
     if power_control is None:
-        print(f'{bcolors.WARNING}Intup terminated!{bcolors.WARNING}')
-        return old_data
+        logger.warning(MESSAGES['cancel_in'])
+        return None
 
     start_wl = inquirer.text(
         message='Set start wavelength, [nm]' + vd.cancel_option,
@@ -416,10 +415,11 @@ def spectra(hardware: pa_logic.Hardware,
         mandatory=False,
         validate=vd.WavelengthValidator()
     ).execute()
+    logger.debug(f'"{start_wl=}" nm')
     if start_wl is None:
-        print(f'{bcolors.WARNING}Intup terminated!{bcolors.WARNING}')
-        return old_data
-    start_wl = int(start_wl)
+        logger.warning(MESSAGES['cancel_in'])
+        return None
+    start_wl = int(start_wl)*ureg('nm')
 
     end_wl = inquirer.text(
         message='Set end wavelength, [nm]' + vd.cancel_option,
@@ -427,21 +427,23 @@ def spectra(hardware: pa_logic.Hardware,
         mandatory=False,
         validate=vd.WavelengthValidator()
     ).execute()
+    logger.debug(f'"{end_wl=}" nm')
     if end_wl is None:
-        print(f'{bcolors.WARNING}Intup terminated!{bcolors.WARNING}')
-        return old_data
-    end_wl = int(end_wl)
+        logger.warning(MESSAGES['cancel_in'])
+        return None
+    end_wl = int(end_wl)*ureg('nm')
 
     step = inquirer.text(
-        message='Set step, [nm]' + vd.cancel_option,
+        message='Set wavelength step, [nm]' + vd.cancel_option,
         default='10',
         mandatory=False,
         validate=vd.StepWlValidator()
     ).execute()
+    logger.debug(f'"{step=}" nm')
     if step is None:
-        print(f'{bcolors.WARNING}Intup terminated!{bcolors.WARNING}')
-        return old_data
-    step = int(step)
+        logger.warning(MESSAGES['cancel_in'])
+        return None
+    step = int(step)*ureg('nm')
 
     target_energy = inquirer.text(
         message='Set target energy in [mJ]' + vd.cancel_option,
@@ -449,14 +451,13 @@ def spectra(hardware: pa_logic.Hardware,
         mandatory=False,
         validate=vd.EnergyValidator()
     ).execute()
+    logger.debug(f'"{target_energy=}" mJ')
     if target_energy is None:
-        print(f'{bcolors.WARNING}Intup terminated!{bcolors.WARNING}')
-        return old_data
-    target_energy = float(target_energy)*1000
+        logger.warning(MESSAGES['cancel_in'])
+        return None
+    target_energy = float(target_energy)*ureg('mJ')
 
-    # set default value.
     max_combinations = 0
-
     if power_control == 'Filters':
         max_combinations = inquirer.text(
             message='Set maximum amount of filters' + vd.cancel_option,
@@ -464,9 +465,10 @@ def spectra(hardware: pa_logic.Hardware,
             mandatory=False,
             validate=vd.FilterNumberValidator()
         ).execute()
+        logger.debug(f'"{max_combinations=}"')
         if max_combinations is None:
-            print(f'{bcolors.WARNING}Intup terminated!{bcolors.WARNING}')
-            return old_data
+            logger.warning(MESSAGES['cancel_in'])
+            return None
         max_combinations = int(max_combinations)
 
     averaging = inquirer.text(
@@ -475,275 +477,23 @@ def spectra(hardware: pa_logic.Hardware,
         mandatory=False,
         validate=vd.AveragingValidator()
     ).execute()
+    logger.debug(f'"{averaging=}"')
     if averaging is None:
-        print(f'{bcolors.WARNING}Intup terminated!{bcolors.WARNING}')
-        return old_data   
+        logger.warning(MESSAGES['cancel_in'])
+        return None
     averaging = int(averaging)  
 
-    #make steps negative if going from long WLs to short
-    if start_wl > end_wl:
-        step = -step
-        
-    print(f'{bcolors.UNDERLINE}'
-          + 'Start measuring spectra!'
-          + f'{bcolors.ENDC}')
+    return pa_logic.spectrum(
+        hardware,
+        start_wl,
+        end_wl,
+        step,
+        target_energy,
+        averaging,
+        max_combinations
+    )
 
-    #calculate amount of data points
-    d_wl = end_wl-start_wl
-    if d_wl%step:
-        spectral_points = int(d_wl/step) + 2
-    else:
-        spectral_points = int(d_wl/step) + 1
-
-    #create data class and set basic metadata
-    data = PaData()
-    data.set_metadata(data_group='general', metadata={
-        'parameter name': 'wavelength',
-        'parameter units': 'nm'
-    })
-    data.set_metadata(data_group='raw_data', metadata={
-        'x var name': 'time',
-        'x var units': 's',
-        'y var name': 'PA signal',
-        'y var units': 'V/uJ'
-    })
-    data.set_metadata(data_group='filt_data', metadata={
-        'x var name': 'time',
-        'x var units': 's',
-        'y var name': 'PA signal',
-        'y var units': 'V/uJ'
-    })
-
-    #main measurement cycle
-    for i in range(spectral_points):
-        
-        #calculate current wavelength
-        if abs(step*i) < abs(d_wl):
-            current_wl = start_wl + step*i
-        else:
-            current_wl = end_wl
-
-        # temp vars for averaging
-        # should be reset in each sycle
-        tmp_signal = 0
-        tmp_laser = 0
-        counter = 0
-
-        print(f'\n{bcolors.HEADER}'
-              + f'Start measuring point {(i+1)}'
-              + f'{bcolors.ENDC}')
-        print('Current wavelength is'
-              + f'{bcolors.OKBLUE}{current_wl}{bcolors.ENDC}.'
-              + 'Please set it!')
-        
-        #adjust laser energy with color glasses
-        if power_control == 'Filters':
-            print(f'{bcolors.UNDERLINE}'
-                  + 'Please remove all filters!'
-                  + f'{bcolors.ENDC}')
-            #measure mean energy at glass reflection
-            energy = track_power(hardware, 50)
-            print(f'Power meter energy = {energy:.0f} [uJ]')
-
-            #find valid filters combinations for current parameters
-            filters,_,_ = glass_calculator(
-                current_wl,
-                energy,
-                target_energy,
-                max_combinations,
-                no_print=True)
-            if not len(filters):
-                print(f'{bcolors.WARNING}'
-                      + 'WARNING! No valid filter combination for '
-                      + f'{current_wl} [nm]!{bcolors.ENDC}')
-                cont_ans = inquirer.confirm(
-                    message='Do you want to continue?').execute()
-                if not cont_ans:
-                    print(f'{bcolors.WARNING}'
-                          + 'Spectral measurements terminated!'
-                          + f'{bcolors.ENDC}')
-                    return old_data
-
-            #call glass_calculator again to print valid filter combinations
-            _, target_pm_value,_ = glass_calculator(
-                current_wl,
-                energy,
-                target_energy,
-                max_combinations)
-            
-            print(f'Target power meter energy is {target_pm_value}!')
-            print('Please set it using'
-                  + f'{bcolors.UNDERLINE}laser software{bcolors.ENDC}')
-        
-        elif power_control == 'Glan prism':
-            #for energy control by Glan prism target power meter
-            #energy have to be calculated only once
-            if i == 0:
-                target_pm_value = glan_calc_reverse(target_energy*1000)
-            print(f'Target power meter energy is {target_pm_value}!') #type: ignore
-            print(f'Please set it using {bcolors.UNDERLINE}Glan prism{bcolors.ENDC}!')
-            _ = track_power(hardware, 50)
-        else:
-            print(f'{bcolors.WARNING}'
-                  + 'Unknown power control method! Measurements terminated!'
-                  + f'{bcolors.ENDC}')
-            return old_data
-
-        #start measurements and averaging
-        while counter < averaging:
-            print('Signal at current WL should be measured '
-                  + f'{averaging-counter} more times.')
-            measure_ans = inquirer.rawlist(
-                message='Chose an action:',
-                choices=['Tune power','Measure','Stop measurements']
-            ).execute()
-
-            #adjust energy
-            if measure_ans == 'Tune power':
-                track_power(hardware, 40)
-
-            #actual measurement
-            elif measure_ans == 'Measure':
-                
-                #measure data on both channels
-                osc.measure()
-                dt = 1/osc.sample_rate
-
-                #set signal data depending on channel assignment
-                if chan_pa == 'CHAN1':
-                    pa_signal = osc.ch1_data
-                    pa_amp = osc.ch1_amp
-                    pm_signal = osc.ch2_data
-                elif chan_pa == 'CHAN2':
-                    pa_signal = osc.ch2_data
-                    pa_amp = osc.ch2_amp
-                    pm_signal = osc.ch1_data
-                else:
-                    print(f'{bcolors.WARNING}'
-                          + 'Uknown channel assignment in spectra'
-                          + f'{bcolors.ENDC}')
-                    return old_data
-                
-                #calculate laser energy at power meter
-                cur_pm_laser = pm.energy_from_data(
-                        pm_signal,
-                        1/osc.sample_rate)
-                #show measured data to visually check if data is OK
-                fig = plt.figure(tight_layout=True)
-                gs = gridspec.GridSpec(1,2)
-                ax_pm = fig.add_subplot(gs[0,0])
-                ax_pm.plot(pm_signal)
-                #ax_pm.plot(signal.decimate(pm_signal, 100))
-                #add markers for data start and stop
-                ax_pm.plot(
-                    pm.start_ind,
-                    pm_signal[pm.start_ind],
-                    'o',
-                    alpha=0.4,
-                    ms=12,
-                    color='green')
-                ax_pm.plot(
-                    pm.stop_ind,
-                    pm_signal[pm.stop_ind],
-                    'o',
-                    alpha=0.4,
-                    ms=12,
-                    color='red')
-                ax_pa = fig.add_subplot(gs[0,1])
-                ax_pa.plot(pa_signal)
-                plt.show()
-
-                #confirm that the data is OK
-                good_data = inquirer.confirm(
-                    message='Data looks good?').execute()
-                if good_data:
-                    #note that tmp_signal is only amplitude of signal for averaging
-                    tmp_signal += pa_amp
-                    tmp_laser += cur_pm_laser
-                    counter += 1
-                    if counter == averaging:
-                        if power_control == 'Filters':
-                            _, ___, sample_energy_aver = glass_calculator(
-                                current_wl,
-                                tmp_laser/averaging, #average energy
-                                target_energy,
-                                max_combinations,
-                                no_print=True)
-
-                            _, ___, sample_energy_cur = glass_calculator(
-                                current_wl,
-                                cur_pm_laser, #current energy
-                                target_energy,
-                                max_combinations,
-                                no_print=True)
-
-                            #add datapoint with metadata
-                            max_amp = tmp_signal/(
-                                averaging*sample_energy_aver)
-                            data.add_measurement(
-                                pa_signal/sample_energy_cur, #last mes
-                                {'parameter value': current_wl,
-                                'x var step': dt,
-                                'x var start': 0,
-                                'x var stop': dt*(len(pa_signal)-1),
-                                'PM energy': tmp_laser/averaging,
-                                'sample energy': sample_energy_aver,
-                                'max amp': max_amp})
-                            
-                            print(f'{bcolors.OKBLUE}'
-                                  + 'Average laser at sample = '
-                                  + f'{sample_energy_aver:.0f} [uJ]')
-                            print(f'Average PA signal = {max_amp:}'
-                                  + f'{bcolors.ENDC}')
-                            
-                        elif power_control == 'Glan prism':
-                            #add datapoint with metadata
-                            sample_energy_aver = glan_calc(
-                                tmp_laser/averaging)
-                            max_amp = tmp_signal/(
-                                averaging*sample_energy_aver)
-                            data.add_measurement(
-                                pa_signal/glan_calc(cur_pm_laser), #last mes
-                                {'parameter value': current_wl,
-                                'x var step': dt,
-                                'x var start': 0,
-                                'x var stop': dt*(len(pa_signal)-1),
-                                'PM energy': tmp_laser/averaging,
-                                'sample energy': sample_energy_aver,
-                                'max amp': max_amp})
-                            
-                            print(f'{bcolors.OKBLUE}'
-                                  + 'Average laser at sample = '
-                                  + f'{sample_energy_aver:.0f} [uJ]')
-                            print(f'Average PA signal = {max_amp:.3e}'
-                                  + f'{bcolors.ENDC}')
-                            
-                        else:
-                            print(f'{bcolors.WARNING}'
-                                  + 'Unknown power control method in writing '
-                                  + f'laser energy{bcolors.ENDC}')
-                        data.save_tmp()
-                        
-            elif measure_ans == 'Stop measurements':
-                confirm = inquirer.confirm(
-                    message='Are you sure?'
-                ).execute()
-                if confirm:
-                    print(f'{bcolors.WARNING}'
-                          + 'Spectral measurements terminated!'
-                          + f'{bcolors.ENDC}')
-                    data.bp_filter()
-                    return data
-            else:
-                print(f'{bcolors.WARNING}'
-                      + 'Unknown command in Spectral measure menu!'
-                      + f'{bcolors.ENDC}')
     
-    print(f'{bcolors.OKGREEN}'
-          + 'Spectral scanning complete!'
-          + f'{bcolors.ENDC}')
-    data.bp_filter()
-    return data
 
 def remove_zeros(data: np.ndarray) -> np.ndarray:
     """Replaces zeros in filters data by linear fit from nearest values"""
@@ -1323,6 +1073,7 @@ if __name__ == "__main__":
     logger.info('Starting application')
 
     ureg = pint.UnitRegistry(auto_reduce_dimensions=True)
+    ureg.default_format = '~P'
     logger.debug('Pint activated (measured values with units)')
     ureg.setup_matplotlib(True)
     logger.debug('MatplotLib handlers for pint activated')
@@ -1333,7 +1084,8 @@ if __name__ == "__main__":
         'stage_x': 0,
         'stage_y': 0,
         'osc': osc_devices.Oscilloscope(),
-        'config_loaded': False
+        'config_loaded': False,
+        'power_control': []
     } # type: ignore
 
     logger.debug('Initializing PaData class for storing data')

@@ -1,9 +1,10 @@
-import yaml
-from pprint import pprint
+import pint
 
-my_dict = {}
+ureg = pint.UnitRegistry(auto_reduce_dimensions=True)
+ureg.default_format = '~P'
 
-if my_dict:
-    print('hello')
-else:
-    print('ok')
+a = 1*ureg('ms')
+b = 1*ureg('s')
+c =a*b
+a = -a
+print(c)
