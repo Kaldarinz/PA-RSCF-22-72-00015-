@@ -30,7 +30,10 @@ class Hardware(Hardware_base, total=False):
     stage_z: Thorlabs.KinesisMotor
 
 def init_hardware(hardware: Hardware) -> bool:
-    """Initialize all hardware."""
+    """Initialize all hardware.
+    
+    Load hardware config from rsc/config.yaml if it was not done.
+    """
 
     logger.info('Starting hardware initialization...')
     
@@ -70,6 +73,7 @@ def init_hardware(hardware: Hardware) -> bool:
         
         pm = hardware.get('power_meter')
         if pm is not None:
+            #save pm channel to apply it after init
             pm_chan = pm.ch
             pm = osc_devices.PowerMeter(osc)
             pm.set_channel(pm_chan)
@@ -78,6 +82,7 @@ def init_hardware(hardware: Hardware) -> bool:
 
         pa = hardware.get('pa_sens')
         if pa is not None:
+            #save pa channel to apply it after init
             pa_chan = pa.ch
             pa = osc_devices.PhotoAcousticSensOlymp(osc)
             pa.set_channel(pa_chan)
@@ -89,6 +94,8 @@ def init_hardware(hardware: Hardware) -> bool:
 
 def load_config(hardware: Hardware) -> dict:
     """Load hardware configuration and return it as dict.
+
+    Configuration is loaded from rsc/config.yaml.
     Additionally add all optional devices to hardware dict.
     """
 
@@ -197,6 +204,7 @@ def init_stages(hardware: Hardware) -> bool:
 
 def init_osc(hardware: Hardware) -> bool:
     """Initialize oscilloscope.
+
     Return true if connection is already established or
     initialization is successfull.
     """
@@ -220,6 +228,7 @@ def init_osc(hardware: Hardware) -> bool:
 
 def stages_open(hardware: Hardware) -> bool:
     """Return True if all stages are responding and open.
+    
     Never raise exceptions.
     """
 
@@ -276,6 +285,7 @@ def pm_open(hardware: Hardware) -> bool:
 
 def move_to(X: float, Y: float, hardware: Hardware) -> None:
     """Send PA detector to (X,Y) position.
+    
     Do not wait for stop moving.
     Coordinates are in mm.
     """
