@@ -5,6 +5,8 @@ PA backend
 from typing import Any, TypedDict, Union
 import logging
 import os
+from itertools import combinations
+import math
 
 import yaml
 import pint
@@ -13,6 +15,7 @@ import numpy as np
 from pylablib.devices import Thorlabs
 import modules.osc_devices as osc_devices
 import modules.exceptions as exceptions
+from ..PA_CLI import track_power
 from .pa_data import PaData
 from . import ureg
 
@@ -643,16 +646,14 @@ def glass_calculator(wavelength: pint.Quantity,
                      current_energy_pm: pint.Quantity,
                      target_energy: pint.Quantity,
                      max_combinations: int,
-                     no_print: bool=False
-                     ) -> tuple[dict,pint.Quantity,pint.Quantity]:
+                     threshold: float = 2.5,
+                     results: int = 5,
+                     ) -> dict:
     """Calculate filter combination to get required energy on sample.
     
-    Return a dict with filter combinations, 
+    Return a dict with up to <results> filter combinations, 
     having the closest transmissions,
-    which are higher than required but not more than 2.5 folds higher.
-    Also returns energy at glass reflection, which will correspond
-    to the required energy at sample. 
-    The last returned value is current energy at sample.
+    which are higher than required but not more than <threshold> folds higher.
     Accept only wavelengthes, which are present in rsc/ColorGlass.txt.
     """
 
@@ -667,93 +668,117 @@ def glass_calculator(wavelength: pint.Quantity,
         data = np.loadtxt(filename,skiprows=1)
         header = open(filename).readline()
     except FileNotFoundError:
-        print(f'{bcolors.WARNING}'
-              + 'File with color glass data not found!'
-              + f'{bcolors.ENDC}')
-        return ({},0,0)
-    
+        logger.error('File with color glass data not found!')
+        return {}
     except ValueError as er:
-        print(f'Error message: {str(er)}')
-        print(f'{bcolors.WARNING}'
-              + 'Error while loading color glass data!'
-              + f'{bcolors.ENDC}')
-        return ({},0,0)
+        logger.error(f'Error while loading color glass data!: {str(er)}')
+        return {}
     
-    data = remove_zeros(data)
-    data = calc_od(data)
+    glass_rm_zeros(data)
+    glass_calc_od(data)
     filter_titles = header.split('\n')[0].split('\t')[2:]
 
-    #find index of wavelength
     try:
         wl_index = np.where(data[1:,0] == wavelength)[0][0] + 1
     except IndexError:
-        print(f'{bcolors.WARNING}'
-              + 'Target WL is missing in color glass data table!'
-              + f'{bcolors.ENDC}')
-        return ({},0,0)
+        logger.error('Target WL is missing in color glass data table!')
+        return {}
+    # calculated laser energy at sample
+    laser_energy = current_energy_pm/data[wl_index,1]*100
+    if laser_energy == 0:
+        logger.error('Laser radiation is not detected!')
+        return {}
+    #required total transmission of filters
+    target_transm = target_energy/laser_energy
+    
+    logger.info(f'Target sample energy = {target_energy}')
+    logger.info(f'Current sample energy = {laser_energy}')
+    logger.info(f'Target transmission = {target_transm*100:.1f} %')
 
-    #{filter_name: OD at wavelength} for all filters
-    filter_dict = {}
+    #build filter_dict = {filter_name: OD at wavelength}
+    #find index of wavelength
+    filters = {}
     for key, value in zip(filter_titles,data[wl_index,2:]):
-        filter_dict.update({key:value})
+        filters.update({key:value})
 
-    #build a dict with all possible combinations of filters
-    #and convert OD to transmission for the combinations
+    filter_combinations = glass_combinations(filters, max_combinations)
+    result_comb = glass_limit_comb(
+        filter_combinations,
+        target_transm,
+        results,
+        threshold
+    )
+    logger.info('Valid filter combinations:')
+    for comb_name, transmission in result_comb.items():
+        logger.info(f'{comb_name}: {transmission*100:.1f} %')
+
+    return result_comb
+
+def glass_rm_zeros(data: np.ndarray) -> None:
+    """Replaces zeros in filters data by linear fit from nearest values."""
+
+    for j in range(data.shape[1]-2):
+        for i in range(data.shape[0]-1):
+            if data[i+1,j+2] == 0:
+                if i == 0:
+                    if data[i+2,j+2] == 0 or data[i+3,j+2] == 0:
+                        logger.warning('missing value for the smallest WL cannot be calculated!')
+                    else:
+                        data[i+1,j+2] = 2*data[i+2,j+2] - data[i+3,j+2]
+                elif i == data.shape[0]-2:
+                    if data[i,j+2] == 0 or data[i-1,j+2] == 0:
+                        logger.warning('missing value for the smallest WL cannot be calculated!')
+                    else:
+                        data[i+1,j+2] = 2*data[i,j+2] - data[i-1,j+2]
+                else:
+                    if data[i,j+2] == 0 or data[i+2,j+2] == 0:
+                        logger.warning('adjacent zeros in filter data are not supported!')
+                    else:
+                        data[i+1,j+2] = (data[i,j+2] + data[i+2,j+2])/2
+
+def glass_calc_od(data: np.ndarray) -> None:
+    """Calculate OD using thickness of filters."""
+
+    for j in range(data.shape[1]-2):
+        for i in range(data.shape[0]-1):
+            data[i+1,j+2] = data[i+1,j+2]*data[0,j+2]
+
+def glass_combinations(filters: dict, max_comb: int) -> dict:
+    """Calc transmission of combinations up to <max_comb> filters."""
+
     filter_combinations = {}
-    for i in range(max_combinations):
-        for comb in combinations(filter_dict.items(),i+1):
+    for i in range(max_comb):
+        for comb in combinations(filters.items(),i+1):
             key = ''
             value = 0
             for k,v in comb:
                 key +=k
                 value+=v
-            filter_combinations.update({key:math.pow(10,-value)})    
+            filter_combinations.update({key:math.pow(10,-value)})
 
-    # calculated laser energy at sample
-    laser_energy = current_energy_pm/data[wl_index,1]*100
+    return filter_combinations
 
-    if laser_energy == 0:
-        print(f'{bcolors.WARNING} Laser radiation is not detected!{bcolors.ENDC}')
-        return ({},0,0)
+def glass_limit_comb(
+        filter_combs: dict,
+        target_transm: float,
+        results: int,
+        threshold: float) -> dict:
+    """Limit combinations of filters.
     
-    #required total transmission of filters
-    target_transm = target_energy/laser_energy
-    
-    if not no_print:
-        print(f'Target energy = {target_energy} [uJ]')
-        print(f'Current laser output = {laser_energy:.0f} [uJ]')
-        print(f'Target transmission = {target_transm*100:.1f} %')
-        print(f'{bcolors.HEADER} Valid filter combinations:{bcolors.ENDC}')
-    
-    #sort filter combinations by transmission
-    filter_combinations = dict(sorted(
-        filter_combinations.copy().items(),
+    Up to <results> with transmission higher than <target_transm>,
+    but not higher than <target_transm>*<threshold> will be returned."""
+
+    result = {}
+    filter_combs = dict(sorted(
+        filter_combs.items(),
         key=lambda item: item[1]))
-
-    #build dict with filter combinations,
-    #which have transmissions higher that required,
-    #but not more than 2.5 folds higher
-    i=0
-    for key, value in filter_combinations.items():
-        if (value-target_transm) > 0 and value/target_transm < 2.5:
-            result.update({key: value})
-            #print up to 5 best combinations with color code
-            if not no_print:
-                if (value/target_transm < 1.25) and i<5:
-                    print(f'{bcolors.OKGREEN} {key}, transmission = {value*100:.1f}%{bcolors.ENDC} (target= {target_transm*100:.1f}%)')
-                elif (value/target_transm < 1.5) and i<5:
-                    print(f'{bcolors.OKCYAN} {key}, transmission = {value*100:.1f}%{bcolors.ENDC} (target= {target_transm*100:.1f}%)')
-                elif value/target_transm < 2 and i<5:
-                    print(f'{bcolors.OKBLUE} {key}, transmission = {value*100:.1f}%{bcolors.ENDC} (target= {target_transm*100:.1f}%)')
-                elif value/target_transm < 2.5 and i<5:
-                    print(f'{bcolors.WARNING} {key}, transmission = {value*100:.1f}%{bcolors.ENDC} (target= {target_transm*100:.1f}%)')
-            i+=1
     
-    if not no_print:
-        print('\n')
+    i=0
+    for key, value in filter_combs.items():
+        if (value-target_transm) > 0 and value/target_transm < threshold:
+            result.update({key: value})
+            i += 1
+            if i == results:
+                break
 
-    # energy at glass reflection, which correspond to 
-    #the required energy at sample
-    target_pm_value = target_energy*data[wl_index,1]/100
-
-    return result, target_pm_value, laser_energy
+    return result
