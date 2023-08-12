@@ -11,6 +11,7 @@ import math
 import yaml
 import pint
 import numpy as np
+from InquirerPy import inquirer
 
 from pylablib.devices import Thorlabs
 import modules.osc_devices as osc_devices
@@ -419,7 +420,7 @@ def spectrum(
         
         #calculate current wavelength
         if abs(step*i) < abs(d_wl):
-            current_wl = start_wl + step*i
+            current_wl = start_wl + step.m*i
         else:
             current_wl = end_wl
 
@@ -434,57 +435,47 @@ def spectrum(
                     +'Please set it!')
         
         #adjust laser energy with color glasses
-        if power_control == 'Filters':
-            print(f'{bcolors.UNDERLINE}'
-                  + 'Please remove all filters!'
-                  + f'{bcolors.ENDC}')
+        if hardware['power_control'] == 'Filters':
+            logger.info('Please remove all filters')
             #measure mean energy at glass reflection
             energy = track_power(hardware, 50)
-            print(f'Power meter energy = {energy:.0f} [uJ]')
+            logger.info(f'Power meter energy = {energy}')
 
             #find valid filters combinations for current parameters
-            filters,_,_ = glass_calculator(
+            filters = glass_calculator(
                 current_wl,
                 energy,
                 target_energy,
-                max_combinations,
-                no_print=True)
+                max_filter_comb)
             if not len(filters):
-                print(f'{bcolors.WARNING}'
-                      + 'WARNING! No valid filter combination for '
-                      + f'{current_wl} [nm]!{bcolors.ENDC}')
+                logger.warning(f'No valid filter combination for '
+                      + f'{current_wl}')
                 cont_ans = inquirer.confirm(
                     message='Do you want to continue?').execute()
                 if not cont_ans:
-                    print(f'{bcolors.WARNING}'
-                          + 'Spectral measurements terminated!'
-                          + f'{bcolors.ENDC}')
-                    return old_data
-
-            #call glass_calculator again to print valid filter combinations
-            _, target_pm_value,_ = glass_calculator(
-                current_wl,
-                energy,
-                target_energy,
-                max_combinations)
-            
-            print(f'Target power meter energy is {target_pm_value}!')
-            print('Please set it using'
-                  + f'{bcolors.UNDERLINE}laser software{bcolors.ENDC}')
+                    logger.warning('Spectral measurements terminated!')
+                    return
+            reflection = glass_reflection(current_wl)
+            if reflection is not None and reflection != 0:
+                target_pm_value = target_energy/reflection
+                logger.info(f'Target power meter energy is {target_pm_value}!')
+                logger.info('Please set it using laser software')
+            else:
+                logger.warning('Target power meter energy '
+                               + 'cannot be calculated!')
         
-        elif power_control == 'Glan prism':
+        elif hardware['power_control'] == 'Glan prism':
             #for energy control by Glan prism target power meter
             #energy have to be calculated only once
             if i == 0:
-                target_pm_value = glan_calc_reverse(target_energy*1000)
-            print(f'Target power meter energy is {target_pm_value}!') #type: ignore
-            print(f'Please set it using {bcolors.UNDERLINE}Glan prism{bcolors.ENDC}!')
-            _ = track_power(hardware, 50)
+                target_pm_value = glan_calc_reverse(target_energy)
+            logger.info(f'Target power meter energy is {target_pm_value}!') # type: ignore
+            logger.info(f'Please set it using Glan prism.')
+            track_power(hardware, 50)
         else:
-            print(f'{bcolors.WARNING}'
-                  + 'Unknown power control method! Measurements terminated!'
-                  + f'{bcolors.ENDC}')
-            return old_data
+            logger.error('Unknown power control method! '
+                         + 'Measurements terminated!')
+            return
 
         #start measurements and averaging
         while counter < averaging:
@@ -782,3 +773,66 @@ def glass_limit_comb(
                 break
 
     return result
+
+def glass_reflection(wl: pint.Quantity) -> Union[float,None]:
+    """Get reflection (fraction) from glass at given wavelength."""
+
+     #file with filter's properties
+    sub_folder = 'rsc'
+    filename = 'ColorGlass.txt'
+    filename = os.path.join(sub_folder,filename)
+
+    try:
+        data = np.loadtxt(filename,skiprows=1)
+    except FileNotFoundError:
+        logger.error('File with color glass data not found!')
+        return
+    except ValueError as er:
+        logger.error(f'Error while loading color glass data!: {str(er)}')
+        return
+    
+    try:
+        wl_nm = wl.to('nm')
+        wl_index = np.where(data[1:,0] == wl_nm.m)[0][0] + 1
+    except IndexError:
+        logger.warning('Target WL is missing in color glass data table!')
+        return
+    
+    return data[wl_index,1]/100
+
+def glan_calc_reverse(
+        target_energy: pint.Quantity,
+        fit_order: int=1
+    ) -> Union[pint.Quantity, None]:
+    """Calculate target energy at power meter.
+    
+    It is assumed that power meter measures laser energy
+    reflected from a thin glass.
+    Calculation is based on callibration data from 'rsc/GlanCalibr'.
+    <fit_order> is a ploynom order used for fitting callibration data.
+    """
+
+    sub_folder = 'rsc'
+    filename = 'GlanCalibr.txt'
+    filename = os.path.join(sub_folder,filename)
+
+    try:
+        calibr_data = np.loadtxt(filename, dtype=np.float64)
+    except FileNotFoundError:
+        logger.error('File with glan callibration not found!')
+        return
+    except ValueError as er:
+        logger.error(f'Error while loading color glass data!: {str(er)}')
+        return
+
+    coef = np.polyfit(calibr_data[:,0], calibr_data[:,1],fit_order)
+
+    if fit_order == 1:
+        # target_energy = coef[0]*energy + coef[1]
+        energy = (target_energy.to('uJ').m - coef[1])/coef[0]*ureg.uJ
+    else:
+        logger.warning('Reverse Glan calculation for nonlinear fit is not '
+                       'realized! Linear fit used instead!')
+        energy = (target_energy.to('uJ').m - coef[1])/coef[0]*ureg.uJ
+    
+    return energy
