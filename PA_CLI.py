@@ -457,20 +457,6 @@ def spectra(hardware: pa_logic.Hardware) -> Union[PaData,None]:
         return None
     target_energy = float(target_energy)*ureg('mJ')
 
-    max_combinations = 0
-    if power_control == 'Filters':
-        max_combinations = inquirer.text(
-            message='Set maximum amount of filters' + vd.cancel_option,
-            default='2',
-            mandatory=False,
-            validate=vd.FilterNumberValidator()
-        ).execute()
-        logger.debug(f'"{max_combinations=}"')
-        if max_combinations is None:
-            logger.warning(MESSAGES['cancel_in'])
-            return None
-        max_combinations = int(max_combinations)
-
     averaging = inquirer.text(
         message='Set averaging' + vd.cancel_option,
         default='5',
@@ -489,8 +475,7 @@ def spectra(hardware: pa_logic.Hardware) -> Union[PaData,None]:
         end_wl,
         step,
         target_energy,
-        averaging,
-        max_combinations
+        averaging
     )
 
 def calc_filters_for_energy(hardware: pa_logic.Hardware) -> None:

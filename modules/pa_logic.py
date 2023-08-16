@@ -375,8 +375,7 @@ def spectrum(
         end_wl: pint.Quantity,
         step: pint.Quantity,
         target_energy: pint.Quantity,
-        averaging: int,
-        max_filter_comb: int=0
+        averaging: int
 ) -> Union[PaData,None]:
     """Measure dependence of PA signal on excitation wavelength.
     
@@ -444,48 +443,8 @@ def spectrum(
         logger.info(f'Start measuring point {(i+1)}')
         logger.info(f'Current wavelength is {current_wl}.'
                     +'Please set it!')
-        
-        #adjust laser energy with color glasses
-        if hardware['power_control'] == 'Filters':
-            logger.info('Please remove all filters')
-            #measure mean energy at glass reflection
-            energy = track_power(hardware, 50)
-            logger.info(f'Power meter energy = {energy}')
 
-            #find valid filters combinations for current parameters
-            filters = glass_calculator(
-                current_wl,
-                energy,
-                target_energy,
-                max_filter_comb)
-            if not len(filters):
-                logger.warning(f'No valid filter combination for '
-                      + f'{current_wl}')
-                cont_ans = inquirer.confirm(
-                    message='Do you want to continue?').execute()
-                if not cont_ans:
-                    logger.warning('Spectral measurements terminated!')
-                    return
-            reflection = glass_reflection(current_wl)
-            if reflection is not None and reflection != 0:
-                target_pm_value = target_energy/reflection
-                logger.info(f'Target power meter energy is {target_pm_value}!')
-                logger.info('Please set it using laser software')
-            else:
-                logger.warning('Target power meter energy '
-                               + 'cannot be calculated!')
-        
-        elif hardware['power_control'] == 'Glan prism':
-            #for energy control by Glan prism target power meter
-            #energy have to be calculated only once
-            if i == 0:
-                target_pm_value = glan_calc_reverse(target_energy)
-            logger.info(f'Target power meter energy is {target_pm_value}!') # type: ignore
-            logger.info(f'Please set it using Glan prism.')
-            track_power(hardware, 50)
-        else:
-            logger.error('Unknown power control method! '
-                         + 'Measurements terminated!')
+        if not set_energy(hardware, current_wl, target_energy, bool(i)):
             return
 
         #start measurements and averaging
@@ -605,6 +564,61 @@ def spectrum(
     logger.info('Spectral scanning complete!')
     data.bp_filter()
     return data
+
+def set_energy(
+    hardware: Hardware,
+    current_wl: pint.Quantity,
+    target_energy: pint.Quantity,
+    repeated: bool
+) -> bool:
+    """Set laser energy for measurements.
+    
+    Set <target_energy> at <current_wl>.
+    <repeated> is flag which indicates that this is not the first
+    call of set_energy."""
+
+    if hardware['power_control'] == 'Filters':
+        logger.info('Please remove all filters and measure energy.')
+        #measure mean energy at glass reflection
+        energy = track_power(hardware, 50)
+        logger.info(f'Power meter energy = {energy}')
+
+        #find valid filters combinations for current parameters
+        max_filter_comb = hardware['config']['energy']['max_filters']
+        logger.debug(f'{max_filter_comb=} loaded.')
+        filters = glass_calculator(
+            current_wl,
+            energy,
+            target_energy,
+            max_filter_comb)
+        if not len(filters):
+            logger.warning(f'No valid filter combination for '
+                    + f'{current_wl}')
+            cont_ans = inquirer.confirm(
+                message='Do you want to continue?').execute()
+            if not cont_ans:
+                logger.warning('Spectral measurements terminated!')
+                return False
+            
+        reflection = glass_reflection(current_wl)
+        if reflection is not None and reflection != 0:
+            target_pm_value = target_energy/reflection
+            logger.info(f'Target power meter energy is {target_pm_value}!')
+            logger.info('Please set it using laser software')
+        else:
+            logger.warning('Target power meter energy '
+                            + 'cannot be calculated!')
+    
+    elif hardware['power_control'] == 'Glan prism' and not repeated:
+        target_pm_value = glan_calc_reverse(target_energy)
+        logger.info(f'Target power meter energy is {target_pm_value}!') # type: ignore
+        logger.info(f'Please set it using Glan prism.')
+        track_power(hardware, 50)
+    else:
+        logger.error('Unknown power control method! '
+                        + 'Measurements terminated!')
+        return False
+    return True
 
 def glass_calculator(wavelength: pint.Quantity,
                      current_energy_pm: pint.Quantity,
