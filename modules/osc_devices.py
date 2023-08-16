@@ -150,7 +150,7 @@ class Oscilloscope:
         return self.__osc.query(message) # type: ignore
         
     def set_preamble(self) -> None:
-        """Sets osc params"""
+        """Sets osc params."""
 
         query_results = self.query(':WAV:PRE?')
         preamble_raw = query_results.split(',')
@@ -167,13 +167,13 @@ class Oscilloscope:
         logger.debug(f'{len(preamble_raw)} parameters obtained and set')
 
     def set_sample_rate(self) -> None:
-        """Updates sample rate"""
+        """Updates sample rate."""
 
         self.sample_rate = (float(self.query(':ACQ:SRAT?'))*ureg('hertz'))
         logger.debug(f'Sample rate updated to {self.sample_rate}')
 
     def time_to_points (self, duration: pint.Quantity) -> int:
-        """Convert duration into amount of data points"""
+        """Convert duration into amount of data points."""
         
         logger.debug(f'Calculating amount of points for {duration}')
         points = int((duration*self.sample_rate).magnitude) + 1
@@ -181,7 +181,7 @@ class Oscilloscope:
         return points
 
     def ch_points(self) -> None:
-        """Updates len of pre, post and dur points for all channels"""
+        """Updates len of pre, post and dur points for all channels."""
 
         logger.debug('Setting amount of data points for each channel...')
         self.set_sample_rate()
@@ -198,7 +198,7 @@ class Oscilloscope:
     def rolling_average(self,
                         data: npt.NDArray[np.uint8]
                         ) -> npt.NDArray[np.uint8]:
-        """Smooth data using rolling average method"""
+        """Smooth data using rolling average method."""
         
         logger.debug('Starting rolling_average smoothing...')
         min_signal_size = int(self.SMOOTH_LEN_FACTOR*self.ra_kernel)
@@ -224,6 +224,7 @@ class Oscilloscope:
                         start: int,
                         dur: int) -> npt.NDArray[np.uint8]:
         """read from memory in single chunk.
+        
         Returns data without header.
         """
 
@@ -251,6 +252,7 @@ class Oscilloscope:
                           start: int,
                           dur: int) -> npt.NDArray[np.uint8]:
         """reads from memory in multiple chunks.
+        
         Returns data without header.
         """
 
@@ -328,6 +330,7 @@ class Oscilloscope:
 
     def read_data(self, ch_id: int) -> npt.NDArray[np.uint8]:
         """Reads data from the specified channel.
+        
         Sets data to ch_data_raw attribute.
         """
 
@@ -375,6 +378,7 @@ class Oscilloscope:
                             data: npt.NDArray[np.uint8]
                             ) -> npt.NDArray[np.uint8]:
         """Corrects baseline for the data.
+        
         Assumes that baseline as at the start of measured signal.
         """
 
@@ -387,7 +391,7 @@ class Oscilloscope:
         return data
 
     def read_scr(self, ch_id: int) -> npt.NDArray[np.uint8]:
-        """reads screen data for the channel"""
+        """reads screen data for the channel."""
 
         self.__osc.write(':WAV:SOUR ' + self.CH_IDS[ch_id]) # type: ignore
         self.__osc.write(':WAV:MODE NORM') # type: ignore
@@ -409,7 +413,7 @@ class Oscilloscope:
                     correct_bl: bool=True, #correct baseline
                     smooth: bool=True, #smooth data
                     ) -> None:
-        """Measure data from screen"""
+        """Measure data from screen."""
 
         logger.debug('Start measuring of signal from oscilloscope '
                      + 'screen.')
@@ -439,7 +443,7 @@ class Oscilloscope:
                 correct_bl: bool=True, #correct baseline
                 smooth: bool=True, #smooth data
                 ) -> None:
-        """Measure data from memory"""
+        """Measure data from memory."""
 
         logger.debug('Start measuring of signal from oscilloscope '
                      + 'memory.')
@@ -533,7 +537,8 @@ class PowerMeter:
                          data: List[pint.Quantity],
                          step: pint.Quantity) -> pint.Quantity:
         """Calculate laser energy from data.
-        step is time step for the data.
+
+        <Step> is time step for the data.
         Data must be baseline corrected.
         """
 
@@ -583,7 +588,7 @@ class PowerMeter:
             raise exceptions.OscilloscopeError(msg)
 
         laser_amp = np.sum(
-            data[self.start_ind:self.stop_ind])*step*self.SENS
+            data[self.start_ind:self.stop_ind])*step.to('s').m*self.SENS
 
         logger.debug(f'Calculated value of energy is {laser_amp}')
         return laser_amp
