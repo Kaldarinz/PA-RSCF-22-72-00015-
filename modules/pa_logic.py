@@ -2,7 +2,8 @@
 PA backend
 """
 
-from typing import Any, TypedDict, Union
+from doctest import debug
+from typing import Any, TypedDict, Union, List
 import logging
 import os
 from itertools import combinations
@@ -12,8 +13,10 @@ import yaml
 import pint
 import numpy as np
 from InquirerPy import inquirer
-
 from pylablib.devices import Thorlabs
+import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
+
 import modules.osc_devices as osc_devices
 import modules.exceptions as exceptions
 from ..PA_CLI import track_power
@@ -30,6 +33,7 @@ class Hardware_base(TypedDict):
     osc: osc_devices.Oscilloscope
     config_loaded: bool
     power_control: list
+    config: dict
 
 class Hardware(Hardware_base, total=False):
     """TypedDict for refernces to hardware."""
@@ -122,7 +126,9 @@ def load_config(hardware: Hardware) -> dict:
         return {}
     
     hardware.update({'power_control':config['power_control']})
-    logger.debug(f'Power control options loaded:{hardware["power_control"]}')
+    logger.debug(f'Power control option loaded:{hardware["power_control"]}')
+    hardware.update({'config':config})
+    logger.debug('Config loaded into hardware["config"]')
 
     if int(config['stages']['axes']) == 3:
         logger.debug('Stage_z added to hardware list')
@@ -383,6 +389,10 @@ def spectrum(
     when energy is controlled by the glass filters.
     """
 
+    osc = hardware['osc']
+    pm = hardware['power_meter'] #type: ignore
+    pa_ch_id = int(hardware['config']['pa_sensor']['connected_chan']) - 1
+    pm_ch_id = int(hardware['config']['power_meter']['connected_chan']) - 1
     #make steps negative if going from long WLs to short
     if start_wl > end_wl:
         step = -step # type: ignore
@@ -427,8 +437,9 @@ def spectrum(
         # temp vars for averaging
         # should be reset in each cycle
         tmp_signal = 0
-        tmp_laser = 0
+        tmp_pm_laser = 0*ureg.J
         counter = 0
+        reflection = 0
 
         logger.info(f'Start measuring point {(i+1)}')
         logger.info(f'Current wavelength is {current_wl}.'
@@ -479,12 +490,13 @@ def spectrum(
 
         #start measurements and averaging
         while counter < averaging:
-            print('Signal at current WL should be measured '
+            logger.info('Signal at current WL should be measured '
                   + f'{averaging-counter} more times.')
             measure_ans = inquirer.rawlist(
                 message='Chose an action:',
                 choices=['Tune power','Measure','Stop measurements']
             ).execute()
+            logger.debug(f'{measure_ans=} was choosen')
 
             #adjust energy
             if measure_ans == 'Tune power':
@@ -496,140 +508,101 @@ def spectrum(
                 #measure data on both channels
                 osc.measure()
                 dt = 1/osc.sample_rate
+                logger.debug(f'{dt=}')
 
-                #set signal data depending on channel assignment
-                if chan_pa == 'CHAN1':
-                    pa_signal = osc.ch1_data
-                    pa_amp = osc.ch1_amp
-                    pm_signal = osc.ch2_data
-                elif chan_pa == 'CHAN2':
-                    pa_signal = osc.ch2_data
-                    pa_amp = osc.ch2_amp
-                    pm_signal = osc.ch1_data
-                else:
-                    print(f'{bcolors.WARNING}'
-                          + 'Uknown channel assignment in spectra'
-                          + f'{bcolors.ENDC}')
-                    return old_data
+                pa_signal = osc.data[pa_ch_id]
+                logger.debug(f'PA data has {len(pa_signal)} points '
+                             + f'with max value={max(pa_signal)}')
                 
-                #calculate laser energy at power meter
-                cur_pm_laser = pm.energy_from_data(
-                        pm_signal,
-                        1/osc.sample_rate)
-                #show measured data to visually check if data is OK
-                fig = plt.figure(tight_layout=True)
-                gs = gridspec.GridSpec(1,2)
-                ax_pm = fig.add_subplot(gs[0,0])
-                ax_pm.plot(pm_signal)
-                #ax_pm.plot(signal.decimate(pm_signal, 100))
-                #add markers for data start and stop
-                ax_pm.plot(
-                    pm.start_ind,
-                    pm_signal[pm.start_ind],
-                    'o',
-                    alpha=0.4,
-                    ms=12,
-                    color='green')
-                ax_pm.plot(
-                    pm.stop_ind,
-                    pm_signal[pm.stop_ind],
-                    'o',
-                    alpha=0.4,
-                    ms=12,
-                    color='red')
-                ax_pa = fig.add_subplot(gs[0,1])
-                ax_pa.plot(pa_signal)
-                plt.show()
+                pa_signal_raw = osc.data_raw[pa_ch_id]
+                logger.debug(f'Raw PA data has {len(pa_signal_raw)} points '
+                             + f'with max value={max(pa_signal_raw)}')
+                
+                pa_amp = osc.amp[pa_ch_id]
+                logger.debug(f'PA amplitude = {pa_amp}')
 
-                #confirm that the data is OK
-                good_data = inquirer.confirm(
-                    message='Data looks good?').execute()
+                pm_signal = osc.data[pm_ch_id]
+                logger.debug(f'power meter data has {len(pm_signal)} points '
+                             + f'with max value={max(pm_signal)}')
+                
+                pm_signal_raw = osc.data_raw[pm_ch_id]
+                logger.debug(f'Raw power meter data has {len(pm_signal_raw)}'
+                             + f' points with max value={max(pm_signal_raw)}')
+                
+                cur_pm_laser = pm.energy_from_data(pm_signal, dt)
+                logger.debug(f'Laser energy at power meter = {cur_pm_laser}')
+                good_data = verify_measurement(hardware, pa_signal, pm_signal, dt)
+
                 if good_data:
-                    #note that tmp_signal is only amplitude of signal for averaging
+                    #note that tmp_signal is amplitude of signal only for averaging
                     tmp_signal += pa_amp
-                    tmp_laser += cur_pm_laser
+                    tmp_pm_laser += cur_pm_laser
                     counter += 1
+                    logger.debug(f'Adding {counter} measureemnt '
+                                 + f'out of {averaging}')
+                    logger.debug(f'Accumulating PA amplitude {tmp_signal=}')
+                    logger.debug(f'Accumulating energy at power meter '
+                                 + f'{tmp_pm_laser}')
                     if counter == averaging:
-                        if power_control == 'Filters':
-                            _, ___, sample_energy_aver = glass_calculator(
-                                current_wl,
-                                tmp_laser/averaging, #average energy
-                                target_energy,
-                                max_combinations,
-                                no_print=True)
+                        aver_pm_laser = tmp_pm_laser/averaging
+                        logger.debug(f'Average power meter energy '
+                                     + f'{aver_pm_laser=}')
+                        if hardware['power_control'] == 'Filters':
+                            if reflection is not None and reflection !=0:
+                                sample_energy_aver = aver_pm_laser/reflection
+                                sample_energy_cur = cur_pm_laser/reflection
+                                pa_signal_norm = pa_signal/sample_energy_aver
+                                logger.info(f'Average laser at sample = '
+                                            + '{sample_energy_aver}')
+                                logger.debug(f'{sample_energy_cur=}')
+                            else:
+                                sample_energy_aver = 0
+                                sample_energy_cur = 0
+                                pa_signal_norm = pa_signal
+                                logger.warning('Sample energy cannot be '
+                                               +'calculated')
 
-                            _, ___, sample_energy_cur = glass_calculator(
-                                current_wl,
-                                cur_pm_laser, #current energy
-                                target_energy,
-                                max_combinations,
-                                no_print=True)
-
-                            #add datapoint with metadata
                             max_amp = tmp_signal/(
                                 averaging*sample_energy_aver)
-                            data.add_measurement(
-                                pa_signal/sample_energy_cur, #last mes
-                                {'parameter value': current_wl,
-                                'x var step': dt,
-                                'x var start': 0,
-                                'x var stop': dt*(len(pa_signal)-1),
-                                'PM energy': tmp_laser/averaging,
-                                'sample energy': sample_energy_aver,
-                                'max amp': max_amp})
+                            logger.info(f'Average PA signal = {max_amp}')
                             
-                            print(f'{bcolors.OKBLUE}'
-                                  + 'Average laser at sample = '
-                                  + f'{sample_energy_aver:.0f} [uJ]')
-                            print(f'Average PA signal = {max_amp:}'
-                                  + f'{bcolors.ENDC}')
-                            
-                        elif power_control == 'Glan prism':
-                            #add datapoint with metadata
-                            sample_energy_aver = glan_calc(
-                                tmp_laser/averaging)
-                            max_amp = tmp_signal/(
-                                averaging*sample_energy_aver)
-                            data.add_measurement(
-                                pa_signal/glan_calc(cur_pm_laser), #last mes
-                                {'parameter value': current_wl,
-                                'x var step': dt,
-                                'x var start': 0,
-                                'x var stop': dt*(len(pa_signal)-1),
-                                'PM energy': tmp_laser/averaging,
-                                'sample energy': sample_energy_aver,
-                                'max amp': max_amp})
-                            
-                            print(f'{bcolors.OKBLUE}'
-                                  + 'Average laser at sample = '
-                                  + f'{sample_energy_aver:.0f} [uJ]')
-                            print(f'Average PA signal = {max_amp:.3e}'
-                                  + f'{bcolors.ENDC}')
-                            
+                        elif hardware['power_control'] == 'Glan prism':
+                            sample_energy_aver = glan_calc(aver_pm_laser)
+                            max_amp = tmp_signal/(averaging*sample_energy_aver)
+                            pa_signal_norm = pa_signal/glan_calc(cur_pm_laser)
+                            logger.info(f'Average laser at sample = '
+                                            + '{sample_energy_aver}')
+                            logger.info(f'Average PA signal = {max_amp}')
+
                         else:
-                            print(f'{bcolors.WARNING}'
-                                  + 'Unknown power control method in writing '
-                                  + f'laser energy{bcolors.ENDC}')
+                            logger.error('Unknown power control method! '
+                                        + 'Measurements terminated!')
+                            return
+                        
+                        data.add_measurement(
+                            pa_signal_norm, #last mes
+                            {'parameter value': current_wl,
+                            'x var step': dt,
+                            'x var start': 0,
+                            'x var stop': dt*(len(pa_signal)-1),
+                            'PM energy': aver_pm_laser,
+                            'sample energy': sample_energy_aver,
+                            'max amp': max_amp})
                         data.save_tmp()
                         
             elif measure_ans == 'Stop measurements':
                 confirm = inquirer.confirm(
                     message='Are you sure?'
                 ).execute()
+                logger.debug(f'{measure_ans=} was choosen.')
                 if confirm:
-                    print(f'{bcolors.WARNING}'
-                          + 'Spectral measurements terminated!'
-                          + f'{bcolors.ENDC}')
+                    logger.warning('Spectral measurement terminated')
                     data.bp_filter()
                     return data
             else:
-                print(f'{bcolors.WARNING}'
-                      + 'Unknown command in Spectral measure menu!'
-                      + f'{bcolors.ENDC}')
+                logger.warning('Unknown command in Spectral measure menu!')
     
-    print(f'{bcolors.OKGREEN}'
-          + 'Spectral scanning complete!'
-          + f'{bcolors.ENDC}')
+    logger.info('Spectral scanning complete!')
     data.bp_filter()
     return data
 
@@ -775,7 +748,9 @@ def glass_limit_comb(
     return result
 
 def glass_reflection(wl: pint.Quantity) -> Union[float,None]:
-    """Get reflection (fraction) from glass at given wavelength."""
+    """Get reflection (fraction) from glass at given wavelength.
+    
+    pm_energy/sample_energy = glass_reflection."""
 
      #file with filter's properties
     sub_folder = 'rsc'
@@ -803,8 +778,8 @@ def glass_reflection(wl: pint.Quantity) -> Union[float,None]:
 def glan_calc_reverse(
         target_energy: pint.Quantity,
         fit_order: int=1
-    ) -> Union[pint.Quantity, None]:
-    """Calculate target energy at power meter.
+    ) -> Union[pint.Quantity,None]:
+    """Calculate energy at power meter for given sample energy.
     
     It is assumed that power meter measures laser energy
     reflected from a thin glass.
@@ -836,3 +811,76 @@ def glan_calc_reverse(
         energy = (target_energy.to('uJ').m - coef[1])/coef[0]*ureg.uJ
     
     return energy
+
+def glan_calc(
+        energy: pint.Quantity,
+        fit_order: int=1
+    ) -> Union[pint.Quantity,None]:
+    """Calculates energy at sample for a given power meter energy"""
+
+    sub_folder = 'rsc'
+    filename = 'GlanCalibr.txt'
+    filename = os.path.join(sub_folder,filename)
+
+    try:
+        calibr_data = np.loadtxt(filename, dtype=np.float64)
+    except FileNotFoundError:
+        logger.error('File with glan callibration not found!')
+        return
+    except ValueError as er:
+        logger.error(f'Error while loading color glass data!: {str(er)}')
+        return
+
+    #get coefficients which fit calibration data with fit_order polynom
+    coef = np.polyfit(calibr_data[:,0], calibr_data[:,1],fit_order)
+
+    #init polynom with the coefficients
+    fit = np.poly1d(coef)
+
+    #return the value of polynom at energy
+    return fit(energy)*ureg.uJ
+
+def verify_measurement(
+        hardware: Hardware,
+        pa_signal: List[pint.Quantity],
+        pm_signal: List[pint.Quantity],
+        dt: pint.Quantity
+) -> bool:
+    """Verify a PA measurement."""
+
+    # update state of power meter
+    pm = hardware['power_meter'] #type:ignore
+    pm.energy_from_data(pm_signal, dt)
+
+    fig = plt.figure(tight_layout=True)
+    gs = gridspec.GridSpec(1,2)
+    ax_pm = fig.add_subplot(gs[0,0])
+    pm_time = [x*dt for x in range(len(pm_signal))]
+    ax_pm.plot(pm_time,pm_signal)
+
+    #add markers for data start and stop
+    ax_pm.plot(
+        pm.start_ind,
+        pm_signal[pm.start_ind],
+        'o',
+        alpha=0.4,
+        ms=12,
+        color='green')
+    ax_pm.plot(
+        pm.stop_ind,
+        pm_signal[pm.stop_ind],
+        'o',
+        alpha=0.4,
+        ms=12,
+        color='red')
+    ax_pa = fig.add_subplot(gs[0,1])
+    pa_time = [x*dt for x in range(len(pa_signal))]
+    ax_pa.plot(pa_time,pa_signal)
+    plt.show()
+
+    #confirm that the data is OK
+    good_data = inquirer.confirm(
+        message='Data looks good?').execute()
+    logger.debug(f'{good_data=} was choosen')
+
+    return good_data

@@ -18,9 +18,9 @@ from typing import Union
 from scipy import signal
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
 from InquirerPy import inquirer
 from InquirerPy.validator import PathValidator
-import matplotlib.gridspec as gridspec
 import keyboard
 import pint
 from modules import pa_data
@@ -493,42 +493,6 @@ def spectra(hardware: pa_logic.Hardware) -> Union[PaData,None]:
         max_combinations
     )
 
-    
-
-def remove_zeros(data: np.ndarray) -> np.ndarray:
-    """Replaces zeros in filters data by linear fit from nearest values"""
-
-    for j in range(data.shape[1]-2):
-        for i in range(data.shape[0]-1):
-            if data[i+1,j+2] == 0:
-                if i == 0:
-                    if data[i+2,j+2] == 0 or data[i+3,j+2] == 0:
-                        print('missing value for the smallest WL cannot be calculated!')
-                        return data
-                    else:
-                        data[i+1,j+2] = 2*data[i+2,j+2] - data[i+3,j+2]
-                elif i == data.shape[0]-2:
-                    if data[i,j+2] == 0 or data[i-1,j+2] == 0:
-                        print('missing value for the smallest WL cannot be calculated!')
-                        return data
-                    else:
-                        data[i+1,j+2] = 2*data[i,j+2] - data[i-1,j+2]
-                else:
-                    if data[i,j+2] == 0 or data[i+2,j+2] == 0:
-                        print('adjacent zeros in filter data are not supported!')
-                        return data
-                    else:
-                        data[i+1,j+2] = (data[i,j+2] + data[i+2,j+2])/2
-    return data
-
-def calc_od(data: np.ndarray) -> np.ndarray:
-    """calculates OD using thickness of filters"""
-
-    for j in range(data.shape[1]-2):
-        for i in range(data.shape[0]-1):
-            data[i+1,j+2] = data[i+1,j+2]*data[0,j+2]
-    return data
-
 def calc_filters_for_energy(hardware: pa_logic.Hardware) -> None:
     """Provides required filter combination for an energy"""
 
@@ -580,65 +544,6 @@ def calc_filters_for_energy(hardware: pa_logic.Hardware) -> None:
     print(f'Target power meter energy is {target_pm_value}!')
     print(f'Please set it using {bcolors.UNDERLINE}'
           + f'laser software{bcolors.ENDC}')
-
-def glan_calc(energy: float) -> float:
-    """Calculates energy at sample for a given energy"""
-
-    filename = 'rsc\GlanCalibr.txt' # file with Glan calibrations
-    fit_order = 1 #order of the polynom for fitting data
-
-    try:
-        calibr_data = np.loadtxt(filename)
-    except FileNotFoundError:
-        print(f'{bcolors.WARNING} File with color glass data not found!{bcolors.ENDC}')
-        return 0
-    except ValueError as er:
-        print(f'Error message: {str(er)}')
-        print(f'{bcolors.WARNING} Error while loading color glass data!{bcolors.ENDC}')
-        return 0
-
-    #get coefficients which fit calibration data with fit_order polynom
-    coef = np.polyfit(calibr_data[:,0], calibr_data[:,1],fit_order)
-
-    #init polynom with the coefficients
-    fit = np.poly1d(coef)
-
-    #return the value of polynom at energy
-    return fit(energy)
-
-def glan_calc_reverse(target_energy: float) -> float:
-    """Calculates energy at power meter placed 
-    at glass reflection to obtain target_energy"""
-
-    filename = 'rsc\GlanCalibr.txt' # file with Glan calibrations
-    fit_order = 1 #order of the polynom for fitting data
-
-    try:
-        calibr_data = np.loadtxt(filename)
-    except FileNotFoundError:
-        print(f'{bcolors.WARNING}'
-              + 'File with color glass data not found!'
-              + f'{bcolors.ENDC}')
-        return 0
-    except ValueError as er:
-        print(f'Error message: {str(er)}')
-        print(f'{bcolors.WARNING}'
-              + 'Error while loading color glass data!'
-              + f'{bcolors.ENDC}')
-        return 0
-
-    coef = np.polyfit(calibr_data[:,0], calibr_data[:,1],fit_order)
-
-    if fit_order == 1:
-        # target_energy = coef[0]*energy + coef[1]
-        energy = (target_energy - coef[1])/coef[0]
-    else:
-        print(f'{bcolors.WARNING}'
-              + 'Reverse Glan calculation for nonlinear fit is not realized!'
-              + f'{bcolors.ENDC}')
-        return 0
-    
-    return energy
 
 def glan_check(hardware: pa_logic.Hardware) -> None:
     """Used to check glan performance"""
