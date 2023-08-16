@@ -4,6 +4,8 @@ backup files/
 measuring results/TmpData.npy
 typings/
 logs/
+test.py
+.gitignore
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
