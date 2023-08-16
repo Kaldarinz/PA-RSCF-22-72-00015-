@@ -3,7 +3,7 @@ PA backend
 """
 
 from doctest import debug
-from typing import Any, TypedDict, Union, List
+from typing import Any, TypedDict, Union, List, Tuple
 import logging
 import os
 from itertools import combinations
@@ -12,6 +12,7 @@ import math
 import yaml
 import pint
 import numpy as np
+import numpy.typing as npt
 from InquirerPy import inquirer
 from pylablib.devices import Thorlabs
 import matplotlib.pyplot as plt
@@ -35,12 +36,43 @@ class Hardware_base(TypedDict):
     power_control: list
     config: dict
 
+class Data_point(TypedDict):
+    """Single PA measurement"""
+
+    dt: pint.Quantity
+    pa_signal: List[pint.Quantity]
+    pa_signal_raw: npt.NDArray[np.uint8]
+    pm_signal: List[pint.Quantity]
+    start_time: pint.Quantity
+    stop_time: pint.Quantity
+    pm_energy: pint.Quantity
+    sample_energy: pint.Quantity
+    max_amp: pint.Quantity
+    wavelength: pint.Quantity
+
 class Hardware(Hardware_base, total=False):
     """TypedDict for refernces to hardware."""
     
     power_meter: osc_devices.PowerMeter
     pa_sens: osc_devices.PhotoAcousticSensOlymp
     stage_z: Thorlabs.KinesisMotor
+
+def new_data_point() -> Data_point:
+    """Return default data point."""
+
+    measurement: Data_point = {
+                    'dt': 0*ureg.s,
+                    'pa_signal': [],
+                    'pa_signal_raw': np.empty(0, dtype=np.uint8),
+                    'pm_signal': [],
+                    'start_time': 0*ureg.s,
+                    'stop_time': 0*ureg.s,
+                    'pm_energy': 0*ureg.uJ,
+                    'sample_energy': 0*ureg.uJ,
+                    'max_amp': 0*ureg.uJ,
+                    'wavelength': 0*ureg.nm
+                }
+    return measurement
 
 def init_hardware(hardware: Hardware) -> bool:
     """Initialize all hardware.
@@ -388,10 +420,6 @@ def spectrum(
     when energy is controlled by the glass filters.
     """
 
-    osc = hardware['osc']
-    pm = hardware['power_meter'] #type: ignore
-    pa_ch_id = int(hardware['config']['pa_sensor']['connected_chan']) - 1
-    pm_ch_id = int(hardware['config']['power_meter']['connected_chan']) - 1
     #make steps negative if going from long WLs to short
     if start_wl > end_wl:
         step = -step # type: ignore
@@ -433,134 +461,15 @@ def spectrum(
         else:
             current_wl = end_wl
 
-        # temp vars for averaging
-        # should be reset in each cycle
-        tmp_signal = 0
-        tmp_pm_laser = 0*ureg.J
-        counter = 0
-        reflection = 0
-
         logger.info(f'Start measuring point {(i+1)}')
         logger.info(f'Current wavelength is {current_wl}.'
                     +'Please set it!')
 
         if not set_energy(hardware, current_wl, target_energy, bool(i)):
             return
-
-        #start measurements and averaging
-        while counter < averaging:
-            logger.info('Signal at current WL should be measured '
-                  + f'{averaging-counter} more times.')
-            measure_ans = inquirer.rawlist(
-                message='Chose an action:',
-                choices=['Tune power','Measure','Stop measurements']
-            ).execute()
-            logger.debug(f'{measure_ans=} was choosen')
-
-            #adjust energy
-            if measure_ans == 'Tune power':
-                track_power(hardware, 40)
-
-            #actual measurement
-            elif measure_ans == 'Measure':
-                
-                #measure data on both channels
-                osc.measure()
-                dt = 1/osc.sample_rate
-                logger.debug(f'{dt=}')
-
-                pa_signal = osc.data[pa_ch_id]
-                logger.debug(f'PA data has {len(pa_signal)} points '
-                             + f'with max value={max(pa_signal)}')
-                
-                pa_signal_raw = osc.data_raw[pa_ch_id]
-                logger.debug(f'Raw PA data has {len(pa_signal_raw)} points '
-                             + f'with max value={max(pa_signal_raw)}')
-                
-                pa_amp = osc.amp[pa_ch_id]
-                logger.debug(f'PA amplitude = {pa_amp}')
-
-                pm_signal = osc.data[pm_ch_id]
-                logger.debug(f'power meter data has {len(pm_signal)} points '
-                             + f'with max value={max(pm_signal)}')
-                
-                pm_signal_raw = osc.data_raw[pm_ch_id]
-                logger.debug(f'Raw power meter data has {len(pm_signal_raw)}'
-                             + f' points with max value={max(pm_signal_raw)}')
-                
-                cur_pm_laser = pm.energy_from_data(pm_signal, dt)
-                logger.debug(f'Laser energy at power meter = {cur_pm_laser}')
-                good_data = verify_measurement(hardware, pa_signal, pm_signal, dt)
-
-                if good_data:
-                    #note that tmp_signal is amplitude of signal only for averaging
-                    tmp_signal += pa_amp
-                    tmp_pm_laser += cur_pm_laser
-                    counter += 1
-                    logger.debug(f'Adding {counter} measureemnt '
-                                 + f'out of {averaging}')
-                    logger.debug(f'Accumulating PA amplitude {tmp_signal=}')
-                    logger.debug(f'Accumulating energy at power meter '
-                                 + f'{tmp_pm_laser}')
-                    if counter == averaging:
-                        aver_pm_laser = tmp_pm_laser/averaging
-                        logger.debug(f'Average power meter energy '
-                                     + f'{aver_pm_laser=}')
-                        if hardware['power_control'] == 'Filters':
-                            if reflection is not None and reflection !=0:
-                                sample_energy_aver = aver_pm_laser/reflection
-                                sample_energy_cur = cur_pm_laser/reflection
-                                pa_signal_norm = pa_signal/sample_energy_aver
-                                logger.info(f'Average laser at sample = '
-                                            + '{sample_energy_aver}')
-                                logger.debug(f'{sample_energy_cur=}')
-                            else:
-                                sample_energy_aver = 0
-                                sample_energy_cur = 0
-                                pa_signal_norm = pa_signal
-                                logger.warning('Sample energy cannot be '
-                                               +'calculated')
-
-                            max_amp = tmp_signal/(
-                                averaging*sample_energy_aver)
-                            logger.info(f'Average PA signal = {max_amp}')
-                            
-                        elif hardware['power_control'] == 'Glan prism':
-                            sample_energy_aver = glan_calc(aver_pm_laser)
-                            max_amp = tmp_signal/(averaging*sample_energy_aver)
-                            pa_signal_norm = pa_signal/glan_calc(cur_pm_laser)
-                            logger.info(f'Average laser at sample = '
-                                            + '{sample_energy_aver}')
-                            logger.info(f'Average PA signal = {max_amp}')
-
-                        else:
-                            logger.error('Unknown power control method! '
-                                        + 'Measurements terminated!')
-                            return
-                        
-                        data.add_measurement(
-                            pa_signal_norm, #last mes
-                            {'parameter value': current_wl,
-                            'x var step': dt,
-                            'x var start': 0,
-                            'x var stop': dt*(len(pa_signal)-1),
-                            'PM energy': aver_pm_laser,
-                            'sample energy': sample_energy_aver,
-                            'max amp': max_amp})
-                        data.save_tmp()
-                        
-            elif measure_ans == 'Stop measurements':
-                confirm = inquirer.confirm(
-                    message='Are you sure?'
-                ).execute()
-                logger.debug(f'{measure_ans=} was choosen.')
-                if confirm:
-                    logger.warning('Spectral measurement terminated')
-                    data.bp_filter()
-                    return data
-            else:
-                logger.warning('Unknown command in Spectral measure menu!')
-    
+        measurement = ameasure_point(hardware, averaging)
+        data.add_measurement(measurement)
+        data.save_tmp() 
     logger.info('Spectral scanning complete!')
     data.bp_filter()
     return data
@@ -578,7 +487,7 @@ def set_energy(
     call of set_energy."""
 
     if hardware['power_control'] == 'Filters':
-        logger.info('Please remove all filters and measure energy.')
+        logger.info('Please remove all filters and measure')
         #measure mean energy at glass reflection
         energy = track_power(hardware, 50)
         logger.info(f'Power meter energy = {energy}')
@@ -619,7 +528,7 @@ def set_energy(
                         + 'Measurements terminated!')
         return False
     return True
-
+                
 def glass_calculator(wavelength: pint.Quantity,
                      current_energy_pm: pint.Quantity,
                      target_energy: pint.Quantity,
@@ -854,16 +763,173 @@ def glan_calc(
     #return the value of polynom at energy
     return fit(energy)*ureg.uJ
 
+def ameasure_point(
+    hardware: Hardware,
+    averaging: int,
+    current_wl: pint.Quantity
+) -> Tuple[Data_point, bool]:
+    """Measure single PA data point with averaging.
+    
+    second value in the returned tuple (bool) is a flag to 
+    continue measurements.
+    """
+
+    logger.debug('Start measuring PA data point with averaging.')
+    counter = 0
+    msmnts: List[Data_point]=[]
+    while counter < averaging:
+        logger.info('Signal at current WL should be measured '
+                + f'{averaging-counter} more times.')
+        action = set_next_measure_action()
+        if action == 'Tune power':
+            track_power(hardware, 40)
+        elif action == 'Measure':
+            tmp_measurement = measure_point(hardware, current_wl)
+            if verify_measurement(hardware, tmp_measurement):
+                msmnts.append(tmp_measurement)
+                counter += 1
+                if counter == averaging:
+                    measurement = aver_measurements(hardware, msmnts)
+                    logger.debug('Data point successfully measured!')
+                    return measurement, True
+       
+        elif action == 'Stop measurements':
+            if confirm_action():
+                measurement = aver_measurements(hardware, msmnts)
+                logger.warning('Spectral measurement terminated')
+                return measurement, False
+        else:
+            logger.warning('Unknown command in Spectral measure menu!')
+    
+    logger.warning('Unexpectedly passed after main measure sycle!')
+    return new_data_point(), True
+
+def measure_point(
+        hardware: Hardware,
+        wavelength: pint.Quantity
+) -> Data_point:
+    """Measure single PA data point."""
+
+    logger.debug('Start measuring PA data point.')
+    osc = hardware['osc']
+    pm = hardware['power_meter'] #type: ignore
+    pa_ch_id = int(hardware['config']['pa_sensor']['connected_chan']) - 1
+    pm_ch_id = int(hardware['config']['power_meter']['connected_chan']) - 1
+    measurement = new_data_point()
+    osc.measure()
+    dt = 1/osc.sample_rate
+    pa_signal = osc.data[pa_ch_id]
+    pa_amp = osc.amp[pa_ch_id]
+    pa_signal_raw = osc.data_raw[pa_ch_id]
+    start_time = 0*ureg.s
+    stop_time = dt*(len(pa_signal)-1)
+    pm_signal = osc.data[pm_ch_id]
+    pm_energy = pm.energy_from_data(pm_signal, dt)
+
+    measurement.update(
+        {
+            'wavelength': wavelength,
+            'dt': dt,
+            'pa_signal_raw': pa_signal_raw,
+            'start_time': start_time,
+            'stop_time': stop_time,
+            'pm_signal': pm_signal,
+            'pm_energy': pm_energy,
+        }
+    )
+
+    logger.debug(f'{wavelength=}')
+    logger.debug(f'{dt=}')
+    logger.debug(f'Raw PA data has {len(pa_signal_raw)} points '
+                    + f'with max value={max(pa_signal_raw)}')
+    logger.debug(f'{start_time=}')
+    logger.debug(f'{stop_time=}')
+    logger.debug(f'power meter data has {len(pm_signal)} points '
+                    + f'with max value={max(pm_signal)}')
+    logger.debug(f'Laser energy at power meter = {pm_energy}')
+
+    if hardware['power_control'] == 'Filters':
+        reflection = glass_reflection(wavelength)
+        if reflection is not None and reflection !=0:
+            sample_energy = pm_energy/reflection
+            pa_signal = pa_signal/sample_energy
+            pa_amp = pa_amp/sample_energy
+        else:
+            sample_energy = 0*ureg.uJ
+            pa_amp = 0*ureg.uJ
+            logger.warning('Sample energy cannot be '
+                            +'calculated')
+    elif hardware['power_control'] == 'Glan prism':
+        sample_energy = glan_calc(pm_energy)
+        if sample_energy is not None and sample_energy != 0:
+            pa_signal = pa_signal/sample_energy
+            pa_amp = pa_amp/sample_energy
+        else:
+            logger.warning(f'{sample_energy=}')
+            pa_amp = 0*ureg.uJ
+            sample_energy = 0*ureg.uJ
+    else:
+        logger.error('Unknown power control method! '
+                    + 'Measurements terminated!')
+        return measurement
+    
+    measurement.update(
+        {'sample_energy': sample_energy,
+         'pa_signal': pa_signal,
+         'max_amp': pa_amp}
+    )
+    logger.debug(f'{sample_energy=}')
+    logger.debug(f'PA data has {len(pa_signal)} points '
+                    + f'with max value={max(pa_signal)}')
+    logger.debug(f'PA amplitude = {pa_amp}')
+
+    return measurement
+
+def aver_measurements(
+        hardware: Hardware,
+        measurements: List[Data_point]
+) -> Data_point:
+    """Calculate average measurement from a given list.
+    
+    Actually averaged only amplitude values, in other cases data
+    from the last measurement from the <measurements> is used."""
+
+    result = new_data_point()
+    total = len(measurements)
+    for measurement in measurements:
+        result['dt'] = measurement['dt']
+        result['pa_signal'] = measurement['pa_signal']
+        result['pa_signal_raw'] = measurement['pa_signal_raw']
+        result['pm_signal'] = measurement['pm_signal']
+        result['start_time'] = measurement['start_time']
+        result['stop_time'] = measurement['stop_time']
+        result['wavelength'] = measurement['wavelength']
+        
+        result['pm_energy'] += measurement['pm_energy'] # type: ignore
+        result['sample_energy'] += measurement['sample_energy'] # type: ignore
+        result['max_amp'] += measurement['max_amp'] # type: ignore
+
+    result['pm_energy'] = result['pm_energy']/total
+    result['sample_energy'] = result['sample_energy']/total
+    result['max_amp'] = result['max_amp']/total
+
+    logger.info(f'Average power meter energy {result["pm_energy"]}')
+    logger.info(f'Average energy at {result["sample_energy"]}')
+    logger.info(f'Average PA signal amp {result["max_amp"]}')
+    
+    return result
+
 def verify_measurement(
         hardware: Hardware,
-        pa_signal: List[pint.Quantity],
-        pm_signal: List[pint.Quantity],
-        dt: pint.Quantity
+        measurement: Data_point
 ) -> bool:
     """Verify a PA measurement."""
 
     # update state of power meter
     pm = hardware['power_meter'] #type:ignore
+    pm_signal = measurement['pm_signal']
+    dt = measurement['dt']
+    pa_signal = measurement['pa_signal']
     pm.energy_from_data(pm_signal, dt)
 
     fig = plt.figure(tight_layout=True)
@@ -898,3 +964,27 @@ def verify_measurement(
     logger.debug(f'{good_data=} was choosen')
 
     return good_data
+
+def set_next_measure_action() -> str:
+    """Choose the next action during PA measurement.
+    
+    Returned values = ['Tune power'|'Measure'|'Stop measurements'].
+    """
+
+    # in future this function can have several implementations
+    # depending on whether CLI or GUI mode is used
+    measure_ans = inquirer.rawlist(
+    message='Chose an action:',
+    choices=['Tune power','Measure','Stop measurements']
+    ).execute()
+    logger.debug(f'{measure_ans=} was choosen')
+    return measure_ans
+
+def confirm_action(message: str='') -> bool:
+    """Confirm execution of an action."""
+
+    if not message:
+        message = 'Are you sure?'
+    confirm = inquirer.confirm(message=message).execute()
+    logger.debug(f'{confirm=} was choosen.')
+    return confirm
