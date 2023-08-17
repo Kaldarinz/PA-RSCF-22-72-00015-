@@ -5,14 +5,12 @@ Latest developing version
 from __future__ import annotations
 
 import os, os.path
-import time
 import math
 from itertools import combinations
 import logging
 import logging.config
 import yaml
 from datetime import datetime
-from collections import deque
 from typing import Union
 
 from scipy import signal
@@ -21,7 +19,6 @@ import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from InquirerPy import inquirer
 from InquirerPy.validator import PathValidator
-import keyboard
 import pint
 from modules import pa_data
 
@@ -184,96 +181,6 @@ def load_data(old_data: PaData) -> PaData:
     logger.info(f'Data with {len(new_data.raw_data)-1} PA measurements loaded!')
     return new_data
           
-def track_power(hardware: pa_logic.Hardware, tune_width: int) -> pint.Quantity:
-    """Build energy graph.
-    Return averaged mean energy"""
-
-    ### config parameters
-    #Averaging for mean and std calculations
-    aver = 10
-    # ignore energy read if it is smaller than threshold*mean
-    threshold = 0.01
-    # time delay between measurements
-    measure_delay = ureg('50ms')
-    ###
-
-    logger.debug('track_power is starting with config params: '
-                 + f'{aver=}, {threshold=}, {measure_delay=}')
-    pm = hardware['power_meter'] #type: ignore
-    
-    #tune_width cannot be smaller than averaging
-    if tune_width < aver:
-        logger.warning(f'{tune_width=} is smaller than averaging='
-                       + f'{aver}. tune_width set to {aver}.')
-        tune_width = aver
-    data = deque(maxlen=tune_width)
-
-    logger.info('Hold "q" button to stop power measurements')
-    
-    logger.debug('Initializing plt')
-    fig = plt.figure(tight_layout=True)
-    gs = gridspec.GridSpec(1,2)
-    #axis for signal from osc
-    ax_pm = fig.add_subplot(gs[0,0])
-    #axis for energy graph
-    ax_pa = fig.add_subplot(gs[0,1])
-    
-    mean = 0*ureg('J')
-    logger.debug('Entering measuring loop')
-    while True:
-        try:
-            laser_amp = pm.get_energy_scr()
-        except exceptions.OscilloscopeError as err:
-            logger.warning(f'{err.value}. Laser energy = {mean}')
-            return mean
-
-        logger.debug(f'measured {laser_amp=}')
-        if not laser_amp:
-            continue
-        data.append(laser_amp)
-        
-        #ndarray for up to last <aver> values
-        tmp_data = pint.Quantity.from_list(
-            [x for i,x in enumerate(data) if i<aver])
-        mean = tmp_data.mean() # type: ignore
-        std = tmp_data.std() # type: ignore
-        title = (f'Energy={laser_amp:~P}, '
-                + f'Mean (last {aver}) = {mean:~P}, '
-                + f'Std (last {aver}) = {std:~P}')
-        logger.debug(f'plot {title=}')
-        
-        #plotting data
-        ax_pm.clear()
-        ax_pa.clear()
-        ax_pm.plot(pm.data)
-        
-        #add markers for data start and stop
-        ax_pm.plot(
-            pm.start_ind,
-            pm.data[pm.start_ind],
-            'o',
-            alpha=0.4,
-            ms=12,
-            color='green')
-        ax_pm.plot(
-            pm.stop_ind,
-            pm.data[pm.stop_ind],
-            'o',
-            alpha=0.4,
-            ms=12,
-            color='red')
-        ax_pa.plot(tmp_data)
-        ax_pa.set_title(title)
-        ax_pa.set_ylim(bottom=0)
-        fig.canvas.draw()
-        plt.pause(0.01)
-            
-        if keyboard.is_pressed('q'):
-            break
-        time.sleep(measure_delay.to('s').m)
-
-    return mean
-
 def set_new_position(hardware: pa_logic.Hardware) -> None:
     """Queries new position and move PA detector to this position"""
 
