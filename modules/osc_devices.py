@@ -431,7 +431,7 @@ class Oscilloscope:
                 if correct_bl:
                     data_raw = self.baseline_correction(data_raw)
                 data = self.to_volts_scr(data_raw)
-                self.scr_amp[i] = abs(np.amax(data) - np.amin(data))
+                self.scr_amp[i] = abs(np.max(data) - np.min(data)) # type: ignore
                 self.scr_data_raw[i] = data_raw
                 self.scr_data[i] = data
                 logger.debug(f'Screen data set for channel {self.CH_IDS[i]} set')
@@ -468,7 +468,7 @@ class Oscilloscope:
                 data = self.to_volts(data_raw)
                 self.data[i] = data
                 self.data_raw[i] = data_raw
-                self.amp[i] = abs(np.amax(data) - np.amin(data))
+                self.amp[i] = abs(np.max(data) - np.min(data)) # type: ignore
                 logger.debug(f'Data set for channel {self.CH_IDS[i]} set')
                 logger.debug(f'Signal amplitude is {self.amp[i]}')
         # run the oscilloscope again
@@ -548,9 +548,9 @@ class PowerMeter:
             msg = 'data too small for laser energy calc'
             raise exceptions.OscilloscopeError(msg)
 
-        max_amp = np.amax(data)
+        max_amp = np.max(data)
         logger.debug(f'Max value in signal is {max_amp}')
-        thr = max_amp*self.threshold
+        thr = max_amp*self.threshold # type: ignore
         logger.debug(f'Signal starts when amplitude exceeds {thr}')
         try:
             str_ind = np.where(data>(thr))[0][0]
@@ -594,7 +594,9 @@ class PowerMeter:
         return laser_amp
     
     def set_channel(self, chan: int) -> None:
-        """Sets read channel"""
+        """Sets read channel.
+        
+        <chan> is index, i.e. for <chan>=0 for CHAN1."""
 
         logger.debug(f'PowerMeter channel set to {self.osc.CH_IDS[chan]}')
         self.ch = chan

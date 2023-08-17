@@ -20,7 +20,6 @@ import matplotlib.gridspec as gridspec
 from InquirerPy import inquirer
 from InquirerPy.validator import PathValidator
 import pint
-from modules import pa_data
 
 import modules.validators as vd
 from modules.pa_data import PaData
@@ -764,10 +763,10 @@ if __name__ == "__main__":
         'stage_x': 0,
         'stage_y': 0,
         'osc': osc_devices.Oscilloscope(),
-        'config_loaded': False,
-        'power_control': []
+        'config': {}
     } # type: ignore
-
+    pa_logic.load_config(hardware)
+    
     logger.debug('Initializing PaData class for storing data')
     data = PaData()
 

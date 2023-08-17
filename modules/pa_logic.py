@@ -34,8 +34,6 @@ class Hardware_base(TypedDict):
     stage_x: Thorlabs.KinesisMotor
     stage_y: Thorlabs.KinesisMotor
     osc: osc_devices.Oscilloscope
-    config_loaded: bool
-    power_control: list
     config: dict
 
 class Data_point(TypedDict):
@@ -88,66 +86,39 @@ def init_hardware(hardware: Hardware) -> bool:
         logger.warning('Oscilloscope cannot be loaded')
         return False
     osc = hardware['osc']
+    if not init_stages(hardware):
+        logger.warning('Stages cannot be loaded')
+        return False
+    
+    pm = hardware.get('power_meter')
+    if pm is not None:
+        #save pm channel to apply it after init
+        pm_chan = pm.ch
+        pm = osc_devices.PowerMeter(osc)
+        pm.set_channel(pm_chan)
+        hardware.update({'power_meter': pm})
+        logger.debug('Power meter reinitiated on the same channel')
 
-    if not hardware['config_loaded']:
-        logger.debug('Hardware configuration is not loaded')
-        config = load_config(hardware)
-        if config:
-            if not init_stages(hardware):
-                logger.warning('Stages cannot be loaded')
-                return False
-            
-            pm_chan = int(config['power_meter']['connected_chan'])
-            pm = hardware.get('power_meter')
-            if pm is not None:
-                pm.set_channel(pm_chan-1)
-                logger.info(f'Power meter channel set to {pm_chan}')
-
-            pa_chan = int(config['pa_sensor']['connected_chan'])
-            pa = hardware.get('pa_sens')
-            if pa is not None:
-                pa.set_channel(pa_chan-1)
-                logger.info(f'Power meter channel set to {pa_chan}')
-            hardware['config_loaded'] = True
-        else:
-            logger.warning('Hardware config cannot be loaded')
-            return False
-    else:
-        #config already loaded try to reload what is present
-        if not init_stages(hardware):
-            logger.warning('Stages cannot be loaded')
-            return False
-        
-        pm = hardware.get('power_meter')
-        if pm is not None:
-            #save pm channel to apply it after init
-            pm_chan = pm.ch
-            pm = osc_devices.PowerMeter(osc)
-            pm.set_channel(pm_chan)
-            hardware.update({'power_meter': pm})
-            logger.debug('Power meter reinitiated on the same channel')
-
-        pa = hardware.get('pa_sens')
-        if pa is not None:
-            #save pa channel to apply it after init
-            pa_chan = pa.ch
-            pa = osc_devices.PhotoAcousticSensOlymp(osc)
-            pa.set_channel(pa_chan)
-            hardware.update({'pa_sens': pa})
-            logger.debug('PA sensor reinitiated on the same channel')
+    pa = hardware.get('pa_sens')
+    if pa is not None:
+        #save pa channel to apply it after init
+        pa_chan = pa.ch
+        pa = osc_devices.PhotoAcousticSensOlymp(osc)
+        pa.set_channel(pa_chan)
+        hardware.update({'pa_sens': pa})
+        logger.debug('PA sensor reinitiated on the same channel')
                 
     logger.info('Hardware initialization complete')
     return True
 
 def load_config(hardware: Hardware) -> dict:
-    """Load hardware configuration and return it as dict.
+    """Load configuration.
 
     Configuration is loaded from rsc/config.yaml.
     Additionally add all optional devices to hardware dict.
     """
 
     logger.debug('Start loading config...')
-    
     base_path = os.path.dirname(os.path.dirname(__name__))
     sub_dir = 'rsc'
     filename = 'config.yaml'
@@ -159,8 +130,6 @@ def load_config(hardware: Hardware) -> dict:
         logger.warning('Connfig cannot be properly loaded')
         return {}
     
-    hardware.update({'power_control':config['power_control']})
-    logger.debug(f'Power control option loaded:{hardware["power_control"]}')
     hardware.update({'config':config})
     logger.debug('Config loaded into hardware["config"]')
 
@@ -171,10 +140,17 @@ def load_config(hardware: Hardware) -> dict:
     osc = hardware['osc']
     if bool(config['power_meter']['connected']):
         hardware.update({'power_meter': osc_devices.PowerMeter(osc)})
-        logger.debug('Power meter added to hardare list')
+        pm = hardware['power_meter'] # type: ignore
+        pm_chan = config['power_meter']['connected_chan']
+        pm.set_channel(pm_chan-1)
+        logger.debug(f'Power meter added to hardare list at CHAN{pm_chan}')
     if bool(config['pa_sensor']['connected']):
         hardware.update(
             {'pa_sens':osc_devices.PhotoAcousticSensOlymp(osc)})
+        pa = hardware['pa_sensor'] # type: ignore
+        pa_chan = config['pa_sensor']['connected_chan']
+        pa.set_channel(pa_chan-1)
+        logger.debug(f'PA sensor added to hardare list at CHAN{pa_chan}')
     logger.debug(f'Config file read')
     return config
 
@@ -576,7 +552,7 @@ def set_energy(
     <repeated> is flag which indicates that this is not the first
     call of set_energy."""
 
-    if hardware['power_control'] == 'Filters':
+    if hardware['config']['power_control'] == 'Filters':
         logger.info('Please remove all filters and measure '
                     + 'energy at glass reflection.')
         #measure mean energy at glass reflection
@@ -613,7 +589,7 @@ def set_energy(
                             + 'cannot be calculated!')
             return False
     
-    elif hardware['power_control'] == 'Glan prism' and not repeated:
+    elif hardware['config']['power_control'] == 'Glan prism' and not repeated:
         target_pm_value = glan_calc_reverse(target_energy)
         logger.info(f'Target power meter energy is {target_pm_value}!') # type: ignore
         logger.info(f'Please set it using Glan prism.')
@@ -943,7 +919,7 @@ def measure_point(
                     + f'with max value={max(pm_signal)}')
     logger.debug(f'Laser energy at power meter = {pm_energy}')
 
-    if hardware['power_control'] == 'Filters':
+    if hardware['config']['power_control'] == 'Filters':
         reflection = glass_reflection(wavelength)
         if reflection is not None and reflection !=0:
             sample_energy = pm_energy/reflection
@@ -954,7 +930,7 @@ def measure_point(
             pa_amp = 0*ureg.uJ
             logger.warning('Sample energy cannot be '
                             +'calculated')
-    elif hardware['power_control'] == 'Glan prism':
+    elif hardware['config']['power_control'] == 'Glan prism':
         sample_energy = glan_calc(pm_energy)
         if sample_energy is not None and sample_energy != 0:
             pa_signal = pa_signal/sample_energy
