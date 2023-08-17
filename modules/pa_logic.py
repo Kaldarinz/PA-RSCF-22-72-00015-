@@ -411,21 +411,17 @@ def spectrum(
 ) -> Union[PaData,None]:
     """Measure dependence of PA signal on excitation wavelength.
     
-    Measurements start at 'start_wl' wavelength and are taken
-    every 'step' with the last measurement at 'end_wl',
+    Measurements start at <start_wl> wavelength and are taken
+    every <step> with the last measurement at <end_wl>,
     so that the last step could be smaller than others.
-    Measurements are taken at 'target_energy'.
-    Each measurement will be averaged 'averaging' times.
-    'max_filters_comb' is used calculations of filter's combinations
-    when energy is controlled by the glass filters.
+    Measurements are taken at <target_energy>.
+    Each measurement will be averaged <averaging> times.
     """
 
+    logger.info('Start measuring spectra!')
     #make steps negative if going from long WLs to short
     if start_wl > end_wl:
         step = -step # type: ignore
-        
-    logger.info('Start measuring spectra!')
-
     #calculate amount of data points
     d_wl = end_wl-start_wl
     if d_wl%step:
@@ -455,7 +451,6 @@ def spectrum(
     #main measurement cycle
     for i in range(spectral_points):
         
-        #calculate current wavelength
         if abs(step*i) < abs(d_wl):
             current_wl = start_wl + step.m*i
         else:
@@ -467,9 +462,11 @@ def spectrum(
 
         if not set_energy(hardware, current_wl, target_energy, bool(i)):
             return
-        measurement = ameasure_point(hardware, averaging)
+        measurement, proceed = ameasure_point(hardware, averaging, current_wl)
         data.add_measurement(measurement)
-        data.save_tmp() 
+        data.save_tmp()
+        if not proceed:
+            return data
     logger.info('Spectral scanning complete!')
     data.bp_filter()
     return data
@@ -487,14 +484,15 @@ def set_energy(
     call of set_energy."""
 
     if hardware['power_control'] == 'Filters':
-        logger.info('Please remove all filters and measure')
+        logger.info('Please remove all filters and measure '
+                    + 'energy at glass reflection.')
         #measure mean energy at glass reflection
         energy = track_power(hardware, 50)
         logger.info(f'Power meter energy = {energy}')
 
         #find valid filters combinations for current parameters
         max_filter_comb = hardware['config']['energy']['max_filters']
-        logger.debug(f'{max_filter_comb=} loaded.')
+        logger.debug(f'{max_filter_comb=}')
         filters = glass_calculator(
             current_wl,
             energy,
@@ -511,12 +509,16 @@ def set_energy(
             
         reflection = glass_reflection(current_wl)
         if reflection is not None and reflection != 0:
-            target_pm_value = target_energy/reflection
+            target_pm_value = target_energy*reflection
             logger.info(f'Target power meter energy is {target_pm_value}!')
-            logger.info('Please set it using laser software')
+            logger.info('Please set it using filters combination '
+                        + ' from above. Additional adjustment by '
+                        + 'laser software could be required.')
+            track_power(hardware, 50)
         else:
             logger.warning('Target power meter energy '
                             + 'cannot be calculated!')
+            return False
     
     elif hardware['power_control'] == 'Glan prism' and not repeated:
         target_pm_value = glan_calc_reverse(target_energy)
@@ -778,7 +780,7 @@ def ameasure_point(
     counter = 0
     msmnts: List[Data_point]=[]
     while counter < averaging:
-        logger.info('Signal at current WL should be measured '
+        logger.info(f'Signal at {current_wl} should be measured '
                 + f'{averaging-counter} more times.')
         action = set_next_measure_action()
         if action == 'Tune power':
@@ -789,13 +791,13 @@ def ameasure_point(
                 msmnts.append(tmp_measurement)
                 counter += 1
                 if counter == averaging:
-                    measurement = aver_measurements(hardware, msmnts)
+                    measurement = aver_measurements(msmnts)
                     logger.debug('Data point successfully measured!')
                     return measurement, True
        
         elif action == 'Stop measurements':
             if confirm_action():
-                measurement = aver_measurements(hardware, msmnts)
+                measurement = aver_measurements(msmnts)
                 logger.warning('Spectral measurement terminated')
                 return measurement, False
         else:
@@ -885,13 +887,10 @@ def measure_point(
 
     return measurement
 
-def aver_measurements(
-        hardware: Hardware,
-        measurements: List[Data_point]
-) -> Data_point:
+def aver_measurements(measurements: List[Data_point]) -> Data_point:
     """Calculate average measurement from a given list.
     
-    Actually averaged only amplitude values, in other cases data
+    Actually only amplitude values are averaged, in other cases data
     from the last measurement from the <measurements> is used."""
 
     result = new_data_point()
