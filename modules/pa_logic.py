@@ -147,7 +147,7 @@ def load_config(hardware: Hardware) -> dict:
     if bool(config['pa_sensor']['connected']):
         hardware.update(
             {'pa_sens':osc_devices.PhotoAcousticSensOlymp(osc)})
-        pa = hardware['pa_sensor'] # type: ignore
+        pa = hardware['pa_sens'] # type: ignore
         pa_chan = config['pa_sensor']['connected_chan']
         pa.set_channel(pa_chan-1)
         logger.debug(f'PA sensor added to hardare list at CHAN{pa_chan}')
