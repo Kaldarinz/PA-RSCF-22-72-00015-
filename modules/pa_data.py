@@ -35,7 +35,7 @@ Data structure of PaData class:
     |  |  |--'x_var_start': Quantity
     |  |  |--'x_var_stop': Quantity
     |  |  |--'pm_en': Quantity - laser energy measured by power meter in glass reflection
-    |  |  |--'sample_energy': Quantity - laser energy at sample in [uJ]
+    |  |  |--'sample_en': Quantity - laser energy at sample in [uJ]
     |  |  |--'max_amp': Quantity - (y_max - y_min)
     |  |
     |  |--point002
@@ -359,65 +359,89 @@ class PaData:
         """Loads data from file"""
 
         logger.debug('load procedure is starting...')
-        file_path, file_name = os.path.split(filename)
-        self.attrs['file_path'] = file_path
-        logger.debug(f'"file_path" set to {file_path}')
-        self.attrs['filename'] = file_name
-        logger.debug(f'"filename" set to {file_name}')
+        self.attrs['filename'] = filename
+        logger.debug(f'"filename" set to {filename}')
 
-        with h5py.File(filename,'r') as file:
+        with h5py.File(filename, 'r') as file:
             
             #load general metadata
-            general = file['general']
-            self.attrs.update(general.attrs) # type: ignore
-            logger.debug(f'General metadata with {len(general.attrs)}'
+            general = file.attrs
+            time_unit = general['zoom_u']
+            self.attrs.update(
+                {
+                'version': general['version'],
+                'measurement_dims': general['measurement_dims'],
+                'parameter_name': general['parameter_name'],
+                'data_points': general['data_points'],
+                'created': general['created'],
+                'updated': general['updated'],
+                'filename': general['filename'],
+                'zoom_pre_time': general['zoom_pre_time']*ureg(time_unit), # type: ignore
+                'zoom_post_time': general['zoom_post_time']*ureg(time_unit) # type: ignore
+                }
+            )
+            logger.debug(f'General metadata with {len(general)}'
                          + ' records loaded.')
-            
-            #raw_data
+        
             raw_data = file['raw data']
             #metadata of raw_data
-            self.raw_data['attrs'].update(raw_data.attrs)
-            #cycle for loading measured points (datasets)
-            for ds_name in raw_data.keys(): # type: ignore
-                self.raw_data.update({ds_name:{}})
-                #load actual data
-                self.raw_data[ds_name].update(
-                    {'data': raw_data[ds_name][:]}) #type: ignore
-                #load metadata of the dataset
-                self.raw_data[ds_name].update(
-                    raw_data[ds_name].attrs) #type: ignore
+            self.raw_data['attrs'].update(
+                {
+                    'max_len': raw_data.attrs['max_len'],
+                    'x_var_name': raw_data.attrs['x_var_name'],
+                    'y_var_name': raw_data.attrs['y_var_name']
+                }
+            )
+            logger.debug(f'raw_data metadata with {len(raw_data.attrs)}'
+                         + ' records loaded.')
 
-            #filt_data
-            filt_data = file['filtered data']
-            #metadata of filt_data
-            self.filt_data['attrs'].update(filt_data.attrs)
-            #cycle for loading measured points (datasets)
-            for ds_name in filt_data.keys(): # type: ignore
-                self.filt_data.update({ds_name:{}})
-                #load actual data
-                self.filt_data[ds_name].update(
-                    {'data': filt_data[ds_name][:]}) # type: ignore
-                #load metadata of the dataset
-                self.filt_data[ds_name].update(
-                    filt_data[ds_name].attrs) # type: ignore
+            for ds_name in raw_data: # type: ignore
+                self._load_ds(
+                    ds_name,
+                    raw_data[ds_name], # type: ignore
+                    raw_data.attrs['y_var_u'], # type: ignore
+                    raw_data.attrs['x_var_u'], # type: ignore
+                    general['parameter_u'] # type: ignore
+                )
+            self.bp_filter()
+            logger.debug('...Data loaded!')
 
-            #freq_data
-            freq_data = file['freq data']
-            #metadata of freq_data
-            self.freq_data['attrs'].update(freq_data.attrs)
-            #cycle for loading measured points (datasets)
-            for ds_name in freq_data.keys(): # type: ignore
-                self.freq_data.update({ds_name:{}})
-                #load actual data
-                self.freq_data[ds_name].update(
-                    {'data': freq_data[ds_name][:]}) # type: ignore
-                #load metadata of the dataset
-                self.freq_data[ds_name].update(
-                    freq_data[ds_name].attrs) # type: ignore
+    def _load_ds(self,
+                 ds_name: str,
+                 ds: h5py.Dataset,
+                 y_var_unit: str,
+                 x_var_unit: str,
+                 param_units: List[str]
+                 ) -> None:
+        """Load <ds_name> dataset from <ds>."""
 
-        #set amount of data_points for compatibility with old data
-        if self.attrs.get('data_points', 0) < (len(self.raw_data) - 1):
-            self.attrs.update({'data_points': len(self.raw_data) - 1})
+        p = np.poly1d(ds.attrs['a'], ds.attrs['b']) # type: ignore
+        data_raw = ds[...]
+        data = p(data_raw)*ureg(y_var_unit)
+        p_vals = ds.attrs['param_val']
+        param_val = [x*ureg(y) for x, y in zip(p_vals,param_units)] # type: ignore
+        x_var_step = ds.attrs['x_var_step']*ureg(x_var_unit)
+        x_var_start = ds.attrs['x_var_start']*ureg(x_var_unit)
+        x_var_stop = ds.attrs['x_var_stop']*ureg(x_var_unit)
+        pm_en = ds.attrs['pm_en']*ureg(ds.attrs['pm_en_u']) # type: ignore
+        sample_en = ds.attrs['sample_en']* ureg(ds.attrs['sample_en_u']) # type: ignore
+        max_amp = ds.attrs['max_amp']*ureg(ds.attrs['max_amp_u']) # type: ignore
+
+        self.raw_data.update(
+                    {
+                        ds_name:{
+                            'data': data,
+                            'data_raw': data_raw,
+                            'param_val': param_val,
+                            'x_var_step': x_var_step,
+                            'x_var_start': x_var_start,
+                            'x_var_stop': x_var_stop,
+                            'pm_en': pm_en,
+                            'sample_en': sample_en,
+                            'max_amp': max_amp
+                        }
+                    }
+                )
 
     def _build_ds_name(self, n: int) -> str:
         """Build and return name for dataset."""
