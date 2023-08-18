@@ -98,7 +98,7 @@ def print_status(hardware: pa_logic.Hardware) -> None:
         logger.info('All hardware is initiated!')
 
 def save_data(data: PaData) -> None:
-    """"CLI for saving data to a file"""
+    """"CLI for saving data to a file."""
 
     if not data.attrs['filename']:
         logger.debug('Filename is missing in data, '
