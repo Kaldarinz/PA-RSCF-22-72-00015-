@@ -487,6 +487,7 @@ def spectrum(
     """
 
     logger.info('Start measuring spectra!')
+    data = PaData(dims=1, params=['Wavelength'])
     #make steps negative if going from long WLs to short
     if start_wl > end_wl:
         step = -step # type: ignore
@@ -497,14 +498,8 @@ def spectrum(
     else:
         spectral_points = int(d_wl/step) + 1
 
-    #create data class and set basic metadata
-    data = PaData()
-    data.attrs['measurement_dims'] = 1
-    data.attrs['parameter_name'] = ['Wavelength']
-
     #main measurement cycle
     for i in range(spectral_points):
-        
         if abs(step*i) < abs(d_wl):
             current_wl = start_wl + step.m*i
         else:
