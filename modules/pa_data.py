@@ -17,9 +17,9 @@ Data structure of PaData class:
     |  |--'data_points': int - amount of stored PA measurements
     |  |--'created': str - date and time of data measurement
     |  |--'updated': str - date and time of last data update
-    |  |--'filename': os.PathLike - full path to the data file
-    |  |--'zoom_pre time': float - start time from the center of the PA data frame for zoom in data view
-    |  |--'zoom_post time': float - end time from the center of the PA data frame for zoom in data view
+    |  |--'filename': str - full path to the data file
+    |  |--'zoom_pre time': Quantity - start time from the center of the PA data frame for zoom in data view
+    |  |--'zoom_post time': Quantity - end time from the center of the PA data frame for zoom in data view
     |
     |--'raw_data'
     |  |--'attrs'
@@ -83,7 +83,7 @@ Data structure of PaData class:
        ...
 """
 import warnings
-from typing import Iterable, Any, TypedDict, List
+from typing import Iterable, Any, Tuple, TypedDict, List
 from datetime import datetime
 import time
 import os, os.path
@@ -215,6 +215,11 @@ class PaData:
             logger.error('Max data_points reached! Data cannot be added!')
             return
         logger.debug(f'Adding {ds_name}...')
+        if self.attrs['data_points']:
+            params = self.raw_data['point001']['param_val']
+            logger.debug(f'Param values changed from {param_val}...')
+            param_val = [x.to(y.u) for x,y in zip(param_val,params)] # type: ignore
+            logger.debug(f'... to {param_val}')
         ds: RawData = {
             'data': data['pa_signal'],
             'data_raw': data['pa_signal_raw'],
@@ -272,33 +277,83 @@ class PaData:
 
         logger.debug(f'Start friting data to {filename}')
         with h5py.File(filename, 'w') as file:
-            file.attrs.update(self.attrs)
-            raw_data = file.create_group('raw data')
-            raw_data.attrs.update(self.raw_data['attrs'])
-            for key, value in self.raw_data.items():
-                if key !='attrs':
-                    ds_raw = raw_data.create_dataset(key, data=value['data'])
-                    for attr_name, attr_value in value.items():
-                        if attr_name != 'data':
-                            ds_raw.attrs.update({attr_name:attr_value})
+            file.attrs.update(self._root_attrs())
+            raw_data = file.create_group('raw_data')
+            raw_data.attrs.update(self._raw_attrs())
+            for ds_name, ds in self.raw_data.items():
+                if ds_name !='attrs':
+                    ds_raw = raw_data.create_dataset(
+                        ds_name,
+                        data = ds['data_raw'])
+                    ds_raw.attrs.update(self._ds_attrs(ds_name))
+
+    def _root_attrs(self) -> dict:
+        """"Build dict with root attributes."""
+
+        param_vals = self.raw_data['point001']['param_val']
+        attrs = {
+            'version': self.attrs['version'],
+            'measurement_dims': self.attrs['measurement_dims'],
+            'parameter_name': self.attrs['parameter_name'],
+            'parameter_u': [param.u for param in param_vals],
+            'data_points': self.attrs['data_points'],
+            'created': self.attrs['created'],
+            'updated': self.attrs['updated'],
+            'filename': self.attrs['filename'],
+            'zoom_pre_time': self.attrs['zoom_pre_time'].m,
+            'zoom_post_time': self.attrs['zoom_post_time'].m,
+            'zoom_u': self.attrs['zoom_pre_time'].u
+        }
+        return attrs
+
+    def _raw_attrs(self) -> dict:
+        """"Build dict with raw_data attributes."""
+
+        attrs = {
+            'max_len': self.raw_data['attrs']['max_len'],
+            'x_var_name': self.raw_data['attrs']['x_var_name'],
+            'x_var_u': self.raw_data['point001']['x_var_step'].u,
+            'y_var_name': self.raw_data['attrs']['y_var_name'],
+            'y_var_u': self.raw_data['attrs']['data'][0].u
+        }
+        return attrs
+
+    def _ds_attrs(self, ds_name: str) -> dict:
+        """Build dict with attributes for <ds_name>"""
         
-            filt_data = file.create_group('filtered data')
-            filt_data.attrs.update(self.filt_data['attrs'])
-            for key, value in self.filt_data.items():
-                if key !='attrs':
-                    ds_filt = filt_data.create_dataset(key, data=value['data'])
-                    for attr_name, attr_value in value.items():
-                        if attr_name != 'data':
-                            ds_filt.attrs.update({attr_name:attr_value})
-            
-            freq_data = file.create_group('freq data')
-            freq_data.attrs.update(self.freq_data['attrs'])
-            for key, value in self.freq_data.items():
-                if key !='attrs':
-                    ds_freq = freq_data.create_dataset(key, data=value['data'])
-                    for attr_name, attr_value in value.items():
-                        if attr_name != 'data':
-                            ds_freq.attrs.update({attr_name:attr_value})
+        ds_attrs = self.raw_data[ds_name]
+        a, b = self._calc_data_fit(ds_name)
+        attrs = {
+            'param_val': [param.m for param in ds_attrs['param_val']],
+            'a': a,
+            'b': b,
+            'x_var_step': ds_attrs['x_var_step'].m,
+            'x_var_start': ds_attrs['x_var_start'].m,
+            'x_var_stop': ds_attrs['x_var_stop'].m,
+            'pm_en': ds_attrs['pm_en'],
+            'pm_en_u': ds_attrs['pm_en'].u,
+            'sample_en': ds_attrs['sample_en'].m,
+            'sample_en_u': ds_attrs['sample_en'].u,
+            'max_amp': ds_attrs['max_amp'].m,
+            'max_amp_u': ds_attrs['max_amp'].u
+        }
+        return attrs
+
+    def _calc_data_fit(self,
+                       ds_name: str,
+                       points: int=20
+        ) -> Tuple[float,float]:
+        """Calculate coefs to convert data_raw to data.
+        
+        Return (a,b), where <data> = a*<data_raw> + b.
+        <points> is amount of points used for fitting.
+        """
+
+        x = self.raw_data[ds_name]['data_raw'][:points]
+        tmp = self.raw_data[ds_name]['data'][:points]
+        y = [quantity.m for quantity in tmp]
+        coef = np.polyfit(x, y, 1)
+        return coef
 
     def load(self, filename: str) -> None:
         """Loads data from file"""
