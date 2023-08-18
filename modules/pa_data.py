@@ -266,10 +266,10 @@ class PaData:
         self._flush(filename)
 
     def save_tmp(self) -> None:
-        """saves current data to TmpData.hdf5"""
+        """Save current data to TmpData.hdf5."""
 
-        Path('measuring results/').mkdir(parents=True, exist_ok=True)
-        filename = 'measuring results/TmpData.hdf5'
+        base = os.getcwd()
+        filename = os.path.join(base, 'measuring results', 'TmpData.hdf5')
         self._flush(filename)
 
     def _flush(self, filename: str) -> None:
