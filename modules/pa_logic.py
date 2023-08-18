@@ -469,7 +469,6 @@ def track_power(hardware: Hardware, tune_width: int) -> pint.Quantity:
 
     return mean
 
-
 def spectrum(
         hardware: Hardware,
         start_wl: pint.Quantity,
@@ -500,22 +499,8 @@ def spectrum(
 
     #create data class and set basic metadata
     data = PaData()
-    data.set_metadata(data_group='general', metadata={
-        'parameter name': 'wavelength',
-        'parameter units': 'nm'
-    })
-    data.set_metadata(data_group='raw_data', metadata={
-        'x var name': 'time',
-        'x var units': 's',
-        'y var name': 'PA signal',
-        'y var units': 'V/uJ'
-    })
-    data.set_metadata(data_group='filt_data', metadata={
-        'x var name': 'time',
-        'x var units': 's',
-        'y var name': 'PA signal',
-        'y var units': 'V/uJ'
-    })
+    data.attrs['measurement_dims'] = 1
+    data.attrs['parameter_name'] = ['Wavelength']
 
     #main measurement cycle
     for i in range(spectral_points):
@@ -532,7 +517,7 @@ def spectrum(
         if not set_energy(hardware, current_wl, target_energy, bool(i)):
             return
         measurement, proceed = ameasure_point(hardware, averaging, current_wl)
-        data.add_measurement(measurement)
+        data.add_measurement(measurement, [current_wl])
         data.save_tmp()
         if not proceed:
             return data

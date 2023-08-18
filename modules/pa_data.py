@@ -2,6 +2,11 @@
 Operations with PA data.
 Requires Python > 3.10
 
+Workflow with PaData:
+1. init class instance.
+2. Set 'measurement_dims' and 'parameter_name' in root metadata.
+3. Add data points.
+
 Data structure of PaData class:
     
     PaData:
@@ -106,6 +111,7 @@ import numpy as np
 import numpy.typing as npt
 
 from .pa_logic import Data_point
+from . import ureg
 
 logger = logging.getLogger(__name__)
 
@@ -118,7 +124,7 @@ class BaseMetadata(TypedDict):
     data_points: int
     created: str
     updated: str
-    filename: os.PathLike
+    filename: str
     zoom_pre_time: pint.Quantity
     zoom_post_time: pint.Quantity
 
@@ -129,19 +135,32 @@ class RawMetadata(TypedDict):
     x_var_name: str
     y_var_name: str
 
-class PointMetadata(TypedDict):
+class FiltMetadata(TypedDict):
+    """Typed dict for filt_data metadata."""
+
+    x_var_name: str
+    y_var_name: str
+
+class RawData(TypedDict):
     """Typed dict for a data point."""
 
     data: List[pint.Quantity]
     data_raw: npt.NDArray[np.uint8]
     param_val: List[pint.Quantity]
-    a: float
-    b: float
     x_var_step: pint.Quantity
-    x_var_stop: pint.Quantity
+    x_var_start: pint.Quantity
     x_var_stop: pint.Quantity
     pm_en: pint.Quantity
     sample_en: pint.Quantity
+    max_amp: pint.Quantity
+
+class FreqData(TypedDict):
+    """Typed dict for a frequency data."""
+
+    data: List[pint.Quantity]
+    x_var_step: pint.Quantity
+    x_var_start: pint.Quantity
+    x_var_stop: pint.Quantity
     max_amp: pint.Quantity
 
 class PaData:
@@ -150,50 +169,40 @@ class PaData:
     def __init__(self) -> None:
 
         #general metadata
-        self.attrs: BaseMetadata
-        self.attrs = {
-            'parameter_name': 'Unknown',
-            'parameter_units': 'Unknown',
+        self.attrs: BaseMetadata = {
+            'version': 1.0,
+            'measurement_dims': -1,
+            'parameter_name': [],
             'data_points': 0,
             'created': self._get_cur_time(),
             'updated': self._get_cur_time(),
-            'file_path': '',
             'filename': '',
-            'zoom_pre_time': 0.000002,
-            'zoom_post_time': 0.000013,
-            'zoom_units': 's'
-}
+            'zoom_pre_time': 2*ureg.us,
+            'zoom_post_time': 13*ureg.us
+        }
+        raw_attrs: RawMetadata = {
+            'max_len': 0,
+            'x_var_name': 'time',
+            'y_var_name': 'PhotoAcoustic signal'
+        }
+        self.raw_data = {}
+        self.raw_data.update({'attrs': raw_attrs})
+        
+        filt_attrs: FiltMetadata = {
+            'x_var_name': 'time',
+            'y_var_name': 'Filtered photoAcoustic signal'
+        }
 
-        #raw ds for each measured points + dict with attributes
-        self.raw_data = {
-            'attrs': {
-                'max dataset len': 0,
-                'x var name': 'Unknown',
-                'x var units': 'Unknown',
-                'y var name': 'Unknown',
-                'y var units': 'Unknown'
-            }
+        self.filt_data = {}
+        self.filt_data.update({'attrs': filt_attrs})
+        
+        freq_attrs: RawMetadata = {
+            'max_len': 0,
+            'x_var_name': 'Frequency',
+            'y_var_name': 'FFT amplitude'
         }
-        #filtered ds for each measured points + dict with attributes
-        self.filt_data = {
-            'attrs': {
-                'max dataset len': 0,
-                'x var name': 'Unknown',
-                'x var units': 'Unknown',
-                'y var name': 'Unknown',
-                'y var units': 'Unknown'
-            }
-        } 
-        #FFT of each measured point + dict with attributes
-        self.freq_data = {
-            'attrs': {
-                'max dataset len': 0,
-                'x var name': 'Frequency',
-                'x var units': 'Hz',
-                'y var name': 'FFT amplitude',
-                'y var units': 'Unknown'
-            }
-        }
+        self.freq_data = {}
+        self.freq_data.update({'attrs': freq_attrs})
         
         logger.debug('PaData instance created')
 
@@ -220,37 +229,42 @@ class PaData:
         else:
             logger.warning('Unknown data_group for metadata!')
 
-    def add_measurement(self, data: Data_point) -> None:
+    def add_measurement(
+            self, 
+            data: Data_point,
+            param_val: List[pint.Quantity]
+        ) -> None:
         """Add a single data point.
         
-        Add a datapoint to raw_data, also add empty datapoint to other
-        data groups.
-        Attributes are set to both raw and filt datapoints.
+        Add a datapoint to raw_data, filt_data and freq_data.
         """
 
-        ds_name = self.build_ds_name(self.attrs['data_points'])
+        ds_name = self._build_ds_name(self.attrs['data_points'])
         if not ds_name:
             logger.error('Max data_points reached! Data cannot be added!')
             return
         logger.debug(f'Adding {ds_name}...')
-        ds = {}
-        ds.update({'data': data['pa_signal_raw'],
-                   'parameter value': 0,
-                   'x var step': 0,
-                   'x var start': 0,
-                   'x var stop': 0,
-                   'PM energy': 0,
-                   'sample energy': 0,
-                   'max amp': 0})
+        ds: RawData = {
+            'data': data['pa_signal'],
+            'data_raw': data['pa_signal_raw'],
+            'param_val': param_val,
+            'x_var_step': data['dt'],
+            'x_var_start': data['start_time'],
+            'x_var_stop': data['stop_time'],
+            'pm_en': data['pm_energy'],
+            'sample_en': data['sample_energy'],
+            'max_amp': data['max_amp']
+        }
 
-        if len(data) > self.raw_data['attrs']['max dataset len']:
-            self.raw_data['attrs']['max dataset len'] = len(data)
-        ds.update(attributes)
-        self.raw_data.update({ds_name:ds})
-
-        self.filt_data.update({ds_name:{}})
-        self.filt_data[ds_name].update(attributes)
-        self.freq_data.update({ds_name:{}})
+        cur_data_len = len(ds['data'])
+        old_data_len = self.raw_data['attrs']['max_len']
+        if cur_data_len > old_data_len:
+            self.raw_data['attrs']['max_len'] = cur_data_len
+            logger.debug(f'max_len updated from {old_data_len} '
+                         + f'to {cur_data_len}')
+        self.raw_data.update({ds_name: ds})
+        self.bp_filter(ds_name=ds_name)
+        
         self.attrs['data_points'] += 1
         self.attrs['updated'] = self._get_cur_time()
 
@@ -386,7 +400,7 @@ class PaData:
         if self.attrs.get('data_points', 0) < (len(self.raw_data) - 1):
             self.attrs.update({'data_points': len(self.raw_data) - 1})
 
-    def build_ds_name(self, n: int) -> str:
+    def _build_ds_name(self, n: int) -> str:
         """Build and return name for dataset."""
         
         if n <10:
@@ -489,7 +503,7 @@ class PaData:
     def _plot_update(self) -> None:
         """Updates plotted data"""
 
-        ds_name = self.build_ds_name(self._param_ind)
+        ds_name = self._build_ds_name(self._param_ind)
         start = self.raw_data[ds_name]['x var start']
         step = self.raw_data[ds_name]['x var step']
         stop = self.raw_data[ds_name]['x var stop']
@@ -673,7 +687,7 @@ class PaData:
             return []
         
         if data_group == 'raw_data':
-            ds_name = self.build_ds_name(0)
+            ds_name = self._build_ds_name(0)
             if self.raw_data[ds_name].get(value) is None:
                 print(f'{bcolors.WARNING}\
                     Attempt to read dependence of unknown VALUE from RAW_data\
@@ -685,7 +699,7 @@ class PaData:
 
         
         elif data_group == 'filt_data':
-            ds_name = self.build_ds_name(0)
+            ds_name = self._build_ds_name(0)
             if self.filt_data[ds_name].get(value) is None:
                 print(f'{bcolors.WARNING}\
                     Attempt to read dependence of unknown VALUE from FILT_data\
@@ -696,7 +710,7 @@ class PaData:
                     dep.append(ds[value])
         
         elif data_group == 'freq_data':
-            ds_name = self.build_ds_name(0)
+            ds_name = self._build_ds_name(0)
             if self.freq_data[ds_name].get(value) is None:
                 print(f'{bcolors.WARNING}\
                     Attempt to read dependence of unknown VALUE from FREQ_data\
@@ -714,72 +728,71 @@ class PaData:
         return dep
 
     def bp_filter(self,
-                  low: int = 1000000,
-                  high: int = 10000000) -> None:
+                  low: pint.Quantity=1*ureg.MHz,
+                  high: pint.Quantity=10*ureg.MHz,
+                  ds_name: str='') -> None:
         """Perform bandpass filtration on data.
-        low is high pass cutoff frequency in Hz
-        high is low pass cutoff frequency in Hz"""
+        
+        if <ds_name> is empty, then perform filtration for all data,
+        otherwise perform filtration only for specified <ds_name>.
+        Create necessary datasets in self.filt_data and self.freq_data.
+        """
 
-        for ds_name, ds in self.raw_data.items():
-            if ds_name != 'attrs':
-                if self.raw_data['attrs']['x var units'] != 's':
-                    print(f'{bcolors.WARNING}\
-                          FFT conversion require x var step in seconds\
-                          {bcolors.ENDC}')
-                    return
-                dt = ds['x var step']
-                W = fftfreq(len(ds['data']), dt) # array with freqs
-                f_signal = rfft(ds['data']) # signal in f-space
+        if ds_name:
+            ds = self.raw_data[ds_name]
+            self._bp_filter_single(low, high, ds_name, ds)
+        else:
+            for ds_name, ds in self.raw_data.items():
+                if ds_name != 'attrs':
+                    self._bp_filter_single(low, high, ds_name, ds)
 
-                filtered_f_signal = f_signal.copy()
-                filtered_f_signal[:,(W<low)] = 0 # high pass filtering
+    def _bp_filter_single(self,
+                    low: pint.Quantity,
+                    high: pint.Quantity,
+                    ds_name: str,
+                    ds: RawData) -> None:
+        """Internal bandpass filtration method.
+        
+        Actually do the filtration."""
 
-                if high > 1/(2.5*dt): # Nyquist frequency check
-                    filtered_f_signal[:,(W>1/(2.5*dt))] = 0 
-                else:
-                    filtered_f_signal[:,(W>high)] = 0
+        logger.debug(f'Starting FFT for {ds_name} '
+                     + f'with bp filter ({low}:{high})')
+        dt = ds['x_var_step'].to('s').m
+        logger.debug(f'{dt=}')
+        W = fftfreq(len(ds['data']), dt) # array with freqs
+        f_signal = rfft(ds['data']) # signal in f-space
 
-                #pass frequencies
-                filtered_freq = W[(W>low)*(W<high)]
+        filtered_f_signal = f_signal.copy()
+        filtered_f_signal[:,(W<low)] = 0 # high pass filtering
 
-                self.freq_data.update({ds_name:{}})
-                #start freq, end freq, step freq
-                self.freq_data[ds_name].update(
-                    {'x var start':filtered_freq.min()})
-                self.freq_data[ds_name].update(
-                    {'x var stop':filtered_freq.max()})
-                self.freq_data[ds_name].update(
-                    {'x var step':filtered_freq[1]-filtered_freq[0]})
+        if high > 1/(2.5*dt): # Nyquist frequency check
+            filtered_f_signal[:,(W>1/(2.5*dt))] = 0 
+        else:
+            filtered_f_signal[:,(W>high)] = 0
 
-                #Fourier amplitudes
-                self.freq_data[ds_name].update(
-                    {'data':f_signal[:,(W>low)*(W<high)]})
-                freq_points = len(self.freq_data[ds_name]['data'])
-                #update 'max dataset len' metadata
-                if self.freq_data['attrs']['max dataset len'] < freq_points:
-                    self.freq_data['attrs'].update(
-                        {'max dataset len':freq_points})
+        #pass frequencies
+        filtered_freq = W[(W>low)*(W<high)]
+        filtered_data = f_signal[:,(W>low)*(W<high)]
+        freq_ds: FreqData = {
+            'data': filtered_data*ureg.Hz,
+            'x_var_step': (filtered_freq[1]-filtered_freq[0])*ureg.Hz,
+            'x_var_start': filtered_freq.min()*ureg.Hz,
+            'x_var_stop': filtered_freq.max()*ureg.Hz,
+            'max_amp': (filtered_data.max() - filtered_data.min())*ureg.Hz
+        }
+        self.freq_data.update({ds_name: freq_ds})
+        freq_points = len(self.freq_data[ds_name]['data'])
 
-                #filtered PA data
-                #filt dataset does not exist
-                #then create the datapoints
-                if not self.filt_data.get(ds_name):
-                    self.filt_data[ds_name].update(
-                        {'data':irfft(filtered_f_signal)})
-                    for key, value in self.raw_data[ds_name].items():
-                        if key != 'data':
-                            self.filt_data[ds_name].update({key:value})
-                        max_amp = (np.amax(self.filt_data[ds_name]['data'])
-                                 - np.amin(self.filt_data[ds_name]['data']))
-                        self.filt_data[ds_name].update({'max amp': max_amp})
-                #if the ds already exists, update its values
-                else:
-                    self.filt_data[ds_name].update(
-                        {'data':irfft(filtered_f_signal)})
-                    max_amp = (np.amax(self.filt_data[ds_name]['data'])
-                             - np.amin(self.filt_data[ds_name]['data']))
-                    self.filt_data[ds_name].update({'max amp': max_amp})
+        if self.freq_data['attrs']['max_len'] < freq_points:
+            self.freq_data['attrs']['max_len'] = freq_points
 
-        #update metadata
-        self.freq_data['attrs']['y var units'] = self.raw_data['attrs']['y var units']
+        self.filt_data.update(
+            {ds_name: self.raw_data[ds_name]})
+        final_filt_data = irfft(filtered_f_signal)
+        
+        filt_max_amp = final_filt_data.max()-final_filt_data.min()
+        self.filt_data[ds_name].update(
+            {'data':final_filt_data})
+        self.filt_data[ds_name].update({'max_amp': filt_max_amp})
+
         self.attrs['updated'] = self._get_cur_time()
