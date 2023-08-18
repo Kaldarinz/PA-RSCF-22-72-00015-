@@ -1,38 +1,42 @@
 """
-Operations with PA data
+Operations with PA data.
+Requires Python > 3.10
 
-Data structure:
+Data structure of PaData class:
     
-    Measured data:
+    PaData:
     |--'attrs'
+    |  |--'version': float - version data structure
+    |  |--'measurement_dims': int - dimensionality of the stored measurement
     |  |--'parameter_name': str - independent parameter, changed between measured PA signals
     |  |--'parameter_units': str - parameters units
-    |  |--'data_points': int - amount of stored PA signals
+    |  |--'data_points': int - amount of stored PA measurements
     |  |--'created': timestamp - date and time of data measurement
     |  |--'updated': timestamp - date and time of last data update
-    |  |--'path': str - relative path to the datafile.
-    |  |--'filename': str - name of the file where data is stored
-    |  |--'zoom_pre_time': float - start time from the center of the data frame for zoom in data view
-    |  |--'zoom_post_time': float - end time from the center of the data frame for zoom in data view
+    |  |--'filename': os.PathLike - full path to the data file
+    |  |--'zoom_pre time': float - start time from the center of the PA data frame for zoom in data view
+    |  |--'zoom_post time': float - end time from the center of the PA data frame for zoom in data view
     |  |--'zoom_units': str - units for pre and post zoom time
     |
     |--'raw_data'
     |  |--'attrs'
-    |  |  |--'max dataset len': int - amount of points in PA signal
-    |  |  |--'x var name': str - name of the X variable in PA signal
-    |  |  |--'x var units': str - units of the X variable
-    |  |  |--'y var name': str - name of the Y variable in PA signal
-    |  |  |--'y var units': str - name of the X variable
+    |  |  |--'max_len': int - maximum amount of points in PA signal
+    |  |  |--'x_var_name': str - name of the X variable in PA signal
+    |  |  |--'x_var_units': str - units of the X variable
+    |  |  |--'y_var_name': str - name of the Y variable in PA signal
+    |  |  |--'y_var_units': str - name of the Y variable
     |  |
     |  |--point1
-    |  |  |--'data': ndarray - measured PA signal
-    |  |  |--'parameter value': int - value of independent parameter
-    |  |  |--'x var step': float
-    |  |  |--'x var start': float
-    |  |  |--'x var stop': float
-    |  |  |--'PM energy': float - laser energy in [uJ] measured by power meter in glass reflection
-    |  |  |--'sample energy': float - laser energy at sample in [uJ]
-    |  |  |--'max amp': float - (y_max - y_min)
+    |  |  |--'data': ndarray[uint8] - measured PA signal
+    |  |  |--'param_val': ndarray - value of independent parameter
+    |  |  |--'a': float
+    |  |  |--'b': float - y = a*x+b, where 'x' - values from 'data', 'y' - values in 'y var units' scale
+    |  |  |--'x_var_step': float
+    |  |  |--'x_var_start': float
+    |  |  |--'x_var_stop': float
+    |  |  |--'pm_en': float - laser energy measured by power meter in glass reflection
+    |  |  |--'sample_energy': float - laser energy at sample in [uJ]
+    |  |  |--'max_amp': float - (y_max - y_min)
     |  |
     |  |--point2
     |  |  |--'data': ndarray - measured PA signal
@@ -45,7 +49,7 @@ Data structure:
     |  |  |--'x var name': str - name of the X variable in PA signal
     |  |  |--'x var units': str - units of the X variable
     |  |  |--'y var name': str - name of the Y variable in PA signal
-    |  |  |--'y var units': str - name of the X variable
+    |  |  |--'y var units': str - name of the Y variable
     |  |
     |  |--point1
     |  |  |--'data': ndarray - filtered PA signal
@@ -68,7 +72,7 @@ Data structure:
     |  |  |--'x var name': str - name of the X variable
     |  |  |--'x var units': str - units of the X variable
     |  |  |--'y var name': str - name of the Y variable
-    |  |  |--'y var units': str - name of the X variable
+    |  |  |--'y var units': str - name of the Y variable
     |  |
     |  |--point1
     |  |  |--'data': ndarray - frequncies present in filt_data
@@ -86,10 +90,8 @@ Data structure:
     |  ...
 """
 import warnings
-from typing import Iterable, Union, Any, TypedDict
-import numpy as np
+from typing import Iterable, Any, TypedDict, List
 from datetime import datetime
-import h5py
 import time
 import os, os.path
 import logging
@@ -99,23 +101,48 @@ import matplotlib.gridspec as gridspec
 from matplotlib import MatplotlibDeprecationWarning # type: ignore
 from scipy.fftpack import rfft, irfft, fftfreq
 import pint
+import h5py
+import numpy as np
+import numpy.typing as npt
+
+from .pa_logic import Data_point
 
 logger = logging.getLogger(__name__)
 
 class BaseMetadata(TypedDict):
-    """Typed dict for general metadata"""
+    """Typed dict for general metadata."""
 
-    parameter_name: str
-    parameter_units: str
+    version: float
+    measurement_dims: int
+    parameter_name: List[str]
     data_points: int
     created: str
     updated: str
-    file_path: str
-    filename: str
-    zoom_pre_time: float
-    zoom_post_time: float
-    zoom_units: str
+    filename: os.PathLike
+    zoom_pre_time: pint.Quantity
+    zoom_post_time: pint.Quantity
 
+class RawMetadata(TypedDict):
+    """Typed dict for raw_data metadata."""
+
+    max_len: int
+    x_var_name: str
+    y_var_name: str
+
+class PointMetadata(TypedDict):
+    """Typed dict for a data point."""
+
+    data: List[pint.Quantity]
+    data_raw: npt.NDArray[np.uint8]
+    param_val: List[pint.Quantity]
+    a: float
+    b: float
+    x_var_step: pint.Quantity
+    x_var_stop: pint.Quantity
+    x_var_stop: pint.Quantity
+    pm_en: pint.Quantity
+    sample_en: pint.Quantity
+    max_amp: pint.Quantity
 
 class PaData:
     """Class for PA data storage and manipulations"""
@@ -171,7 +198,10 @@ class PaData:
         logger.debug('PaData instance created')
 
     def set_metadata(self, data_group: str, metadata: dict) -> None:
-        """set attributes for the data_group"""
+        """Set attributes for the <data_group>.
+        
+        <data_group> is 'general'|'raw_data'|'filt_data'|'freq_data'.
+        """
 
         logger.debug(f'Updating metadata for {data_group} in '
                      + f'{self.attrs["filename"]}')
@@ -188,23 +218,23 @@ class PaData:
             self.attrs.update(metadata)
             self.attrs['updated'] = self._get_cur_time()
         else:
-            print(f'{bcolors.WARNING}\
-                  Unknown data_group for metadata!\
-                  {bcolors.ENDC}')
+            logger.warning('Unknown data_group for metadata!')
 
-    def add_measurement(self, data: np.ndarray, attributes: dict) -> None:
-        """Adds a datapoint to raw_data,
-        also adds empty datapoint to other data groups.
-        attributes are set to both raw and filt datapoints"""
+    def add_measurement(self, data: Data_point) -> None:
+        """Add a single data point.
+        
+        Add a datapoint to raw_data, also add empty datapoint to other
+        data groups.
+        Attributes are set to both raw and filt datapoints.
+        """
 
         ds_name = self.build_ds_name(self.attrs['data_points'])
         if not ds_name:
-            print(f'{bcolors.WARNING}\
-                  Max data_points reached! Data cannot be added!\
-                  {bcolors.ENDC}')
+            logger.error('Max data_points reached! Data cannot be added!')
             return
+        logger.debug(f'Adding {ds_name}...')
         ds = {}
-        ds.update({'data': data,
+        ds.update({'data': data['pa_signal_raw'],
                    'parameter value': 0,
                    'x var step': 0,
                    'x var start': 0,
@@ -233,20 +263,21 @@ class PaData:
 
         return date_time
 
-    def save(self, filename: str='') -> None:
+    def save(self, filename: os.PathLike='') -> None:
         """Saves data to file"""
 
-        if filename != None:
-            self.attrs['filename'] = filename.split('\\')[-1]
-            self.attrs['path'] = filename.split(self.attrs['filename'])[0]
+        if filename:
+            path, filename = os.path.split(filename)
+            self.attrs['file_path'] = path
+            self.attrs['filename'] = filename
 
-        elif self.attrs['filename'] and self.attrs['path']:
-            filename = self.attrs['path'] + self.attrs['filename']
+        elif self.attrs['filename'] and self.attrs['file_path']:
+            path = self.attrs['file_path']
+            name = self.attrs['filename']
+            filename = os.path.join(path, name)
         
         else:
-            print(f'{bcolors.WARNING}\
-                  Filename is not set. Data cannot be saved!\
-                  {bcolors.ENDC}')
+            logger.warning('Filename is not set. Data cannot be saved!')
             return
         
         self._flush(filename)
@@ -258,18 +289,17 @@ class PaData:
         filename = 'measuring results/TmpData.hdf5'
         self._flush(filename)
 
-    def _flush(self, filename: str) -> None:
-        """Writing data to disk"""
+    def _flush(self, filename: os.PathLike) -> None:
+        """Write data to disk."""
 
-        with h5py.File(filename,'w') as file:
-            general = file.create_group('general')
-            general.attrs.update(self.attrs)
-
+        logger.debug(f'Start friting data to {filename}')
+        with h5py.File(filename, 'w') as file:
+            file.attrs.update(self.attrs)
             raw_data = file.create_group('raw data')
             raw_data.attrs.update(self.raw_data['attrs'])
             for key, value in self.raw_data.items():
                 if key !='attrs':
-                    ds_raw = raw_data.create_dataset(key,data=value['data'])
+                    ds_raw = raw_data.create_dataset(key, data=value['data'])
                     for attr_name, attr_value in value.items():
                         if attr_name != 'data':
                             ds_raw.attrs.update({attr_name:attr_value})
@@ -278,7 +308,7 @@ class PaData:
             filt_data.attrs.update(self.filt_data['attrs'])
             for key, value in self.filt_data.items():
                 if key !='attrs':
-                    ds_filt = filt_data.create_dataset(key,data=value['data'])
+                    ds_filt = filt_data.create_dataset(key, data=value['data'])
                     for attr_name, attr_value in value.items():
                         if attr_name != 'data':
                             ds_filt.attrs.update({attr_name:attr_value})
@@ -287,7 +317,7 @@ class PaData:
             freq_data.attrs.update(self.freq_data['attrs'])
             for key, value in self.freq_data.items():
                 if key !='attrs':
-                    ds_freq = freq_data.create_dataset(key,data=value['data'])
+                    ds_freq = freq_data.create_dataset(key, data=value['data'])
                     for attr_name, attr_value in value.items():
                         if attr_name != 'data':
                             ds_freq.attrs.update({attr_name:attr_value})
@@ -357,7 +387,7 @@ class PaData:
             self.attrs.update({'data_points': len(self.raw_data) - 1})
 
     def build_ds_name(self, n: int) -> str:
-        """Builds and returns name of dataset"""
+        """Build and return name for dataset."""
         
         if n <10:
             n_str = '00' + str(n)
