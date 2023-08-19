@@ -286,14 +286,11 @@ def spectra(hardware: pa_logic.Hardware) -> Union[PaData,None]:
     if not pa_logic.osc_open(hardware) or not pa_logic.pm_open(hardware):
         logger.error('Error in spectral measure: hardware is not open.')
         return None
-
-    osc = hardware['osc']
-    pm = hardware['power_meter'] #type: ignore
     
     #CLI to get measuring options
     power_control = inquirer.select(
         message='Choose method for laser energy control:',
-        choices=hardware['power_control'],
+        choices=hardware['config']['power_control'],
         mandatory=False
     ).execute()
     logger.debug(f'"{power_control}" set as laser energy control')
@@ -371,22 +368,24 @@ def spectra(hardware: pa_logic.Hardware) -> Union[PaData,None]:
     )
 
 def calc_filters_for_energy(hardware: pa_logic.Hardware) -> None:
-    """Provides required filter combination for an energy"""
+    """CLI to find a filter combination"""
 
     #max filters for calculation
-    max_combinations = 3
+    max_combinations = hardware['config']['energy']['max_filters']
 
+    logger.debug('Start calculating filter combinations')
     wl = inquirer.text(
         message='Set wavelength, [nm]' + vd.cancel_option,
         default='750',
         mandatory=False,
         validate=vd.WavelengthValidator()
     ).execute()
+    logger.debug(f'wavelength: {wl} nm set.')
     if wl == None:
-        print(f'{bcolors.WARNING}Intup terminated!{bcolors.WARNING}')
+        logger.warning('Intup terminated!')
         return
     else:
-        wl = int(wl)
+        wl = int(wl)*ureg.nm
 
     target_energy = inquirer.text(
         message='Set target energy in [mJ]' + vd.cancel_option,
@@ -394,33 +393,31 @@ def calc_filters_for_energy(hardware: pa_logic.Hardware) -> None:
         mandatory=False,
         validate=vd.EnergyValidator()
     ).execute()
+    logger.debug(f'{target_energy=} mJ set.')
     if target_energy == None:
-        print(f'{bcolors.WARNING}Intup terminated!{bcolors.WARNING}')
+        logger.warning('Intup terminated!')
         return
     else:
-        target_energy = float(target_energy)*1000
+        target_energy = float(target_energy)*ureg.mJ
 
-    print(f'{bcolors.UNDERLINE}Please remove all filters!{bcolors.ENDC}')
-    energy = track_power(hardware, 50)
-    print(f'Power meter energy = {energy:.0f} [uJ]')
-    filters, _, _ = glass_calculator(wl,
-                                  energy,
-                                  target_energy,
-                                  max_combinations,
-                                  no_print=True)
-    if len(filters):
-        print(f'{bcolors.WARNING}'
-              + 'WARNING! Valid filter combination were not found!'
-              + f'{bcolors.ENDC}')
-
-    _, target_pm_value, _ = glass_calculator(
+    logger.info('Please remove all filters!')
+    energy = pa_logic.track_power(hardware, 50)
+    logger.info(f'Power meter energy = {energy}.')
+    filters = pa_logic.glass_calculator(
         wl,
         energy,
         target_energy,
-        max_combinations)
-    print(f'Target power meter energy is {target_pm_value}!')
-    print(f'Please set it using {bcolors.UNDERLINE}'
-          + f'laser software{bcolors.ENDC}')
+        max_combinations,
+    )
+    if len(filters):
+        logger.warning('Valid filter combination were not found!')
+
+    reflection = pa_logic.glass_reflection(wl)
+    if reflection is None or reflection == 0:
+        logger.warning('Target power meter energy cannot be calculated!')
+    else:
+        target_pm_value = energy/reflection
+        logger.info(f'Target power meter energy is {target_pm_value}!')
 
 def glan_check(hardware: pa_logic.Hardware) -> None:
     """Used to check glan performance"""
