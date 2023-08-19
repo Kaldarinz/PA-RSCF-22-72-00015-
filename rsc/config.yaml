@@ -7,6 +7,7 @@ hardware:
   pa_sensor:
     connected: !!bool True
     connected_chan: !!int 1
+    damage_thr: !!int 800 #set in uJ
   energy:
     max_filters: !!int 2
   stages:

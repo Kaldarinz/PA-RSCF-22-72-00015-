@@ -459,7 +459,7 @@ def glan_check(hardware: pa_logic.Hardware) -> None:
             logger.warning('Unknown command in Glan chack menu!')
 
 def export_to_txt(data: PaData) -> None:
-    """CLI method for export data to txt"""
+    """CLI for export data to txt."""
 
     export_type = inquirer.rawlist(
         message='Choose data to export:',
