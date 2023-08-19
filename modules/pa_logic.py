@@ -812,7 +812,7 @@ def glan_calc(
     fit = np.poly1d(coef)
 
     #return the value of polynom at energy
-    return fit(energy)*ureg.uJ
+    return fit(energy.to('uJ').m)*ureg.uJ
 
 def ameasure_point(
     hardware: Hardware,
