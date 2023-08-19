@@ -36,45 +36,45 @@ class Oscilloscope:
     CHANNELS = 2 # amount of channels
     CH_IDS = ['CHAN1', 'CHAN2'] # channel names
 
-    #attributes
-    sample_rate: pint.Quantity
-    format: int # 0 - BYTE, 1 - WORD, 2 - ASC 
-    read_type: int # 0 - NORMal, 1 - MAXimum, 2 RAW
-    points: int # between 1 and 240000000
-    averages: int # number of averages in average mode, 1 in other modes
-    xincrement: pint.Quantity # time diff between points
-    xorigin: pint.Quantity # start time of the data
-    xreference: pint.Quantity # reference time of data
-    yincrement: float # the waveform increment in the Y direction
-    yorigin: float # vertical offset relative to the yreference
-    yreference: float # vertical reference position in the Y direction
-
-    #channels attributes
-    pre_t: List[pint.Quantity] # time before trig to save data
-    post_t: List[pint.Quantity] # time after trigger
-    dur_t: List[pint.Quantity] # duration of data
-    pre_p: List[int] # same in points
-    post_p: List[int]
-    dur_p: List[int]
-    data: List[List[pint.Quantity]]
-    data_raw: List[npt.NDArray[np.uint8]]
-    amp: List[pint.Quantity] # amplitude of data
-    scr_data: List[List[pint.Quantity]]
-    scr_data_raw: List[npt.NDArray[np.uint8]]
-    scr_amp: List[pint.Quantity]
-
-    # data smoothing parameters
-    ra_kernel: int# kernel size for rolling average smoothing
-    
-    bad_read = False # flag for indication of error during read
-    not_found = True # flag for state of osc
-    read_chunks: int# amount of reads required for a chan
-
     def __init__(self) -> None:
         """oscilloscope class for Rigol MSO1000Z/DS1000Z device.
         Intended to be used as a module in other scripts.
         Call 'initialize' before working with Oscilloscope.
         """
+
+        #attributes
+        self.sample_rate: pint.Quantity
+        self.format: int # 0 - BYTE, 1 - WORD, 2 - ASC 
+        self.read_type: int # 0 - NORMal, 1 - MAXimum, 2 RAW
+        self.points: int # between 1 and 240000000
+        self.averages: int # number of averages in average mode, 1 in other modes
+        self.xincrement: pint.Quantity # time diff between points
+        self.xorigin: pint.Quantity # start time of the data
+        self.xreference: pint.Quantity # reference time of data
+        self.yincrement: float # the waveform increment in the Y direction
+        self.yorigin: float # vertical offset relative to the yreference
+        self.yreference: float # vertical reference position in the Y direction
+
+        #channels attributes
+        self.pre_t: List[pint.Quantity] # time before trig to save data
+        self.post_t: List[pint.Quantity] # time after trigger
+        self.dur_t: List[pint.Quantity] # duration of data
+        self.pre_p: List[int] # same in points
+        self.post_p: List[int]
+        self.dur_p: List[int]
+        self.data: List[List[pint.Quantity]]
+        self.data_raw: List[npt.NDArray[np.uint8]]
+        self.amp: List[pint.Quantity] # amplitude of data
+        self.scr_data: List[List[pint.Quantity]]
+        self.scr_data_raw: List[npt.NDArray[np.uint8]]
+        self.scr_amp: List[pint.Quantity]
+
+        # data smoothing parameters
+        self.ra_kernel: int# kernel size for rolling average smoothing
+        
+        self.bad_read = False # flag for indication of error during read
+        self.not_found = True # flag for state of osc
+        self.read_chunks: int# amount of reads required for a chan
 
         logger.debug('Oscilloscope class instantiated!')
         
