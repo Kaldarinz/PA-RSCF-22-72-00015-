@@ -18,8 +18,8 @@ Data structure of PaData class:
     |  |--'created': str - date and time of data measurement
     |  |--'updated': str - date and time of last data update
     |  |--'filename': str - full path to the data file
-    |  |--'zoom_pre time': Quantity - start time from the center of the PA data frame for zoom in data view
-    |  |--'zoom_post time': Quantity - end time from the center of the PA data frame for zoom in data view
+    |  |--'zoom_pre_time': Quantity - start time from the center of the PA data frame for zoom in data view
+    |  |--'zoom_post_time': Quantity - end time from the center of the PA data frame for zoom in data view
     |
     |--'raw_data'
     |  |--'attrs'
@@ -210,7 +210,7 @@ class PaData:
         Add a datapoint to raw_data, filt_data and freq_data.
         """
 
-        ds_name = self._build_ds_name(self.attrs['data_points'])
+        ds_name = self._build_ds_name(self.attrs['data_points']+1)
         if not ds_name:
             logger.error('Max data_points reached! Data cannot be added!')
             return
@@ -456,28 +456,25 @@ class PaData:
             return ''
         return 'point' + n_str
     
-    def get_ds_index(self, ds_name: str) -> int:
-        """Returns index from dataset name"""
+    def _get_ds_index(self, ds_name: str) -> int:
+        """Return index from dataset name."""
 
         n_str = ds_name.split('point')[-1]
         n = int(n_str)
         return n
 
     def plot(self) -> None:
-        """Plots current data"""
+        """Plot data."""
 
         if not self.attrs['data_points']:
-            print(f'{bcolors.WARNING}\
-                  No data to display\
-                  {bcolors.ENDC}')
+            logger.warning('No data to plot!')
+            return
 
         #plot initialization
         warnings.filterwarnings('ignore',
                                 category=MatplotlibDeprecationWarning)
-
         self._fig = plt.figure(tight_layout=True)
-        filename = os.path.join(self.attrs['file_path'],
-                                self.attrs['filename'])
+        filename = os.path.basename(self.attrs['filename'])
         self._fig.suptitle(filename)
         gs = gridspec.GridSpec(2,3)
         self._ax_sp = self._fig.add_subplot(gs[0,0])
@@ -487,48 +484,88 @@ class PaData:
         self._ax_raw_zoom = self._fig.add_subplot(gs[0,2])
         self._ax_filt_zoom = self._fig.add_subplot(gs[1,2])
 
+        self._marker_style = {
+            'marker': 'o',
+            'alpha': 0.4,
+            'ms': 12,
+            'color': 'yellow'
+        }
+        self._fill_style = {
+            'alpha': 0.3,
+            'color': 'g'
+        }
+
+        dims = self.attrs['measurement_dims']
+        if dims == 0:
+            self._plot_0d()
+        elif dims == 1:
+            self._plot_1d()
+        elif dims == 2:
+            self._plot_2d()
+        elif dims == 3:
+            self._plot_3d()
+        else:
+            logger.warning(f'Unsupported dimensionality: ({dims})')
+
+    def _plot_0d(self) -> None:
+        """Plot 0D data."""
+
+        logger.warning('Plotting 0D data is not implemented!')
+
+    def _plot_1d(self) -> None:
+        """Plot 1D data."""
+
         self._param_ind = 0 #index of active data on plot
 
         #plot max_signal_amp(parameter)
-        self._param_values = self.get_dependance('raw_data','parameter value')
-        self._raw_amps = self.get_dependance('raw_data', 'max amp')
-        self._filt_amps = self.get_dependance('filt_data', 'max amp')
+        self._param_values = self.get_dependance('raw_data','param_val')
+        self._raw_amps = self.get_dependance('raw_data', 'max_amp')
+        self._filt_amps = self.get_dependance('filt_data', 'max_amp')
         
         self._ax_sp.plot(
             self._param_values,
             self._raw_amps,
-            label='raw data')
+            label='Max amplitude of raw data')
         self._ax_sp.plot(
             self._param_values,
             self._filt_amps,
-            label='filt data'
+            label='Max amplitude of filtered data'
         )
         self._ax_sp.legend(loc='upper right')
         self._ax_sp.set_ylim(bottom=0)
-        x_label = self.attrs['parameter_name']\
-                  + ', ['\
-                  + self.attrs['parameter_units']\
-                  + ']'
+        x_label = (self.attrs['parameter_name'][0] 
+                   + ', ' + self._ax_sp.get_xlabel())
         self._ax_sp.set_xlabel(x_label)
-        y_label = self.raw_data['attrs']['y var name']
+        y_label = (self.raw_data['attrs']['y_var_name']
+                   + ', ' + self._ax_sp.get_ylabel())
         self._ax_sp.set_ylabel(y_label)
 
         self._plot_selected_raw, = self._ax_sp.plot(
-            self._param_values[self._param_ind], # type: ignore
-            self._raw_amps[self._param_ind],  # type: ignore
-            'o', alpha=0.4, ms=12, color='yellow')
+            self._param_values[self._param_ind],
+            self._raw_amps[self._param_ind],
+            **self._marker_style)
         
         self._plot_selected_filt, = self._ax_sp.plot(
-            self._param_values[self._param_ind],  # type: ignore
-            self._filt_amps[self._param_ind],  # type: ignore
-            'o', alpha=0.4, ms=12, color='yellow')
+            self._param_values[self._param_ind],
+            self._filt_amps[self._param_ind],
+            **self._marker_style)
 
         self._fig.canvas.mpl_connect('key_press_event', self._on_key_press)
         self._plot_update()
         plt.show()
 
+    def _plot_2d(self) -> None:
+        """Plot 2D data."""
+
+        logger.warning('Plotting 2D data is not implemented!')
+
+    def _plot_3d(self) -> None:
+        """Plot 3D data."""
+
+        logger.warning('Plotting 3D data is not implemented!')
+
     def _on_key_press(self, event) -> None:
-        """Callback function for changing active data on plot"""
+        """Callback function for changing active data on plot."""
 
         if event.key == 'left':
             if self._param_ind == 0:
@@ -544,154 +581,42 @@ class PaData:
                 self._plot_update()
 
     def _plot_update(self) -> None:
-        """Updates plotted data"""
+        """Update plotted data."""
 
         ds_name = self._build_ds_name(self._param_ind)
-        start = self.raw_data[ds_name]['x var start']
-        step = self.raw_data[ds_name]['x var step']
-        stop = self.raw_data[ds_name]['x var stop']
+        start = self.raw_data[ds_name]['x_var_start'].to('us').m
+        stop = self.raw_data[ds_name]['x_var_stop'].to('us').m
         num = len(self.raw_data[ds_name]['data'])
-        time_points = np.linspace(start,stop,num)
+        self._time_points = np.linspace(start,stop,num)*ureg.us
 
         #check if datapoint is empty
         if not step:
             return None
-
-        #update max_signal_amp(parameter) plot
-        title = self.attrs['parameter_name']\
-                + ': '\
-                + str(int(self._param_values[self._param_ind]))\
-                + self.attrs['parameter_units']
-        self._ax_sp.set_title(title)
-        self._plot_selected_raw.set_data(
-            self._param_values[self._param_ind], # type: ignore
-            self._raw_amps[self._param_ind]) # type: ignore
-        self._plot_selected_filt.set_data(
-            self._param_values[self._param_ind], # type: ignore
-            self._filt_amps[self._param_ind]) # type: ignore
-        
+        self._update_pos_ax_sp()
         #update filt data
-        self._ax_filt.clear()
-        self._ax_filt.plot(time_points,
-                                 self.filt_data[ds_name]['data'])
-        x_label = self.filt_data['attrs']['x var name'] +\
-            ', [' + self.filt_data['attrs']['x var units']+']'
-        self._ax_filt.set_xlabel(x_label)
-        self._ax_filt_zoom.set_xlabel(x_label)
-
-        y_label = self.filt_data['attrs']['y var name'] +\
-            ', [' + self.filt_data['attrs']['y var units']+']'
-        self._ax_filt.set_ylabel(y_label)
-        self._ax_filt_zoom.set_ylabel(y_label)
-
-        title = self.filt_data['attrs']['y var name']
-        self._ax_filt.set_title(title)
-
-        #marker for max value
-        filt_max = np.amax(self.filt_data[ds_name]['data'])
-        filt_max_ind = np.argwhere(
-            self.filt_data[ds_name]['data']==filt_max)[0][0]
-        filt_max_t = time_points[filt_max_ind]
-        self._ax_filt.plot(filt_max_t,
-                           filt_max,
-                           'o',
-                           alpha=0.4,
-                           ms=12,
-                           color='yellow')
-        
-        #marker for min value
-        filt_min = np.amin(self.filt_data[ds_name]['data'])
-        filt_min_t = time_points[
-            np.argwhere(self.filt_data[ds_name]['data']==filt_min)[0]]
-        self._ax_filt.plot(filt_min_t,
-                           filt_min,
-                           'o',
-                           alpha=0.4,
-                           ms=12,
-                           color='yellow')
-        
-        #marker for zoomed area
-        if self.filt_data['attrs']['x var units'] == self.attrs['zoom_units']:
-            pre_points = int(self.attrs['zoom_pre_time']/step)
-            post_points = int(self.attrs['zoom_post_time']/step)
-            start_zoom_ind = filt_max_ind-pre_points
-            if start_zoom_ind < 0:
-                start_zoom_ind = 0
-            stop_zoom_ind = filt_max_ind + post_points
-            if stop_zoom_ind > (len(time_points) - 1):
-                stop_zoom_ind = len(time_points) - 1
-            self._ax_filt.fill_betweenx([filt_min,filt_max],
-                                    time_points[start_zoom_ind],
-                                    time_points[stop_zoom_ind],
-                                    alpha=0.3,
-                                    color='g')
-        else:
-            print(f'{bcolors.WARNING}\
-                  zoom_units do not match x var units!\
-                  {bcolors.ENDC}')
-            
+        self._plot_update_signal(
+            self._ax_filt,
+            self._ax_filt_zoom,
+            self.filt_data[ds_name],
+            self.filt_data['attrs'],
+            'Filtered data'
+        )
         #update raw data
-        self._ax_raw.clear()
-        self._ax_raw.plot(time_points,
-                         self.raw_data[ds_name]['data'])
-        x_label = self.raw_data['attrs']['x var name'] +\
-            ', [' + self.raw_data['attrs']['x var units']+']'
-        self._ax_raw.set_xlabel(x_label)
-        self._ax_raw_zoom.set_xlabel(x_label)
-
-        y_label = self.raw_data['attrs']['y var name'] +\
-            ', [' + self.raw_data['attrs']['y var units']+']'
-        self._ax_raw.set_ylabel(y_label)
-        self._ax_raw_zoom.set_ylabel(y_label)
-
-        title = self.raw_data['attrs']['y var name']
-        self._ax_raw.set_title(title)
-
-        #marker for max value
-        raw_max = np.amax(self.raw_data[ds_name]['data'])
-        raw_max_ind = np.argwhere(
-            self.raw_data[ds_name]['data']==raw_max)[0][0]
-        raw_max_t = time_points[raw_max_ind]
-        self._ax_raw.plot(raw_max_t,
-                          raw_max,
-                          'o',
-                          alpha=0.4,
-                          ms=12,
-                          color='yellow')
-
-        #marker for min value
-        raw_min = np.amin(self.raw_data[ds_name]['data'])
-        raw_min_t = time_points[
-            np.argwhere(self.raw_data[ds_name]['data']==raw_min)[0]]
-        self._ax_raw.plot(raw_min_t,
-                          raw_min,
-                          'o',
-                          alpha=0.4,
-                          ms=12,
-                          color='yellow')
-        
-        #marker for zoomed area
-        self._ax_raw.fill_betweenx([raw_min,raw_max],
-                                   time_points[start_zoom_ind],
-                                   time_points[stop_zoom_ind],
-                                   alpha=0.3,
-                                   color='g')
-        
-        #update raw zoom data
-        self._ax_raw_zoom.clear()
-        self._ax_raw_zoom.plot(
-            time_points[start_zoom_ind:stop_zoom_ind+1],
-            self.raw_data[ds_name]['data'][start_zoom_ind:stop_zoom_ind+1])
-        self._ax_raw_zoom.set_title('Zoom of raw PA data')
-
-        #update raw zoom data
-        self._ax_filt_zoom.clear()
-        self._ax_filt_zoom.plot(
-            time_points[start_zoom_ind:stop_zoom_ind+1],
-            self.filt_data[ds_name]['data'][start_zoom_ind:stop_zoom_ind+1])
-        self._ax_filt_zoom.set_title('Zoom of filtered PA data')
-
+        self._plot_update_signal(
+            self._ax_raw,
+            self._ax_raw_zoom, 
+            self.raw_data[ds_name],
+            self.raw_data['attrs'],
+            'Raw data'
+        )
         #update freq data
+        self._plot_update_signal(
+            self._ax_freq,
+            self._ax_raw_zoom, 
+            self.raw_data[ds_name],
+            self.raw_data['attrs'],
+            'Raw data'
+        )
         start_freq = self.freq_data[ds_name]['x var start']
         step_freq = self.freq_data[ds_name]['x var step']
         num_freq = len(self.freq_data[ds_name]['data'])
@@ -716,58 +641,112 @@ class PaData:
         self._fig.align_labels()
         self._fig.canvas.draw()
 
-    def get_dependance(self, data_group: str, value: str) -> Iterable:
-        """Returns an array with value 
-        from each dataset in the data_group.
-        data_group: 'raw_data'|'filt_data|'freq_data'
+    def _update_pos_ax_sp(self) -> None:
+        """Update current position in parameter subplot."""
+
+        title = (self.attrs['parameter_name'][0] + ': '
+                  + str(self._param_values[self._param_ind]))
+        self._ax_sp.set_title(title)
+        self._plot_selected_raw.set_data(
+            self._param_values[self._param_ind],
+            self._raw_amps[self._param_ind])
+        self._plot_selected_filt.set_data(
+            self._param_values[self._param_ind],
+            self._filt_amps[self._param_ind])
+
+    def _plot_update_signal(
+            self,
+            ax: plt.Axes,
+            zoom_ax: plt.Axes|None=None,
+            ds: dict,
+            attrs: dict,
+            title: str) -> None:
+        """Update plot on <ax> and <zoom_ax> with signal from <ds>.
+        
+        <ds> is datasets for plotting.
+        <attrs> is dict with attributes of group containing <ds>.
         """
 
+        logger.debug(f'Start updating subplot {title}')
+
+        ax.clear()
+        ax.plot(self._time_points, ds['data'])
+        x_label = attrs['x_var_name'] + ', ' + ax.get_xlabel()
+        ax.set_xlabel(x_label)
+
+        y_label = attrs['y_var_name'] + ', ' + ax.get_ylabel()
+        ax.set_ylabel(y_label)
+        ax.set_title(title)
+
+        #marker for max value
+        max_val = np.amax(ds['data'])
+        max_ind = np.flatnonzero(ds['data']==max_val)[0]
+        max_t = self._time_points[max_ind]
+        ax.plot(max_t, max_val, **self._marker_style)
+        
+        #marker for min value
+        min_val = np.amin(ds['data'])
+        min_ind = np.flatnonzero(ds['data']==min_val)[0]
+        min_t = self._time_points[min_ind]
+        ax.plot(min_t, min_val, **self._marker_style)
+        
+        #marker for zoomed area
+        step = ds['x_var_step']
+        pre_time = self.attrs['zoom_pre_time']
+        post_time = self.attrs['zoom_post_time']
+        pre_points = int(pre_time.to(step.u).m/step.m)
+        post_points = int(post_time.to(step.u).m/step.m)
+        start_zoom_ind = max_ind-pre_points
+        if start_zoom_ind < 0:
+            start_zoom_ind = 0
+        stop_zoom_ind = max_ind + post_points
+        if stop_zoom_ind > (len(self._time_points) - 1):
+            stop_zoom_ind = len(self._time_points) - 1
+        ax.fill_betweenx(
+            [min_val, max_val],
+            self._time_points[start_zoom_ind],
+            self._time_points[stop_zoom_ind],
+            **self._fill_style
+        )
+
+        zoom_ax.clear()
+        zoom_ax.plot(
+            self._time_points[start_zoom_ind:stop_zoom_ind+1],
+            ds['data'][start_zoom_ind:stop_zoom_ind+1]
+        )
+        zoom_ax.set_xlabel(x_label)
+        zoom_ax.set_ylabel(y_label)
+        zoom_ax.set_title('Zoom of ' + title)
+
+    def get_dependance(self, data_group: str, value: str) -> List:
+        """Return array with value from each dataset in the data_group.
+        
+        data_group: 'raw_data'|'filt_data|'freq_data'.
+        """
+
+        logger.debug(f'Start building array of {value} from {data_group}.')
         dep = [] #array for return values
         if not self.attrs['data_points']:
-            print(f'{bcolors.WARNING}\
-                  Attempt to read dependence from empty data\
-                  {bcolors.ENDC}')
-            return []
+            logger.error(f'PaData instance contains no data points.')
+            return dep
+        check_st = 'self.'+data_group+'[self._build_ds_name(1)].get(value)'
+        if eval(check_st) is None:
+            logger.error(f'Attempt to read unknown attribute: {value} '
+                         + f'from {data_group}.')
+            return dep
         
         if data_group == 'raw_data':
-            ds_name = self._build_ds_name(0)
-            if self.raw_data[ds_name].get(value) is None:
-                print(f'{bcolors.WARNING}\
-                    Attempt to read dependence of unknown VALUE from RAW_data\
-                    {bcolors.ENDC}')
-                return []
             for ds_name, ds in self.raw_data.items():
                 if ds_name != 'attrs':
                     dep.append(ds[value])
-
-        
         elif data_group == 'filt_data':
-            ds_name = self._build_ds_name(0)
-            if self.filt_data[ds_name].get(value) is None:
-                print(f'{bcolors.WARNING}\
-                    Attempt to read dependence of unknown VALUE from FILT_data\
-                    {bcolors.ENDC}')
-                return []
             for ds_name, ds in self.filt_data.items():
                 if ds_name != 'attrs':
                     dep.append(ds[value])
-        
         elif data_group == 'freq_data':
-            ds_name = self._build_ds_name(0)
-            if self.freq_data[ds_name].get(value) is None:
-                print(f'{bcolors.WARNING}\
-                    Attempt to read dependence of unknown VALUE from FREQ_data\
-                    {bcolors.ENDC}')
-                return []
             for ds_name, ds in self.freq_data.items():
                 if ds_name != 'attrs':
                     dep.append(ds[value])
-        
-        else:
-            print(f'{bcolors.WARNING}\
-                  Attempt to read dependence from unknow GROUP\
-                  {bcolors.ENDC}')
-            return []
         return dep
 
     def bp_filter(self,
