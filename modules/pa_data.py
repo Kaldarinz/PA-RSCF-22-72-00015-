@@ -584,38 +584,33 @@ class PaData:
         """Update plotted data."""
 
         ds_name = self._build_ds_name(self._param_ind)
-        start = self.raw_data[ds_name]['x_var_start'].to('us').m
-        stop = self.raw_data[ds_name]['x_var_stop'].to('us').m
-        num = len(self.raw_data[ds_name]['data'])
-        self._time_points = np.linspace(start,stop,num)*ureg.us
-
         #check if datapoint is empty
-        if not step:
+        if not self.filt_data[ds_name]['data']:
             return None
+        #update parameter plot
         self._update_pos_ax_sp()
-        #update filt data
+        #update filt plot withh filt_zoom
         self._plot_update_signal(
-            self._ax_filt,
-            self._ax_filt_zoom,
             self.filt_data[ds_name],
             self.filt_data['attrs'],
-            'Filtered data'
+            'Filtered data',
+            self._ax_filt,
+            self._ax_filt_zoom,
         )
-        #update raw data
-        self._plot_update_signal(
+        #update raw plot with raw_zoom
+        self._plot_update_signal( 
+            self.raw_data[ds_name],
+            self.raw_data['attrs'],
+            'Raw data',
             self._ax_raw,
-            self._ax_raw_zoom, 
-            self.raw_data[ds_name],
-            self.raw_data['attrs'],
-            'Raw data'
+            self._ax_raw_zoom,
         )
-        #update freq data
+        #update freq plot
         self._plot_update_signal(
-            self._ax_freq,
-            self._ax_raw_zoom, 
-            self.raw_data[ds_name],
-            self.raw_data['attrs'],
-            'Raw data'
+            self.freq_data[ds_name],
+            self.freq_data['attrs'],
+            'FFT data',
+            self._ax_freq
         )
         start_freq = self.freq_data[ds_name]['x var start']
         step_freq = self.freq_data[ds_name]['x var step']
@@ -656,21 +651,30 @@ class PaData:
 
     def _plot_update_signal(
             self,
-            ax: plt.Axes,
-            zoom_ax: plt.Axes|None=None,
             ds: dict,
             attrs: dict,
-            title: str) -> None:
+            title: str,
+            ax: plt.Axes,
+            zoom_ax: plt.Axes|None=None,
+        ) -> None:
         """Update plot on <ax> and <zoom_ax> with signal from <ds>.
         
         <ds> is datasets for plotting.
         <attrs> is dict with attributes of group containing <ds>.
+        If <zoom_ax> is not set, then zoom version of plot is
+        not updated AND markers for max and min values are not plotted.
         """
 
         logger.debug(f'Start updating subplot {title}')
+        
+        start = ds['x_var_start'].to_base_units()
+        stop = ds['x_var_stop'].to_base_units()
+        step = ds['x_var_step'].to_base_units()
+        num = len(ds['data'])
+        time_data = np.linspace(start.m,stop.m,num)*ureg(start.u)
 
         ax.clear()
-        ax.plot(self._time_points, ds['data'])
+        ax.plot(time_data, ds['data'])
         x_label = attrs['x_var_name'] + ', ' + ax.get_xlabel()
         ax.set_xlabel(x_label)
 
@@ -678,45 +682,45 @@ class PaData:
         ax.set_ylabel(y_label)
         ax.set_title(title)
 
-        #marker for max value
-        max_val = np.amax(ds['data'])
-        max_ind = np.flatnonzero(ds['data']==max_val)[0]
-        max_t = self._time_points[max_ind]
-        ax.plot(max_t, max_val, **self._marker_style)
+        if zoom_ax is not None:
+            #marker for max value
+            max_val = np.amax(ds['data'])
+            max_ind = np.flatnonzero(ds['data']==max_val)[0]
+            max_t = time_data[max_ind]
+            ax.plot(max_t, max_val, **self._marker_style)
+            
+            #marker for min value
+            min_val = np.amin(ds['data'])
+            min_ind = np.flatnonzero(ds['data']==min_val)[0]
+            min_t = time_data[min_ind]
+            ax.plot(min_t, min_val, **self._marker_style)
         
-        #marker for min value
-        min_val = np.amin(ds['data'])
-        min_ind = np.flatnonzero(ds['data']==min_val)[0]
-        min_t = self._time_points[min_ind]
-        ax.plot(min_t, min_val, **self._marker_style)
-        
-        #marker for zoomed area
-        step = ds['x_var_step']
-        pre_time = self.attrs['zoom_pre_time']
-        post_time = self.attrs['zoom_post_time']
-        pre_points = int(pre_time.to(step.u).m/step.m)
-        post_points = int(post_time.to(step.u).m/step.m)
-        start_zoom_ind = max_ind-pre_points
-        if start_zoom_ind < 0:
-            start_zoom_ind = 0
-        stop_zoom_ind = max_ind + post_points
-        if stop_zoom_ind > (len(self._time_points) - 1):
-            stop_zoom_ind = len(self._time_points) - 1
-        ax.fill_betweenx(
-            [min_val, max_val],
-            self._time_points[start_zoom_ind],
-            self._time_points[stop_zoom_ind],
-            **self._fill_style
-        )
+            #marker for zoomed area
+            pre_time = self.attrs['zoom_pre_time']
+            post_time = self.attrs['zoom_post_time']
+            pre_points = int(pre_time.to(step.u).m/step.m)
+            post_points = int(post_time.to(step.u).m/step.m)
+            start_zoom_ind = max_ind-pre_points
+            if start_zoom_ind < 0:
+                start_zoom_ind = 0
+            stop_zoom_ind = max_ind + post_points
+            if stop_zoom_ind > (len(time_data) - 1):
+                stop_zoom_ind = len(time_data) - 1
+            ax.fill_betweenx(
+                [min_val, max_val],
+                time_data[start_zoom_ind],
+                time_data[stop_zoom_ind],
+                **self._fill_style
+            )
 
-        zoom_ax.clear()
-        zoom_ax.plot(
-            self._time_points[start_zoom_ind:stop_zoom_ind+1],
-            ds['data'][start_zoom_ind:stop_zoom_ind+1]
-        )
-        zoom_ax.set_xlabel(x_label)
-        zoom_ax.set_ylabel(y_label)
-        zoom_ax.set_title('Zoom of ' + title)
+            zoom_ax.clear()
+            zoom_ax.plot(
+                time_data[start_zoom_ind:stop_zoom_ind+1],
+                ds['data'][start_zoom_ind:stop_zoom_ind+1]
+            )
+            zoom_ax.set_xlabel(x_label)
+            zoom_ax.set_ylabel(y_label)
+            zoom_ax.set_title('Zoom of ' + title)
 
     def get_dependance(self, data_group: str, value: str) -> List:
         """Return array with value from each dataset in the data_group.
