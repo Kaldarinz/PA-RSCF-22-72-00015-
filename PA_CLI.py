@@ -423,25 +423,24 @@ def glan_check(hardware: pa_logic.Hardware) -> None:
     """Used to check glan performance"""
 
     # [uJ] maximum value, which does not damage PM
-    damage_threshold = 800 
+    damage_thr = hardware['config']['pa_sensor']['damage_thr']*ureg.uJ
 
-    print(f'{bcolors.HEADER}'
-          + 'Start procedure to check Glan performance'
-          + f'{bcolors.ENDC}')
-    print(f'Do not try energies at sample large than'
-          + f'{bcolors.UNDERLINE} 800 uJ {bcolors.ENDC}!')
+    logger.info('Start procedure to check Glan performance')
+    logger.warning(f'Do not try energies at sample large than {damage_thr}')
     
     while True:
-        print(f'\nSet some energy at glass reflection')
-        energy = track_power(hardware, 50)
-        target_energy = glan_calc(energy)
-        if target_energy > damage_threshold:
-            print(f'{bcolors.WARNING}'
-                  + 'Energy at sample will damage the PM, set smaller energy!'
-                  + f'{bcolors.ENDC}')
+        logger.info('Set some energy at glass reflection')
+        energy = pa_logic.track_power(hardware, 50)
+        target_en = pa_logic.glan_calc(energy)
+        if target_en is None:
+            logger.warning('Target energy was not calculated')
             continue
-        print(f'Energy at sample should be ~{target_energy} uJ. Check it!')
-        track_power(hardware,50)
+        elif target_en > damage_thr:
+            logger.warning('Energy at sample will damage the PM, '
+                           + 'set smaller energy!')
+            continue
+        logger.info(f'Energy at sample should be ~{target_en}. Check it!')
+        pa_logic.track_power(hardware,50)
 
         option = inquirer.rawlist(
             message='Choose an action:',
@@ -450,15 +449,14 @@ def glan_check(hardware: pa_logic.Hardware) -> None:
                 'Back'
             ]
         ).execute()
+        logger.debug(f'{option=} was set.')
 
         if option == 'Measure again':
             continue
         elif option == 'Back':
             break
         else:
-            print(f'{bcolors.WARNING}'
-                  + 'Unknown command in Glan chack menu!'
-                  + f'{bcolors.ENDC}')
+            logger.warning('Unknown command in Glan chack menu!')
 
 def export_to_txt(data: PaData) -> None:
     """CLI method for export data to txt"""
