@@ -5,21 +5,16 @@ Latest developing version
 from __future__ import annotations
 
 import os, os.path
-import math
-from itertools import combinations
 import logging
 import logging.config
-import yaml
 from datetime import datetime
 from typing import Union
 
-from scipy import signal
 import numpy as np
-import matplotlib.pyplot as plt
-import matplotlib.gridspec as gridspec
 from InquirerPy import inquirer
 from InquirerPy.validator import PathValidator
 import pint
+import yaml
 
 import modules.validators as vd
 from modules.pa_data import PaData
@@ -751,7 +746,7 @@ if __name__ == "__main__":
     logger = init_logs()
     logger.info('Starting application')
 
-    ureg = pint.UnitRegistry(auto_reduce_dimensions=True)
+    ureg = pint.UnitRegistry(auto_reduce_dimensions=True) # type: ignore
     ureg.default_format = '~P'
     logger.debug('Pint activated (measured values with units)')
     ureg.setup_matplotlib(True)

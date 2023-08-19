@@ -432,9 +432,9 @@ def track_power(hardware: Hardware, tune_width: int) -> pint.Quantity:
             [x for i,x in enumerate(data) if i<aver])
         mean = tmp_data.mean() # type: ignore
         std = tmp_data.std() # type: ignore
-        title = (f'Energy={laser_amp:~P}, '
-                + f'Mean (last {aver}) = {mean:~P}, '
-                + f'Std (last {aver}) = {std:~P}')
+        title = (f'Energy={laser_amp}, '
+                + f'Mean (last {aver}) = {mean}, '
+                + f'Std (last {aver}) = {std}')
         logger.debug(f'plot {title=}')
         
         #plotting data
