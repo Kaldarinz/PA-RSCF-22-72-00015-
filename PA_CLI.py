@@ -112,21 +112,14 @@ def save_data(data: PaData) -> None:
         sub_folder = 'measuring results'
         full_name = os.path.join(cwd, sub_folder, filename+suffix)
     else:
-        filename = data.attrs['filename']
-        if data.attrs['file_path']:
-            file_path = data.attrs['file_path']
-        else:
-            cwd = os.path.abspath(os.getcwd())
-            sub_folder = 'measuring results'
-            file_path = os.path.join(cwd, sub_folder)
-        full_name = os.path.join(file_path, filename)
+        full_name = data.attrs['filename']
 
     logger.debug(f'Trying to save to {full_name}')
     if os.path.exists(full_name):
         logger.debug('File already exists')
         override = inquirer.confirm(
             message=('Do you want to override file '
-            + str(filename) + '?')
+            + str(full_name) + '?')
         ).execute()
         logger.debug(f'{override=} have chosen')
         
@@ -141,7 +134,7 @@ def save_data(data: PaData) -> None:
     logger.debug(f'Data will be saved to {full_name}')
     data.save(full_name)
     filename = os.path.basename(full_name)
-    logger.info(f'Data saved to {filename}')
+    logger.info(f'Data saved to {full_name}')
 
 def load_data(old_data: PaData) -> PaData:
     """Return loaded data in the related format"""
@@ -259,33 +252,31 @@ def measure_2d(hardware: pa_logic.Hardware,
     return old_data
 
 def bp_filter(data: PaData) -> None:
-    """Perform bandpass filtration on data
-    low is high pass cutoff frequency in Hz
-    high is low pass cutoff frequency in Hz
-    dt is time step in seconds"""
+    """CLI for bandpass filtration."""
 
     low_cutof = inquirer.text(
-        message='Enter low cutoff frequency [Hz]' + vd.cancel_option,
-        default='1000000',
+        message='Enter low cutoff frequency [MHz]' + vd.cancel_option,
+        default='1',
         mandatory=False,
         validate=vd.FreqValidator()
     ).execute()
-
+    logger.debug(f'{low_cutof} MHz set.')
     if low_cutof is None:
-        print(f'{bcolors.WARNING}Intup terminated!{bcolors.WARNING}')
+        logger.warning('Input terminated.')
         return
-    low_cutof = int(low_cutof)
+    low_cutof = float(low_cutof)*ureg.MHz
 
     high_cutof = inquirer.text(
-        message='Enter high cutoff frequency [Hz]' + vd.cancel_option,
-        default='10000000',
+        message='Enter high cutoff frequency [MHz]' + vd.cancel_option,
+        default='10',
         mandatory=False,
         validate=vd.FreqValidator()
     ).execute()
+    logger.debug(f'{high_cutof} MHz set.')
     if high_cutof is None:
-        print(f'{bcolors.WARNING}Intup terminated!{bcolors.WARNING}')
+        logger.warning('Input terminated.')
         return
-    high_cutof = int(high_cutof)
+    high_cutof = float(high_cutof)*ureg.MHz
 
     data.bp_filter(low_cutof,high_cutof)
 
