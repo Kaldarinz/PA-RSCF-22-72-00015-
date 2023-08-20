@@ -98,58 +98,10 @@ import h5py
 import numpy as np
 import numpy.typing as npt
 
-from .pa_logic import Data_point
 from . import ureg
+from .data_classes import *
 
 logger = logging.getLogger(__name__)
-
-class BaseMetadata(TypedDict):
-    """Typed dict for general metadata."""
-
-    version: float
-    measurement_dims: int
-    parameter_name: List[str]
-    data_points: int
-    created: str
-    updated: str
-    filename: str
-    zoom_pre_time: pint.Quantity
-    zoom_post_time: pint.Quantity
-
-class RawMetadata(TypedDict):
-    """Typed dict for raw_data metadata."""
-
-    max_len: int
-    x_var_name: str
-    y_var_name: str
-
-class FiltMetadata(TypedDict):
-    """Typed dict for filt_data metadata."""
-
-    x_var_name: str
-    y_var_name: str
-
-class RawData(TypedDict):
-    """Typed dict for a data point."""
-
-    data: List[pint.Quantity]
-    data_raw: npt.NDArray[np.uint8]
-    param_val: List[pint.Quantity]
-    x_var_step: pint.Quantity
-    x_var_start: pint.Quantity
-    x_var_stop: pint.Quantity
-    pm_en: pint.Quantity
-    sample_en: pint.Quantity
-    max_amp: pint.Quantity
-
-class FreqData(TypedDict):
-    """Typed dict for a frequency data."""
-
-    data: List[pint.Quantity]
-    x_var_step: pint.Quantity
-    x_var_start: pint.Quantity
-    x_var_stop: pint.Quantity
-    max_amp: pint.Quantity
 
 class PaData:
     """Class for PA data storage and manipulations"""

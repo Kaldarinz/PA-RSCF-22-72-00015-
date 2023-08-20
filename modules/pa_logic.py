@@ -3,6 +3,7 @@ PA backend
 """
 
 from doctest import debug
+import imp
 from typing import Any, TypedDict, Union, List, Tuple
 import logging
 import os
@@ -24,38 +25,10 @@ import keyboard
 import modules.osc_devices as osc_devices
 import modules.exceptions as exceptions
 from .pa_data import PaData
+from .data_classes import *
 from . import ureg
 
 logger = logging.getLogger(__name__)
-
-class Hardware_base(TypedDict):
-    """Base TypedDict for references to hardware."""
-
-    stage_x: Thorlabs.KinesisMotor
-    stage_y: Thorlabs.KinesisMotor
-    osc: osc_devices.Oscilloscope
-    config: dict
-
-class Data_point(TypedDict):
-    """Single PA measurement"""
-
-    dt: pint.Quantity
-    pa_signal: List[pint.Quantity]
-    pa_signal_raw: npt.NDArray[np.uint8]
-    pm_signal: List[pint.Quantity]
-    start_time: pint.Quantity
-    stop_time: pint.Quantity
-    pm_energy: pint.Quantity
-    sample_energy: pint.Quantity
-    max_amp: pint.Quantity
-    wavelength: pint.Quantity
-
-class Hardware(Hardware_base, total=False):
-    """TypedDict for refernces to hardware."""
-    
-    power_meter: osc_devices.PowerMeter
-    pa_sens: osc_devices.PhotoAcousticSensOlymp
-    stage_z: Thorlabs.KinesisMotor
 
 def new_data_point() -> Data_point:
     """Return default data point."""
