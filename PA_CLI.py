@@ -840,7 +840,7 @@ if __name__ == "__main__":
                 logger.debug(f'"{utils_menu}" menu option choosen')
 
                 if utils_menu == 'Power meter':
-                    track_power(hardware, 100)
+                    pa_logic.track_power(hardware, 100)
                 elif utils_menu == 'Glan check':
                     glan_check(hardware)
                 elif utils_menu == 'Filter caclulation':
