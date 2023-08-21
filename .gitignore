@@ -5,6 +5,7 @@ measuring results/TmpData.npy
 typings/
 test.py
 .gitignore
+.vscode
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

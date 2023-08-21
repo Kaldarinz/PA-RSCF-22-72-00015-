@@ -420,7 +420,7 @@ def calc_filters_for_energy(hardware: pa_logic.Hardware) -> None:
         logger.info(f'Target power meter energy is {target_pm_value}!')
 
 def glan_check(hardware: pa_logic.Hardware) -> None:
-    """Used to check glan performance"""
+    """Used to check glan performance."""
 
     # [uJ] maximum value, which does not damage PM
     damage_thr = hardware['config']['pa_sensor']['damage_thr']*ureg.uJ
@@ -464,22 +464,21 @@ def export_to_txt(data: PaData) -> None:
     export_type = inquirer.rawlist(
         message='Choose data to export:',
         choices=[
-            'Raw data',
-            'Filtered data',
-            'Freq data',
+            'raw_data',
+            'filt_data',
+            'freq_data',
             'Spectral',
             'back'
         ]
     ).execute()
-    
+    logger.debug(f'{export_type} selected in data export menu.')
     if export_type == 'back':
         return
-    
-    elif export_type in ('Raw data', 'Filtered data', 'Freq data'):
+    elif export_type in ('raw_data', 'filt_data', 'freq_data'):
         #build full filename
-        filename = data.attrs['path'] + data.attrs['filename']
+        filename = data.attrs['filename']
         if not filename:
-            filename = 'measuring results/txt data/Spectral-Unknown'
+            filename = os.path.join(os.getcwd(),'measuring results','Unknown')
         else:
             filename = filename.split('.hdf5')[0]
         if export_type == 'Raw data':
@@ -494,11 +493,12 @@ def export_to_txt(data: PaData) -> None:
             override = inquirer.confirm(
                 message=f'Do you want to override file {filename}?'
             ).execute()
+            logger.debug(f'File override = {override}')
             if override:
                 try:
                     os.remove(filename)
                 except OSError:
-                    pass
+                    logger.warning(f'{filename} cannot be deleted.')
             else:
                 filename_tmp = filename.split('.txt')[0]
                 i = 1
@@ -506,226 +506,11 @@ def export_to_txt(data: PaData) -> None:
                     i += 1
                 filename = filename_tmp + str(i) + '.txt'
         
-        #build file header; h1,h2,h3 lines of header
-        h1 = ''
-        h2 = ''
-        h3 = ''
-        ds_data = np.empty(1)
-
-        #build arra for txt data
-        if export_type in ('Raw data', 'Filtered data'):
-
-            ds_name = ''
-            if export_type == 'Raw data':
-                ds_name = 'raw_data'
-            elif export_type == 'Filtered data':
-                ds_name = 'filt_data'
-            # 1D array with values of parameter
-            param_vals = np.array(
-                data.get_dependance(ds_name,'parameter value'))
-            #1D array with values of laser at sample
-            laser_vals = np.array(
-                data.get_dependance(ds_name, 'sample energy'))
-            #2D array with Y values of datasets for each datapoint
-            y_data = np.array(data.get_dependance(ds_name,'data')).T
-            # filt data will be used to find signal position
-            y_data_filt = np.array(data.get_dependance('filt_data','data')).T
-
-            #build 2D array with dataset in format (X,Y) for all data points
-            start_vals = np.array(
-                data.get_dependance(ds_name, 'x var start'))
-            step_vals = np.array(
-                data.get_dependance(ds_name, 'x var step'))
-            stop_vals = np.array(
-                data.get_dependance(ds_name, 'x var stop'))
-            
-            #init array with NaNs, which will not be saved to the file
-            ds_data = np.empty((y_data.shape[0] + 2, 2*y_data.shape[1]))
-            ds_data[:] = np.nan
-
-            #loop for filling data
-            for start, stop, step, col in zip(start_vals,
-                                            stop_vals,
-                                            step_vals,
-                                            range(len(param_vals))):
-                #find indexes of signal within pre_time:post_time limits
-                filt = y_data_filt[:,col]
-                filt_max = np.amax(filt)
-                #check if dataset is empty
-                if stop:
-                    #convert pre and post time to points
-                    pre_points = int(data.attrs['zoom pre time']/step)
-                    post_points = int(data.attrs['zoom post time']/step)
-                    
-                    #index of maximum of filt data
-                    max_ind = 0
-                    #check if there is some non zero data in filt
-                    if filt_max:
-                        max_ind = np.argwhere(filt == filt_max)[0][0]
-                    #check not go outside of dataset boundaries
-                    if pre_points > max_ind:
-                        pre_points = max_ind
-                    if (post_points + max_ind) > len(filt):
-                        post_points = len(filt) - max_ind - 1
-                    
-                    zoom = pre_points + post_points
-                    start_ind = max_ind - pre_points
-                    stop_ind = max_ind + post_points
-
-                    #add (X,Y) data of the dataset and fill headers lines
-                    x_vals = np.arange(start, stop, step)
-                    ds_data[2:zoom+2,2*col] = x_vals[start_ind:stop_ind].T
-                    h1 += data.raw_data['attrs']['x var name'] + ';'
-                    h2 += data.raw_data['attrs']['x var units'] + ';'
-                    ds_data[2:zoom+2,2*col+1] = y_data[start_ind:stop_ind,col]
-                    h1 += data.raw_data['attrs']['y var name'] + ';'
-                    h2 += data.raw_data['attrs']['y var units'] + ';'
-
-                #add parameter and laser values
-                ds_data[0,2*col:2*col+2] = param_vals[col]
-                ds_data[1,2*col:2*col+2] = laser_vals[col]
-
-            #build last line of header
-            param = data.attrs['parameter name']
-            param_units = data.attrs['parameter units']
-            h3 = (f'First line is {param} in [{param_units}].'
-                + 'Second line is laser energy in [uJ]')
-    
-        if export_type == 'Freq data':
-
-            ds_name = 'freq_data'
-            # 1D array with values of parameter
-            param_vals = np.array(
-                data.get_dependance(ds_name,'parameter value'))
-            #2D array with Y values of datasets for each datapoint
-            y_data = np.array(data.get_dependance(ds_name,'data')).T
-
-            #build 2D array with dataset in format (X,Y) for all data points
-            start_vals = np.array(
-                data.get_dependance(ds_name, 'x var start'))
-            step_vals = np.array(
-                data.get_dependance(ds_name, 'x var step'))
-            stop_vals = np.array(
-                data.get_dependance(ds_name, 'x var stop'))
-            
-            #init array with NaNs, which will not be saved to the file
-            ds_data = np.empty((y_data.shape[0] + 1, 2*y_data.shape[1]))
-            ds_data[:] = np.nan
-
-            #loop for filling data
-            for start, stop, step, col in zip(start_vals,
-                                            stop_vals,
-                                            step_vals,
-                                            range(len(param_vals))):
-
-                #check if dataset is empty
-                if stop:
-                    #add (X,Y) data of the dataset and fill headers lines
-                    x_vals = np.arange(start, stop, step)
-                    ds_data[1:,2*col] = x_vals.T
-                    h1 += data.freq_data['attrs']['x var name'] + ';'
-                    h2 += data.freq_data['attrs']['x var units'] + ';'
-                    ds_data[1:,2*col+1] = y_data[:,col]
-                    h1 += data.freq_data['attrs']['y var name'] + ';'
-                    h2 += data.freq_data['attrs']['y var units'] + ';'
-
-                #add parameter values
-                ds_data[0,2*col:2*col+2] = param_vals[col]
-
-            #build last line of header
-            param = data.attrs['parameter name']
-            param_units = data.attrs['parameter units']
-            h3 = (f'First line is {param} in [{param_units}].')
-        
-        header = h1 + '\n' + h2 + '\n' + h3
-
-        #remove extra NaNs
-        max_len = 0
-        for col in range(ds_data.shape[1]):
-            ind = np.where(np.isnan(ds_data[:,col]))[0][0]
-            if ind > max_len:
-                max_len = ind
-        ds_data = ds_data[:max_len,:].copy()
-
-        #save the data to the file
-        np.savetxt(
-            filename,
-            ds_data,
-            header=header,
-            delimiter=';')
-        print(f'Data exported to'
-              + f'{bcolors.OKGREEN}{filename}{bcolors.ENDC}')
-
+        data.export_txt(export_type, filename)
     elif export_type == 'Spectral':
-        
-        #build full filename
-        filename = data.attrs['path'] + data.attrs['filename']
-        if not filename:
-            filename = 'measuring results/txt data/Spectral-Unknown'
-        else:
-            filename = filename.split('.hdf5')[0]
-        filename += '-spectral.txt'
-
-        #if file already exists, ask to override it
-        if os.path.exists(filename):
-            override = inquirer.confirm(
-                message=f'Do you want to override file {filename}?'
-            ).execute()
-            if override:
-                try:
-                    os.remove(filename)
-                except OSError:
-                    pass
-            else:
-                filename_tmp = filename.split('.txt')[0]
-                i = 1
-                while os.path.exists(filename_tmp + str(i) + '.txt'):
-                    i += 1
-                filename = filename_tmp + str(i) + '.txt'
-        
-        #build data array and header
-        param_vals = np.array(data.get_dependance(
-            'raw_data',
-            'parameter value'))
-        h1 = data.attrs['parameter name'] + ';'
-        h2 = data.attrs['parameter units'] + ';'
-
-        laser_vals = np.array(data.get_dependance(
-            'raw_data',
-            'sample energy'))
-        h1 += 'Laser;'
-        h2 += 'uJ;'
-
-        raw_amps = np.array(data.get_dependance(
-            'raw_data',
-            'max amp'))
-        h1 += data.raw_data['attrs']['y var name'] + ';'
-        h2 += data.raw_data['attrs']['y var units'] + ';'
-        
-        filt_amps = np.array(data.get_dependance(
-            'filt_data',
-            'max amp'))
-        h1 += data.filt_data['attrs']['y var name'] + ';'
-        h2 += data.filt_data['attrs']['y var units'] + ';'
-
-        ds_data = np.column_stack((
-            param_vals,
-            laser_vals,
-            raw_amps,
-            filt_amps))
-        header = h1 + '\n' + h2
-
-        #save the data to the file
-        np.savetxt(
-            filename,
-            ds_data,
-            header=header,
-            delimiter=';')
-        print('Data exported to'
-              + f'{bcolors.OKGREEN}{filename}{bcolors.ENDC}')
-
+        logger.warning('Export of spectral data to txt is not implemented.')
     else:
-        print(f'{bcolors.WARNING} Unknown command in data export menu {bcolors.ENDC}')
+        logger.warning('Unknown command in data export menu!')
 
 if __name__ == "__main__":
 

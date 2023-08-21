@@ -88,6 +88,7 @@ from datetime import datetime
 import time
 import os, os.path
 import logging
+from itertools import zip_longest
 
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
@@ -224,6 +225,96 @@ class PaData:
         filename = os.path.join(base, 'measuring results', 'TmpData.hdf5')
         self._flush(filename)
 
+    def export_txt(
+            self,
+            group_name: str,
+            filename: str,
+            full: bool=False) -> None:
+        """Export all data points to txt format.
+        
+        <group_name> is 'raw_data'|'filt_data'|'freq_data'.
+        Export waveforms from <group_name> to <filname> file in 
+        'measuring results' folder.
+        The whole waveform is exported if <fool> flag is set,
+        otherwise only zoomed data will be exported.
+        """
+
+        logger.debug(f'Start export procedure from {group_name}.')
+
+        group = getattr(self, group_name, None)
+        if group is None:
+            logger.warning(f'{group_name} is missing in PaData class.')
+            return
+        if len(self.attrs['parameter_name']) > 1:
+            logger.warning('Export to txt is supported only for 1d data.')
+            return
+        data = []
+        header = ('# 1st line: name of data. 2nd line: units of data.'
+                  + '3rd line: paramter name. 4th line: parameter units.'
+                  + '5th line: excitation energy units. 6th line: '
+                  + 'parameter value. 7th line: excitation energy value.'
+                  + 'following lines: data.')
+        for ds in group:
+            if ds == 'attrs':
+                continue
+            logger.debug(f'Building list with x data for {ds}')
+            col_x = []
+            col_x.append(group['attrs']['x_var_name'])
+            col_x.append(ds['x_var_step'].u)
+            param_name = self.attrs['parameter_name'][0]
+            col_x.append(param_name)
+            param_units = ds['param_val'].u
+            param_val = ds['param_val'].m
+            col_x.append(param_units)
+            energy_units = ds['sample_en'].u
+            energy_val = ds['sample_en'].m
+            col_x.append(energy_units)
+            col_x.append(param_val)
+            col_x.append(energy_val)
+            
+            col_y = []
+            col_y.append(group['attrs']['y_var_name'])
+            col_y.append(ds['data'][0].u)
+            col_y.append(param_name)
+            col_y.append(param_units)
+            col_y.append(energy_units)
+            col_y.append(param_val)
+            col_y.append(energy_val)
+
+            if group_name in ('raw_data', 'filt_data') and not full:
+                max_y = np.amax(ds['data'])
+                max_ind = np.flatnonzero(ds['data']==max_y)[0]
+                x_step = ds['x_var_step']
+                pre_time = self.attrs['zoom_pre_time']
+                post_time = self.attrs['zoom_post_time']
+                pre_points = int(pre_time.to(x_step.u).m/x_step.m)
+                post_points = int(post_time.to(x_step.u).m/x_step.m)
+                start_zoom_ind = max_ind-pre_points
+                if start_zoom_ind < 0:
+                    start_zoom_ind = 0
+                t_points = int((ds['x_var_stop'] - ds['x_var_start'])/x_step)
+                stop_zoom_ind = max_ind + post_points
+                if stop_zoom_ind > t_points:
+                    stop_zoom_ind = t_points
+                for i in range(start_zoom_ind, stop_zoom_ind):
+                    col_x.append(ds['x_var_start']+i*x_step)
+                    col_y.append(ds['data'][i])
+            else:
+                x = ds['x_var_start'].m
+                col_x.append(x)
+                while x < (ds['x_var_stop'].m - ds['x_var_step'].m):
+                    x += ds['x_var_step'].m
+                    col_x.append(x)
+                col_y.extend((val.m for val in ds['data']))
+
+            data.append(col_x)
+            data.append(col_y)
+        
+        with open(filename, 'w') as file:
+            file.write(header)
+            for row in zip_longest(*data, fillvalue=''):
+                file.write(';'.join(map(str,row)) + '\n')
+    
     def _flush(self, filename: str) -> None:
         """Write data to disk."""
 
@@ -318,6 +409,9 @@ class PaData:
             
             #load general metadata
             general = file.attrs
+            if 'version' not in general:
+                logger.warning('File has old structure and cannot be loaded.')
+                return
             time_unit = general['zoom_u']
             self.attrs.update(
                 {
