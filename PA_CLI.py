@@ -591,24 +591,18 @@ if __name__ == "__main__":
 
                 if data_ans == 'Load data':
                     data = load_data(data)
-                
                 elif data_ans == 'Save data':
                     save_data(data)
-
                 elif data_ans == 'View data':
                     data.plot()
-
                 elif data_ans == 'FFT filtration':
                     bp_filter(data)
-
                 elif data_ans == 'Export to txt':
                     export_to_txt(data)
-
                 elif data_ans == 'Back to main menu':
                         break         
-
                 else:
-                    print(f'{bcolors.WARNING}Unknown command in Spectral scanning menu!{bcolors.ENDC}')
+                    logger.warning('Unknown command in Spectral scanning menu!')
 
         elif menu_ans == 'Utils':
             while True:
