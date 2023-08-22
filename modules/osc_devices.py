@@ -97,15 +97,13 @@ class Oscilloscope:
         logger.debug('Searching for VISA devices')
         all_instruments = rm.list_resources()
         logger.debug(f'{len(all_instruments)} VISA devices found')
-        instrument_name = list(filter(lambda x: self.OSC_ID in x,
-                                    all_instruments))
-        if len(instrument_name) == 0:
+        if self.OSC_ID not in all_instruments:
             logger.debug('Oscilloscope was not found among VISA '
                          + 'devices. Init failed')
             raise exceptions.OscilloscopeError('Oscilloscope was not found')
         else:
             self.__osc: pv.resources.USBInstrument
-            self.__osc = rm.open_resource(instrument_name[0]) # type: ignore
+            self.__osc = rm.open_resource(self.OSC_ID) # type: ignore
             logger.debug('Oscilloscope device found')
 
         self.set_preamble()
@@ -131,15 +129,14 @@ class Oscilloscope:
     def connection_check(self) -> None:
         """Check connection to the oscilloscope.
 
-        Sets not_found flag.
+        Set <not_found> flag.
         Never raises exceptions.
         """
 
         logger.debug('Trying to read and write from the oscilloscope')
         try:
-            self.__osc.write(':SYST:GAM?')
-            np.frombuffer(self.__osc.read_raw(), dtype=np.uint8) # type: ignore
-            logger.debug('Operations complete')
+            session = self.__osc.session
+            logger.debug(f'Session ID={session}')
             self.not_found = False
         except Exception as err:
             logger.debug(f'Operation failed with error {type(err)}')
