@@ -1,0 +1,27 @@
+version: 1
+disable_existing_loggers: true
+formatters:
+  simple:
+    format: '%(asctime)s - %(name)s.%(funcName)s - line:%(lineno)s - %(levelname)s - %(message)s'
+    datefmt: '%I:%M:%S'
+  inline:
+    format: '%(levelname)s - %(message)s'
+handlers:
+  console:
+    class: logging.StreamHandler
+    level: INFO
+    formatter: inline
+    stream: ext://sys.stdout
+  file:
+    class: logging.FileHandler
+    level: DEBUG
+    formatter: simple
+    filename: logs/PA_CLI.log
+loggers:
+  modules:
+    level: DEBUG
+    handlers: [console,file]
+    propagate: no
+root:
+  level: DEBUG
+  handlers: [console, file]

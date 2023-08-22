@@ -1,5 +1,13 @@
-line = 'sent 1' + \
-'sent 2' + \
-'sent 3'
+import pint
+import matplotlib.pyplot as plt
 
-print(line)
+ureg = pint.UnitRegistry(auto_reduce_dimensions=True)
+ureg.default_format = '~P'
+
+a = 1*ureg.s
+b = 2*ureg.s
+
+print(a)
+
+ulist = [a,b]
+print(max(ulist))
