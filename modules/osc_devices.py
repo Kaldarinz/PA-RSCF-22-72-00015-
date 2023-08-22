@@ -297,7 +297,7 @@ class Oscilloscope:
 
     def to_volts(self,
                  data: npt.NDArray[np.uint8]) -> List[pint.Quantity]:
-        """converts data to volts"""
+        """Converts data to volts."""
 
         logger.debug('Converting data to volts')
         return (data.astype(np.float64)
@@ -306,16 +306,16 @@ class Oscilloscope:
     
     def to_volts_scr(self,
                      data: npt.NDArray[np.uint8]) -> List[pint.Quantity]:
-        """converts screen data to volts"""
+        """Convert screen data to volts."""
 
         dy = self.yincrement
         logger.debug('Converting screen data to volts. '
                      + f'one step is {dy:.7f} V')
-        return data.astype(np.float64)*dy*ureg('volt')
+        return data.astype(np.float64)*dy*ureg('volt') # type: ignore
 
     def _ok_read(self, dur: int,
                  data_chunk: npt.NDArray[np.uint8]) -> bool:
-        """verify that read data have necessary size"""
+        """Verify that read data have necessary size."""
 
         if dur == len(data_chunk):
             logger.debug('Data length is OK')
