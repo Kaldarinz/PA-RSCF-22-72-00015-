@@ -86,7 +86,8 @@ class Oscilloscope:
                  ra_kernel_size: int=20 #smoothing by rolling average
                  ) -> None:
         """Oscilloscope initializator.
-        chan_pre and chan_post are time intervals before and after
+
+        <chan_pre> and <chan_post> are time intervals before and after
         trigger for saving data from corresponding channels.
         """
         
@@ -103,7 +104,8 @@ class Oscilloscope:
                          + 'devices. Init failed')
             raise exceptions.OscilloscopeError('Oscilloscope was not found')
         else:
-            self.__osc = rm.open_resource(instrument_name[0])
+            self.__osc: pv.resources.USBInstrument
+            self.__osc = rm.open_resource(instrument_name[0]) # type: ignore
             logger.debug('Oscilloscope device found')
 
         self.set_preamble()
@@ -127,14 +129,15 @@ class Oscilloscope:
         self.not_found = False
 
     def connection_check(self) -> None:
-        """Checks connection to the oscilloscope.
+        """Check connection to the oscilloscope.
+
         Sets not_found flag.
         Never raises exceptions.
         """
 
         logger.debug('Trying to read and write from the oscilloscope')
         try:
-            self.__osc.write(':SYST:GAM?') # type: ignore
+            self.__osc.write(':SYST:GAM?')
             np.frombuffer(self.__osc.read_raw(), dtype=np.uint8) # type: ignore
             logger.debug('Operations complete')
             self.not_found = False
@@ -144,13 +147,13 @@ class Oscilloscope:
             self.not_found = True
 
     def query(self, message: str) -> str:
-        """Sends a querry to the oscilloscope"""
+        """Send a querry to the oscilloscope."""
 
         logger.debug(f'Sending query: {message}')
-        return self.__osc.query(message) # type: ignore
+        return self.__osc.query(message)
         
     def set_preamble(self) -> None:
-        """Sets osc params."""
+        """Set osc params."""
 
         query_results = self.query(':WAV:PRE?')
         preamble_raw = query_results.split(',')
@@ -167,7 +170,7 @@ class Oscilloscope:
         logger.debug(f'{len(preamble_raw)} parameters obtained and set')
 
     def set_sample_rate(self) -> None:
-        """Updates sample rate."""
+        """Update sample rate."""
 
         self.sample_rate = (float(self.query(':ACQ:SRAT?'))*ureg('hertz'))
         logger.debug(f'Sample rate updated to {self.sample_rate}')
@@ -181,7 +184,7 @@ class Oscilloscope:
         return points
 
     def ch_points(self) -> None:
-        """Updates len of pre, post and dur points for all channels."""
+        """Update len of pre, post and dur points for all channels."""
 
         logger.debug('Setting amount of data points for each channel...')
         self.set_sample_rate()
@@ -232,15 +235,15 @@ class Oscilloscope:
         
         msg = ':WAV:STAR ' + str(start + 1)
         logger.debug(f'Writing {msg}')
-        self.__osc.write(msg) # type: ignore
+        self.__osc.write(msg)
 
         msg = ':WAV:STOP ' + str(dur + start)
         logger.debug(f'Writing {msg}')
-        self.__osc.write(msg) # type: ignore
+        self.__osc.write(msg)
 
         msg = ':WAV:DATA?'
         logger.debug(f'Writing {msg}')
-        self.__osc.write(msg) # type: ignore
+        self.__osc.write(msg)
 
         data = np.frombuffer(self.__osc.read_raw(), # type: ignore
                              dtype=np.uint8)[self.HEADER_LEN:]
@@ -267,18 +270,18 @@ class Oscilloscope:
 
             command = ':WAV:STAR ' + str(start + start_i + 1)
             logger.debug(f'Writing {command}')
-            self.__osc.write(command) # type: ignore
+            self.__osc.write(command)
             
             if (dur - stop_i) > 0:
                 command = (':WAV:STOP ' + str(start + stop_i))
             else:
                 command = (':WAV:STOP ' + str(start + dur - 1))
             logger.debug(f'Writing {command}')
-            self.__osc.write(command) # type: ignore
+            self.__osc.write(command)
             
             command = ':WAV:DATA?'
             logger.debug(f'Writing {command}')
-            self.__osc.write(command) # type: ignore
+            self.__osc.write(command)
             
             data_chunk = np.frombuffer(self.__osc.read_raw(), # type: ignore
                                        dtype=np.uint8)[self.HEADER_LEN:]
@@ -329,7 +332,7 @@ class Oscilloscope:
             return False
 
     def read_data(self, ch_id: int) -> npt.NDArray[np.uint8]:
-        """Reads data from the specified channel.
+        """Read data from the specified channel.
         
         Sets data to ch_data_raw attribute.
         """
@@ -338,15 +341,15 @@ class Oscilloscope:
 
         cmd = ':WAV:SOUR ' + self.CH_IDS[ch_id]
         logger.debug(f'Writing {cmd}')
-        self.__osc.write(cmd) # type: ignore
+        self.__osc.write(cmd)
 
         cmd = ':WAV:MODE RAW'
         logger.debug(f'Writing {cmd}')
-        self.__osc.write(cmd) # type: ignore
+        self.__osc.write(cmd)
 
         cmd = ':WAV:FORM BYTE'
         logger.debug(f'Writing {cmd}')
-        self.__osc.write(cmd) # type: ignore
+        self.__osc.write(cmd)
         
         #update preamble, sample rate and len of channel points
         self.set_preamble()
@@ -377,7 +380,7 @@ class Oscilloscope:
     def baseline_correction(self,
                             data: npt.NDArray[np.uint8]
                             ) -> npt.NDArray[np.uint8]:
-        """Corrects baseline for the data.
+        """Correct baseline for the data.
         
         Assumes that baseline as at the start of measured signal.
         """
@@ -391,15 +394,15 @@ class Oscilloscope:
         return data
 
     def read_scr(self, ch_id: int) -> npt.NDArray[np.uint8]:
-        """reads screen data for the channel."""
+        """Read screen data for the channel."""
 
-        self.__osc.write(':WAV:SOUR ' + self.CH_IDS[ch_id]) # type: ignore
-        self.__osc.write(':WAV:MODE NORM') # type: ignore
-        self.__osc.write(':WAV:FORM BYTE') # type: ignore
-        self.__osc.write(':WAV:STAR 1') # type: ignore
-        self.__osc.write(':WAV:STOP ' + str(self.MAX_SCR_POINTS)) # type: ignore
-        self.__osc.write(':WAV:DATA?') # type: ignore
-        data_chunk = np.frombuffer(self.__osc.read_raw(), # type: ignore
+        self.__osc.write(':WAV:SOUR ' + self.CH_IDS[ch_id])
+        self.__osc.write(':WAV:MODE NORM')
+        self.__osc.write(':WAV:FORM BYTE')
+        self.__osc.write(':WAV:STAR 1')
+        self.__osc.write(':WAV:STOP ' + str(self.MAX_SCR_POINTS))
+        self.__osc.write(':WAV:DATA?')
+        data_chunk = np.frombuffer(self.__osc.read_raw(),
                                     dtype=np.uint8)[self.HEADER_LEN:]
         
         if self._ok_read(self.MAX_SCR_POINTS, data_chunk):
@@ -452,12 +455,12 @@ class Oscilloscope:
         self.bad_read = False
 
         logger.debug('Waiting for trigger to set...')
-        while int(self.__osc.query(':TRIG:POS?'))<0: # type: ignore
+        while int(self.__osc.query(':TRIG:POS?'))<0:
             time.sleep(0.1)
         logger.debug('Trigger is ready')
 
         logger.debug('Writing :STOP to enable reading from memory')
-        self.__osc.write(':STOP') # type: ignore
+        self.__osc.write(':STOP')
         for i, read_flag in enumerate([read_ch1, read_ch2]):
             if read_flag:
                 data_raw = self.read_data(i)
@@ -471,10 +474,10 @@ class Oscilloscope:
                 self.amp[i] = abs(np.max(data) - np.min(data)) # type: ignore
                 logger.debug(f'Data set for channel {self.CH_IDS[i]} set')
                 logger.debug(f'Signal amplitude is {self.amp[i]}')
+        
         # run the oscilloscope again
-
         logger.debug('Writing :RUN to enable oscilloscope')
-        self.__osc.write(':RUN') # type: ignore
+        self.__osc.write(':RUN')
 
 class PowerMeter:
     
