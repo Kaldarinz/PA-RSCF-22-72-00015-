@@ -10,7 +10,6 @@ import logging.config
 from datetime import datetime
 from typing import Union
 
-import numpy as np
 from InquirerPy import inquirer
 from InquirerPy.validator import PathValidator
 import pint
