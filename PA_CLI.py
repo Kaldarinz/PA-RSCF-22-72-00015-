@@ -8,7 +8,7 @@ import os, os.path
 import logging
 import logging.config
 from datetime import datetime
-from typing import Union
+from typing import Union, Optional
 
 from InquirerPy import inquirer
 from InquirerPy.validator import PathValidator
@@ -279,7 +279,7 @@ def bp_filter(data: PaData) -> None:
 
     data.bp_filter(low_cutof,high_cutof)
 
-def spectra(hardware: pa_logic.Hardware) -> Union[PaData,None]:
+def spectra(hardware: pa_logic.Hardware) -> Optional[PaData]:
     """CLI for PA spectral measurement"""
 
     if not pa_logic.osc_open(hardware) or not pa_logic.pm_open(hardware):

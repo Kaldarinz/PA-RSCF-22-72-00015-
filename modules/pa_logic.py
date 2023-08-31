@@ -3,7 +3,7 @@ PA backend
 """
 
 from doctest import debug
-from typing import Any, TypedDict, Union, List, Tuple
+from typing import Any, TypedDict, Union, List, Tuple, Optional
 import logging
 import os
 from itertools import combinations
@@ -448,7 +448,7 @@ def spectrum(
         step: pint.Quantity,
         target_energy: pint.Quantity,
         averaging: int
-) -> Union[PaData,None]:
+) -> Optional[PaData]:
     """Measure dependence of PA signal on excitation wavelength.
     
     Measurements start at <start_wl> wavelength and are taken
@@ -693,7 +693,7 @@ def glass_limit_comb(
 
     return result
 
-def glass_reflection(wl: pint.Quantity) -> Union[float,None]:
+def glass_reflection(wl: pint.Quantity) -> Optional[float]:
     """Get reflection (fraction) from glass at given wavelength.
     
     pm_energy/sample_energy = glass_reflection."""
@@ -724,7 +724,7 @@ def glass_reflection(wl: pint.Quantity) -> Union[float,None]:
 def glan_calc_reverse(
         target_energy: pint.Quantity,
         fit_order: int=1
-    ) -> Union[pint.Quantity,None]:
+    ) -> Optional[pint.Quantity]:
     """Calculate energy at power meter for given sample energy.
     
     It is assumed that power meter measures laser energy
@@ -761,7 +761,7 @@ def glan_calc_reverse(
 def glan_calc(
         energy: pint.Quantity,
         fit_order: int=1
-    ) -> Union[pint.Quantity,None]:
+    ) -> Optional[pint.Quantity]:
     """Calculates energy at sample for a given power meter energy"""
 
     sub_folder = 'rsc'
