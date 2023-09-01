@@ -397,7 +397,7 @@ class Oscilloscope:
         baseline = np.average(data[:bl_points])
         data = data.astype(np.int16)
         data -= int(baseline)
-        return data
+        return data # type: ignore
 
     def read_scr(self, ch_id: int) -> npt.NDArray[np.uint8]:
         """Read screen data for the channel."""
@@ -490,7 +490,7 @@ class Oscilloscope:
 class PowerMeter:
     
     ###DEFAULTS###
-    SENS = 2630000 #scalar coef to convert integral readings into [uJ]
+    SENS = 210.4 #scalar coef to convert integral readings into [uJ]
 
     ch: int # channel ID number
     osc: Oscilloscope
@@ -601,6 +601,7 @@ class PowerMeter:
         laser_amp = np.sum(
             data[self.start_ind:self.stop_ind])*step.to('s').m*self.SENS
 
+        laser_amp = laser_amp.m*ureg.mJ
         logger.debug(f'Calculated value of energy is {laser_amp}')
         return laser_amp
     
