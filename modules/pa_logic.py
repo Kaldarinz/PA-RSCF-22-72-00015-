@@ -245,7 +245,7 @@ def stages_open(hardware: Hardware) -> bool:
             connected = False
         else:
             logger.debug('Stage Y is open')
-        stage_z = hardware.get('stage_z', default=None)
+        stage_z = hardware.get('stage_z', None)
         if stage_z is not None:
             if not hardware['stage_z'].is_opened():
                 logger.warning('Stage Z is not open')
