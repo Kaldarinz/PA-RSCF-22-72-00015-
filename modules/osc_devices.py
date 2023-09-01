@@ -1,7 +1,7 @@
 """
 Oscilloscope based devices
 """
-from typing import List
+from typing import List, Optional
 import logging
 import time
 
@@ -56,18 +56,24 @@ class Oscilloscope:
         self.yreference: float # vertical reference position in the Y direction
 
         #channels attributes
-        self.pre_t: List[pint.Quantity] # time before trig to save data
-        self.post_t: List[pint.Quantity] # time after trigger
-        self.dur_t: List[pint.Quantity] # duration of data
-        self.pre_p: List[int] # same in points
-        self.post_p: List[int]
-        self.dur_p: List[int]
-        self.data: List[List[pint.Quantity]]
-        self.data_raw: List[npt.NDArray[np.uint8]]
-        self.amp: List[pint.Quantity] # amplitude of data
-        self.scr_data: List[List[pint.Quantity]]
-        self.scr_data_raw: List[npt.NDArray[np.uint8]]
-        self.scr_amp: List[pint.Quantity]
+        #
+        # time before trig to save data
+        self.pre_t: List[Optional[pint.Quantity]] = [None]*self.CHANNELS
+        # time after trigger
+        self.post_t: List[Optional[pint.Quantity]] = [None]*self.CHANNELS
+        # duration of data
+        self.dur_t: List[Optional[pint.Quantity]] = [None]*self.CHANNELS
+        # same in points
+        self.pre_p: List[Optional[int]] = [None]*self.CHANNELS
+        self.post_p: List[Optional[int]] =[None]*self.CHANNELS
+        self.dur_p: List[Optional[int]] = [None]*self.CHANNELS
+        self.data: List[Optional[List[pint.Quantity]]] = [None]*self.CHANNELS
+        self.data_raw: List[Optional[npt.NDArray[np.uint8]]] = [None]*self.CHANNELS
+        # amplitude of data
+        self.amp: List[Optional[pint.Quantity]] = [None]*self.CHANNELS
+        self.scr_data: List[Optional[List[pint.Quantity]]] = [None]*self.CHANNELS
+        self.scr_data_raw: List[Optional[npt.NDArray[np.uint8]]] = [None]*self.CHANNELS
+        self.scr_amp: List[Optional[pint.Quantity]] = [None]*self.CHANNELS
 
         # data smoothing parameters
         self.ra_kernel: int# kernel size for rolling average smoothing
@@ -111,6 +117,7 @@ class Oscilloscope:
 
         #smoothing parameters
         self.ra_kernel = ra_kernel_size
+        logger.debug(f'Smoothing param set to {ra_kernel_size}')
 
         #set time intervals for channels
         self.pre_t[0] = chan1_pre
@@ -120,6 +127,7 @@ class Oscilloscope:
         self.pre_t[1] = chan2_pre
         self.post_t[1] = chan2_post
         self.dur_t[1] = chan2_pre + chan2_post # type: ignore
+        logger.debug('Time intervals for channels set.')
 
         #update time intervals for both channels in points
         self.ch_points()
