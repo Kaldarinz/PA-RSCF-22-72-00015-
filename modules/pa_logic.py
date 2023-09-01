@@ -141,7 +141,7 @@ def init_stages(hardware: Hardware) -> bool:
     stages = Thorlabs.list_kinesis_devices()
     logger.debug(f'{len(stages)} devices found')
 
-    if hardware.get('stage_z', default=None) is None:
+    if hardware.get('stage_z', None) is not None:
         amount = 3
     else:
         amount = 2
