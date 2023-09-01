@@ -384,7 +384,7 @@ class Oscilloscope:
 
     def baseline_correction(self,
                             data: npt.NDArray[np.uint8]
-                            ) -> npt.NDArray[np.uint8]:
+                            ) -> npt.NDArray[np.int16]:
         """Correct baseline for the data.
         
         Assumes that baseline as at the start of measured signal.
@@ -395,13 +395,16 @@ class Oscilloscope:
                      + f'{len(data)} data points. '
                      + f'Baseline length is {bl_points}.')
         baseline = np.average(data[:bl_points])
+        data = data.astype(np.int16)
         data -= int(baseline)
         return data
 
     def read_scr(self, ch_id: int) -> npt.NDArray[np.uint8]:
         """Read screen data for the channel."""
 
-        self.__osc.write(':WAV:SOUR ' + self.CH_IDS[ch_id])
+        chan = self.CH_IDS[ch_id]
+        logger.debug(f'Reading screen data from {chan}')
+        self.__osc.write(':WAV:SOUR ' + chan)
         self.__osc.write(':WAV:MODE NORM')
         self.__osc.write(':WAV:FORM BYTE')
         self.__osc.write(':WAV:STAR 1')
