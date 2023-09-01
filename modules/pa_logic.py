@@ -397,7 +397,7 @@ def track_power(hardware: Hardware, tune_width: int) -> pint.Quantity:
         logger.debug(f'measured {laser_amp=}')
         if not laser_amp:
             continue
-        data.append(laser_amp)
+        data.append(laser_amp.to('uJ'))
         
         #ndarray for up to last <aver> values
         tmp_data = pint.Quantity.from_list(
@@ -405,8 +405,8 @@ def track_power(hardware: Hardware, tune_width: int) -> pint.Quantity:
         mean = tmp_data.mean() # type: ignore
         std = tmp_data.std() # type: ignore
         title = (f'Energy={laser_amp}, '
-                + f'Mean (last {aver}) = {mean}, '
-                + f'Std (last {aver}) = {std}')
+                + f'Mean (last {aver}) = {mean:.2}, '
+                + f'Std (last {aver}) = {std:.2}')
         logger.debug(f'plot {title=}')
         
         #plotting data
@@ -429,7 +429,7 @@ def track_power(hardware: Hardware, tune_width: int) -> pint.Quantity:
             alpha=0.4,
             ms=12,
             color='red')
-        ax_pa.plot(tmp_data)
+        ax_pa.plot([x.m for x in data])
         ax_pa.set_title(title)
         ax_pa.set_ylim(bottom=0)
         fig.canvas.draw()
