@@ -38,7 +38,7 @@ def init_logs() -> logging.Logger:
         if 'filename' in log_config['handlers'][i]:
             log_filename = log_config["handlers"][i]["filename"]
             base, extension = os.path.splitext(log_filename)
-            today = datetime.today().strftime("_%Y_%m_%d")
+            today = datetime.today().strftime("_%Y_%m_%d-%H-%M-%S")
             log_filename = f"{base}{today}{extension}"
             log_config["handlers"][i]["filename"] = log_filename
 

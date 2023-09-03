@@ -55,11 +55,13 @@ def init_hardware(hardware: Hardware) -> bool:
     logger.info('Starting hardware initialization...')
     
     if not init_osc(hardware):
-        logger.warning('Oscilloscope cannot be loaded')
+        logger.warning('Oscilloscope cannot be loaded!')
+        logger.debug('...Terminating')
         return False
     osc = hardware['osc']
     if not init_stages(hardware):
-        logger.warning('Stages cannot be loaded')
+        logger.warning('Stages cannot be loaded!')
+        logger.debug('...Terminating!')
         return False
     
     pm = hardware.get('power_meter')
@@ -80,7 +82,7 @@ def init_hardware(hardware: Hardware) -> bool:
         hardware.update({'pa_sens': pa})
         logger.debug('PA sensor reinitiated on the same channel')
                 
-    logger.info('Hardware initialization complete')
+    logger.info('...Finishing hardware initialization.')
     return True
 
 def load_config(hardware: Hardware) -> dict:
@@ -90,7 +92,7 @@ def load_config(hardware: Hardware) -> dict:
     Additionally add all optional devices to hardware dict.
     """
 
-    logger.debug('Start loading config...')
+    logger.debug('Starting loading config...')
     base_path = os.path.dirname(os.path.dirname(__name__))
     sub_dir = 'rsc'
     filename = 'config.yaml'
@@ -99,7 +101,7 @@ def load_config(hardware: Hardware) -> dict:
         with open(full_path, 'r') as f:
             config = yaml.safe_load(f)['hardware']
     except:
-        logger.warning('Connfig cannot be properly loaded')
+        logger.warning('...Terminatin. Connfig cannot be properly loaded')
         return {}
     
     hardware.update({'config':config})
@@ -123,18 +125,18 @@ def load_config(hardware: Hardware) -> dict:
         pa_chan = config['pa_sensor']['connected_chan']
         pa.set_channel(pa_chan-1)
         logger.debug(f'PA sensor added to hardare list at CHAN{pa_chan}')
-    logger.debug(f'Config file read')
+    logger.debug(f'...Finishing. Config file read.')
     return config
 
 def init_stages(hardware: Hardware) -> bool:
     """Initiate Thorlabs KDC based stages."""
 
-    logger.debug(f'Init_stages is starting...')
+    logger.debug(f'Starting...')
     logger.debug('Checking if connection to stages is '
                 +'already estblished')
 
     if stages_open(hardware):
-        logger.info('Connection to all stages already established!')
+        logger.info('...Finishing. Connection to all stages already established!')
         return True
 
     logger.debug('Searching for Thorlabs kinsesis devices (stages)')
@@ -149,6 +151,7 @@ def init_stages(hardware: Hardware) -> bool:
     if len(stages) < amount:
         msg = f'Less than {amount} kinesis devices found!'
         logger.error(msg)
+        logger.debug('...Terminating.')
         return False
 
     connected = True
@@ -200,6 +203,7 @@ def init_stages(hardware: Hardware) -> bool:
     else:
         logger.warning('Stages are not initiated')
     
+    logger.debug(f'...Finishing. Stages {connected=}')
     return connected
 
 def init_osc(hardware: Hardware) -> bool:
@@ -209,11 +213,12 @@ def init_osc(hardware: Hardware) -> bool:
     initialization is successfull.
     """
     
-    logger.debug('Init_osc is starting...')
+    logger.debug('Starting...')
     logger.debug('Checking if connection is already estblished')
 
     if osc_open(hardware):
         logger.info('Connection to oscilloscope is already established!')
+        logger.debug('...Finishing.')
         return True
 
     logger.debug('No connection found. Trying to establish connection')
@@ -221,9 +226,10 @@ def init_osc(hardware: Hardware) -> bool:
         hardware['osc'].initialize()
     except Exception as err:
         logger.error(f'Error {type(err)} while trying initialize osc')
+        logger.debug('...Terminating.')
         return False
     else:
-        logger.debug('Oscilloscope initialization complete')
+        logger.debug('...Finishing. Oscilloscope initialization complete')
         return True
 
 def stages_open(hardware: Hardware) -> bool:
@@ -232,7 +238,7 @@ def stages_open(hardware: Hardware) -> bool:
     Never raise exceptions.
     """
 
-    logger.debug('Starting connection check to stages')
+    logger.debug('Starting connection check to stages...')
     connected = True
     try:
         if not hardware['stage_x'].is_opened():
@@ -259,28 +265,29 @@ def stages_open(hardware: Hardware) -> bool:
     if connected:
         logger.debug('All stages are connected and open')
 
+    logger.debug(f'...Finishing. stages {connected=}')
     return connected
 
 def osc_open(hardware: Hardware) -> bool:
     """Return true if oscilloscope is connected."""
 
-    logger.debug('Starting connection check to oscilloscope')
+    logger.debug('Starting connection check to oscilloscope...')
     hardware['osc'].connection_check()
     connected = not hardware['osc'].not_found
-    logger.debug(f'Oscilloscope {connected=}')
+    logger.debug(f'...Finishing. Oscilloscope {connected=}')
     return connected
 
 def pm_open(hardware: Hardware) -> bool:
     """Return true if power meter is configured."""
 
-    logger.debug('Starting power meter connection check')
+    logger.debug('Starting power meter connection check...')
 
     if hardware.get('power_meter') is None:
-        logger.warning('Power meter is not initialized')
+        logger.warning('Power meter is missing in config file.')
         connected = False
     else:
         connected = osc_open(hardware)
-        logger.debug(f'Power meter {connected=}')
+        logger.debug(f'...Finishing. Power meter {connected=}')
     return connected
 
 def move_to(X: float, Y: float, hardware: Hardware) -> None:
@@ -293,12 +300,13 @@ def move_to(X: float, Y: float, hardware: Hardware) -> None:
     x_dest_mm = X/1000
     y_dest_mm = Y/1000
 
+    logger.debug('Starting...')
     logger.debug(f'Sending X stage to {x_dest_mm} mm position')
     try:
         hardware['stage_x'].move_to(x_dest_mm)
     except:
         msg = 'Stage X move_to command failed'
-        logger.error(msg)
+        logger.error('...Terminating. ' + msg)
         raise exceptions.StageError(msg)
 
     logger.debug(f'Sending Y stage to {y_dest_mm} mm position')
@@ -306,19 +314,20 @@ def move_to(X: float, Y: float, hardware: Hardware) -> None:
         hardware['stage_y'].move_to(y_dest_mm)
     except:
         msg = 'Stage Y move_to command failed'
-        logger.error(msg)
+        logger.error('...Terminating. ' + msg)
         raise exceptions.StageError(msg)
 
 def wait_stages_stop(hardware: Hardware) -> None:
     """Wait untill all (2) stages stop."""
 
-    logger.debug('waiting untill stages complete moving')
+    logger.debug('Starting...')
+    logger.debug('Waiting untill stages complete moving.')
     try:
         hardware['stage_x'].wait_for_stop()
         logger.debug('Stage X stopped')
     except:
         msg = 'Stage X wait_for_stop command failed'
-        logger.error(msg)
+        logger.error('...Terminating. ' + msg)
         raise exceptions.StageError(msg)
     
     try:
@@ -326,19 +335,19 @@ def wait_stages_stop(hardware: Hardware) -> None:
         logger.debug('Stage Y stopped')
     except:
         msg = 'Stage Y wait_for_stop command failed'
-        logger.error(msg)
+        logger.error('...Terminating. ' + msg)
         raise exceptions.StageError(msg)
 
 def home(hardware: Hardware) -> None:
     """Home all (2) stages."""
 
-    logger.debug('homing is starting...')
+    logger.debug('Starting homing...')
     try:
         logger.debug('homing stage X')
         hardware['stage_x'].home(sync=False,force=True)
     except:
         msg = 'Stage X homing command failed'
-        logger.error(msg)
+        logger.error('...Terminating. ' + msg)
         raise exceptions.StageError(msg)
 
     try:
@@ -346,7 +355,7 @@ def home(hardware: Hardware) -> None:
         hardware['stage_y'].home(sync=False,force=True)
     except:
         msg = 'Stage Z homing command failed'
-        logger.error(msg)
+        logger.error('...Terminating. ' + msg)
         raise exceptions.StageError(msg)
     
     wait_stages_stop(hardware)
@@ -364,8 +373,8 @@ def track_power(hardware: Hardware, tune_width: int) -> pint.Quantity:
     measure_delay = ureg('50ms')
     ###
 
-    logger.debug('track_power is starting with config params: '
-                 + f'{aver=}, {threshold=}, {measure_delay=}')
+    logger.debug('Starting tracking power with params: '
+                 + f'{aver=}, {threshold=}, {measure_delay=}...')
     pm = hardware['power_meter'] #type: ignore
     
     #tune_width cannot be smaller than averaging
@@ -391,7 +400,7 @@ def track_power(hardware: Hardware, tune_width: int) -> pint.Quantity:
         try:
             laser_amp = pm.get_energy_scr()
         except exceptions.OscilloscopeError as err:
-            logger.warning(f'{err.value}. Laser energy = {mean}')
+            logger.warning(f'...Terminating. {err.value}. Laser energy = {mean}')
             return mean
 
         logger.debug(f'measured {laser_amp=}')
@@ -439,6 +448,7 @@ def track_power(hardware: Hardware, tune_width: int) -> pint.Quantity:
             break
         time.sleep(measure_delay.to('s').m)
 
+    logger.debug(f'...Finishing. Energy = {mean}')
     return mean
 
 def spectrum(
@@ -458,7 +468,7 @@ def spectrum(
     Each measurement will be averaged <averaging> times.
     """
 
-    logger.info('Start measuring spectra!')
+    logger.info('Starting measuring spectra...')
     data = PaData(dims=1, params=['Wavelength'])
     #make steps negative if going from long WLs to short
     if start_wl > end_wl:
@@ -482,14 +492,16 @@ def spectrum(
                     +'Please set it!')
 
         if not set_energy(hardware, current_wl, target_energy, bool(i)):
+            logger.debug('...Terminating.')
             return
         measurement, proceed = ameasure_point(hardware, averaging, current_wl)
         data.add_measurement(measurement, [current_wl])
         data.save_tmp()
         if not proceed:
+            logger.debug('...Terminating.')
             return data
-    logger.info('Spectral scanning complete!')
     data.bp_filter()
+    logger.info('...Finishing. Spectral scanning complete!')
     return data
 
 def set_energy(
@@ -504,6 +516,7 @@ def set_energy(
     <repeated> is flag which indicates that this is not the first
     call of set_energy."""
 
+    logger.debug('Starting...')
     if hardware['config']['power_control'] == 'Filters':
         logger.info('Please remove all filters and measure '
                     + 'energy at glass reflection.')
@@ -526,6 +539,7 @@ def set_energy(
                 message='Do you want to continue?').execute()
             if not cont_ans:
                 logger.warning('Spectral measurements terminated!')
+                logger.debug('...Terminating.')
                 return False
             
         reflection = glass_reflection(current_wl)
@@ -539,6 +553,7 @@ def set_energy(
         else:
             logger.warning('Target power meter energy '
                             + 'cannot be calculated!')
+            logger.debug('...Terminating.')
             return False
     
     elif hardware['config']['power_control'] == 'Glan prism' and not repeated:
@@ -549,7 +564,9 @@ def set_energy(
     else:
         logger.error('Unknown power control method! '
                         + 'Measurements terminated!')
+        logger.debug('...Terminating.')
         return False
+    logger.debug('...Finishing.')
     return True
                 
 def glass_calculator(wavelength: pint.Quantity,
@@ -567,8 +584,7 @@ def glass_calculator(wavelength: pint.Quantity,
     Accept only wavelengthes, which are present in rsc/ColorGlass.txt.
     """
 
-    #dict for storing found valid combinations
-    result = {}
+    logger.debug('Starting...')
     #file with filter's properties
     sub_folder = 'rsc'
     filename = 'ColorGlass.txt'
@@ -579,9 +595,11 @@ def glass_calculator(wavelength: pint.Quantity,
         header = open(filename).readline()
     except FileNotFoundError:
         logger.error('File with color glass data not found!')
+        logger.debug('...Terminating.')
         return {}
     except ValueError as er:
         logger.error(f'Error while loading color glass data!: {str(er)}')
+        logger.debug('...Terminating')
         return {}
     
     glass_rm_zeros(data)
@@ -592,11 +610,13 @@ def glass_calculator(wavelength: pint.Quantity,
         wl_index = np.where(data[1:,0] == wavelength)[0][0] + 1
     except IndexError:
         logger.error('Target WL is missing in color glass data table!')
+        logger.debug('...Terminating')
         return {}
     # calculated laser energy at sample
     laser_energy = current_energy_pm/data[wl_index,1]*100
     if laser_energy == 0:
         logger.error('Laser radiation is not detected!')
+        logger.debug('...Terminating')
         return {}
     #required total transmission of filters
     target_transm = target_energy/laser_energy
@@ -622,11 +642,13 @@ def glass_calculator(wavelength: pint.Quantity,
     for comb_name, transmission in result_comb.items():
         logger.info(f'{comb_name}: {transmission*100:.1f} %')
 
+    logger.debug('...Finishing.')
     return result_comb
 
 def glass_rm_zeros(data: np.ndarray) -> None:
     """Replaces zeros in filters data by linear fit from nearest values."""
 
+    logger.debug('Starting...')
     for j in range(data.shape[1]-2):
         for i in range(data.shape[0]-1):
             if data[i+1,j+2] == 0:
@@ -645,6 +667,7 @@ def glass_rm_zeros(data: np.ndarray) -> None:
                         logger.warning('adjacent zeros in filter data are not supported!')
                     else:
                         data[i+1,j+2] = (data[i,j+2] + data[i+2,j+2])/2
+    logger.debug('...Finishing')
 
 def glass_calc_od(data: np.ndarray) -> None:
     """Calculate OD using thickness of filters."""
@@ -698,6 +721,7 @@ def glass_reflection(wl: pint.Quantity) -> Optional[float]:
     
     pm_energy/sample_energy = glass_reflection."""
 
+    logger.debug('Starting...')
      #file with filter's properties
     sub_folder = 'rsc'
     filename = 'ColorGlass.txt'
@@ -707,9 +731,11 @@ def glass_reflection(wl: pint.Quantity) -> Optional[float]:
         data = np.loadtxt(filename,skiprows=1)
     except FileNotFoundError:
         logger.error('File with color glass data not found!')
+        logger.debug('...Terminating.')
         return
     except ValueError as er:
         logger.error(f'Error while loading color glass data!: {str(er)}')
+        logger.debug('...Terminating')
         return
     
     try:
@@ -717,8 +743,10 @@ def glass_reflection(wl: pint.Quantity) -> Optional[float]:
         wl_index = np.where(data[1:,0] == wl_nm.m)[0][0] + 1
     except IndexError:
         logger.warning('Target WL is missing in color glass data table!')
+        logger.debug('...Terminating')
         return
     
+    logger.debug('...Finishing')
     return data[wl_index,1]/100
 
 def glan_calc_reverse(
@@ -733,6 +761,7 @@ def glan_calc_reverse(
     <fit_order> is a ploynom order used for fitting callibration data.
     """
 
+    logger.debug('Starting...')
     sub_folder = 'rsc'
     filename = 'GlanCalibr.txt'
     filename = os.path.join(sub_folder,filename)
@@ -741,9 +770,11 @@ def glan_calc_reverse(
         calibr_data = np.loadtxt(filename, dtype=np.float64)
     except FileNotFoundError:
         logger.error('File with glan callibration not found!')
+        logger.debug('...Terminating')
         return
     except ValueError as er:
         logger.error(f'Error while loading color glass data!: {str(er)}')
+        logger.debug('...Terminating')
         return
 
     coef = np.polyfit(calibr_data[:,0], calibr_data[:,1],fit_order)
@@ -756,6 +787,7 @@ def glan_calc_reverse(
                        'realized! Linear fit used instead!')
         energy = (target_energy.to('uJ').m - coef[1])/coef[0]*ureg.uJ
     
+    logger.debug('...Finishing')
     return energy
 
 def glan_calc(
@@ -764,6 +796,7 @@ def glan_calc(
     ) -> Optional[pint.Quantity]:
     """Calculates energy at sample for a given power meter energy"""
 
+    logger.debug('Starting...')
     sub_folder = 'rsc'
     filename = 'GlanCalibr.txt'
     filename = os.path.join(sub_folder,filename)
@@ -772,9 +805,11 @@ def glan_calc(
         calibr_data = np.loadtxt(filename, dtype=np.float64)
     except FileNotFoundError:
         logger.error('File with glan callibration not found!')
+        logger.debug('...Terminating')
         return
     except ValueError as er:
         logger.error(f'Error while loading color glass data!: {str(er)}')
+        logger.debug('...Terminating')
         return
 
     #get coefficients which fit calibration data with fit_order polynom
@@ -784,7 +819,9 @@ def glan_calc(
     fit = np.poly1d(coef)
 
     #return the value of polynom at energy
-    return fit(energy.to('uJ').m)*ureg.uJ
+    sample_en = fit(energy.to('uJ').m)*ureg.uJ
+    logger.debug('...Finishing')
+    return sample_en
 
 def ameasure_point(
     hardware: Hardware,
@@ -797,7 +834,7 @@ def ameasure_point(
     continue measurements.
     """
 
-    logger.debug('Start measuring PA data point with averaging.')
+    logger.debug('Starting measuring PA data point with averaging...')
     counter = 0
     msmnts: List[Data_point]=[]
     while counter < averaging:
@@ -813,18 +850,20 @@ def ameasure_point(
                 counter += 1
                 if counter == averaging:
                     measurement = aver_measurements(msmnts)
-                    logger.debug('Data point successfully measured!')
+                    logger.debug('...Finishinng. Data point successfully measured!')
                     return measurement, True
        
         elif action == 'Stop measurements':
             if confirm_action():
                 measurement = aver_measurements(msmnts)
                 logger.warning('Spectral measurement terminated')
+                logger.debug('...Terminating.')
                 return measurement, False
         else:
             logger.warning('Unknown command in Spectral measure menu!')
     
     logger.warning('Unexpectedly passed after main measure sycle!')
+    logger.debug('...Terminating with empty data point.')
     return new_data_point(), True
 
 def measure_point(
@@ -833,7 +872,7 @@ def measure_point(
 ) -> Data_point:
     """Measure single PA data point."""
 
-    logger.debug('Start measuring PA data point.')
+    logger.debug('Starting measuring PA data point...')
     osc = hardware['osc']
     pm = hardware['power_meter'] #type: ignore
     pa_ch_id = int(hardware['config']['pa_sensor']['connected_chan']) - 1
@@ -894,6 +933,7 @@ def measure_point(
     else:
         logger.error('Unknown power control method! '
                     + 'Measurements terminated!')
+        logger.debug('...Terminating.')
         return measurement
     
     measurement.update(
@@ -906,6 +946,7 @@ def measure_point(
                     + f'with max value={max(pa_signal)}')
     logger.debug(f'PA amplitude = {pa_amp}')
 
+    logger.debug('...Finishing')
     return measurement
 
 def aver_measurements(measurements: List[Data_point]) -> Data_point:
@@ -914,6 +955,7 @@ def aver_measurements(measurements: List[Data_point]) -> Data_point:
     Actually only amplitude values are averaged, in other cases data
     from the last measurement from the <measurements> is used."""
 
+    logger.debug('Starting...')
     result = new_data_point()
     total = len(measurements)
     for measurement in measurements:
@@ -937,6 +979,7 @@ def aver_measurements(measurements: List[Data_point]) -> Data_point:
     logger.info(f'Average energy at {result["sample_energy"]}')
     logger.info(f'Average PA signal amp {result["max_amp"]}')
     
+    logger.debug('...Finishing')
     return result
 
 def verify_measurement(
@@ -945,6 +988,7 @@ def verify_measurement(
 ) -> bool:
     """Verify a PA measurement."""
 
+    logger.debug('Starting...')
     # update state of power meter
     pm = hardware['power_meter'] #type:ignore
     pm_signal = measurement['pm_signal']
@@ -983,6 +1027,7 @@ def verify_measurement(
         message='Data looks good?').execute()
     logger.debug(f'{good_data=} was choosen')
 
+    logger.debug('...Finishing')
     return good_data
 
 def set_next_measure_action() -> str:
@@ -991,20 +1036,22 @@ def set_next_measure_action() -> str:
     Returned values = ['Tune power'|'Measure'|'Stop measurements'].
     """
 
+    logger.debug('Starting...')
     # in future this function can have several implementations
     # depending on whether CLI or GUI mode is used
     measure_ans = inquirer.rawlist(
     message='Chose an action:',
     choices=['Tune power','Measure','Stop measurements']
     ).execute()
-    logger.debug(f'{measure_ans=} was choosen')
+    logger.debug(f'...Finishing. {measure_ans=} was choosen')
     return measure_ans
 
 def confirm_action(message: str='') -> bool:
     """Confirm execution of an action."""
 
+    logger.debug('Starting...')
     if not message:
         message = 'Are you sure?'
     confirm = inquirer.confirm(message=message).execute()
-    logger.debug(f'{confirm=} was choosen.')
+    logger.debug(f'...Finishing. {confirm=} was choosen.')
     return confirm
