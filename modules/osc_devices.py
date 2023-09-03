@@ -564,6 +564,8 @@ class PowerMeter:
             return laser_amp
         else:
             logger.debug('...Terminating. Data not not accessible.')
+            return 0*ureg.J
+
 
     def energy_from_data(self,
                          data: List[pint.Quantity],
