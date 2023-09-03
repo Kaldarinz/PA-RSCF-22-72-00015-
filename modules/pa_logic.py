@@ -214,8 +214,6 @@ def init_osc(hardware: Hardware) -> bool:
     """
     
     logger.debug('Starting...')
-    logger.debug('Checking if connection is already estblished')
-
     if osc_open(hardware):
         logger.info('Connection to oscilloscope is already established!')
         logger.debug('...Finishing.')
@@ -881,11 +879,20 @@ def measure_point(
     osc.measure()
     dt = 1/osc.sample_rate
     pa_signal = osc.data[pa_ch_id]
+    if pa_signal is None:
+        logger.debug('..Terminating. PA data is missing.')
+        return measurement
     pa_amp = osc.amp[pa_ch_id]
     pa_signal_raw = osc.data_raw[pa_ch_id]
+    if pa_signal_raw is None:
+        logger.debug('..Terminating. Raw PA data is missing.')
+        return measurement
     start_time = 0*ureg.s
     stop_time = dt*(len(pa_signal)-1)
     pm_signal = osc.data[pm_ch_id]
+    if pm_signal is None:
+        logger.debug('..Terminating. PM data is missing.')
+        return measurement
     pm_energy = pm.energy_from_data(pm_signal, dt)
 
     measurement.update(

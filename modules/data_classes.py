@@ -42,7 +42,7 @@ class RawData(TypedDict):
     """Typed dict for a data point."""
 
     data: List[pint.Quantity]
-    data_raw: npt.NDArray[np.uint8]
+    data_raw: npt.NDArray[np.uint8|np.int16]
     param_val: List[pint.Quantity]
     x_var_step: pint.Quantity
     x_var_start: pint.Quantity
@@ -73,7 +73,7 @@ class Data_point(TypedDict):
 
     dt: pint.Quantity
     pa_signal: List[pint.Quantity]
-    pa_signal_raw: npt.NDArray[np.uint8]
+    pa_signal_raw: npt.NDArray[np.uint8|np.int16]
     pm_signal: List[pint.Quantity]
     start_time: pint.Quantity
     stop_time: pint.Quantity
