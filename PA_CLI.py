@@ -14,6 +14,7 @@ from InquirerPy import inquirer
 from InquirerPy.validator import PathValidator
 import pint
 import yaml
+from pylablib.devices.Thorlabs import KinesisMotor
 
 import modules.validators as vd
 from modules.pa_data import PaData
@@ -525,8 +526,8 @@ if __name__ == "__main__":
 
     logger.debug('Creating a dict for storing hardware refs')
     hardware: pa_logic.Hardware = {
-        'stage_x': 0,
-        'stage_y': 0,
+        'stage_x': None,
+        'stage_y': None,
         'osc': osc_devices.Oscilloscope(),
         'config': {}
     } # type: ignore

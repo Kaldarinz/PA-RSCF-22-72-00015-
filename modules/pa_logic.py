@@ -58,6 +58,8 @@ def init_hardware(hardware: Hardware) -> bool:
         logger.warning('Oscilloscope cannot be loaded!')
         logger.debug('...Terminating')
         return False
+    else:
+        logger.info('Oscilloscope initiated. ')
     osc = hardware['osc']
     if not init_stages(hardware):
         logger.warning('Stages cannot be loaded!')
@@ -82,7 +84,7 @@ def init_hardware(hardware: Hardware) -> bool:
         hardware.update({'pa_sens': pa})
         logger.debug('PA sensor reinitiated on the same channel')
                 
-    logger.info('...Finishing hardware initialization.')
+    logger.debug('...Finishing hardware initialization.')
     return True
 
 def load_config(hardware: Hardware) -> dict:
@@ -199,7 +201,7 @@ def init_stages(hardware: Hardware) -> bool:
             logger.info(f'Stage Z with ID={stage3_ID} is initiated')
     
     if connected:
-        logger.info('Stage initiation is complete')
+        logger.info('Stages initiated.')
     else:
         logger.warning('Stages are not initiated')
     
@@ -257,7 +259,7 @@ def stages_open(hardware: Hardware) -> bool:
             else:
                 logger.debug('Stage Z is open')
     except:
-        logger.error('Error during stages connection check')
+        logger.debug('Stages are not connected.')
         connected = False
     
     if connected:
@@ -443,6 +445,8 @@ def track_power(hardware: Hardware, tune_width: int) -> pint.Quantity:
         plt.pause(0.01)
             
         if keyboard.is_pressed('q'):
+            break
+        if not plt.get_fignums():
             break
 
     logger.debug(f'...Finishing. Energy = {mean}')

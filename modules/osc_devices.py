@@ -149,7 +149,6 @@ class Oscilloscope:
             self.not_found = False
         except Exception as err:
             logger.debug(f'Operation failed with error {type(err)}')
-            logger.warning('...Finishing. Oscilloscope is not connected.')
             self.not_found = True
 
     def query(self, message: str) -> str:
