@@ -66,12 +66,15 @@ def init_hardware(hardware: Hardware) -> bool:
         logger.debug('...Terminating!')
         return False
     
+    config = hardware['config']
     pm = hardware.get('power_meter')
     if pm is not None:
         #save pm channel to apply it after init
         pm_chan = pm.ch
+        pre_time = float(config['power_meter']['pre_time'])*ureg.us
+        post_time = float(config['power_meter']['post_time'])*ureg.us
         pm = osc_devices.PowerMeter(osc)
-        pm.set_channel(pm_chan)
+        pm.set_channel(pm_chan, pre_time, post_time)
         hardware.update({'power_meter': pm})
         logger.debug('Power meter reinitiated on the same channel')
 
@@ -79,8 +82,10 @@ def init_hardware(hardware: Hardware) -> bool:
     if pa is not None:
         #save pa channel to apply it after init
         pa_chan = pa.ch
+        pre_time = float(config['pa_sensor']['pre_time'])*ureg.us
+        post_time = float(config['pa_sensor']['post_time'])*ureg.us
         pa = osc_devices.PhotoAcousticSensOlymp(osc)
-        pa.set_channel(pa_chan)
+        pa.set_channel(pa_chan, pre_time, post_time)
         hardware.update({'pa_sens': pa})
         logger.debug('PA sensor reinitiated on the same channel')
                 
@@ -118,14 +123,18 @@ def load_config(hardware: Hardware) -> dict:
         hardware.update({'power_meter': osc_devices.PowerMeter(osc)})
         pm = hardware['power_meter'] # type: ignore
         pm_chan = config['power_meter']['connected_chan']
-        pm.set_channel(pm_chan-1)
+        pre_time = float(config['power_meter']['pre_time'])*ureg.us
+        post_time = float(config['power_meter']['post_time'])*ureg.us
+        pm.set_channel(pm_chan-1, pre_time, post_time)
         logger.debug(f'Power meter added to hardare list at CHAN{pm_chan}')
     if bool(config['pa_sensor']['connected']):
         hardware.update(
             {'pa_sens':osc_devices.PhotoAcousticSensOlymp(osc)})
         pa = hardware['pa_sens'] # type: ignore
-        pa_chan = config['pa_sensor']['connected_chan']
-        pa.set_channel(pa_chan-1)
+        pa_chan = config['pa_sensor']['connected_chan'] - 1
+        pre_time = float(config['pa_sensor']['pre_time'])*ureg.us
+        post_time = float(config['pa_sensor']['post_time'])*ureg.us
+        pa.set_channel(pa_chan, pre_time, post_time)
         logger.debug(f'PA sensor added to hardare list at CHAN{pa_chan}')
     logger.debug(f'...Finishing. Config file read.')
     return config
@@ -458,6 +467,7 @@ def spectrum(
         end_wl: pint.Quantity,
         step: pint.Quantity,
         target_energy: pint.Quantity,
+        ctrl_method: str,
         averaging: int
 ) -> Optional[PaData]:
     """Measure dependence of PA signal on excitation wavelength.
@@ -492,7 +502,7 @@ def spectrum(
         logger.info(f'Current wavelength is {current_wl}.'
                     +'Please set it!')
 
-        if not set_energy(hardware, current_wl, target_energy, bool(i)):
+        if not set_energy(hardware, current_wl, target_energy, ctrl_method, bool(i)):
             logger.debug('...Terminating.')
             return
         measurement, proceed = ameasure_point(hardware, averaging, current_wl)
@@ -509,6 +519,7 @@ def set_energy(
     hardware: Hardware,
     current_wl: pint.Quantity,
     target_energy: pint.Quantity,
+    ctrl_method: str,
     repeated: bool
 ) -> bool:
     """Set laser energy for measurements.
@@ -518,7 +529,7 @@ def set_energy(
     call of set_energy."""
 
     logger.debug('Starting...')
-    if hardware['config']['power_control'] == 'Filters':
+    if ctrl_method == 'Filters':
         logger.info('Please remove all filters and measure '
                     + 'energy at glass reflection.')
         #measure mean energy at glass reflection
@@ -557,7 +568,7 @@ def set_energy(
             logger.debug('...Terminating.')
             return False
     
-    elif hardware['config']['power_control'] == 'Glan prism' and not repeated:
+    elif ctrl_method == 'Glan prism' and not repeated:
         target_pm_value = glan_calc_reverse(target_energy)
         logger.info(f'Target power meter energy is {target_pm_value}!') # type: ignore
         logger.info(f'Please set it using Glan prism.')
@@ -981,9 +992,14 @@ def aver_measurements(measurements: List[Data_point]) -> Data_point:
         result['sample_energy'] += measurement['sample_energy'] # type: ignore
         result['max_amp'] += measurement['max_amp'] # type: ignore
 
-    result['pm_energy'] = result['pm_energy']/total
-    result['sample_energy'] = result['sample_energy']/total
-    result['max_amp'] = result['max_amp']/total
+    if total:
+        result['pm_energy'] = result['pm_energy']/total
+        result['sample_energy'] = result['sample_energy']/total
+        result['max_amp'] = result['max_amp']/total
+    else:
+        result['pm_energy'] = 0*ureg.J
+        result['sample_energy'] = 0*ureg.J
+        result['max_amp'] = 0*ureg.J
 
     logger.info(f'Average power meter energy {result["pm_energy"]}')
     logger.info(f'Average energy at {result["sample_energy"]}')

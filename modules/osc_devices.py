@@ -559,7 +559,7 @@ class PowerMeter:
             self.data = data
             laser_amp = self.energy_from_data(self.data,
                                             self.osc.xincrement)
-            logger.debug(f'...Finishing. Laser amplitude = {laser_amp}')
+            logger.debug(f'...Finishing. {laser_amp=}')
             return laser_amp
         else:
             logger.debug('...Terminating. Data not not accessible.')
@@ -595,7 +595,7 @@ class PowerMeter:
             msg = 'Problem in set_laser_amp start_index'
             logger.warning(msg)
             logger.debug('...Terminating')
-            raise exceptions.OscilloscopeError(msg)
+            return 0*ureg.J
 
         try:
             logger.debug('Starting search for signal end...')
@@ -613,31 +613,39 @@ class PowerMeter:
                     break
             if not stop_index:
                 msg = 'End of laser impulse was not found'
-                logger.debug('...Terminating .' + msg)
-                raise exceptions.OscilloscopeError(msg)
+                logger.warning(msg)
+                logger.debug('...Terminating .')
+                return 0*ureg.J
             logger.debug(f'Position of signal start is {stop_index}/'
                          + f'{len(data)}')
             self.stop_ind = stop_index
         except IndexError:
             msg = 'Problem in set_laser_amp stop_index'
-            logger.debug('...Terminating .' + msg)
-            logger.debug(msg)
-            raise exceptions.OscilloscopeError(msg)
+            logger.warning(msg)
+            logger.debug('...Terminating .')
+            return 0*ureg.J
 
         laser_amp = np.sum(
             data[self.start_ind:self.stop_ind])*step.to('s').m*self.SENS
 
         laser_amp = laser_amp.m*ureg.mJ
-        logger.debug(f'...Finishing. Calculated value of energy is {laser_amp}')
+        logger.debug(f'...Finishing. {laser_amp=}')
         return laser_amp
     
-    def set_channel(self, chan: int) -> None:
+    def set_channel(
+            self,
+            chan: int,
+            pre_time: pint.Quantity,
+            post_time: pint.Quantity) -> None:
         """Sets read channel.
         
         <chan> is index, i.e. for <chan>=0 for CHAN1."""
 
         logger.debug(f'PowerMeter channel set to {self.osc.CH_IDS[chan]}')
         self.ch = chan
+        self.osc.pre_t[chan] = pre_time
+        self.osc.post_t[chan] = post_time
+        self.osc.dur_t[chan] = pre_time + post_time #type:ignore
 
 class PhotoAcousticSensOlymp:
     
@@ -654,11 +662,18 @@ class PhotoAcousticSensOlymp:
 
         logger.debug('Instantiating PA sensor connected to '
                      + f'{osc.CH_IDS[ch_id]}.')
-        self.osc = osc
+        self._osc = osc
         self.ch = ch_id
 
-    def set_channel(self, chan: int) -> None:
+    def set_channel(self, 
+                    chan: int,
+                    pre_time: pint.Quantity,
+                    post_time: pint.Quantity,) -> None:
         """Sets read channel"""
 
-        logger.debug(f'PowerMeter channel set to {self.osc.CH_IDS[chan]}')
         self.ch = chan
+        self._osc.pre_t[chan] = pre_time
+        self._osc.post_t[chan] = post_time
+        self._osc.dur_t[chan] = pre_time + post_time #type:ignore
+        logger.debug(f'PA sensor channel set to {self._osc.CH_IDS[chan]}')
+        

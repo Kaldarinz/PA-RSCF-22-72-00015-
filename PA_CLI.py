@@ -364,6 +364,7 @@ def spectra(hardware: pa_logic.Hardware) -> Optional[PaData]:
         end_wl,
         step,
         target_energy,
+        power_control,
         averaging
     )
 
