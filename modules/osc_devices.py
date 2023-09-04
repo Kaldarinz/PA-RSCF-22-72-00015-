@@ -181,13 +181,13 @@ class Oscilloscope:
         """Update sample rate."""
 
         self.sample_rate = (float(self.query(':ACQ:SRAT?'))*ureg('hertz'))
-        logger.debug(f'Sample rate updated to {self.sample_rate}')
+        logger.debug(f'Sample rate updated to {self.sample_rate=}')
 
     def time_to_points (self, duration: pint.Quantity) -> int:
         """Convert duration into amount of data points."""
         
         logger.debug('Starting...')
-        logger.debug(f'Calculating amount of points for {duration}')
+        logger.debug(f'Calculating amount of points for {duration=}')
         points = int((duration*self.sample_rate).magnitude) + 1
         logger.debug(f'...Finishing. Amount of calculated points: {points}')
         return points

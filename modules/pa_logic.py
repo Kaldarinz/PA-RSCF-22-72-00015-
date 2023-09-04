@@ -368,7 +368,7 @@ def track_power(hardware: Hardware, tune_width: int) -> pint.Quantity:
     # ignore energy read if it is smaller than threshold*mean
     threshold = 0.01
     # time delay between measurements
-    measure_delay = ureg('50ms')
+    measure_delay = ureg('10ms')
     ###
 
     logger.debug('Starting tracking power with params: '
@@ -404,22 +404,23 @@ def track_power(hardware: Hardware, tune_width: int) -> pint.Quantity:
         logger.debug(f'measured {laser_amp=}')
         if not laser_amp:
             continue
-        data.append(laser_amp.to('uJ'))
+        data.append(laser_amp)
         
         #ndarray for up to last <aver> values
         tmp_data = pint.Quantity.from_list(
-            [x for i,x in enumerate(data) if i<aver])
+            [x for i,x in enumerate(reversed(data)) if i<aver])
         mean = tmp_data.mean() # type: ignore
         std = tmp_data.std() # type: ignore
         title = (f'Energy={laser_amp}, '
-                + f'Mean (last {aver}) = {mean:.2}, '
-                + f'Std (last {aver}) = {std:.2}')
-        logger.debug(f'plot {title=}')
+                + f'Mean (last {aver}) = {mean:~.3P}, '
+                + f'Std (last {aver}) = {std:~.3P}')
+        logger.debug(f'{laser_amp=}, {mean=}, {std=}')
         
         #plotting data
         ax_pm.clear()
         ax_pa.clear()
         ax_pm.plot(pm.data)
+        fig.suptitle(title)
         
         #add markers for data start and stop
         ax_pm.plot(
@@ -437,14 +438,12 @@ def track_power(hardware: Hardware, tune_width: int) -> pint.Quantity:
             ms=12,
             color='red')
         ax_pa.plot([x.m for x in data])
-        ax_pa.set_title(title)
         ax_pa.set_ylim(bottom=0)
         fig.canvas.draw()
         plt.pause(0.01)
             
         if keyboard.is_pressed('q'):
             break
-        time.sleep(measure_delay.to('s').m)
 
     logger.debug(f'...Finishing. Energy = {mean}')
     return mean
