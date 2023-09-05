@@ -471,7 +471,9 @@ class Oscilloscope:
                 correct_bl: bool=True, #correct baseline
                 smooth: bool=True, #smooth data
                 ) -> None:
-        """Measure data from memory."""
+        """Measure data from memory.
+        
+        Data is saved to <data> list."""
 
         logger.debug('Starting measure signal from oscilloscope '
                      + 'memory.')

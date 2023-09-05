@@ -156,7 +156,7 @@ class PaData:
     def add_measurement(
             self, 
             data: Data_point,
-            param_val: List[pint.Quantity]
+            param_val: List[pint.Quantity] = []
         ) -> None:
         """Add a single data point.
         
@@ -170,6 +170,7 @@ class PaData:
         logger.debug(f'Adding {ds_name}...')
         if self.attrs['data_points']:
             params = self.raw_data['point001']['param_val']
+            #should be changed for 0D case, when there is no parameter
             logger.debug(f'Param values changed from {param_val}...')
             param_val = [x.to(y.u) for x,y in zip(param_val,params)] # type: ignore
             logger.debug(f'... to {param_val}')

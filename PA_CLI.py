@@ -216,8 +216,73 @@ def set_new_position(hardware: pa_logic.Hardware) -> None:
 def measure_0d(hardware: pa_logic.Hardware,
                old_data: PaData) -> PaData:
     """CLI for single PA measurement"""
-    logger.warning('measure 0D not implemented')
-    return old_data
+    
+    data = old_data
+
+    if not pa_logic.osc_open(hardware) or not pa_logic.pm_open(hardware):
+        logger.error('Error in point measure: hardware is not open.')
+        return old_data
+    
+    power_control = inquirer.select(
+        message='Choose method for laser energy control:',
+        choices=hardware['config']['power_control'],
+        mandatory=False
+    ).execute()
+    logger.debug(f'"{power_control}" set as laser energy control')
+    if power_control is None:
+        logger.warning(MESSAGES['cancel_in'])
+        return old_data
+
+    wl = inquirer.text(
+        message='Set wavelength, [nm]' + vd.cancel_option,
+        default='700',
+        mandatory=False,
+        validate=vd.WavelengthValidator()
+    ).execute()
+    logger.debug(f'{wl=}')
+    if wl is None:
+        wl = 700*ureg.nm
+        logger.debug(f'wavelength input cancelled. Setting def {wl=}')
+    else:
+        wl = int(wl)*ureg('nm')
+
+    target_energy = inquirer.text(
+        message='Set target energy in [mJ]' + vd.cancel_option,
+        default='0.5',
+        mandatory=False,
+        validate=vd.EnergyValidator()
+    ).execute()
+    logger.debug(f'"{target_energy=}" mJ')
+    if target_energy is None:
+        logger.warning(MESSAGES['cancel_in'])
+        return old_data
+    target_energy = float(target_energy)*ureg('mJ')
+
+    averaging = inquirer.text(
+        message='Set averaging' + vd.cancel_option,
+        default='2',
+        mandatory=False,
+        validate=vd.AveragingValidator()
+    ).execute()
+    logger.debug(f'"{averaging=}"')
+    if averaging is None:
+        averaging = 1
+        logger.debug(f'averaging input cancelled. Setting def {averaging=}')
+    else:
+        averaging = int(averaging)  
+
+    data = pa_logic.single_measure(
+        hardware,
+        wl,
+        target_energy,
+        power_control,
+        averaging
+    )
+    if data is None:
+        logger.debug('...Terminating. Error in single_measure.')
+        return old_data
+    logger.debug('...Finishing 0D measure.')
+    return data
 
 def measure_1d(hardware: pa_logic.Hardware,
                old_data: PaData) -> PaData:
@@ -348,7 +413,7 @@ def spectra(hardware: pa_logic.Hardware) -> Optional[PaData]:
 
     averaging = inquirer.text(
         message='Set averaging' + vd.cancel_option,
-        default='5',
+        default='2',
         mandatory=False,
         validate=vd.AveragingValidator()
     ).execute()

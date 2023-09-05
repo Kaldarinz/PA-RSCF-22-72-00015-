@@ -505,7 +505,7 @@ def spectrum(
         if not set_energy(hardware, current_wl, target_energy, ctrl_method, bool(i)):
             logger.debug('...Terminating.')
             return
-        measurement, proceed = ameasure_point(hardware, averaging, current_wl)
+        measurement, proceed = _ameasure_point(hardware, averaging, current_wl)
         data.add_measurement(measurement, [current_wl])
         data.save_tmp()
         if not proceed:
@@ -515,12 +515,38 @@ def spectrum(
     logger.info('...Finishing. Spectral scanning complete!')
     return data
 
+def single_measure(
+        hardware: Hardware,
+        wl: pint.Quantity,
+        target_energy: pint.Quantity,
+        ctrl_method: str,
+        averaging: int
+) -> Optional[PaData]:
+    """Measure single PA point.
+    
+    Measurement is taken at <target_energy>.
+    Each measurement will be averaged <averaging> times.
+    """
+
+    logger.info('Starting single point measurement...')
+    data = PaData(dims=0)
+
+    if not set_energy(hardware, wl, target_energy, ctrl_method):
+        logger.debug('...Terminating single point measurement.')
+        return None
+    measurement, _ = _ameasure_point(hardware, averaging, wl)
+    data.add_measurement(measurement, [wl])
+    data.save_tmp()
+    data.bp_filter()
+    logger.info('...Finishing single point measurement!')
+    return data
+
 def set_energy(
     hardware: Hardware,
     current_wl: pint.Quantity,
     target_energy: pint.Quantity,
     ctrl_method: str,
-    repeated: bool
+    repeated: bool=False
 ) -> bool:
     """Set laser energy for measurements.
     
@@ -835,7 +861,7 @@ def glan_calc(
     logger.debug('...Finishing')
     return sample_en
 
-def ameasure_point(
+def _ameasure_point(
     hardware: Hardware,
     averaging: int,
     current_wl: pint.Quantity
@@ -856,7 +882,7 @@ def ameasure_point(
         if action == 'Tune power':
             track_power(hardware, 40)
         elif action == 'Measure':
-            tmp_measurement = measure_point(hardware, current_wl)
+            tmp_measurement = _measure_point(hardware, current_wl)
             if verify_measurement(hardware, tmp_measurement):
                 msmnts.append(tmp_measurement)
                 counter += 1
@@ -878,13 +904,13 @@ def ameasure_point(
     logger.debug('...Terminating with empty data point.')
     return new_data_point(), True
 
-def measure_point(
+def _measure_point(
         hardware: Hardware,
         wavelength: pint.Quantity
 ) -> Data_point:
     """Measure single PA data point."""
 
-    logger.debug('Starting measuring PA data point...')
+    logger.debug('Starting PA point measurement...')
     osc = hardware['osc']
     pm = hardware['power_meter'] #type: ignore
     pa_ch_id = int(hardware['config']['pa_sensor']['connected_chan']) - 1
@@ -925,11 +951,9 @@ def measure_point(
     logger.debug(f'{dt=}')
     logger.debug(f'Raw PA data has {len(pa_signal_raw)} points '
                     + f'with max value={max(pa_signal_raw)}')
-    logger.debug(f'{start_time=}')
-    logger.debug(f'{stop_time=}')
     logger.debug(f'power meter data has {len(pm_signal)} points '
                     + f'with max value={max(pm_signal)}')
-    logger.debug(f'Laser energy at power meter = {pm_energy}')
+    logger.debug(f'{pm_energy=}')
 
     if hardware['config']['power_control'] == 'Filters':
         reflection = glass_reflection(wavelength)
@@ -944,7 +968,7 @@ def measure_point(
                             +'calculated')
     elif hardware['config']['power_control'] == 'Glan prism':
         sample_energy = glan_calc(pm_energy)
-        if sample_energy is not None and sample_energy != 0:
+        if sample_energy is not None and sample_energy:
             pa_signal = pa_signal/sample_energy
             pa_amp = pa_amp/sample_energy
         else:
@@ -965,9 +989,9 @@ def measure_point(
     logger.debug(f'{sample_energy=}')
     logger.debug(f'PA data has {len(pa_signal)} points '
                     + f'with max value={max(pa_signal)}')
-    logger.debug(f'PA amplitude = {pa_amp}')
+    logger.debug(f'{pa_amp=}')
 
-    logger.debug('...Finishing')
+    logger.debug('...Finishing PA point measurement.')
     return measurement
 
 def aver_measurements(measurements: List[Data_point]) -> Data_point:
