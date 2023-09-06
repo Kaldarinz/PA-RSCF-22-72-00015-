@@ -25,7 +25,7 @@ import modules.osc_devices as osc_devices
 import modules.exceptions as exceptions
 from .pa_data import PaData
 from .data_classes import *
-from . import ureg
+from . import ureg, Q_
 
 logger = logging.getLogger(__name__)
 
@@ -34,9 +34,9 @@ def new_data_point() -> Data_point:
 
     measurement: Data_point = {
                     'dt': 0*ureg.s,
-                    'pa_signal': [],
+                    'pa_signal': 0*ureg.V,
                     'pa_signal_raw': np.empty(0, dtype=np.uint8),
-                    'pm_signal': [],
+                    'pm_signal': 0*ureg.V,
                     'start_time': 0*ureg.s,
                     'stop_time': 0*ureg.s,
                     'pm_energy': 0*ureg.uJ,
@@ -980,7 +980,7 @@ def _measure_point(
     )
     logger.debug(f'{sample_energy=}')
     logger.debug(f'PA data has {len(pa_signal)} points '
-                    + f'with max value={max(pa_signal):.2D}')
+                    + f'with max value={pa_signal.max():.2D}') #type: ignore
     logger.debug(f'{pa_amp=}')
 
     logger.debug('...Finishing PA point measurement.')
@@ -1045,6 +1045,7 @@ def verify_measurement(
     gs = gridspec.GridSpec(1,2)
     ax_pm = fig.add_subplot(gs[0,0])
     pm_time = [x*dt for x in range(len(pm_signal))]
+    pm_time = Q_(np.arange(len(pm_signal))*dt.m, dt.u)
     ax_pm.plot(pm_time,pm_signal)
 
     #add markers for data start and stop

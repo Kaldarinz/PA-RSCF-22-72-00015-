@@ -13,7 +13,7 @@ import numpy.typing as npt
 import pint
 
 import modules.exceptions as exceptions
-from . import ureg
+from . import Q_, ureg
 
 logger = logging.getLogger(__name__)
 
@@ -69,11 +69,11 @@ class Oscilloscope:
         self.pre_p: List[Optional[int]] = [None]*self.CHANNELS
         self.post_p: List[Optional[int]] =[None]*self.CHANNELS
         self.dur_p: List[Optional[int]] = [None]*self.CHANNELS
-        self.data: List[Optional[List[pint.Quantity]]] = [None]*self.CHANNELS
+        self.data: List[Optional[pint.Quantity]] = [None]*self.CHANNELS
         self.data_raw: List[Optional[npt.NDArray[np.uint8|np.int16]]] = [None]*self.CHANNELS
         # amplitude of data
         self.amp: List[Optional[pint.Quantity]] = [None]*self.CHANNELS
-        self.scr_data: List[Optional[List[pint.Quantity]]] = [None]*self.CHANNELS
+        self.scr_data: List[Optional[pint.Quantity]] = [None]*self.CHANNELS
         self.scr_data_raw: List[Optional[npt.NDArray[np.uint8|np.int16]]] = [None]*self.CHANNELS
         self.scr_amp: List[Optional[pint.Quantity]] = [None]*self.CHANNELS
 
@@ -167,9 +167,9 @@ class Oscilloscope:
         self.read_type = int(preamble_raw[1])
         self.points = int(preamble_raw[2])
         self.averages = int(preamble_raw[3])
-        self.xincrement = float(preamble_raw[4])*ureg('second')
-        self.xorigin = float(preamble_raw[5])*ureg('second')
-        self.xreference = float(preamble_raw[6])*ureg('second')
+        self.xincrement = float(preamble_raw[4])*ureg.s
+        self.xorigin = float(preamble_raw[5])*ureg.s
+        self.xreference = float(preamble_raw[6])*ureg.s
         self.yincrement = float(preamble_raw[7])
         self.yorigin = float(preamble_raw[8])
         self.yreference = float(preamble_raw[9])
@@ -315,19 +315,20 @@ class Oscilloscope:
         return data
 
     def to_volts(self,
-                 data: npt.NDArray[np.uint8|np.int16]) -> List[pint.Quantity]:
+                 data: npt.NDArray[np.uint8|np.int16]) -> pint.Quantity:
         """Converts data to volts."""
 
         logger.debug('Starting data conversion to volts...')
         result = (data.astype(np.float64)
-                - self.xreference.magnitude
-                - self.yorigin)*self.yincrement*ureg('volt')
-        logger.debug(f'...Finishing. Max val={result.max():.2D}, '
-                     + f'min val={result.min():.2D}')
-        return result
+                - self.xreference.m
+                - self.yorigin)*self.yincrement
+        result = Q_(result, 'volt')
+        logger.debug(f'...Finishing. Max val={result.max():.2D}, ' #type: ignore
+                     + f'min val={result.min():.2D}') #type: ignore
+        return result #type: ignore
     
     def to_volts_scr(self,
-                     data: npt.NDArray[np.uint8|np.int16]) -> List[pint.Quantity]:
+                     data: npt.NDArray[np.uint8|np.int16]) -> pint.Quantity:
         """Convert screen data to volts."""
 
         logger.debug('Starting screen data conversion to volts...')
@@ -516,7 +517,7 @@ class PowerMeter:
     osc: Oscilloscope
     threshold: float # fraction of max amp for signal start
     
-    data: List[pint.Quantity]
+    data: pint.Quantity
     laser_amp: pint.Quantity
     #start and stop indexes of the measured signal
     start_ind: int = 0
@@ -572,7 +573,7 @@ class PowerMeter:
 
 
     def energy_from_data(self,
-                         data: List[pint.Quantity],
+                         data: pint.Quantity,
                          step: pint.Quantity) -> Optional[pint.Quantity]:
         """Calculate laser energy from data.
 
@@ -620,7 +621,7 @@ class PowerMeter:
                 msg = 'End of laser impulse was not found'
                 logger.warning(msg)
                 logger.debug('...Terminating .')
-                return 0*ureg.J
+                return None
             logger.debug(f'Position of signal start is {stop_index}/'
                          + f'{len(data)}')
             self.stop_ind = stop_index

@@ -41,7 +41,7 @@ class FiltMetadata(TypedDict):
 class RawData(TypedDict):
     """Typed dict for a data point."""
 
-    data: List[pint.Quantity]
+    data: pint.Quantity
     data_raw: npt.NDArray[np.uint8|np.int16]
     param_val: List[pint.Quantity]
     x_var_step: pint.Quantity
@@ -54,7 +54,7 @@ class RawData(TypedDict):
 class FreqData(TypedDict):
     """Typed dict for a frequency data."""
 
-    data: List[pint.Quantity]
+    data: pint.Quantity
     x_var_step: pint.Quantity
     x_var_start: pint.Quantity
     x_var_stop: pint.Quantity
@@ -72,9 +72,9 @@ class Data_point(TypedDict):
     """Single PA measurement"""
 
     dt: pint.Quantity
-    pa_signal: List[pint.Quantity]
+    pa_signal: pint.Quantity
     pa_signal_raw: npt.NDArray[np.uint8|np.int16]
-    pm_signal: List[pint.Quantity]
+    pm_signal: pint.Quantity
     start_time: pint.Quantity
     stop_time: pint.Quantity
     pm_energy: pint.Quantity
