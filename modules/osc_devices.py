@@ -237,8 +237,10 @@ class Oscilloscope:
         #leave edges unfiltered
         tmp_array[:border] = tmp_array[border]
         tmp_array[-(border):] = tmp_array[-border]
-        logger.debug(f'...Finishing. Success.')
-        return tmp_array.astype(np.uint8)
+        result = tmp_array.astype(np.uint8)
+        logger.debug(f'...Finishing. Success. '
+                     +f'max val = {result.max()}, min val = {result.min()}.')
+        return result
 
     def _one_chunk_read(self,
                         start: int,
@@ -260,7 +262,8 @@ class Oscilloscope:
 
         data = np.frombuffer(self.__osc.read_raw(),
                              dtype=np.uint8)[self.HEADER_LEN:]
-        logger.debug(f'...Finishing. Signal with {len(data)} data points read.')
+        logger.debug(f'...Finishing. Signal with {len(data)} data points read. '
+                     + f'max val = {data.max()}, min val = {data.min()}')
         return data.astype(np.uint8)
 
     def _multi_chunk_read(self,
@@ -319,7 +322,8 @@ class Oscilloscope:
         result = (data.astype(np.float64)
                 - self.xreference.magnitude
                 - self.yorigin)*self.yincrement*ureg('volt')
-        logger.debug(f'...Finishing. Max val={result.max()}, min val={result.min()}')
+        logger.debug(f'...Finishing. Max val={result.max():.2D}, '
+                     + f'min val={result.min():.2D}')
         return result
     
     def to_volts_scr(self,
@@ -329,7 +333,7 @@ class Oscilloscope:
         logger.debug('Starting screen data conversion to volts...')
         dy = self.yincrement*ureg.V
         dy = cast(pint.Quantity, dy)
-        logger.debug(f'One step is {dy}.')
+        logger.debug(f'One step is {dy=}.')
         result = dy*data.astype(np.float64)
         logger.debug(f'...Finishing. Max val={result.max()}, min val={result.min()}') #type:ignore
         return result
@@ -372,7 +376,6 @@ class Oscilloscope:
         pre_points = self.pre_p[ch_id]
         if pre_points is not None:
             data_start = (int(self.points/2) - pre_points)
-            logger.debug(f'position of trigger is {data_start}')
         else:
             logger.warning(f'...Terminating. Pre points for CHAN{ch_id+1} not set.')
             return np.array([])
