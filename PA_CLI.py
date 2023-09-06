@@ -222,16 +222,6 @@ def measure_0d(hardware: pa_logic.Hardware,
     if not pa_logic.osc_open(hardware) or not pa_logic.pm_open(hardware):
         logger.error('Error in point measure: hardware is not open.')
         return old_data
-    
-    power_control = inquirer.select(
-        message='Choose method for laser energy control:',
-        choices=hardware['config']['power_control'],
-        mandatory=False
-    ).execute()
-    logger.debug(f'"{power_control}" set as laser energy control')
-    if power_control is None:
-        logger.warning(MESSAGES['cancel_in'])
-        return old_data
 
     wl = inquirer.text(
         message='Set wavelength, [nm]' + vd.cancel_option,
@@ -275,7 +265,6 @@ def measure_0d(hardware: pa_logic.Hardware,
         hardware,
         wl,
         target_energy,
-        power_control,
         averaging
     )
     if data is None:
@@ -353,16 +342,6 @@ def spectra(hardware: pa_logic.Hardware) -> Optional[PaData]:
         return None
     
     #CLI to get measuring options
-    power_control = inquirer.select(
-        message='Choose method for laser energy control:',
-        choices=hardware['config']['power_control'],
-        mandatory=False
-    ).execute()
-    logger.debug(f'"{power_control}" set as laser energy control')
-    if power_control is None:
-        logger.warning(MESSAGES['cancel_in'])
-        return None
-
     start_wl = inquirer.text(
         message='Set start wavelength, [nm]' + vd.cancel_option,
         default='950',
@@ -429,7 +408,6 @@ def spectra(hardware: pa_logic.Hardware) -> Optional[PaData]:
         end_wl,
         step,
         target_energy,
-        power_control,
         averaging
     )
 

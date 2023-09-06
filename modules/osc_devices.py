@@ -541,7 +541,7 @@ class PowerMeter:
         self.threshold = threshold
         logger.debug('...Finishing')
 
-    def get_energy_scr(self) -> pint.Quantity:
+    def get_energy_scr(self) -> Optional[pint.Quantity]:
         """Measure energy from screen (fast)"""
 
         logger.debug('Starting fast energy measuring...')
@@ -556,7 +556,7 @@ class PowerMeter:
         if self.osc.bad_read:
             logger.warning('Energy measurement failed. 0 is returned')
             logger.debug('...Terminating')
-            return 0*ureg('J')
+            return None
         
         logger.debug('PowerMeter response obtained')
         data = self.osc.scr_data[self.ch]
@@ -568,12 +568,12 @@ class PowerMeter:
             return laser_amp
         else:
             logger.debug('...Terminating. Data not not accessible.')
-            return 0*ureg.J
+            return None
 
 
     def energy_from_data(self,
                          data: List[pint.Quantity],
-                         step: pint.Quantity) -> pint.Quantity:
+                         step: pint.Quantity) -> Optional[pint.Quantity]:
         """Calculate laser energy from data.
 
         <Step> is time step for the data.
@@ -585,7 +585,7 @@ class PowerMeter:
             logger.warning(f'data length is too small ({len(data)})')
             logger.debug('...Terminating.')
             msg = 'data too small for laser energy calc'
-            raise exceptions.OscilloscopeError(msg)
+            return None
 
         max_amp = np.max(data)
         logger.debug(f'Max value in signal is {max_amp}')
@@ -600,7 +600,7 @@ class PowerMeter:
             msg = 'Problem in set_laser_amp start_index'
             logger.warning(msg)
             logger.debug('...Terminating')
-            return 0*ureg.J
+            return None
 
         try:
             logger.debug('Starting search for signal end...')
@@ -628,7 +628,7 @@ class PowerMeter:
             msg = 'Problem in set_laser_amp stop_index'
             logger.warning(msg)
             logger.debug('...Terminating .')
-            return 0*ureg.J
+            return None
 
         laser_amp = np.sum(
             data[self.start_ind:self.stop_ind])*step.to('s').m*self.SENS

@@ -467,7 +467,6 @@ def spectrum(
         end_wl: pint.Quantity,
         step: pint.Quantity,
         target_energy: pint.Quantity,
-        ctrl_method: str,
         averaging: int
 ) -> Optional[PaData]:
     """Measure dependence of PA signal on excitation wavelength.
@@ -502,7 +501,7 @@ def spectrum(
         logger.info(f'Current wavelength is {current_wl}.'
                     +'Please set it!')
 
-        if not set_energy(hardware, current_wl, target_energy, ctrl_method, bool(i)):
+        if not set_energy(hardware, current_wl, target_energy, bool(i)):
             logger.debug('...Terminating.')
             return
         measurement, proceed = _ameasure_point(hardware, averaging, current_wl)
@@ -519,7 +518,6 @@ def single_measure(
         hardware: Hardware,
         wl: pint.Quantity,
         target_energy: pint.Quantity,
-        ctrl_method: str,
         averaging: int
 ) -> Optional[PaData]:
     """Measure single PA point.
@@ -531,7 +529,7 @@ def single_measure(
     logger.info('Starting single point measurement...')
     data = PaData(dims=0)
 
-    if not set_energy(hardware, wl, target_energy, ctrl_method):
+    if not set_energy(hardware, wl, target_energy):
         logger.debug('...Terminating single point measurement.')
         return None
     measurement, _ = _ameasure_point(hardware, averaging, wl)
@@ -545,7 +543,6 @@ def set_energy(
     hardware: Hardware,
     current_wl: pint.Quantity,
     target_energy: pint.Quantity,
-    ctrl_method: str,
     repeated: bool=False
 ) -> bool:
     """Set laser energy for measurements.
@@ -555,7 +552,8 @@ def set_energy(
     call of set_energy."""
 
     logger.debug('Starting...')
-    if ctrl_method == 'Filters':
+    config = hardware['config']
+    if config['power_control'] == 'Filters':
         logger.info('Please remove all filters and measure '
                     + 'energy at glass reflection.')
         #measure mean energy at glass reflection
@@ -594,7 +592,7 @@ def set_energy(
             logger.debug('...Terminating.')
             return False
     
-    elif ctrl_method == 'Glan prism' and not repeated:
+    elif config['power_control'] == 'Glan prism' and not repeated:
         target_pm_value = glan_calc_reverse(target_energy)
         logger.info(f'Target power meter energy is {target_pm_value}!') # type: ignore
         logger.info(f'Please set it using Glan prism.')
@@ -934,6 +932,8 @@ def _measure_point(
         logger.debug('..Terminating. PM data is missing.')
         return measurement
     pm_energy = pm.energy_from_data(pm_signal, dt)
+    if pm_energy is None:
+        pm_energy = 0*ureg.J
 
     measurement.update(
         {
@@ -946,14 +946,6 @@ def _measure_point(
             'pm_energy': pm_energy,
         }
     )
-
-    logger.debug(f'{wavelength=}')
-    logger.debug(f'{dt=}')
-    logger.debug(f'Raw PA data has {len(pa_signal_raw)} points '
-                    + f'with max value={max(pa_signal_raw)}')
-    logger.debug(f'power meter data has {len(pm_signal)} points '
-                    + f'with max value={max(pm_signal)}')
-    logger.debug(f'{pm_energy=}')
 
     if hardware['config']['power_control'] == 'Filters':
         reflection = glass_reflection(wavelength)
@@ -988,7 +980,7 @@ def _measure_point(
     )
     logger.debug(f'{sample_energy=}')
     logger.debug(f'PA data has {len(pa_signal)} points '
-                    + f'with max value={max(pa_signal)}')
+                    + f'with max value={max(pa_signal):.2D}')
     logger.debug(f'{pa_amp=}')
 
     logger.debug('...Finishing PA point measurement.')
@@ -1038,13 +1030,16 @@ def verify_measurement(
 ) -> bool:
     """Verify a PA measurement."""
 
-    logger.debug('Starting...')
+    logger.debug('Starting measurement verification...')
     # update state of power meter
     pm = hardware['power_meter'] #type:ignore
     pm_signal = measurement['pm_signal']
     dt = measurement['dt']
     pa_signal = measurement['pa_signal']
-    pm.energy_from_data(pm_signal, dt)
+    
+    if pm.energy_from_data(pm_signal, dt) is None:
+        logger.debug('...Terminating. Laser energy cannot be calculated')
+        return False
 
     fig = plt.figure(tight_layout=True)
     gs = gridspec.GridSpec(1,2)
