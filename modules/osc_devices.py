@@ -217,7 +217,7 @@ class Oscilloscope:
 
     def rolling_average(self,
                         data: npt.NDArray[np.uint8]
-                        ) -> npt.NDArray[np.uint8]:
+                        ) -> npt.NDArray[np.uint8|np.int16]:
         """Smooth data using rolling average method."""
         
         logger.debug('Starting rolling_average smoothing...')
@@ -237,7 +237,7 @@ class Oscilloscope:
         #leave edges unfiltered
         tmp_array[:border] = tmp_array[border]
         tmp_array[-(border):] = tmp_array[-border]
-        result = tmp_array.astype(np.uint8)
+        result = tmp_array.astype(np.int16)
         logger.debug(f'...Finishing. Success. '
                      +f'max val = {result.max()}, min val = {result.min()}.')
         return result
@@ -301,7 +301,8 @@ class Oscilloscope:
             
             data_chunk = np.frombuffer(self.__osc.read_raw(),
                                        dtype=np.uint8)[self.HEADER_LEN:]
-            logger.debug(f'Chunk with {len(data_chunk)} data points read')
+            logger.debug(f'Chunk with {len(data_chunk)} data points read. '
+                         + f'max val={data_chunk.max()}, min val={data_chunk.min()}')
 
             logger.debug('Start verification of read chunk length')
             if (dur - stop_i) > 0:
@@ -311,7 +312,8 @@ class Oscilloscope:
                 if self._ok_read(len(data[start_i:-1]), data_chunk):
                     data[start_i:-1] = data_chunk.copy()
 
-        logger.debug(f'...Finishing. Signal with {len(data)} datapoints read')
+        logger.debug(f'...Finishing. Signal with {len(data)} data points read. '
+                     + f'max val = {data.max()}, min val = {data.min()}')
         return data
 
     def to_volts(self,
@@ -319,9 +321,7 @@ class Oscilloscope:
         """Converts data to volts."""
 
         logger.debug('Starting data conversion to volts...')
-        result = (data.astype(np.float64)
-                - self.xreference.m
-                - self.yorigin)*self.yincrement
+        result = data*self.yincrement
         result = Q_(result, 'volt')
         logger.debug(f'...Finishing. Max val={result.max():.2D}, ' #type: ignore
                      + f'min val={result.min():.2D}') #type: ignore
@@ -401,7 +401,7 @@ class Oscilloscope:
             return np.array([])
 
     def baseline_correction(self,
-                            data: npt.NDArray[np.uint8]
+                            data: npt.NDArray[np.uint8|np.int16]
                             ) -> npt.NDArray[np.int16]:
         """Correct baseline for the data.
         

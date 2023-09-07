@@ -34,14 +34,14 @@ def new_data_point() -> Data_point:
 
     measurement: Data_point = {
                     'dt': 0*ureg.s,
-                    'pa_signal': 0*ureg.V,
+                    'pa_signal': Q_(np.empty(0), 'V'), # type: ignore
                     'pa_signal_raw': np.empty(0, dtype=np.uint8),
                     'pm_signal': 0*ureg.V,
                     'start_time': 0*ureg.s,
                     'stop_time': 0*ureg.s,
                     'pm_energy': 0*ureg.uJ,
                     'sample_energy': 0*ureg.uJ,
-                    'max_amp': 0*ureg.uJ,
+                    'max_amp': 0*ureg.V/ureg.uJ,
                     'wavelength': 0*ureg.nm
                 }
     return measurement
@@ -533,7 +533,8 @@ def single_measure(
         logger.debug('...Terminating single point measurement.')
         return None
     measurement, _ = _ameasure_point(hardware, averaging, wl)
-    data.add_measurement(measurement, [wl])
+    if measurement['pa_signal'] is not None:
+        data.add_measurement(measurement, [wl])
     data.save_tmp()
     data.bp_filter()
     logger.info('...Finishing single point measurement!')
@@ -891,7 +892,11 @@ def _ameasure_point(
        
         elif action == 'Stop measurements':
             if confirm_action():
-                measurement = aver_measurements(msmnts)
+                if len(msmnts):
+                    measurement = aver_measurements(msmnts)
+                else:
+                    logger.debug('No data was measured')
+                    measurement = new_data_point()
                 logger.warning('Spectral measurement terminated')
                 logger.debug('...Terminating.')
                 return measurement, False
@@ -938,7 +943,7 @@ def _measure_point(
     measurement.update(
         {
             'wavelength': wavelength,
-            'dt': dt,
+            'dt': dt.to_base_units(), # type: ignore
             'pa_signal_raw': pa_signal_raw,
             'start_time': start_time,
             'stop_time': stop_time,
@@ -1034,38 +1039,37 @@ def verify_measurement(
     # update state of power meter
     pm = hardware['power_meter'] #type:ignore
     pm_signal = measurement['pm_signal']
-    dt = measurement['dt']
+    dt = measurement['dt'].to('us')
     pa_signal = measurement['pa_signal']
-    
-    if pm.energy_from_data(pm_signal, dt) is None:
-        logger.debug('...Terminating. Laser energy cannot be calculated')
-        return False
 
     fig = plt.figure(tight_layout=True)
     gs = gridspec.GridSpec(1,2)
     ax_pm = fig.add_subplot(gs[0,0])
-    pm_time = [x*dt for x in range(len(pm_signal))]
     pm_time = Q_(np.arange(len(pm_signal))*dt.m, dt.u)
-    ax_pm.plot(pm_time,pm_signal)
+    ax_pm.plot(pm_time.m,pm_signal.m)
+    ax_pm.set_xlabel(f'Time, [{pm_time.u}]')
+    ax_pm.set_ylabel(f'Power meter signal, [{pm_signal.u}]')
 
     #add markers for data start and stop
     ax_pm.plot(
-        pm.start_ind,
-        pm_signal[pm.start_ind],
+        pm.start_ind*dt.m,
+        pm_signal[pm.start_ind].m,
         'o',
         alpha=0.4,
         ms=12,
         color='green')
     ax_pm.plot(
-        pm.stop_ind,
-        pm_signal[pm.stop_ind],
+        pm.stop_ind*dt.m,
+        pm_signal[pm.stop_ind].m,
         'o',
         alpha=0.4,
         ms=12,
         color='red')
     ax_pa = fig.add_subplot(gs[0,1])
-    pa_time = [x*dt for x in range(len(pa_signal))]
-    ax_pa.plot(pa_time,pa_signal)
+    pa_time = Q_(np.arange(len(pa_signal))*dt.m,dt.u)
+    ax_pa.plot(pa_time.m,pa_signal.m)
+    ax_pa.set_xlabel(f'Time, [{pa_time.u}]')
+    ax_pa.set_ylabel(f'PA signal, [{pa_signal.u}]')
     plt.show()
 
     #confirm that the data is OK
@@ -1095,9 +1099,7 @@ def set_next_measure_action() -> str:
 def confirm_action(message: str='') -> bool:
     """Confirm execution of an action."""
 
-    logger.debug('Starting...')
     if not message:
         message = 'Are you sure?'
     confirm = inquirer.confirm(message=message).execute()
-    logger.debug(f'...Finishing. {confirm=} was choosen.')
     return confirm

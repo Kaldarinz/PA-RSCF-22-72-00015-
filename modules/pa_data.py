@@ -99,7 +99,7 @@ import h5py
 import numpy as np
 import numpy.typing as npt
 
-from . import ureg
+from . import ureg, Q_
 from .data_classes import *
 
 logger = logging.getLogger(__name__)
@@ -163,11 +163,12 @@ class PaData:
         Add a datapoint to raw_data, filt_data and freq_data.
         """
 
+        logger.debug('Starting datapoint addition to file...')
         ds_name = self._build_ds_name(self.attrs['data_points']+1)
         if not ds_name:
             logger.error('Max data_points reached! Data cannot be added!')
             return
-        logger.debug(f'Adding {ds_name}...')
+        logger.debug(f'{ds_name=}')
         if self.attrs['data_points']:
             params = self.raw_data['point001']['param_val']
             #should be changed for 0D case, when there is no parameter
@@ -197,6 +198,7 @@ class PaData:
         
         self.attrs['data_points'] += 1
         self.attrs['updated'] = self._get_cur_time()
+        logger.debug('...Finishing data point addition to file.')
 
     def _get_cur_time (self) -> str:
         """Return timestamp of current time."""
@@ -222,9 +224,11 @@ class PaData:
     def save_tmp(self) -> None:
         """Save current data to TmpData.hdf5."""
 
+        logger.debug('Starting tmp save...')
         base = os.getcwd()
         filename = os.path.join(base, 'measuring results', 'TmpData.hdf5')
         self._flush(filename)
+        logger.debug('...Finishing tmp save.')
 
     def export_txt(
             self,
@@ -339,14 +343,14 @@ class PaData:
             'version': self.attrs['version'],
             'measurement_dims': self.attrs['measurement_dims'],
             'parameter_name': self.attrs['parameter_name'],
-            'parameter_u': [param.u for param in param_vals],
+            'parameter_u': [str(param.u) for param in param_vals],
             'data_points': self.attrs['data_points'],
             'created': self.attrs['created'],
             'updated': self.attrs['updated'],
             'filename': self.attrs['filename'],
             'zoom_pre_time': self.attrs['zoom_pre_time'].m,
             'zoom_post_time': self.attrs['zoom_post_time'].m,
-            'zoom_u': self.attrs['zoom_pre_time'].u
+            'zoom_u': str(self.attrs['zoom_pre_time'].u)
         }
         return attrs
 
@@ -356,9 +360,9 @@ class PaData:
         attrs = {
             'max_len': self.raw_data['attrs']['max_len'],
             'x_var_name': self.raw_data['attrs']['x_var_name'],
-            'x_var_u': self.raw_data['point001']['x_var_step'].u,
+            'x_var_u': str(self.raw_data['point001']['x_var_step'].u),
             'y_var_name': self.raw_data['attrs']['y_var_name'],
-            'y_var_u': self.raw_data['attrs']['data'][0].u
+            'y_var_u': str(self.raw_data['attrs']['data'][0].u)
         }
         return attrs
 
@@ -375,11 +379,11 @@ class PaData:
             'x_var_start': ds_attrs['x_var_start'].m,
             'x_var_stop': ds_attrs['x_var_stop'].m,
             'pm_en': ds_attrs['pm_en'],
-            'pm_en_u': ds_attrs['pm_en'].u,
+            'pm_en_u': str(ds_attrs['pm_en'].u),
             'sample_en': ds_attrs['sample_en'].m,
-            'sample_en_u': ds_attrs['sample_en'].u,
+            'sample_en_u': str(ds_attrs['sample_en'].u),
             'max_amp': ds_attrs['max_amp'].m,
-            'max_amp_u': ds_attrs['max_amp'].u
+            'max_amp_u': str(ds_attrs['max_amp'].u)
         }
         return attrs
 
@@ -829,30 +833,34 @@ class PaData:
         Actually do the filtration."""
 
         logger.debug(f'Starting FFT for {ds_name} '
-                     + f'with bp filter ({low}:{high})')
+                     + f'with bp filter ({low}:{high})...')
         dt = ds['x_var_step'].to('s').m
+        low = low.to('Hz').m
+        high = high.to('Hz').m
         logger.debug(f'{dt=}')
-        W = fftfreq(len(ds['data']), dt) # array with freqs
-        f_signal = rfft(ds['data']) # signal in f-space
+        W = fftfreq(len(ds['data'].m), dt) # array with freqs
+        f_signal = rfft(ds['data'].m) # signal in f-space
 
         filtered_f_signal = f_signal.copy()
-        filtered_f_signal[:,(W<low)] = 0 # high pass filtering
+        filtered_f_signal[(W<low)] = 0 # high pass filtering
 
         if high > 1/(2.5*dt): # Nyquist frequency check
-            filtered_f_signal[:,(W>1/(2.5*dt))] = 0 
+            filtered_f_signal[(W>1/(2.5*dt))] = 0 
         else:
-            filtered_f_signal[:,(W>high)] = 0
+            filtered_f_signal[(W>high)] = 0
 
         #pass frequencies
         filtered_freq = W[(W>low)*(W<high)]
-        filtered_data = f_signal[:,(W>low)*(W<high)]
+        filtered_data = f_signal[(W>low)*(W<high)]
         freq_ds: FreqData = {
-            'data': filtered_data*ureg.Hz,
+            'data': Q_(filtered_data, 'Hz'), #type: ignore
             'x_var_step': (filtered_freq[1]-filtered_freq[0])*ureg.Hz,
             'x_var_start': filtered_freq.min()*ureg.Hz,
             'x_var_stop': filtered_freq.max()*ureg.Hz,
-            'max_amp': (filtered_data.max() - filtered_data.min())*ureg.Hz
+            'max_amp': filtered_data.ptp()
         }
+        logger.debug(f'freq step: {freq_ds["x_var_step"]}')
+        logger.debug(f'FFT amplitude: {freq_ds["max_amp"]}')
         self.freq_data.update({ds_name: freq_ds})
         freq_points = len(self.freq_data[ds_name]['data'])
 

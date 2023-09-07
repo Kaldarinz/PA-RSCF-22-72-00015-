@@ -17,6 +17,7 @@ handlers:
     level: DEBUG
     formatter: simple
     filename: logs/PA_CLI.log
+    encoding: utf-8
 loggers:
   modules:
     level: DEBUG
