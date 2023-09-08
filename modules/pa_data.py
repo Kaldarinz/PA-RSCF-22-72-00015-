@@ -455,7 +455,7 @@ class PaData:
             logger.debug(f'General metadata with {len(general)}'
                          + ' records loaded.')
         
-            raw_data = file['raw data']
+            raw_data = file['raw_data']
             #metadata of raw_data
             self.raw_data['attrs'].update(
                 {
@@ -487,7 +487,7 @@ class PaData:
                  ) -> None:
         """Load <ds_name> dataset from <ds>."""
 
-        p = np.poly1d(ds.attrs['a'], ds.attrs['b']) # type: ignore
+        p = np.poly1d([ds.attrs['a'], ds.attrs['b']]) # type: ignore
         data_raw = ds[...]
         data = p(data_raw)*ureg(y_var_unit)
         p_vals = ds.attrs['param_val']
