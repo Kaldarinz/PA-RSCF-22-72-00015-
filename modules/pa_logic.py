@@ -501,9 +501,10 @@ def spectrum(
         logger.info(f'Current wavelength is {current_wl}.'
                     +'Please set it!')
 
-        if not set_energy(hardware, current_wl, target_energy, bool(i)):
-            logger.debug('...Terminating.')
-            return
+        if not i:
+            if not set_energy(hardware, current_wl, target_energy):
+                logger.debug('...Terminating.')
+                return
         measurement, proceed = _ameasure_point(hardware, averaging, current_wl)
         data.add_measurement(measurement, [current_wl])
         data.save_tmp()
@@ -543,8 +544,7 @@ def single_measure(
 def set_energy(
     hardware: Hardware,
     current_wl: pint.Quantity,
-    target_energy: pint.Quantity,
-    repeated: bool=False
+    target_energy: pint.Quantity
 ) -> bool:
     """Set laser energy for measurements.
     
@@ -593,7 +593,7 @@ def set_energy(
             logger.debug('...Terminating.')
             return False
     
-    elif config['power_control'] == 'Glan prism' and not repeated:
+    elif config['power_control'] == 'Glan prism':
         target_pm_value = glan_calc_reverse(target_energy)
         logger.info(f'Target power meter energy is {target_pm_value}!') # type: ignore
         logger.info(f'Please set it using Glan prism.')

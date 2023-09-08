@@ -89,6 +89,7 @@ import time
 import os, os.path
 import logging
 from itertools import zip_longest
+from collections import Counter
 
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
@@ -175,17 +176,21 @@ class PaData:
             logger.error('Max data_points reached! Data cannot be added!')
             return None
         logger.debug(f'{ds_name=}')
-        # ensure that units of parameter values for new point
+        # ensure that units of parameter and data for new point
         # is the same as units of already present points
-        # надо добавить каст единиц данных
         if self.attrs['data_points']:
             params = self.raw_data['point001']['param_val']
             #should be changed for 0D case, when there is no parameter
             logger.debug(f'Param values changed from {param_val}...')
             param_val = [x.to(y.u) for x,y in zip(param_val,params)] # type: ignore
             logger.debug(f'... to {param_val}')
+            data_u = self.raw_data['point001']['data'].u
+            if data_u != data['pa_signal'].u:
+                logger.debug(f'Changing units of data from {data["pa_signal"].u} '
+                             +f'to {data_u}')
+                data['pa_signal'] = data['pa_signal'].to(data_u) #type: ignore
         ds: RawData = {
-            'data': data['pa_signal'],
+            'data': data['pa_signal'], #type: ignore
             'data_raw': data['pa_signal_raw'],
             'param_val': param_val,
             'x_var_step': data['dt'],
@@ -406,9 +411,16 @@ class PaData:
         <points> is amount of points used for fitting.
         """
 
+        DIFF_VALS = 5
+
+        data = self.raw_data[ds_name]['data']
         x = self.raw_data[ds_name]['data_raw'][:points]
-        tmp = self.raw_data[ds_name]['data'][:points]
-        y = [quantity.m for quantity in tmp]
+        if len(np.unique(x))< DIFF_VALS:
+            for i in range(len(self.raw_data[ds_name]['data_raw'])):
+                x = self.raw_data[ds_name]['data_raw'][:(points+i)]
+                if len(np.unique(x)) == DIFF_VALS:
+                    break
+        y = [quantity.m for quantity, _ in zip(data, x)]
         coef = np.polyfit(x, y, 1)
         return coef
 
