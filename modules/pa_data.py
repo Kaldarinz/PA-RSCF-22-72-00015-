@@ -96,6 +96,7 @@ import matplotlib.gridspec as gridspec
 from matplotlib import MatplotlibDeprecationWarning # type: ignore
 from scipy.fftpack import rfft, irfft, fftfreq
 import pint
+from pint.facets.plain.quantity import PlainQuantity
 import h5py
 import numpy as np
 import numpy.typing as npt
@@ -587,29 +588,48 @@ class PaData:
     def _plot_1d(self) -> None:
         """Plot 1D data."""
 
+        logger.debug('Starting 1D plotting...')
         self._param_ind = 0 #index of active data on plot
 
         #plot max_signal_amp(parameter)
-        self._param_values = self.get_dependance('raw_data','param_val')
+        self._param_values = self.get_dependance('raw_data','param_val[0]')
+        if self._param_values is None:
+            logger.warning('Plot attempt failed.')
+            logger.debug('...Terminating. raw_data on param_val dependence failed.')
+            return None
         self._raw_amps = self.get_dependance('raw_data', 'max_amp')
+        if self._raw_amps is None:
+            logger.warning('Plot attempt failed.')
+            logger.debug('...Terminating. raw_data on max_amp dependence failed.')
+            return None
         self._filt_amps = self.get_dependance('filt_data', 'max_amp')
+        if self._filt_amps is None:
+            logger.warning('Plot attempt failed.')
+            logger.debug('...Terminating. filt_data on max_amp dependence failed.')
+            return None
         
+        self._ax_sp.set_xlabel(self.raw_data['attrs']['x_var_name'])
+        self._ax_sp.set_ylabel(self.raw_data['attrs']['y_var_name'])
         self._ax_sp.plot(
-            self._param_values,
-            self._raw_amps,
+            self._param_values.m,
+            self._raw_amps.m,
             label='Max amplitude of raw data')
         self._ax_sp.plot(
-            self._param_values,
-            self._filt_amps,
+            self._param_values.m,
+            self._filt_amps.m,
             label='Max amplitude of filtered data'
         )
         self._ax_sp.legend(loc='upper right')
         self._ax_sp.set_ylim(bottom=0)
         x_label = (self.attrs['parameter_name'][0] 
-                   + ', ' + self._ax_sp.get_xlabel())
+                   + ', ['
+                   + f'{self.raw_data["point001"]["param_val"][0].u}'
+                   + ']')
         self._ax_sp.set_xlabel(x_label)
         y_label = (self.raw_data['attrs']['y_var_name']
-                   + ', ' + self._ax_sp.get_ylabel())
+                   + ', ['
+                   + f'{self.raw_data["point001"]["data"][0].u}'
+                   + ']')
         self._ax_sp.set_ylabel(y_label)
 
         self._plot_selected_raw, = self._ax_sp.plot(
@@ -655,7 +675,7 @@ class PaData:
     def _plot_update(self) -> None:
         """Update plotted data."""
 
-        ds_name = self._build_ds_name(self._param_ind)
+        ds_name = self._build_ds_name(self._param_ind+1)
         #check if datapoint is empty
         if not self.filt_data[ds_name]['data']:
             return None
@@ -794,7 +814,9 @@ class PaData:
             zoom_ax.set_ylabel(y_label)
             zoom_ax.set_title('Zoom of ' + title)
 
-    def get_dependance(self, data_group: str, value: str) -> List:
+    def get_dependance(self, 
+                       data_group: str, 
+                       value: str) -> PlainQuantity|None:
         """Return array with value from each dataset in the data_group.
         
         data_group: 'raw_data'|'filt_data|'freq_data'.
@@ -804,25 +826,54 @@ class PaData:
         dep = [] #array for return values
         if not self.attrs['data_points']:
             logger.error(f'PaData instance contains no data points.')
-            return dep
-        check_st = 'self.'+data_group+'[self._build_ds_name(1)].get(value)'
+            return None
+        
+        if value.startswith('param_val'):
+            ind = int(value.split('[')[-1].split(']')[0])
+            value = 'param_val'
+            check_st = ('self.'
+                        + data_group
+                        + '[self._build_ds_name(1)].get(value)'
+                        + f'[{ind}]'
+            )
+        else:
+            ind = None
+            check_st = ('self.'
+                        + data_group
+                        + '[self._build_ds_name(1)].get(value)'
+            )
         if eval(check_st) is None:
             logger.error(f'Attempt to read unknown attribute: {value} '
                          + f'from {data_group}.')
-            return dep
+            return None
         
-        if data_group == 'raw_data':
-            for ds_name, ds in self.raw_data.items():
-                if ds_name != 'attrs':
-                    dep.append(ds[value])
-        elif data_group == 'filt_data':
-            for ds_name, ds in self.filt_data.items():
-                if ds_name != 'attrs':
-                    dep.append(ds[value])
-        elif data_group == 'freq_data':
-            for ds_name, ds in self.freq_data.items():
-                if ds_name != 'attrs':
-                    dep.append(ds[value])
+        if ind is not None:
+            if data_group == 'raw_data':
+                for ds_name, ds in self.raw_data.items():
+                    if ds_name != 'attrs':
+                        dep.append(ds[value][ind])
+            elif data_group == 'filt_data':
+                for ds_name, ds in self.filt_data.items():
+                    if ds_name != 'attrs':
+                        dep.append(ds[value][ind])
+            elif data_group == 'freq_data':
+                for ds_name, ds in self.freq_data.items():
+                    if ds_name != 'attrs':
+                        dep.append(ds[value][ind])
+        else:
+            if data_group == 'raw_data':
+                for ds_name, ds in self.raw_data.items():
+                    if ds_name != 'attrs':
+                        dep.append(ds[value])
+            elif data_group == 'filt_data':
+                for ds_name, ds in self.filt_data.items():
+                    if ds_name != 'attrs':
+                        dep.append(ds[value])
+            elif data_group == 'freq_data':
+                for ds_name, ds in self.freq_data.items():
+                    if ds_name != 'attrs':
+                        dep.append(ds[value])
+        dep = pint.Quantity.from_list(dep)
         return dep
 
     def bp_filter(self,
