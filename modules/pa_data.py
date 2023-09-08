@@ -194,9 +194,9 @@ class PaData:
             'data': data['pa_signal'], #type: ignore
             'data_raw': data['pa_signal_raw'],
             'param_val': param_val,
-            'x_var_step': data['dt'],
-            'x_var_start': data['start_time'],
-            'x_var_stop': data['stop_time'],
+            'x_var_step': data['dt'].to('us'),
+            'x_var_start': data['start_time'].to('us'),
+            'x_var_stop': data['stop_time'].to('us'),
             'pm_en': data['pm_energy'],
             'sample_en': data['sample_energy'],
             'max_amp': data['max_amp']
@@ -633,13 +633,13 @@ class PaData:
         self._ax_sp.set_ylabel(y_label)
 
         self._plot_selected_raw, = self._ax_sp.plot(
-            self._param_values[self._param_ind],
-            self._raw_amps[self._param_ind],
+            self._param_values[self._param_ind].m,
+            self._raw_amps[self._param_ind].m,
             **self._marker_style)
         
         self._plot_selected_filt, = self._ax_sp.plot(
-            self._param_values[self._param_ind],
-            self._filt_amps[self._param_ind],
+            self._param_values[self._param_ind].m,
+            self._filt_amps[self._param_ind].m,
             **self._marker_style)
 
         self._fig.canvas.mpl_connect('key_press_event', self._on_key_press)
@@ -677,7 +677,7 @@ class PaData:
 
         ds_name = self._build_ds_name(self._param_ind+1)
         #check if datapoint is empty
-        if not self.filt_data[ds_name]['data']:
+        if self.filt_data[ds_name].get('data') is None:
             return None
         #update parameter plot
         self._update_pos_ax_sp()
@@ -704,25 +704,6 @@ class PaData:
             'FFT data',
             self._ax_freq
         )
-        start_freq = self.freq_data[ds_name]['x var start']
-        step_freq = self.freq_data[ds_name]['x var step']
-        num_freq = len(self.freq_data[ds_name]['data'])
-        stop_freq = (num_freq - 1)*step_freq + start_freq
-        freq_points = np.linspace(start_freq,stop_freq,num_freq)
-
-        self._ax_freq.clear()
-        self._ax_freq.plot(freq_points,
-                          self.freq_data[ds_name]['data'])
-        x_label = self.freq_data['attrs']['x var name'] +\
-            ', [' + self.freq_data['attrs']['x var units']+']'
-        self._ax_freq.set_xlabel(x_label)
-
-        y_label = self.freq_data['attrs']['y var name'] +\
-            ', [' + self.freq_data['attrs']['y var units']+']'
-        self._ax_freq.set_ylabel(y_label)
-        
-        title = self.freq_data['attrs']['y var name']
-        self._ax_freq.set_title(title)
         
         #general update
         self._fig.align_labels()
@@ -735,11 +716,11 @@ class PaData:
                   + str(self._param_values[self._param_ind]))
         self._ax_sp.set_title(title)
         self._plot_selected_raw.set_data(
-            self._param_values[self._param_ind],
-            self._raw_amps[self._param_ind])
+            self._param_values[self._param_ind].m,
+            self._raw_amps[self._param_ind].m)
         self._plot_selected_filt.set_data(
-            self._param_values[self._param_ind],
-            self._filt_amps[self._param_ind])
+            self._param_values[self._param_ind].m,
+            self._filt_amps[self._param_ind].m)
 
     def _plot_update_signal(
             self,
@@ -759,18 +740,23 @@ class PaData:
 
         logger.debug(f'Start updating subplot {title}')
         
-        start = ds['x_var_start'].to_base_units()
-        stop = ds['x_var_stop'].to_base_units()
-        step = ds['x_var_step'].to_base_units()
+        start = ds['x_var_start']
+        stop = ds['x_var_stop']
+        step = ds['x_var_step']
         num = len(ds['data'])
-        time_data = np.linspace(start.m,stop.m,num)*ureg(start.u)
+        time_data = Q_(np.linspace(start.m,stop.m,num), start.u)
 
+        x_label = (attrs['x_var_name']
+                   + ', ['
+                   + str(start.u)
+                   + ']')
+        y_label = (attrs['y_var_name']
+                   + ', ['
+                   + str(ds['data'].u)
+                   + ']')
         ax.clear()
-        ax.plot(time_data, ds['data'])
-        x_label = attrs['x_var_name'] + ', ' + ax.get_xlabel()
+        ax.plot(time_data.m, ds['data'].m)
         ax.set_xlabel(x_label)
-
-        y_label = attrs['y_var_name'] + ', ' + ax.get_ylabel()
         ax.set_ylabel(y_label)
         ax.set_title(title)
 
@@ -779,13 +765,13 @@ class PaData:
             max_val = np.amax(ds['data'])
             max_ind = np.flatnonzero(ds['data']==max_val)[0]
             max_t = time_data[max_ind]
-            ax.plot(max_t, max_val, **self._marker_style)
+            ax.plot(max_t.m, max_val.m, **self._marker_style)
             
             #marker for min value
             min_val = np.amin(ds['data'])
             min_ind = np.flatnonzero(ds['data']==min_val)[0]
             min_t = time_data[min_ind]
-            ax.plot(min_t, min_val, **self._marker_style)
+            ax.plot(min_t.m, min_val.m, **self._marker_style)
         
             #marker for zoomed area
             pre_time = self.attrs['zoom_pre_time']
@@ -795,20 +781,20 @@ class PaData:
             start_zoom_ind = max_ind-pre_points
             if start_zoom_ind < 0:
                 start_zoom_ind = 0
-            stop_zoom_ind = max_ind + post_points
+            stop_zoom_ind = min_ind + post_points
             if stop_zoom_ind > (len(time_data) - 1):
                 stop_zoom_ind = len(time_data) - 1
             ax.fill_betweenx(
-                [min_val, max_val],
-                time_data[start_zoom_ind],
-                time_data[stop_zoom_ind],
+                [min_val.m, max_val.m],
+                time_data[start_zoom_ind].m,
+                time_data[stop_zoom_ind].m,
                 **self._fill_style
             )
 
             zoom_ax.clear()
             zoom_ax.plot(
-                time_data[start_zoom_ind:stop_zoom_ind+1],
-                ds['data'][start_zoom_ind:stop_zoom_ind+1]
+                time_data[start_zoom_ind:stop_zoom_ind+1].m,
+                ds['data'][start_zoom_ind:stop_zoom_ind+1].m
             )
             zoom_ax.set_xlabel(x_label)
             zoom_ax.set_ylabel(y_label)
@@ -925,7 +911,7 @@ class PaData:
         filtered_freq = W[(W>low)*(W<high)]
         filtered_data = f_signal[(W>low)*(W<high)]
         freq_ds: FreqData = {
-            'data': Q_(filtered_data, 'Hz'), #type: ignore
+            'data': Q_(filtered_data, ds['data'].u), #type: ignore
             'x_var_step': (filtered_freq[1]-filtered_freq[0])*ureg.Hz,
             'x_var_start': filtered_freq.min()*ureg.Hz,
             'x_var_stop': filtered_freq.max()*ureg.Hz,

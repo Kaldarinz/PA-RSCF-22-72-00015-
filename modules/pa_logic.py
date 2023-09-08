@@ -493,7 +493,7 @@ def spectrum(
     #main measurement cycle
     for i in range(spectral_points):
         if abs(step*i) < abs(d_wl):
-            current_wl = start_wl + step.m*i
+            current_wl = start_wl + step*i
         else:
             current_wl = end_wl
 
