@@ -3,7 +3,7 @@ PA backend
 """
 
 from doctest import debug
-from typing import Any, TypedDict, Union, List, Tuple, Optional
+from typing import Any, TypedDict, Union, List, Tuple, Optional, cast
 import logging
 import os
 from itertools import combinations
@@ -494,6 +494,7 @@ def spectrum(
     for i in range(spectral_points):
         if abs(step*i) < abs(d_wl):
             current_wl = start_wl + step*i
+            current_wl = cast(pint.Quantity, current_wl)
         else:
             current_wl = end_wl
 

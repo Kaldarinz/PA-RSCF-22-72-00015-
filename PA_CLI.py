@@ -69,7 +69,6 @@ def print_status(hardware: pa_logic.Hardware) -> None:
     logger.debug('print_status called')
     stage_X = hardware['stage_x']
     stage_Y = hardware['stage_y']
-    osc = hardware['osc']
     stages_connected = True
     try:
         logger.info(f'X stage'
@@ -84,13 +83,10 @@ def print_status(hardware: pa_logic.Hardware) -> None:
         logger.error('Stages are not responding!')
         stages_connected = False
 
-    if not osc.not_found:
+    if pa_logic.osc_open(hardware):
         logger.info('Oscilloscope is initiated!')
     else:
         logger.error('Oscilloscope is not initialized!')
-
-    if stages_connected and not osc.not_found:
-        logger.info('All hardware is initiated!')
 
 def save_data(data: PaData) -> None:
     """"CLI for saving data to a file."""

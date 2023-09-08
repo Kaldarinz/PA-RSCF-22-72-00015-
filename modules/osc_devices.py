@@ -110,6 +110,10 @@ class Oscilloscope:
                          + 'devices. Init failed')
             raise exceptions.OscilloscopeError('Oscilloscope was not found')
         else:
+            try:
+                self.__osc.close()
+            except:
+                pass
             self.__osc: pv.resources.USBInstrument
             self.__osc = rm.open_resource(self.OSC_ID) # type: ignore
             logger.debug('Oscilloscope device found!')
@@ -144,18 +148,28 @@ class Oscilloscope:
 
         logger.debug('Starting connection check...')
         try:
-            session = self.__osc.session
-            logger.debug(f'...Finishing. Success. Session ID={session}')
-            self.not_found = False
+            serial_number = self.__osc.serial_number
+            if serial_number == 'NI-VISA-0':
+                self.not_found = True
+                logger.debug('...Finishing. Not found.')
+            else:
+                self.not_found = False
+                logger.debug(f'...Finishing. Success. {serial_number=}')
         except Exception as err:
             logger.debug(f'Operation failed with error {type(err)}')
             self.not_found = True
 
-    def query(self, message: str) -> str:
+    def query(self, message: str) -> str|None:
         """Send a querry to the oscilloscope."""
 
-        logger.debug(f'Sending query: {message}')
-        return self.__osc.query(message)
+        try:
+            logger.debug(f'Sending query: {message}')
+            answer = self.__osc.query(message)
+            return answer
+        except pv.errors.VisaIOError:
+            self.not_found = True
+            logger.warning('Querry to osc failed. Osc could be disconnected!')
+            return None
         
     def set_preamble(self) -> None:
         """Set osc params."""
@@ -430,9 +444,13 @@ class Oscilloscope:
         self.__osc.write(':WAV:STAR 1')
         self.__osc.write(':WAV:STOP ' + str(self.MAX_SCR_POINTS))
         self.__osc.write(':WAV:DATA?')
-        data_chunk = np.frombuffer(self.__osc.read_raw(),
-                                    dtype=np.uint8)[self.HEADER_LEN:]
-        
+        try:
+            data_chunk = np.frombuffer(self.__osc.read_raw(),
+                                        dtype=np.uint8)[self.HEADER_LEN:]
+        except:
+            logger.debug('...Terminating. Osc probably disconnected.')
+            self.not_found = True
+            return np.zeros(self.MAX_SCR_POINTS).astype(np.uint8)
         if self._ok_read(self.MAX_SCR_POINTS, data_chunk):
             logger.debug(f'...Finishing. Max val = {data_chunk.max()}, '
                          + f'min val = {data_chunk.min()}')
