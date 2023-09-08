@@ -164,11 +164,20 @@ class PaData:
         """
 
         logger.debug('Starting datapoint addition to file...')
+        if data['pa_signal'] is None or not len(data['pa_signal']):
+            logger.debug('...Terminating datapoint addition. PA signal is missing.')
+            return None
+        if data['pa_signal_raw'] is None or not len(data['pa_signal_raw']):
+            logger.debug('...Terminating datapoint addition. PA signal_raw is missing.')
+            return None
         ds_name = self._build_ds_name(self.attrs['data_points']+1)
         if not ds_name:
             logger.error('Max data_points reached! Data cannot be added!')
-            return
+            return None
         logger.debug(f'{ds_name=}')
+        # ensure that units of parameter values for new point
+        # is the same as units of already present points
+        # надо добавить каст единиц данных
         if self.attrs['data_points']:
             params = self.raw_data['point001']['param_val']
             #should be changed for 0D case, when there is no parameter
@@ -362,7 +371,7 @@ class PaData:
             'x_var_name': self.raw_data['attrs']['x_var_name'],
             'x_var_u': str(self.raw_data['point001']['x_var_step'].u),
             'y_var_name': self.raw_data['attrs']['y_var_name'],
-            'y_var_u': str(self.raw_data['attrs']['data'][0].u)
+            'y_var_u': str(self.raw_data['point001']['data'][0].u)
         }
         return attrs
 
@@ -868,10 +877,10 @@ class PaData:
             self.freq_data['attrs']['max_len'] = freq_points
 
         self.filt_data.update(
-            {ds_name: self.raw_data[ds_name]})
-        final_filt_data = irfft(filtered_f_signal)
+            {ds_name: self.raw_data[ds_name].copy()})
+        final_filt_data = Q_(irfft(filtered_f_signal), ds['data'].u)
         
-        filt_max_amp = final_filt_data.max()-final_filt_data.min()
+        filt_max_amp = final_filt_data.ptp() #type: ignore
         self.filt_data[ds_name].update(
             {'data':final_filt_data})
         self.filt_data[ds_name].update({'max_amp': filt_max_amp})
