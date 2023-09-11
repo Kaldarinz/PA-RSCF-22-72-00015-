@@ -1,18 +1,28 @@
 """
-Oscilloscope based devices
+Oscilloscope based devices.
+
+Public API functions raise two kinds of osc_device related exceptions:
+1. OscConnectError indicates that not_found flag is set, which means
+that the last low level communiation with osc device failed and therefore
+the osc device may need reinitialization.
+2. OscIOError indicates that there was an error during communication with
+osc, but the error is not critical and you could try to call the function again.
+
+Implementation details.
+1. Calls to private methods should assume that correct results are returned.
+2. Osc exceptions should be handled by a public caller.
 """
 
 from typing import List, Optional, Tuple, cast
 import logging
 import time
-from unittest import result
 
 import pyvisa as pv
 import numpy as np
 import numpy.typing as npt
 from pint.facets.plain.quantity import PlainQuantity
 
-import modules.exceptions as exceptions
+from modules.exceptions import OscConnectError, OscIOError
 from . import Q_, ureg
 
 logger = logging.getLogger(__name__)
@@ -153,7 +163,7 @@ class Oscilloscope:
                 read_ch2: bool=True, #flag for channel 1 read
                 correct_bl: bool=True, #correct baseline
                 smooth: bool=True, #smooth data
-        ) -> Tuple[bool,list[PlainQuantity|None],list[npt.NDArray[np.int8]|None]]:
+        ) -> Tuple[bool,List[PlainQuantity|None],List[npt.NDArray[np.int8]|None]]:
         """Measure data from memory.
         
         Data is saved to <data> and <data_raw> attributes.
@@ -220,7 +230,7 @@ class Oscilloscope:
                     read_ch2: bool=True, #read channel 2
                     correct_bl: bool=True, #correct baseline
                     smooth: bool=True, #smooth data
-        ) -> Tuple[bool,list[PlainQuantity|None],list[npt.NDArray[np.int8]|None]]:
+        ) -> Tuple[bool,List[PlainQuantity|None],List[npt.NDArray[np.int8]|None]]:
         """Measure data from screen."""
 
         logger.debug('Starting measure signal from oscilloscope '
@@ -259,7 +269,7 @@ class Oscilloscope:
         result = (True, self.scr_data.copy(), self.scr_data_raw.copy())
         return result
 
-    def _wait_trig(self, timeout: int=5000) -> bool|None:
+    def _wait_trig(self, timeout: int=5000) -> None:
         """Wait for trigger to set.
         
         Return True, when trigger is set.
@@ -296,57 +306,62 @@ class Oscilloscope:
         logger.debug('...Trigger set.')
         return True
 
-    def _query(self, message: str) -> str|None:
+    def _query(self, message: str) -> str:
         """Send a querry to the oscilloscope."""
 
         if self.not_found:
-            logger.debug('Querry cannot be sent. Osc is not connected.')
-            return None
+            err_msg = 'Querry cannot be sent. Osc is not connected.'
+            logger.debug(err_msg)
+            raise OscConnectError(err_msg)
         try:
-            logger.debug(f'Sending query: {message}')
             answer = self.__osc.query(message)
             return answer
         except pv.errors.VisaIOError:
             self.not_found = True
-            logger.warning('Querry to osc failed. Osc could be disconnected!')
-            return None
+            err_msg = 'Querry to osc failed.'
+            logger.warning(err_msg)
+            raise OscConnectError(err_msg)
         
-    def _write(self, message: List[str]) -> int|None:
+    def _write(self, message: List[str]) -> int:
         """Send a querry to the oscilloscope.
         
-        Return number of written bytes, or None if write was not performed.
+        Return number of written bytes].
         """
 
         if self.not_found:
-            logger.debug('Write cannot be done. Osc is not connected.')
-            return None
+            err_msg = 'Write cannot be done. Osc is not connected.'
+            logger.debug(err_msg)
+            raise OscConnectError(err_msg)
         try:
             written = 0
             for msg in message:
                 written += self.__osc.write(msg)
+            logger.debug(f'{written} bytes written to osc.')
             return written
         except pv.errors.VisaIOError:
             self.not_found = True
-            logger.warning('Write to osc failed. Osc could be disconnected!')
-            return None
+            err_msg = 'Write to osc failed.'
+            logger.debug(err_msg)
+            raise OscConnectError(err_msg)
 
-    def _read(self, 
-              cut_header: bool=True
-        ) -> npt.NDArray[np.int8]|None:
+    def _read(self, cut_header: bool=True
+        ) -> npt.NDArray[np.int8]:
         """Read data from osc buffer.
         
         Return data without header if cut_header is set.
         """
 
         if self.not_found:
-            logger.debug('Read cannot be done. Osc is not connected.')
-            return None
+            err_msg = 'Read cannot be done. Osc is not connected.'
+            logger.debug(err_msg)
+            raise OscConnectError(err_msg)
         try:
             raw_data = self.__osc.read_raw()
         except pv.errors.VisaIOError:
             self.not_found = True
-            logger.warning('Read from osc failed. Osc could be disconnected!')
-            return None
+            err_msg = 'Read from osc failed.'
+            logger.debug(err_msg)
+            raise OscConnectError(err_msg)
         data = np.frombuffer(raw_data, dtype=np.uint8)
         data = self._raw_dtype_convert(data)
         if cut_header:
@@ -360,7 +375,7 @@ class Oscilloscope:
 
         return (data-128).astype(np.int8)
 
-    def _set_preamble(self) -> bool:
+    def _set_preamble(self) -> None:
         """Set osc params.
         
         Return execution status.
@@ -368,53 +383,43 @@ class Oscilloscope:
 
         logger.debug('Starting osc params set...')
         query_results = self._query(':WAV:PRE?')
-        if query_results is not None:
-            try:
-                preamble_raw = query_results.split(',')
-                self.format = int(preamble_raw[0]) 
-                self.read_type = int(preamble_raw[1])
-                self.points = int(preamble_raw[2])
-                self.averages = int(preamble_raw[3])
-                self.xincrement = float(preamble_raw[4])*ureg.s
-                self.xorigin = float(preamble_raw[5])*ureg.s
-                self.xreference = float(preamble_raw[6])*ureg.s
-                self.yincrement = float(preamble_raw[7])
-                self.yorigin = float(preamble_raw[8])
-                self.yreference = float(preamble_raw[9])
-                logger.debug(f'...Finishing. Success. {len(preamble_raw)} '
-                            + 'parameters read and set.')
-                return True
-            except IndexError:
-                logger.debug('...Terminating osc params set. '
-                             + 'Wrong amount of params read.')
-                return False
-            except ValueError:
-                logger.debug('...Terminating osc params set. '
-                             + 'Bad params read.')
-                return False
-        else:
-            logger.debug('...Terminating osc params set. '
-                         + 'params cannot be obtained')
-            return False
+        try:
+            preamble_raw = query_results.split(',')
+            self.format = int(preamble_raw[0]) 
+            self.read_type = int(preamble_raw[1])
+            self.points = int(preamble_raw[2])
+            self.averages = int(preamble_raw[3])
+            self.xincrement = float(preamble_raw[4])*ureg.s
+            self.xorigin = float(preamble_raw[5])*ureg.s
+            self.xreference = float(preamble_raw[6])*ureg.s
+            self.yincrement = float(preamble_raw[7])
+            self.yorigin = float(preamble_raw[8])
+            self.yreference = float(preamble_raw[9])
+            logger.debug(f'...Finishing. Success. {len(preamble_raw)} '
+                        + 'parameters read and set.')
+        except IndexError:
+            err_msg = 'Wrong amount of params read.'
+            logger.debug(err_msg)
+            raise OscIOError(err_msg)
+        except ValueError:
+            err_msg = 'Bad params read.'
+            logger.debug(err_msg)
+            raise OscIOError(err_msg)
 
-    def _set_sample_rate(self) -> bool:
+    def _set_sample_rate(self) -> None:
         """Update sample rate.
         
         Return execution status.
         """
         sample_rate = self._query(':ACQ:SRAT?')
-        if sample_rate is not None:
-            try:
-                sample_rate = float(sample_rate)
-            except ValueError:
-                logger.debug('Sample_rate cannot be set. Bad value read.')
-                return False
-            self.sample_rate = Q_(sample_rate, 'Hz')
-            logger.debug(f'Sample rate updated to {self.sample_rate}')
-            return True
-        else:
-            logger.debug('Sample rate cannot be obtained.')
-            return False
+        try:
+            sample_rate = float(sample_rate)
+        except ValueError:
+            err_msg = 'Sample_rate cannot be set. Bad value read.'
+            logger.debug(err_msg)
+            raise OscIOError(err_msg)
+        self.sample_rate = Q_(sample_rate, 'Hz')
+        logger.debug(f'Sample rate updated to {self.sample_rate}')
 
     def _time_to_points (self, duration: PlainQuantity) -> int:
         """Convert duration into amount of data points."""
@@ -427,14 +432,11 @@ class Oscilloscope:
         """Update len of pre, post and dur points for all channels.
         
         Automatically update sample rate before calculation.
-        Return execution status.
+        Return flag, which indicates that all values converted.
         """
 
         logger.debug('Starting set amount of data points for each channel...')
-        if not self._set_sample_rate():
-            logger.debug('...Terminating. Sample rate is not available.')
-            return False
-        
+        self._set_sample_rate()
         all_upd = True
         for i in range(self.CHANNELS):
             logger.debug(f'Setting points for channel {i+1}')
@@ -456,7 +458,7 @@ class Oscilloscope:
             else:
                 logger.debug(f'Warning! "dur time" for CHAN{i+1} is not set.')
                 all_upd = False
-            logger.debug('...Finishing.')
+            logger.debug('...Finishing data points calculation.')
 
         if all_upd:
             return True
@@ -465,15 +467,16 @@ class Oscilloscope:
             
     def _rolling_average(self,
                         data: npt.NDArray[np.int8]
-                        ) -> npt.NDArray[np.int8]|None:
+                        ) -> npt.NDArray[np.int8]:
         """Smooth data using rolling average method."""
         
         logger.debug('Starting _rolling_average smoothing...')
         min_signal_size = int(self.SMOOTH_LEN_FACTOR*self.ra_kernel)
         if len(data) < min_signal_size:
-            logger.debug(f'...Terminating. Signal has only {len(data)} data points, '
-                         + f'but at least {min_signal_size} is required.')
-            return None
+            err_msg = (f'Signal has only {len(data)} data points, '
+                       + f'but at least {min_signal_size} is required.')
+            logger.debug(err_msg)
+            raise OscIOError(err_msg)
         kernel = np.ones(self.ra_kernel)/self.ra_kernel
         tmp_array = np.zeros(len(data))
         border = int(self.ra_kernel/2)
@@ -486,49 +489,39 @@ class Oscilloscope:
                      +f'max val = {result.max()}, min val = {result.min()}.')
         return result
 
-    def _read_chunk(self,
-                        start: int,
-                        dur: int) -> npt.NDArray[np.int8]|None:
+    def _read_chunk(self, start: int, dur: int
+        ) -> npt.NDArray[np.int8]:
         """Read a single chunk from memory.
         
         Return data without header.
         """
 
-        logger.debug('Starting _read_chunk...')
-        logger.debug(f'Start point: {start+1}, stop point: {dur + start}.')
-        
+        logger.debug('Starting _read_chunk...'
+                      + f'Start point: {start+1}, '
+                      + f'stop point: {dur + start}.')
         msg = []
         msg.append(':WAV:STAR ' + str(start+1))
         msg.append(':WAV:STOP ' + str(dur+start))
         msg.append(':WAV:DATA?')
-        written = self._write(msg)
-        if written is None:
-            logger.debug('...Terminating _read_chunk. '
-                         + 'Error during writing data to osc.')
-            return None
-        logger.debug(f'{written} bytes written to osc.')
+        self._write(msg)
         data = self._read()
-        if data is None:
-            logger.debug('...Terminating _read_chunk. Read from osc failed.')
-            return None
-        if self._ok_read(dur, data):
-            logger.debug(f'...Finishing. Signal with {len(data)} data points read. '
-                     + f'max val = {data.max()}, min val = {data.min()}')
-            return data
-        else:
-            logger.debug('...Terminating. Wrong length of data read.')
-            return None
+        self._ok_read(dur, data):
+        logger.debug(f'...Finishing. Signal with {len(data)} '
+                        + f'data points read. max val = {data.max()},'
+                        + f' min val = {data.min()}')
+        return data
 
     def _multi_chunk_read(self,
                           start: int,
-                          dur: int) -> npt.NDArray[np.int8]|None:
+                          dur: int) -> npt.NDArray[np.int8]:
         """Read from memory in multiple chunks.
         
         Return data without header.
         """
 
-        logger.debug('Starting _multi_chunk_read...')
-        logger.debug(f'Start point: {start+1}, duartion point: {dur}.')
+        logger.debug('Starting _multi_chunk_read... '
+                     + f'Start point: {start+1}, '
+                     + f'duartion point: {dur}.')
         data_frames = int(dur/self.MAX_MEMORY_READ) + 1
         logger.debug(f'{data_frames} reads are required.')
         data = np.empty(dur, dtype=np.int8)
@@ -540,12 +533,10 @@ class Oscilloscope:
             else:
                 dur_i = dur - 1 - start_i
             data_chunk = self._read_chunk(start + start_i, dur_i)
-            if data_chunk is None:
-                logger.debug('...Terminating _multi_chunk_read. read_chunk failed.')
-                return None
             data[start_i:start_i+dur_i] = data_chunk.copy()
-        logger.debug(f'...Finishing. Signal with {len(data)} data points read. '
-                     + f'max val = {data.max()}, min val = {data.min()}')
+        logger.debug(f'...Finishing. Signal with {len(data)} data '
+                     + f'points read. max val = {data.max()},'
+                     + f' min val = {data.min()}')
         return data
 
     def _to_volts(self, data: npt.NDArray[np.int8]) -> PlainQuantity:
@@ -558,22 +549,23 @@ class Oscilloscope:
         return result
 
     def _ok_read(self, dur: int,
-                 data_chunk: npt.NDArray) -> bool:
+                 data_chunk: npt.NDArray) -> None:
         """Verify that read data have necessary size."""
 
         if dur == len(data_chunk):
             logger.debug('Data length is OK.')
-            return True
+            return 
         else:
-            logger.debug('Data length is wrong, '
-                         + f'{dur} is required, '
-                         + f'actual length is {len(data_chunk)}')
-            return False
+            err_msg = ('Data length is wrong, '
+                       + f'{dur} is required, '
+                       + f'actual length is {len(data_chunk)}')
+            logger.debug(err_msg)
+            raise OscIOError(err_msg)
 
-    def _read_data(self, ch_id: int) -> npt.NDArray[np.int8]|None:
+    def _read_data(self, ch_id: int) -> npt.NDArray[np.int8]:
         """Read data from the specified channel.
         
-        Return read data or None.
+        Return read data.
         """
 
         logger.debug(f'Starting read from {self.CH_IDS[ch_id]}.')
@@ -582,32 +574,21 @@ class Oscilloscope:
         cmd.append(':WAV:MODE RAW')
         cmd.append(':WAV:FORM BYTE')
         written = self._write(cmd)
-        if written is None:
-            logger.debug('...Terminating _read_data. '
-                         + 'Error during writing data to osc.')
-            return None
-        logger.debug(f'{written} bytes written to osc.')
-        if not self._set_preamble():
-            logger.debug('...Terminating _read_data. Preamble cannot be set.')
-            return None
+        self._set_preamble()
         if not self._ch_points():
-            logger.debug('...Terminating _read_data. Points for channel. '
+            err_msg = (f'Points for channel. {self.CH_IDS[ch_id]} '
                          + 'cannot be calculated.')
-            return None
+            raise OscIOError(err_msg)
         # _ch_points ensured that values are calculated
         pre_points = cast(int, self.pre_p[ch_id])
         dur_points = cast(int, self.dur_p[ch_id])
         # trigger is in the mid of osc memory
         data_start = (int(self.points/2) - pre_points)
-        
         #if one can read the whole data in 1 read
         if self.MAX_MEMORY_READ > dur_points:
             data = self._read_chunk(data_start, dur_points)
         else:
             data = self._multi_chunk_read(data_start, dur_points)
-        if data is None:
-            logger.debug('...Terminating _read_data. Data cannot be read.')
-            return None
         return data
 
     def _baseline_correction(self,
@@ -615,13 +596,13 @@ class Oscilloscope:
                             ) -> npt.NDArray[np.int8]:
         """Correct baseline for the data.
         
-        Assumes that baseline is at the start of measured signal.
+        Assume that baseline is at the start of measured signal.
         """
 
         bl_points = int(len(data)*self.BL_LENGTH)
         logger.debug('Starting baseline correction on signal with '
-                     + f'{len(data)} data points...')
-        logger.debug(f'Baseline length is {bl_points}.')
+                     + f'{len(data)} data points... '
+                     + f'Baseline length is {bl_points}.')
         baseline = np.average(data[:bl_points])
         data_tmp = data.astype(np.int8)
         data_tmp -= int(baseline)
@@ -629,15 +610,12 @@ class Oscilloscope:
                      + f'min val = {data_tmp.min()}')
         return data_tmp
 
-    def _read_scr_data(self, ch_id: int) -> npt.NDArray[np.int8]|None:
+    def _read_scr_data(self, ch_id: int) -> npt.NDArray[np.int8]:
         """Read screen data for the channel."""
 
         chan = self.CH_IDS[ch_id]
         logger.debug(f'Starting screen read from {chan}')
-        if not self._set_preamble():
-            logger.debug('...Terminating _read_scr_data. '
-                         + 'Preamble cannot be set.')
-            return None
+        self._set_preamble()
         cmd = []
         cmd.append(':WAV:SOUR ' + chan)
         cmd.append(':WAV:MODE NORM')
@@ -645,23 +623,13 @@ class Oscilloscope:
         cmd.append(':WAV:STAR 1')
         cmd.append(':WAV:STOP ' + str(self.MAX_SCR_POINTS))
         cmd.append(':WAV:DATA?')
-        written = self._write(cmd)
-        if written is None:
-            logger.debug('...Terminating _read_scr_data. '
-                         + 'Error during writing data to osc.')
-            return None
-        logger.debug(f'{written} bytes written to osc.')
+        self._write(cmd)
         data = self._read()
-        if data is None:
-            logger.debug('...Terminating _read_scr_data. Read from osc failed.')
-            return None
-        if self._ok_read(self.MAX_SCR_POINTS, data):
-            logger.debug(f'...Finishing. Signal with {len(data)} data points read. '
-                     + f'max val = {data.max()}, min val = {data.min()}')
-            return data
-        else:
-            logger.debug('...Terminating. Wrong length of data read.')
-            return None
+        self._ok_read(self.MAX_SCR_POINTS, data):
+        logger.debug(f'...Finishing. Signal with {len(data)} data '
+                        + f'points read. max val = {data.max()}, '
+                        + f'min val = {data.min()}.')
+        return data
 
 
 class PowerMeter:
