@@ -432,7 +432,7 @@ def track_power(hardware: Hardware, tune_width: int) -> PlainQuantity:
         data.append(laser_amp)
         
         #ndarray for up to last <aver> values
-        tmp_data = PlainQuantity.from_list(
+        tmp_data = pint.Quantity.from_list(
             [x for i,x in enumerate(reversed(data)) if i<aver])
         mean = tmp_data.mean() # type: ignore
         std = tmp_data.std() # type: ignore

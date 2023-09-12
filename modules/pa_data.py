@@ -798,8 +798,9 @@ class PaData:
             )
 
             zoom_ax.clear()
+            z_time_off = time_data[start_zoom_ind].m #type:ignore
             zoom_ax.plot(
-                time_data[start_zoom_ind:stop_zoom_ind+1].m, #type:ignore
+                time_data[start_zoom_ind:stop_zoom_ind+1].m-z_time_off, #type:ignore
                 ds['data'][start_zoom_ind:stop_zoom_ind+1].m
             )
             zoom_ax.set_xlabel(x_label)
@@ -865,7 +866,7 @@ class PaData:
                 for ds_name, ds in self.freq_data.items():
                     if ds_name != 'attrs':
                         dep.append(ds[value])
-        dep = PlainQuantity.from_list(dep)
+        dep = pint.Quantity.from_list(dep)
         return dep
 
     def bp_filter(self,

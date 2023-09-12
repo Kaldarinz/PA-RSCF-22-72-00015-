@@ -121,18 +121,12 @@ class Oscilloscope:
                 pass
             self.__osc: pv.resources.USBInstrument
             self.__osc = rm.open_resource(self.OSC_ID) # type: ignore
+            self.not_found = False
             logger.debug('Oscilloscope device found!')
-        if not self._set_preamble():
-            logger.debug('...Terminating. Preamble cannot be set.')
-            return False
-        if not self._set_sample_rate():
-            logger.debug('...Terminating. Sample rate cannot be set.')
-            return False
-
+        self._set_preamble()
+        self._set_sample_rate()
         #smoothing parameters
         self.ra_kernel = ra_kernel_size
-        
-        self.not_found = False
         logger.debug('...Finishing. Osc fully initiated.')
         return True
 
@@ -644,7 +638,7 @@ class PowerMeter:
             self.data = data
             laser_amp = self.energy_from_data(self.data,
                                             self.osc.xincrement)
-            logger.debug(f'...Finishing. {laser_amp=}')
+            logger.debug(f'...Finishing. laser amp = {laser_amp}')
             return laser_amp
         else:
             err_msg = 'Data is not accessible.'
@@ -713,6 +707,7 @@ class PowerMeter:
 
         laser_amp = np.sum(
             data[self.start_ind:self.stop_ind])*step.to('s').m*self.SENS # type: ignore
+        laser_amp = Q_(laser_amp.m, 'mJ')
         logger.debug(f'...Finishing. Laser amplitude = {laser_amp}')
         return laser_amp
     
