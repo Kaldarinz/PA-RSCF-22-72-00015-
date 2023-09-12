@@ -11,6 +11,7 @@ osc, but the error is not critical and you could try to call the function again.
 Implementation details.
 1. Calls to private methods should assume that correct results are returned.
 2. Osc exceptions should be handled by a public caller.
+3. <connection_check> and <initialize> do not raise exceptions.
 """
 
 from typing import List, Optional, Tuple, cast
@@ -133,42 +134,42 @@ class Oscilloscope:
         logger.debug('...Finishing. Osc fully initiated.')
         return True
 
-    def connection_check(self) -> Tuple[bool,bool]:
+    def connection_check(self) -> bool:
         """Check connection to the oscilloscope.
 
-        Set <not_found> flag.
-        Return method execution status, followed by connection status.
+        Set <not_found> flag if check fails.
+        Return connection status.
+        Do not raise exceptions.
         """
 
         logger.debug('Starting connection check...')
         if self.not_found:
-            logger.debug('...Finishing. not_found flag set')
-            return True, False
+            logger.debug('...Finishing. not_found flag set.')
+            return False
         try:
             serial_number = self.__osc.serial_number
             if serial_number == 'NI-VISA-0':
                 self.not_found = True
                 logger.debug('...Finishing. Not found.')
-                return True, False
+                return False
             else:
                 logger.debug(f'...Finishing. Success. {serial_number=}')
-                return True, True
+                return True
         except Exception as err:
-            logger.debug(f'Operation failed with error {type(err)}')
+            logger.debug(f'Communiation failed with error {type(err)}')
             self.not_found = True
-            return False, False
+            return False
 
     def measure(self,
                 read_ch1: bool=True, #flag for channel 1 read
                 read_ch2: bool=True, #flag for channel 1 read
                 correct_bl: bool=True, #correct baseline
                 smooth: bool=True, #smooth data
-        ) -> Tuple[bool,List[PlainQuantity|None],List[npt.NDArray[np.int8]|None]]:
+        ) -> Tuple[List[PlainQuantity|None],List[npt.NDArray[np.int8]|None]]:
         """Measure data from memory.
         
         Data is saved to <data> and <data_raw> attributes.
-        Return tuple, where first element is execution flag,
-        second and third are <data> and <data_raw> attributes.
+        Return tuple with <data> and <data_raw> attributes.
         """
 
         logger.debug('Starting measure signal from oscilloscope '
@@ -176,36 +177,14 @@ class Oscilloscope:
         logger.debug('Resetting data and data_raw attributes.')
         self.data = [None]*self.CHANNELS
         self.data_raw = [None]*self.CHANNELS
-        if self._wait_trig() is None:
-            logger.debug('...Terminating measure. Trigger problem.')
-            result = (False, self.data.copy(), self.data_raw.copy())
-            return result
-        
+        self._wait_trig()
         logger.debug('Writing :STOP to enable reading from memory')
-        written = self._write([':STOP'])
-        if written is None:
-            logger.debug('...Terminating measure. Error during writing to osc.')
-            result = (False, self.data.copy(), self.data_raw.copy())
-            return result
-        logger.debug(f'{written} bytes written.')
-        
+        self._write([':STOP'])
         for i, read_flag in enumerate([read_ch1, read_ch2]):
             if read_flag:
                 data_raw = self._read_data(i)
-                if data_raw is None:
-                    logger.debug('...Terminating measure. ' 
-                                 + 'Error during writing to osc.')
-                    result = (False, self.data.copy(), self.data_raw.copy())
-                    return result
                 if smooth:
                     data_raw = self._rolling_average(data_raw)
-                    if data_raw is None:
-                        logger.debug('...Terminating measure. ' 
-                                 + 'Error during writing to osc.')
-                        result = (False, 
-                                  self.data.copy(), 
-                                  self.data_raw.copy())
-                        return result
                 if correct_bl:
                     data_raw = self._baseline_correction(data_raw)
                 data = self._to_volts(data_raw)
@@ -216,13 +195,9 @@ class Oscilloscope:
                 logger.debug(f'Signal amplitude is {self.amp[i]}')
         
         logger.debug('Writing :RUN to enable oscilloscope')
-        written = self._write([':RUN'])
-        if written is None:
-            logger.debug('...Terminating measure. Error during writing to osc.')
-            result = (False, self.data.copy(), self.data_raw.copy())
-            return result
+        self._write([':RUN'])
         logger.debug('...Finishing. Measure successfull.')
-        result = (True, self.data.copy(), self.data_raw.copy())
+        result = (self.data.copy(), self.data_raw.copy())
         return result
 
     def measure_scr(self, 
@@ -230,7 +205,7 @@ class Oscilloscope:
                     read_ch2: bool=True, #read channel 2
                     correct_bl: bool=True, #correct baseline
                     smooth: bool=True, #smooth data
-        ) -> Tuple[bool,List[PlainQuantity|None],List[npt.NDArray[np.int8]|None]]:
+        ) -> Tuple[List[PlainQuantity|None],List[npt.NDArray[np.int8]|None]]:
         """Measure data from screen."""
 
         logger.debug('Starting measure signal from oscilloscope '
@@ -241,22 +216,8 @@ class Oscilloscope:
         for i, read_flag in enumerate([read_ch1, read_ch2]):
             if read_flag:
                 data_raw = self._read_scr_data(i)
-                if data_raw is None:
-                    logger.debug('...Terminating measure_scr. ' 
-                                 + 'Error during writing to osc.')
-                    result = (False,
-                              self.scr_data.copy(),
-                              self.scr_data_raw.copy())
-                    return result
                 if smooth:
                     data_raw = self._rolling_average(data_raw)
-                    if data_raw is None:
-                        logger.debug('...Terminating measure_scr. ' 
-                                 + 'Error during writing to osc.')
-                        result = (False, 
-                                  self.scr_data.copy(),
-                              self.scr_data_raw.copy())
-                        return result
                 if correct_bl:
                     data_raw = self._baseline_correction(data_raw)
                 data = self._to_volts(data_raw)
@@ -266,44 +227,41 @@ class Oscilloscope:
                 logger.debug(f'Screen data for channel {self.CH_IDS[i]} set.')
                 logger.debug(f'Signal amplitude is {self.scr_amp[i]}.')
         logger.debug('...Finishing. Screen measure successfull.')
-        result = (True, self.scr_data.copy(), self.scr_data_raw.copy())
+        result = (self.scr_data.copy(), self.scr_data_raw.copy())
         return result
 
-    def _wait_trig(self, timeout: int=5000) -> None:
+    def _wait_trig(self, timeout: int=5000) -> bool:
         """Wait for trigger to set.
         
         Return True, when trigger is set.
-        Return None if timeout expired or error occured 
-        communication with osc.
+        <timeout> in ms.
         """
 
         logger.debug('Waiting for trigger to set...')
         start = int(time.time()*1000)
         trig = self._query(':TRIG:POS?')
-        if trig is None:
-            logger.debug('...Terminating trigger set. Bad read from osc.')
-            return None
         try:
             trig = int(trig)
         except ValueError:
-            logger.debug('...Terminating trigger set. Bad read from osc.')
-            return None
+            err_msg = 'Trig cannot be calculated. Bad read from osc.'
+            logger.debug(err_msg)
+            raise OscIOError(err_msg)
         while trig < 0:
             stop = int(time.time()*1000)
             if (stop-start) > timeout:
-                logger.debug('...Terminating. Timeout reached.')
-                return None
+                err_msg = 'Trigger timeout reached.'
+                logger.debug(err_msg)
+                raise OscIOError(err_msg)
             time.sleep(0.1)
             trig = self._query(':TRIG:POS?')
-            if trig is None:
-                logger.debug('...Terminating trigger set. Bad read from osc.')
-                return None
             try:
                 trig = int(trig)
             except ValueError:
-                logger.debug('...Terminating trigger set. Bad read from osc.')
-                return None
-        logger.debug('...Trigger set.')
+                err_msg = 'Trig cannot be calculated. Bad read from osc.'
+                logger.debug(err_msg)
+                raise OscIOError(err_msg)
+        stop = int(time.time()*1000)
+        logger.debug(f'...Trigger set in {stop-start} ms.')
         return True
 
     def _query(self, message: str) -> str:
@@ -505,7 +463,7 @@ class Oscilloscope:
         msg.append(':WAV:DATA?')
         self._write(msg)
         data = self._read()
-        self._ok_read(dur, data):
+        self._ok_read(dur, data)
         logger.debug(f'...Finishing. Signal with {len(data)} '
                         + f'data points read. max val = {data.max()},'
                         + f' min val = {data.min()}')
@@ -550,7 +508,9 @@ class Oscilloscope:
 
     def _ok_read(self, dur: int,
                  data_chunk: npt.NDArray) -> None:
-        """Verify that read data have necessary size."""
+        """Verify that read data have necessary size.
+        
+        If verification fails, raise OscIOError."""
 
         if dur == len(data_chunk):
             logger.debug('Data length is OK.')
@@ -573,7 +533,7 @@ class Oscilloscope:
         cmd.append(':WAV:SOUR ' + self.CH_IDS[ch_id])
         cmd.append(':WAV:MODE RAW')
         cmd.append(':WAV:FORM BYTE')
-        written = self._write(cmd)
+        self._write(cmd)
         self._set_preamble()
         if not self._ch_points():
             err_msg = (f'Points for channel. {self.CH_IDS[ch_id]} '
