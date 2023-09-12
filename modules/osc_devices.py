@@ -1,12 +1,13 @@
 """
 Oscilloscope based devices.
 
-Public API functions raise two kinds of osc_device related exceptions:
+Public API functions raise following kinds of osc_device related exceptions:
 1. OscConnectError indicates that not_found flag is set, which means
 that the last low level communiation with osc device failed and therefore
 the osc device may need reinitialization.
 2. OscIOError indicates that there was an error during communication with
 osc, but the error is not critical and you could try to call the function again.
+3. OscValueError indicated errors during processing data.
 
 Implementation details.
 1. Calls to private methods should assume that correct results are returned.
@@ -15,6 +16,7 @@ Implementation details.
 """
 
 from typing import List, Optional, Tuple, cast
+from collections import abc
 import logging
 import time
 
@@ -23,7 +25,7 @@ import numpy as np
 import numpy.typing as npt
 from pint.facets.plain.quantity import PlainQuantity
 
-from modules.exceptions import OscConnectError, OscIOError
+from modules.exceptions import OscConnectError, OscIOError, OscValueError
 from . import Q_, ureg
 
 logger = logging.getLogger(__name__)
@@ -601,7 +603,7 @@ class PowerMeter:
     osc: Oscilloscope
     threshold: float # fraction of max amp for signal start
     
-    data: PlainQuantity
+    data: PlainQuantity|None
     laser_amp: PlainQuantity
     #start and stop indexes of the measured signal
     start_ind: int = 0
@@ -611,9 +613,9 @@ class PowerMeter:
                  osc: Oscilloscope,
                  ch_id: int=1,
                  threshold: float=0.05) -> None:
-        """PowerMeter class for working with
-        Thorlabs ES111C pyroelectric detector.
-        osc is as instance of Oscilloscope class, 
+        """PowerMeter class for Thorlabs ES111C pyroelectric detector.
+
+        Osc is as instance of Oscilloscope class, 
         which is used for reading data.
         ch_id is number of channel (starting from 0) 
         to which the detector is connected.
@@ -626,24 +628,17 @@ class PowerMeter:
         self.threshold = threshold
         logger.debug('...Finishing')
 
-    def get_energy_scr(self) -> Optional[PlainQuantity]:
-        """Measure energy from screen (fast)"""
+    def get_energy_scr(self) -> PlainQuantity:
+        """Measure energy from screen (fast)."""
 
         logger.debug('Starting fast energy measuring...')
-        if self.osc.not_found:
-            logger.debug('...Terminating. not_found flag in osc instance is set.')
-            msg = 'Oscilloscope not found'
-            raise exceptions.OscilloscopeError(msg)
-        
-        self.osc.measure_scr()
-        #return 0, if read data was not successfull
-        #Oscilloscope class will promt warning
-        if self.osc.bad_read:
-            logger.warning('Energy measurement failed. 0 is returned')
-            logger.debug('...Terminating')
-            return None
-        
+        meas_channel = self._build_chan_list()
+        data = self.osc.measure_scr(
+                read_ch1=meas_channel[0],
+                read_ch2=meas_channel[1])
+        self.data = data[0][self.ch]
         logger.debug('PowerMeter response obtained')
+        #it is safe to assign data is this way
         data = self.osc.scr_data[self.ch]
         if data is not None:
             self.data = data
@@ -652,13 +647,27 @@ class PowerMeter:
             logger.debug(f'...Finishing. {laser_amp=}')
             return laser_amp
         else:
-            logger.debug('...Terminating. Data not not accessible.')
-            return None
+            err_msg = 'Data is not accessible.'
+            logger.debug(err_msg)
+            raise OscValueError(err_msg)
 
+    def _build_chan_list(self) -> List[bool]:
+        """Build a mask List for channels."""
+
+        len = self.osc.CHANNELS
+        result = []
+        channel = self.ch
+        for i in range(len):
+            if channel == 0:
+                result.append(True)
+            else:
+                result.append(False)
+            channel -= 1
+        return result
 
     def energy_from_data(self,
                          data: PlainQuantity,
-                         step: PlainQuantity) -> Optional[PlainQuantity]:
+                         step: PlainQuantity) -> PlainQuantity:
         """Calculate laser energy from data.
 
         <Step> is time step for the data.
@@ -666,60 +675,59 @@ class PowerMeter:
         """
 
         logger.debug('Starting convertion of raw signal to energy...')
-        if len(data) < 10:
-            logger.warning(f'data length is too small ({len(data)})')
-            logger.debug('...Terminating.')
-            msg = 'data too small for laser energy calc'
-            return None
+        if not isinstance(data.m, abc.Sized):
+            err_msg = 'data is not iterable.'
+            logger.debug(err_msg)
+            raise OscValueError(err_msg)
+        if len(data.m) < 10:
+            err_msg = ('data too small for laser energy '
+                       + f'calc ({len(data.m)})')
+            logger.debug(err_msg)
+            raise OscValueError(err_msg)
 
-        max_amp = np.max(data)
+        max_amp = data.max() # type: ignore
         logger.debug(f'Max value in signal is {max_amp}')
         thr = max_amp*self.threshold # type: ignore
         logger.debug(f'Signal starts when amplitude exceeds {thr}')
         try:
-            str_ind = np.where(data>(thr))[0][0]
+            str_ind = np.where(data>thr)[0][0]
             self.start_ind = str_ind
             logger.debug(f'Position of signal start is {str_ind}/'
-                         + f'{len(data)}')
+                         + f'{len(data.m)}')
         except IndexError:
-            msg = 'Problem in set_laser_amp start_index'
-            logger.warning(msg)
-            logger.debug('...Terminating')
-            return None
+            err_msg = 'Problem in set_laser_amp start_index'
+            logger.debug(err_msg)
+            raise OscValueError(err_msg)
 
         try:
             logger.debug('Starting search for signal end...')
-            neg_data = np.where(data[self.start_ind:].magnitude < 0)[0] # type: ignore
+            neg_data = np.where(data[self.start_ind:] < 0)[0] #type: ignore
             stop_ind_arr = neg_data + self.start_ind
             logger.debug(f'{len(stop_ind_arr)} points with negative '
                          + 'values found after signal start')
             stop_index = 0
             #check interval. If data at index + check_int less than zero
             #then we assume that the laser pulse is really finished
-            check_ind = int(len(data)/100)
+            check_ind = int(len(data.m)/100)
             for x in stop_ind_arr:
-                if (x+check_ind) < len(data) and data[x+check_ind] < 0:
+                if (x+check_ind) < len(data.m) and data[x+check_ind] < 0: # type: ignore
                     stop_index = x
                     break
             if not stop_index:
-                msg = 'End of laser impulse was not found'
-                logger.warning(msg)
-                logger.debug('...Terminating .')
-                return None
-            logger.debug(f'Position of signal start is {stop_index}/'
-                         + f'{len(data)}')
+                err_msg = 'End of laser impulse was not found'
+                logger.debug(err_msg)
+                raise OscValueError(err_msg)
+            logger.debug(f'Position of signal stop is {stop_index}/'
+                         + f'{len(data.m)}')
             self.stop_ind = stop_index
         except IndexError:
-            msg = 'Problem in set_laser_amp stop_index'
-            logger.warning(msg)
-            logger.debug('...Terminating .')
-            return None
+            err_msg = 'End of laser impulse was not found'
+            logger.debug(err_msg)
+            raise OscValueError(err_msg)
 
         laser_amp = np.sum(
-            data[self.start_ind:self.stop_ind])*step.to('s').m*self.SENS
-
-        laser_amp = laser_amp.m*ureg.mJ
-        logger.debug(f'...Finishing. {laser_amp=}')
+            data[self.start_ind:self.stop_ind])*step.to('s').m*self.SENS # type: ignore
+        logger.debug(f'...Finishing. Laser amplitude = {laser_amp}')
         return laser_amp
     
     def set_channel(
@@ -727,9 +735,9 @@ class PowerMeter:
             chan: int,
             pre_time: PlainQuantity,
             post_time: PlainQuantity) -> None:
-        """Sets read channel.
+        """Set read channel.
         
-        <chan> is index, i.e. for <chan>=0 for CHAN1."""
+        <chan> is index, i.e. <chan>=0 for CHAN1."""
 
         logger.debug(f'PowerMeter channel set to {self.osc.CH_IDS[chan]}')
         self.ch = chan
