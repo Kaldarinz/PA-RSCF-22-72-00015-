@@ -651,20 +651,6 @@ class PowerMeter:
             logger.debug(err_msg)
             raise OscValueError(err_msg)
 
-    def _build_chan_list(self) -> List[bool]:
-        """Build a mask List for channels."""
-
-        len = self.osc.CHANNELS
-        result = []
-        channel = self.ch
-        for i in range(len):
-            if channel == 0:
-                result.append(True)
-            else:
-                result.append(False)
-            channel -= 1
-        return result
-
     def energy_from_data(self,
                          data: PlainQuantity,
                          step: PlainQuantity) -> PlainQuantity:
@@ -744,6 +730,20 @@ class PowerMeter:
         self.osc.pre_t[chan] = pre_time
         self.osc.post_t[chan] = post_time
         self.osc.dur_t[chan] = pre_time + post_time #type:ignore
+
+    def _build_chan_list(self) -> List[bool]:
+        """Build a mask List for channels."""
+
+        len = self.osc.CHANNELS
+        result = []
+        channel = self.ch
+        for i in range(len):
+            if channel == 0:
+                result.append(True)
+            else:
+                result.append(False)
+            channel -= 1
+        return result
 
 class PhotoAcousticSensOlymp:
     

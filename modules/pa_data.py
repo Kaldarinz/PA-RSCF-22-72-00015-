@@ -29,7 +29,7 @@ Data structure of PaData class:
     |  |
     |  |--point001
     |  |  |--'data': List[Quantity] - measured PA signal
-    |  |  |--'data_raw': ndarray[uint8]
+    |  |  |--'data_raw': ndarray[int8]
     |  |  |--'param_val': List[Quantity] - value of independent parameter
     |  |  |--'x_var_step': Quantity
     |  |  |--'x_var_start': Quantity
@@ -50,7 +50,7 @@ Data structure of PaData class:
     |  |
     |  |--point001
     |  |  |--'data': List[Quantity] - measured PA signal
-    |  |  |--'data_raw': ndarray[uint8]
+    |  |  |--'data_raw': ndarray[int8]
     |  |  |--'param_val': List[Quantity] - value of independent parameter
     |  |  |--'x_var_step': Quantity
     |  |  |--'x_var_start': Quantity
@@ -158,7 +158,7 @@ class PaData:
     def add_measurement(
             self, 
             data: Data_point,
-            param_val: List[pint.Quantity] = []
+            param_val: List[PlainQuantity] = []
         ) -> None:
         """Add a single data point.
         
@@ -592,21 +592,27 @@ class PaData:
         self._param_ind = 0 #index of active data on plot
 
         #plot max_signal_amp(parameter)
-        self._param_values = self.get_dependance('raw_data','param_val[0]')
-        if self._param_values is None:
+        param_values = self.get_dependance('raw_data','param_val[0]')
+        if param_values is None:
             logger.warning('Plot attempt failed.')
             logger.debug('...Terminating. raw_data on param_val dependence failed.')
             return None
-        self._raw_amps = self.get_dependance('raw_data', 'max_amp')
-        if self._raw_amps is None:
+        else:
+            self._param_values = param_values
+        raw_amps = self.get_dependance('raw_data', 'max_amp')
+        if raw_amps is None:
             logger.warning('Plot attempt failed.')
             logger.debug('...Terminating. raw_data on max_amp dependence failed.')
             return None
-        self._filt_amps = self.get_dependance('filt_data', 'max_amp')
-        if self._filt_amps is None:
+        else:
+            self._raw_amps = raw_amps
+        filt_amps = self.get_dependance('filt_data', 'max_amp')
+        if filt_amps is None:
             logger.warning('Plot attempt failed.')
             logger.debug('...Terminating. filt_data on max_amp dependence failed.')
             return None
+        else:
+            self._filt_amps = filt_amps
         
         self._ax_sp.set_xlabel(self.raw_data['attrs']['x_var_name'])
         self._ax_sp.set_ylabel(self.raw_data['attrs']['y_var_name'])
@@ -633,13 +639,13 @@ class PaData:
         self._ax_sp.set_ylabel(y_label)
 
         self._plot_selected_raw, = self._ax_sp.plot(
-            self._param_values[self._param_ind].m,
-            self._raw_amps[self._param_ind].m,
+            self._param_values[self._param_ind].m, #type:ignore
+            self._raw_amps[self._param_ind].m, #type:ignore
             **self._marker_style)
         
         self._plot_selected_filt, = self._ax_sp.plot(
-            self._param_values[self._param_ind].m,
-            self._filt_amps[self._param_ind].m,
+            self._param_values[self._param_ind].m, #type:ignore
+            self._filt_amps[self._param_ind].m, #type:ignore
             **self._marker_style)
 
         self._fig.canvas.mpl_connect('key_press_event', self._on_key_press)
@@ -713,14 +719,14 @@ class PaData:
         """Update current position in parameter subplot."""
 
         title = (self.attrs['parameter_name'][0] + ': '
-                  + str(self._param_values[self._param_ind]))
+                  + str(self._param_values[self._param_ind])) #type:ignore
         self._ax_sp.set_title(title)
         self._plot_selected_raw.set_data(
-            self._param_values[self._param_ind].m,
-            self._raw_amps[self._param_ind].m)
+            self._param_values[self._param_ind].m, #type:ignore
+            self._raw_amps[self._param_ind].m) #type:ignore
         self._plot_selected_filt.set_data(
-            self._param_values[self._param_ind].m,
-            self._filt_amps[self._param_ind].m)
+            self._param_values[self._param_ind].m, #type:ignore
+            self._filt_amps[self._param_ind].m) #type:ignore
 
     def _plot_update_signal(
             self,
@@ -764,13 +770,13 @@ class PaData:
             #marker for max value
             max_val = np.amax(ds['data'])
             max_ind = np.flatnonzero(ds['data']==max_val)[0]
-            max_t = time_data[max_ind]
+            max_t = time_data[max_ind] #type:ignore
             ax.plot(max_t.m, max_val.m, **self._marker_style)
             
             #marker for min value
             min_val = np.amin(ds['data'])
             min_ind = np.flatnonzero(ds['data']==min_val)[0]
-            min_t = time_data[min_ind]
+            min_t = time_data[min_ind] #type:ignore
             ax.plot(min_t.m, min_val.m, **self._marker_style)
         
             #marker for zoomed area
@@ -782,18 +788,18 @@ class PaData:
             if start_zoom_ind < 0:
                 start_zoom_ind = 0
             stop_zoom_ind = min_ind + post_points
-            if stop_zoom_ind > (len(time_data) - 1):
-                stop_zoom_ind = len(time_data) - 1
+            if stop_zoom_ind > (len(time_data.m) - 1):
+                stop_zoom_ind = len(time_data.m) - 1
             ax.fill_betweenx(
                 [min_val.m, max_val.m],
-                time_data[start_zoom_ind].m,
-                time_data[stop_zoom_ind].m,
+                time_data[start_zoom_ind].m, #type:ignore
+                time_data[stop_zoom_ind].m, #type:ignore
                 **self._fill_style
             )
 
             zoom_ax.clear()
             zoom_ax.plot(
-                time_data[start_zoom_ind:stop_zoom_ind+1].m,
+                time_data[start_zoom_ind:stop_zoom_ind+1].m, #type:ignore
                 ds['data'][start_zoom_ind:stop_zoom_ind+1].m
             )
             zoom_ax.set_xlabel(x_label)
@@ -859,12 +865,12 @@ class PaData:
                 for ds_name, ds in self.freq_data.items():
                     if ds_name != 'attrs':
                         dep.append(ds[value])
-        dep = pint.Quantity.from_list(dep)
+        dep = PlainQuantity.from_list(dep)
         return dep
 
     def bp_filter(self,
-                  low: pint.Quantity=1*ureg.MHz,
-                  high: pint.Quantity=10*ureg.MHz,
+                  low: PlainQuantity=1*ureg.MHz,
+                  high: PlainQuantity=10*ureg.MHz,
                   ds_name: str='') -> None:
         """Perform bandpass filtration on data.
         
@@ -882,8 +888,8 @@ class PaData:
                     self._bp_filter_single(low, high, ds_name, ds)
 
     def _bp_filter_single(self,
-                    low: pint.Quantity,
-                    high: pint.Quantity,
+                    low: PlainQuantity,
+                    high: PlainQuantity,
                     ds_name: str,
                     ds: RawData) -> None:
         """Internal bandpass filtration method.

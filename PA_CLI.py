@@ -20,7 +20,7 @@ import modules.validators as vd
 from modules.pa_data import PaData
 import modules.osc_devices as osc_devices
 import modules.pa_logic as pa_logic
-import modules.exceptions as exceptions
+from modules.exceptions import StageError, HardwareError
 
 MESSAGES = {
     'cancel_in': 'Input terminated!'
@@ -51,7 +51,7 @@ def init_hardware(hardware: pa_logic.Hardware) -> None:
 
     try:
         pa_logic.init_hardware(hardware)
-    except exceptions.HardwareError as err:
+    except HardwareError:
         logger.error('Hardware initialization failed')
 
 def home(hardware: pa_logic.Hardware) -> None:
@@ -59,7 +59,7 @@ def home(hardware: pa_logic.Hardware) -> None:
 
     try:
         pa_logic.home(hardware)
-    except exceptions.StageError as err:
+    except StageError:
         logger.error('Homing command failed')
 
 def print_status(hardware: pa_logic.Hardware) -> None:
@@ -202,8 +202,8 @@ def set_new_position(hardware: pa_logic.Hardware) -> None:
         pa_logic.wait_stages_stop(hardware)
         pos_x = hardware['stage_x'].get_position(scale=True)*1000
         pos_y = hardware['stage_y'].get_position(scale=True)*1000
-    except:
-        logger.error('Error during communicating with stages')
+    except StageError as err:
+        logger.error(f'Error during communicating with stages: {err.value}')
         return
     
     logger.info('Moving complete!')

@@ -13,6 +13,7 @@ import math
 
 import yaml
 import pint
+from pint.facets.plain.quantity import PlainQuantity
 import numpy as np
 import numpy.typing as npt
 from InquirerPy import inquirer
@@ -22,7 +23,12 @@ import matplotlib.gridspec as gridspec
 import keyboard
 
 import modules.osc_devices as osc_devices
-import modules.exceptions as exceptions
+from modules.exceptions import (
+    OscConnectError,
+    OscIOError,
+    OscValueError,
+    StageError
+    )
 from .pa_data import PaData
 from .data_classes import *
 from . import ureg, Q_
@@ -35,7 +41,7 @@ def new_data_point() -> Data_point:
     measurement: Data_point = {
                     'dt': 0*ureg.s,
                     'pa_signal': Q_(np.empty(0), 'V'), # type: ignore
-                    'pa_signal_raw': np.empty(0, dtype=np.uint8),
+                    'pa_signal_raw': np.empty(0, dtype=np.int8),
                     'pm_signal': 0*ureg.V,
                     'start_time': 0*ureg.s,
                     'stop_time': 0*ureg.s,
@@ -224,22 +230,20 @@ def init_osc(hardware: Hardware) -> bool:
     initialization is successfull.
     """
     
-    logger.debug('Starting...')
+    logger.debug('Starting init_osc...')
     if osc_open(hardware):
         logger.info('Connection to oscilloscope is already established!')
         logger.debug('...Finishing.')
         return True
 
     logger.debug('No connection found. Trying to establish connection')
-    try:
-        hardware['osc'].initialize()
-    except Exception as err:
-        logger.error(f'Error {type(err)} while trying initialize osc')
-        logger.debug('...Terminating.')
-        return False
-    else:
+    if hardware['osc'].initialize():
         logger.debug('...Finishing. Oscilloscope initialization complete')
         return True
+    else:
+        logger.warning(f'Attempt to initialize osc failed.')
+        logger.debug('...Terminating.')
+        return False       
 
 def stages_open(hardware: Hardware) -> bool:
     """Return True if all stages are responding and open.
@@ -316,7 +320,7 @@ def move_to(X: float, Y: float, hardware: Hardware) -> None:
     except:
         msg = 'Stage X move_to command failed'
         logger.error('...Terminating. ' + msg)
-        raise exceptions.StageError(msg)
+        raise StageError(msg)
 
     logger.debug(f'Sending Y stage to {y_dest_mm} mm position')
     try:
@@ -324,7 +328,7 @@ def move_to(X: float, Y: float, hardware: Hardware) -> None:
     except:
         msg = 'Stage Y move_to command failed'
         logger.error('...Terminating. ' + msg)
-        raise exceptions.StageError(msg)
+        raise StageError(msg)
 
 def wait_stages_stop(hardware: Hardware) -> None:
     """Wait untill all (2) stages stop."""
@@ -337,7 +341,7 @@ def wait_stages_stop(hardware: Hardware) -> None:
     except:
         msg = 'Stage X wait_for_stop command failed'
         logger.error('...Terminating. ' + msg)
-        raise exceptions.StageError(msg)
+        raise StageError(msg)
     
     try:
         hardware['stage_y'].wait_for_stop()
@@ -345,7 +349,7 @@ def wait_stages_stop(hardware: Hardware) -> None:
     except:
         msg = 'Stage Y wait_for_stop command failed'
         logger.error('...Terminating. ' + msg)
-        raise exceptions.StageError(msg)
+        raise StageError(msg)
 
 def home(hardware: Hardware) -> None:
     """Home all (2) stages."""
@@ -357,7 +361,7 @@ def home(hardware: Hardware) -> None:
     except:
         msg = 'Stage X homing command failed'
         logger.error('...Terminating. ' + msg)
-        raise exceptions.StageError(msg)
+        raise StageError(msg)
 
     try:
         logger.debug('homing stage Y')
@@ -365,12 +369,13 @@ def home(hardware: Hardware) -> None:
     except:
         msg = 'Stage Z homing command failed'
         logger.error('...Terminating. ' + msg)
-        raise exceptions.StageError(msg)
+        raise StageError(msg)
     
     wait_stages_stop(hardware)
 
-def track_power(hardware: Hardware, tune_width: int) -> pint.Quantity:
+def track_power(hardware: Hardware, tune_width: int) -> PlainQuantity:
     """Build energy graph.
+
     Return averaged mean energy"""
 
     ### config parameters
@@ -408,17 +413,26 @@ def track_power(hardware: Hardware, tune_width: int) -> pint.Quantity:
     while True:
         try:
             laser_amp = pm.get_energy_scr()
-        except exceptions.OscilloscopeError as err:
-            logger.warning(f'...Terminating. {err.value}. Laser energy = {mean}')
-            return mean
-
-        logger.debug(f'measured {laser_amp=}')
-        if not laser_amp:
+        except (OscValueError, OscIOError):
+            logger.debug('Measurement failed. Trying again.')
             continue
+        except OscConnectError:
+            logger.warning('Oscilloscope disconnected!')
+            if confirm_action('Do you want to reconnect to osc?'):
+                if init_osc(hardware):
+                    logger.debug('Oscilloscope reconnected. '
+                                 + 'Continue measurements.')
+                    continue
+                else:
+                    logger.debug(f'...Terminating, energy = {mean}')
+                    return mean
+            else:
+                logger.debug(f'...Terminating, energy = {mean}')
+                return mean
         data.append(laser_amp)
         
         #ndarray for up to last <aver> values
-        tmp_data = pint.Quantity.from_list(
+        tmp_data = PlainQuantity.from_list(
             [x for i,x in enumerate(reversed(data)) if i<aver])
         mean = tmp_data.mean() # type: ignore
         std = tmp_data.std() # type: ignore
@@ -436,14 +450,14 @@ def track_power(hardware: Hardware, tune_width: int) -> pint.Quantity:
         #add markers for data start and stop
         ax_pm.plot(
             pm.start_ind,
-            pm.data[pm.start_ind],
+            pm.data[pm.start_ind], # type: ignore
             'o',
             alpha=0.4,
             ms=12,
             color='green')
         ax_pm.plot(
             pm.stop_ind,
-            pm.data[pm.stop_ind],
+            pm.data[pm.stop_ind], # type: ignore
             'o',
             alpha=0.4,
             ms=12,
@@ -451,7 +465,7 @@ def track_power(hardware: Hardware, tune_width: int) -> pint.Quantity:
         ax_pa.plot([x.m for x in data])
         ax_pa.set_ylim(bottom=0)
         fig.canvas.draw()
-        plt.pause(0.01)
+        plt.pause(measure_delay.to('s').m)
             
         if keyboard.is_pressed('q'):
             break
@@ -463,10 +477,10 @@ def track_power(hardware: Hardware, tune_width: int) -> pint.Quantity:
 
 def spectrum(
         hardware: Hardware,
-        start_wl: pint.Quantity,
-        end_wl: pint.Quantity,
-        step: pint.Quantity,
-        target_energy: pint.Quantity,
+        start_wl: PlainQuantity,
+        end_wl: PlainQuantity,
+        step: PlainQuantity,
+        target_energy: PlainQuantity,
         averaging: int
 ) -> Optional[PaData]:
     """Measure dependence of PA signal on excitation wavelength.
@@ -494,7 +508,7 @@ def spectrum(
     for i in range(spectral_points):
         if abs(step*i) < abs(d_wl):
             current_wl = start_wl + step*i
-            current_wl = cast(pint.Quantity, current_wl)
+            current_wl = cast(PlainQuantity, current_wl)
         else:
             current_wl = end_wl
 
@@ -518,8 +532,8 @@ def spectrum(
 
 def single_measure(
         hardware: Hardware,
-        wl: pint.Quantity,
-        target_energy: pint.Quantity,
+        wl: PlainQuantity,
+        target_energy: PlainQuantity,
         averaging: int
 ) -> Optional[PaData]:
     """Measure single PA point.
@@ -544,8 +558,8 @@ def single_measure(
 
 def set_energy(
     hardware: Hardware,
-    current_wl: pint.Quantity,
-    target_energy: pint.Quantity
+    current_wl: PlainQuantity,
+    target_energy: PlainQuantity
 ) -> bool:
     """Set laser energy for measurements.
     
@@ -607,9 +621,9 @@ def set_energy(
     logger.debug('...Finishing.')
     return True
                 
-def glass_calculator(wavelength: pint.Quantity,
-                     current_energy_pm: pint.Quantity,
-                     target_energy: pint.Quantity,
+def glass_calculator(wavelength: PlainQuantity,
+                     current_energy_pm: PlainQuantity,
+                     target_energy: PlainQuantity,
                      max_combinations: int,
                      threshold: float = 2.5,
                      results: int = 5,
@@ -754,7 +768,7 @@ def glass_limit_comb(
 
     return result
 
-def glass_reflection(wl: pint.Quantity) -> Optional[float]:
+def glass_reflection(wl: PlainQuantity) -> Optional[float]:
     """Get reflection (fraction) from glass at given wavelength.
     
     pm_energy/sample_energy = glass_reflection."""
@@ -788,9 +802,9 @@ def glass_reflection(wl: pint.Quantity) -> Optional[float]:
     return data[wl_index,1]/100
 
 def glan_calc_reverse(
-        target_energy: pint.Quantity,
+        target_energy: PlainQuantity,
         fit_order: int=1
-    ) -> Optional[pint.Quantity]:
+    ) -> Optional[PlainQuantity]:
     """Calculate energy at power meter for given sample energy.
     
     It is assumed that power meter measures laser energy
@@ -829,9 +843,9 @@ def glan_calc_reverse(
     return energy
 
 def glan_calc(
-        energy: pint.Quantity,
+        energy: PlainQuantity,
         fit_order: int=1
-    ) -> Optional[pint.Quantity]:
+    ) -> Optional[PlainQuantity]:
     """Calculates energy at sample for a given power meter energy"""
 
     logger.debug('Starting...')
@@ -864,7 +878,7 @@ def glan_calc(
 def _ameasure_point(
     hardware: Hardware,
     averaging: int,
-    current_wl: pint.Quantity
+    current_wl: PlainQuantity
 ) -> Tuple[Data_point, bool]:
     """Measure single PA data point with averaging.
     
@@ -910,7 +924,7 @@ def _ameasure_point(
 
 def _measure_point(
         hardware: Hardware,
-        wavelength: pint.Quantity
+        wavelength: PlainQuantity
 ) -> Data_point:
     """Measure single PA data point."""
 
@@ -920,31 +934,48 @@ def _measure_point(
     pa_ch_id = int(hardware['config']['pa_sensor']['connected_chan']) - 1
     pm_ch_id = int(hardware['config']['power_meter']['connected_chan']) - 1
     measurement = new_data_point()
-    osc.measure()
+    try:
+        data = osc.measure()
+        data = cast(
+            Tuple[List[PlainQuantity],List[npt.NDArray[np.int8]]],
+            data
+            )
+    except OscConnectError:
+        logger.warning('Oscilloscope disconnected!')
+        if confirm_action('Do you want to reconnect to osc?'):
+            if init_osc(hardware):
+                logger.info('Oscilloscope reconnected. '
+                                + 'Measure point again.')
+                return _measure_point(hardware, wavelength)
+            else:
+                logger.debug(f'...Terminating PA measurement.')
+                return measurement
+        else:
+            logger.debug(f'...Terminating PA measurement.')
+            return measurement
+    except OscIOError as err:
+        logger.warning(f'Error during PA measurement: {err.value}')
+        return measurement
     dt = 1/osc.sample_rate
-    pa_signal = osc.data[pa_ch_id]
-    if pa_signal is None:
-        logger.debug('..Terminating. PA data is missing.')
-        return measurement
+    pa_signal = data[0][pa_ch_id]
+    pm_signal = data[0][pm_ch_id]
+    pa_signal_raw = data[1][pa_ch_id]
     pa_amp = osc.amp[pa_ch_id]
-    pa_signal_raw = osc.data_raw[pa_ch_id]
-    if pa_signal_raw is None:
-        logger.debug('..Terminating. Raw PA data is missing.')
-        return measurement
     start_time = 0*ureg.s
-    stop_time = dt*(len(pa_signal)-1)
-    pm_signal = osc.data[pm_ch_id]
-    if pm_signal is None:
-        logger.debug('..Terminating. PM data is missing.')
-        return measurement
-    pm_energy = pm.energy_from_data(pm_signal, dt)
-    if pm_energy is None:
-        pm_energy = 0*ureg.J
-
+    stop_time = cast(PlainQuantity, dt*(len(pa_signal.m)-1))
+    try:
+        pm_energy = pm.energy_from_data(pm_signal, dt)
+    except OscValueError:
+        logger.warning('Power meter energy cannot be measured!')
+        if confirm_action('Do you want to repeat measurement?'):
+            return _measure_point(hardware, wavelength)
+        else:
+            pm_energy = Q_(0, 'uJ')
+            logger.warning(f'Power meter energy set to {pm_energy}')
     measurement.update(
         {
             'wavelength': wavelength,
-            'dt': dt.to_base_units(), # type: ignore
+            'dt': dt.to('s'), # type: ignore
             'pa_signal_raw': pa_signal_raw,
             'start_time': start_time,
             'stop_time': stop_time,
@@ -970,9 +1001,9 @@ def _measure_point(
             pa_signal = pa_signal/sample_energy
             pa_amp = pa_amp/sample_energy
         else:
-            logger.warning(f'{sample_energy=}')
-            pa_amp = 0*ureg.uJ
-            sample_energy = 0*ureg.uJ
+            logger.warning(f'Sample energy = {sample_energy}')
+            pa_amp = Q_(0, 'uJ')
+            sample_energy = Q_(0, 'uJ')
     else:
         logger.error('Unknown power control method! '
                     + 'Measurements terminated!')
@@ -1103,4 +1134,5 @@ def confirm_action(message: str='') -> bool:
     if not message:
         message = 'Are you sure?'
     confirm = inquirer.confirm(message=message).execute()
+    logger.debug(f'"{message}" = {confirm}')
     return confirm
