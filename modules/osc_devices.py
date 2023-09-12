@@ -587,7 +587,7 @@ class Oscilloscope:
         cmd.append(':WAV:DATA?')
         self._write(cmd)
         data = self._read()
-        self._ok_read(self.MAX_SCR_POINTS, data):
+        self._ok_read(self.MAX_SCR_POINTS, data)
         logger.debug(f'...Finishing. Signal with {len(data)} data '
                         + f'points read. max val = {data.max()}, '
                         + f'min val = {data.min()}.')
