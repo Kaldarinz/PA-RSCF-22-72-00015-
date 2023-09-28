@@ -3,12 +3,11 @@ PA backend
 """
 
 from doctest import debug
-from typing import Any, TypedDict, Union, List, Tuple, Optional, cast
+from typing import Any, List, Tuple, Optional, cast
 import logging
 import os
 from itertools import combinations
 from collections import deque
-import time
 import math
 
 import yaml
@@ -30,15 +29,15 @@ from modules.exceptions import (
     StageError
     )
 from .pa_data import PaData
-from .data_classes import *
+from . import data_classes as dc
 from . import ureg, Q_
 
 logger = logging.getLogger(__name__)
 
-def new_data_point() -> Data_point:
+def new_data_point() -> dc.Data_point:
     """Return default data point."""
 
-    measurement: Data_point = {
+    measurement: dc.Data_point = {
                     'dt': 0*ureg.s,
                     'pa_signal': Q_(np.empty(0), 'V'), # type: ignore
                     'pa_signal_raw': np.empty(0, dtype=np.int8),
@@ -52,7 +51,7 @@ def new_data_point() -> Data_point:
                 }
     return measurement
 
-def init_hardware(hardware: Hardware) -> bool:
+def init_hardware() -> bool:
     """Initialize all hardware.
     
     Load hardware config from rsc/config.yaml if it was not done.
@@ -60,20 +59,20 @@ def init_hardware(hardware: Hardware) -> bool:
 
     logger.info('Starting hardware initialization...')
     
-    if not init_osc(hardware):
+    if not init_osc():
         logger.warning('Oscilloscope cannot be loaded!')
         logger.debug('...Terminating')
         return False
     else:
         logger.info('Oscilloscope initiated. ')
-    osc = hardware['osc']
-    if not init_stages(hardware):
+    osc = dc.hardware.osc
+    if not init_stages():
         logger.warning('Stages cannot be loaded!')
         logger.debug('...Terminating!')
         return False
     
-    config = hardware['config']
-    pm = hardware.get('power_meter')
+    config = dc.hardware.config
+    pm = dc.hardware.power_meter
     if pm is not None:
         #save pm channel to apply it after init
         pm_chan = pm.ch
@@ -81,10 +80,10 @@ def init_hardware(hardware: Hardware) -> bool:
         post_time = float(config['power_meter']['post_time'])*ureg.us
         pm = osc_devices.PowerMeter(osc)
         pm.set_channel(pm_chan, pre_time, post_time)
-        hardware.update({'power_meter': pm})
+        dc.hardware.power_meter = pm
         logger.debug('Power meter reinitiated on the same channel')
 
-    pa = hardware.get('pa_sens')
+    pa = dc.hardware.pa_sens
     if pa is not None:
         #save pa channel to apply it after init
         pa_chan = pa.ch
@@ -92,13 +91,13 @@ def init_hardware(hardware: Hardware) -> bool:
         post_time = float(config['pa_sensor']['post_time'])*ureg.us
         pa = osc_devices.PhotoAcousticSensOlymp(osc)
         pa.set_channel(pa_chan, pre_time, post_time)
-        hardware.update({'pa_sens': pa})
+        dc.hardware.pa_sens = pa
         logger.debug('PA sensor reinitiated on the same channel')
                 
     logger.debug('...Finishing hardware initialization.')
     return True
 
-def load_config(hardware: Hardware) -> dict:
+def load_config() -> dict:
     """Load configuration.
 
     Configuration is loaded from rsc/config.yaml.
@@ -117,27 +116,23 @@ def load_config(hardware: Hardware) -> dict:
         logger.warning('...Terminatin. Connfig cannot be properly loaded')
         return {}
     
-    hardware.update({'config':config})
+    dc.hardware.config = config
+    dc.hardware.motor_axes = int(config['stages']['axes'])
     logger.debug('Config loaded into hardware["config"]')
-
-    if int(config['stages']['axes']) == 3:
-        logger.debug('Stage_z added to hardware list')
-        hardware.update({'stage_z':0}) # type: ignore
     
-    osc = hardware['osc']
+    osc = dc.hardware.osc
     if bool(config['power_meter']['connected']):
-        hardware.update({'power_meter': osc_devices.PowerMeter(osc)})
-        pm = hardware['power_meter'] # type: ignore
-        pm_chan = config['power_meter']['connected_chan']
+        pm = osc_devices.PowerMeter(osc)
+        dc.hardware.power_meter = pm
+        pm_chan = int(config['power_meter']['connected_chan']) - 1
         pre_time = float(config['power_meter']['pre_time'])*ureg.us
         post_time = float(config['power_meter']['post_time'])*ureg.us
-        pm.set_channel(pm_chan-1, pre_time, post_time)
+        pm.set_channel(pm_chan, pre_time, post_time)
         logger.debug(f'Power meter added to hardare list at CHAN{pm_chan}')
     if bool(config['pa_sensor']['connected']):
-        hardware.update(
-            {'pa_sens':osc_devices.PhotoAcousticSensOlymp(osc)})
-        pa = hardware['pa_sens'] # type: ignore
-        pa_chan = config['pa_sensor']['connected_chan'] - 1
+        pa = osc_devices.PhotoAcousticSensOlymp(osc)
+        dc.hardware.pa_sens = pa
+        pa_chan = int(config['pa_sensor']['connected_chan']) - 1
         pre_time = float(config['pa_sensor']['pre_time'])*ureg.us
         post_time = float(config['pa_sensor']['post_time'])*ureg.us
         pa.set_channel(pa_chan, pre_time, post_time)
@@ -145,75 +140,41 @@ def load_config(hardware: Hardware) -> dict:
     logger.debug(f'...Finishing. Config file read.')
     return config
 
-def init_stages(hardware: Hardware) -> bool:
+def init_stages() -> bool:
     """Initiate Thorlabs KDC based stages."""
 
     logger.debug(f'Starting...')
     logger.debug('Checking if connection to stages is '
                 +'already estblished')
 
-    if stages_open(hardware):
+    if stages_open():
         logger.info('...Finishing. Connection to all stages already established!')
         return True
 
     logger.debug('Searching for Thorlabs kinsesis devices (stages)')
     stages = Thorlabs.list_kinesis_devices()
     logger.debug(f'{len(stages)} devices found')
-
-    if hardware.get('stage_z', None) is not None:
-        amount = 3
-    else:
-        amount = 2
-
-    if len(stages) < amount:
-        msg = f'Less than {amount} kinesis devices found!'
+    axes = dc.hardware.motor_axes
+    if len(stages) < axes:
+        msg = f'Less than {axes} kinesis devices found!'
         logger.error(msg)
         logger.debug('...Terminating.')
         return False
 
     connected = True
-    stage1_ID = stages.pop()[0]
-    #motor units [m]
-    stage1 = Thorlabs.KinesisMotor(stage1_ID, scale='stage')
-    try:
-        stage1.is_opened()
-    except:
-        msg = 'Failed attempt to coomunicate with stage1'
-        logger.error(msg)
-        if connected:
-            connected = False
-    else:
-        hardware['stage_x'] = stage1
-        logger.info(f'Stage X with ID={stage1_ID} is initiated')
-
-    stage2_ID = stages.pop()[0]
-    #motor units [m]
-    stage2 = Thorlabs.KinesisMotor(stage2_ID, scale='stage')
-    try:
-        stage2.is_opened()
-    except:
-        msg = 'Failed attempt to coomunicate with stage2'
-        logger.error(msg)
-        if connected:
-            connected = False
-    else:
-        hardware['stage_y'] = stage2
-        logger.info(f'Stage Y with ID={stage2_ID} is initiated')
-
-    if amount == 3:
-        stage3_ID = stages.pop()[0]
+    for stage_id, id in zip(stages,range(axes)):
         #motor units [m]
-        stage3 = Thorlabs.KinesisMotor(stage3_ID, scale='stage')
+        stage = Thorlabs.KinesisMotor(stage_id[0], scale='stage')
         try:
-            stage3.is_opened()
+            stage.is_opened()
         except:
-            msg = 'Failed attempt to coomunicate with stage3'
+            msg = f'Failed attempt to coomunicate with stage{id}'
             logger.error(msg)
             if connected:
                 connected = False
         else:
-            hardware['stage_z'] = stage3
-            logger.info(f'Stage Z with ID={stage3_ID} is initiated')
+            dc.hardware.stages[id] = stage
+            logger.info(f'Stage {id} with ID={stage_id} is initiated')
     
     if connected:
         logger.info('Stages initiated.')
@@ -223,7 +184,7 @@ def init_stages(hardware: Hardware) -> bool:
     logger.debug(f'...Finishing. Stages {connected=}')
     return connected
 
-def init_osc(hardware: Hardware) -> bool:
+def init_osc() -> bool:
     """Initialize oscilloscope.
 
     Return true if connection is already established or
@@ -231,13 +192,13 @@ def init_osc(hardware: Hardware) -> bool:
     """
     
     logger.debug('Starting init_osc...')
-    if osc_open(hardware):
+    if osc_open():
         logger.info('Connection to oscilloscope is already established!')
         logger.debug('...Finishing.')
         return True
 
     logger.debug('No connection found. Trying to establish connection')
-    if hardware['osc'].initialize():
+    if dc.hardware.osc.initialize():
         logger.debug('...Finishing. Oscilloscope initialization complete')
         return True
     else:
@@ -245,7 +206,7 @@ def init_osc(hardware: Hardware) -> bool:
         logger.debug('...Terminating.')
         return False       
 
-def stages_open(hardware: Hardware) -> bool:
+def stages_open() -> bool:
     """Return True if all stages are responding and open.
     
     Never raise exceptions.

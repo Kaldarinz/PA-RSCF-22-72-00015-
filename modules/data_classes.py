@@ -7,7 +7,7 @@ from typing import TypedDict, List
 import pint
 import numpy.typing as npt
 import numpy as np
-from pylablib.devices import Thorlabs
+from pylablib.devices.Thorlabs import KinesisMotor
 
 from .osc_devices import Oscilloscope, PowerMeter, PhotoAcousticSensOlymp
 
@@ -60,14 +60,6 @@ class FreqData(TypedDict):
     x_var_stop: pint.Quantity
     max_amp: pint.Quantity
 
-class Hardware_base(TypedDict):
-    """Base TypedDict for references to hardware."""
-
-    stage_x: Thorlabs.KinesisMotor
-    stage_y: Thorlabs.KinesisMotor
-    osc: Oscilloscope
-    config: dict
-
 class Data_point(TypedDict):
     """Single PA measurement"""
 
@@ -82,9 +74,15 @@ class Data_point(TypedDict):
     max_amp: pint.Quantity
     wavelength: pint.Quantity
 
-class Hardware(Hardware_base, total=False):
-    """TypedDict for refernces to hardware."""
+class Hardware():
+    """Class for hardware references."""
     
-    power_meter: PowerMeter
-    pa_sens: PhotoAcousticSensOlymp
-    stage_z: Thorlabs.KinesisMotor
+    def __init__(self):
+        self.power_meter: PowerMeter | None = None
+        self.pa_sens: PhotoAcousticSensOlymp | None = None
+        self.stages: List[KinesisMotor | None]
+        self.motor_axes: int
+        self.osc: Oscilloscope
+        self.config: dict
+
+hardware = Hardware()
