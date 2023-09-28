@@ -8,19 +8,21 @@ import os, os.path
 import logging
 import logging.config
 from datetime import datetime
-from typing import Union, Optional
+from typing import Optional
 
 from InquirerPy import inquirer
 from InquirerPy.validator import PathValidator
 import pint
 import yaml
-from pylablib.devices.Thorlabs import KinesisMotor
 
+from modules import ureg, Q_
 import modules.validators as vd
 from modules.pa_data import PaData
 import modules.osc_devices as osc_devices
 import modules.pa_logic as pa_logic
 from modules.exceptions import StageError, HardwareError
+import modules.data_classes as dc
+
 
 MESSAGES = {
     'cancel_in': 'Input terminated!'
@@ -46,44 +48,37 @@ def init_logs() -> logging.Logger:
     logging.config.dictConfig(log_config)
     return logging.getLogger('pa_cli')
 
-def init_hardware(hardware: pa_logic.Hardware) -> None:
+def init_hardware() -> None:
     """CLI for hardware init"""
 
     try:
-        pa_logic.init_hardware(hardware)
+        pa_logic.init_hardware()
     except HardwareError:
         logger.error('Hardware initialization failed')
 
-def home(hardware: pa_logic.Hardware) -> None:
+def home() -> None:
     """CLI for Homes stages"""
 
     try:
-        pa_logic.home(hardware)
+        pa_logic.home()
     except StageError:
         logger.error('Homing command failed')
 
-def print_status(hardware: pa_logic.Hardware) -> None:
+def print_status() -> None:
     """Prints current status and position of stages and oscilloscope"""
     
     # todo: add information about channels to which PM and PA sensor are connected
     logger.debug('print_status called')
-    stage_X = hardware['stage_x']
-    stage_Y = hardware['stage_y']
-    stages_connected = True
-    try:
-        logger.info(f'X stage'
-              + f'homing status: {stage_X.is_homed()}, '
-              + f'status: {stage_X.get_status()}, '
-              + f'position: {stage_X.get_position()*1000:.2f} mm.')
-        logger.info(f'Y stage '
-              + f'homing status: {stage_Y.is_homed()}, '
-              + f'status: {stage_Y.get_status()}, '
-              + f'position: {stage_Y.get_position()*1000:.2f} mm.')
-    except:
-        logger.error('Stages are not responding!')
-        stages_connected = False
+    for stage, axis in zip(dc.hardware.stages,('X','Y','Z')):
+        try:
+            logger.info(axis + f' stage'
+                + f'homing status: {stage.is_homed()}, '
+                + f'state: {stage.get_status()}, '
+                + f'position: {stage.get_position()*1000:.2f} mm.')
+        except:
+            logger.error('Stages are not responding!')
 
-    if pa_logic.osc_open(hardware):
+    if dc.hardware.osc.connection_check():
         logger.info('Oscilloscope is initiated!')
     else:
         logger.error('Oscilloscope is not initialized!')
@@ -164,11 +159,11 @@ def load_data(old_data: PaData) -> PaData:
     logger.info(f'Data with {len(new_data.raw_data)-1} PA measurements loaded!')
     return new_data
           
-def set_new_position(hardware: pa_logic.Hardware) -> None:
+def set_new_position() -> None:
     """Queries new position and move PA detector to this position"""
 
     logger.debug('Setting new position...')
-    if not pa_logic.stages_open(hardware):
+    if not pa_logic.stages_open():
         logger.error('Setting new position cannot start')
         return
 
@@ -198,24 +193,24 @@ def set_new_position(hardware: pa_logic.Hardware) -> None:
 
     logger.info(f'Moving to ({x_dest:.2f},{y_dest:.2f})...')
     try:
-        pa_logic.move_to(x_dest, y_dest, hardware)
-        pa_logic.wait_stages_stop(hardware)
-        pos_x = hardware['stage_x'].get_position(scale=True)*1000
-        pos_y = hardware['stage_y'].get_position(scale=True)*1000
+        pa_logic.move_to(x_dest, y_dest)
+        pa_logic.wait_stages_stop()
+        pos = []
+        for stage in dc.hardware.stages:
+            pos.append(stage.get_position(scale=True)*1000)
     except StageError as err:
         logger.error(f'Error during communicating with stages: {err.value}')
         return
     
     logger.info('Moving complete!')
-    logger.info(f'Current position ({pos_x:.2f},{pos_y:.2f})')
+    logger.info(f'Current position ({pos}) mm.')
 
-def measure_0d(hardware: pa_logic.Hardware,
-               old_data: PaData) -> PaData:
+def measure_0d(old_data: PaData) -> PaData:
     """CLI for single PA measurement"""
     
     data = old_data
-
-    if not pa_logic.osc_open(hardware) or not pa_logic.pm_open(hardware):
+    osc = dc.hardware.osc
+    if not osc.connection_check() or not pa_logic.pm_open():
         logger.error('Error in point measure: hardware is not open.')
         return old_data
 
@@ -258,7 +253,6 @@ def measure_0d(hardware: pa_logic.Hardware,
         averaging = int(averaging)  
 
     data = pa_logic.single_measure(
-        hardware,
         wl,
         target_energy,
         averaging
@@ -269,8 +263,7 @@ def measure_0d(hardware: pa_logic.Hardware,
     logger.debug('...Finishing 0D measure.')
     return data
 
-def measure_1d(hardware: pa_logic.Hardware,
-               old_data: PaData) -> PaData:
+def measure_1d(old_data: PaData) -> PaData:
     """CLI for 1D PA measurements."""
 
     data = old_data
@@ -284,7 +277,7 @@ def measure_1d(hardware: pa_logic.Hardware,
         logger.debug(f'"{measure_ans}" menu option choosen')
 
         if measure_ans == 'Spectral scanning':
-            new_data = spectra(hardware)
+            new_data = spectra()
             if new_data is not None:
                 data = new_data
         elif measure_ans == 'Back':
@@ -295,8 +288,7 @@ def measure_1d(hardware: pa_logic.Hardware,
 
     return data
 
-def measure_2d(hardware: pa_logic.Hardware,
-               old_data: PaData) -> PaData:
+def measure_2d(old_data: PaData) -> PaData:
     """CLI for 2D PA measurements"""
     logger.warning('measure 2D not implemented')
     return old_data
@@ -330,10 +322,11 @@ def bp_filter(data: PaData) -> None:
 
     data.bp_filter(low_cutof,high_cutof)
 
-def spectra(hardware: pa_logic.Hardware) -> Optional[PaData]:
+def spectra() -> Optional[PaData]:
     """CLI for PA spectral measurement"""
 
-    if not pa_logic.osc_open(hardware) or not pa_logic.pm_open(hardware):
+    osc = dc.hardware.osc
+    if not osc.connection_check() or not pa_logic.pm_open():
         logger.error('Error in spectral measure: hardware is not open.')
         return None
     
@@ -399,7 +392,6 @@ def spectra(hardware: pa_logic.Hardware) -> Optional[PaData]:
     averaging = int(averaging)  
 
     return pa_logic.spectrum(
-        hardware,
         start_wl,
         end_wl,
         step,
@@ -407,11 +399,11 @@ def spectra(hardware: pa_logic.Hardware) -> Optional[PaData]:
         averaging
     )
 
-def calc_filters_for_energy(hardware: pa_logic.Hardware) -> None:
+def calc_filters_for_energy() -> None:
     """CLI to find a filter combination"""
 
     #max filters for calculation
-    max_combinations = hardware['config']['energy']['max_filters']
+    max_combinations = int(dc.hardware.config['energy']['max_filters'])
 
     logger.debug('Start calculating filter combinations')
     wl = inquirer.text(
@@ -441,7 +433,7 @@ def calc_filters_for_energy(hardware: pa_logic.Hardware) -> None:
         target_energy = float(target_energy)*ureg.mJ
 
     logger.info('Please remove all filters!')
-    energy = pa_logic.track_power(hardware, 50)
+    energy = pa_logic.track_power(50)
     logger.info(f'Power meter energy = {energy}.')
     filters = pa_logic.glass_calculator(
         wl,
@@ -459,18 +451,16 @@ def calc_filters_for_energy(hardware: pa_logic.Hardware) -> None:
         target_pm_value = energy/reflection
         logger.info(f'Target power meter energy is {target_pm_value}!')
 
-def glan_check(hardware: pa_logic.Hardware) -> None:
+def glan_check() -> None:
     """Used to check glan performance."""
 
-    # [uJ] maximum value, which does not damage PM
-    damage_thr = hardware['config']['pa_sensor']['damage_thr']*ureg.uJ
-
+    damage_thr = Q_(float(dc.hardware.config['pm_sensor']['damage_thr']),'uJ')
     logger.info('Start procedure to check Glan performance')
     logger.warning(f'Do not try energies at sample large than {damage_thr}')
     
     while True:
         logger.info('Set some energy at glass reflection')
-        energy = pa_logic.track_power(hardware, 50)
+        energy = pa_logic.track_power(50)
         target_en = pa_logic.glan_calc(energy)
         if target_en is None:
             logger.warning('Target energy was not calculated')
@@ -480,7 +470,7 @@ def glan_check(hardware: pa_logic.Hardware) -> None:
                            + 'set smaller energy!')
             continue
         logger.info(f'Energy at sample should be ~{target_en}. Check it!')
-        pa_logic.track_power(hardware,50)
+        pa_logic.track_power(50)
 
         option = inquirer.rawlist(
             message='Choose an action:',
@@ -562,17 +552,7 @@ if __name__ == "__main__":
     logger.debug('Pint activated (measured values with units)')
     ureg.setup_matplotlib(True)
     logger.debug('MatplotLib handlers for pint activated')
-
-
-    logger.debug('Creating a dict for storing hardware refs')
-    hardware: pa_logic.Hardware = {
-        'stage_x': None,
-        'stage_y': None,
-        'osc': osc_devices.Oscilloscope(),
-        'config': {}
-    } # type: ignore
-    pa_logic.load_config(hardware)
-    
+    pa_logic.load_config()
     logger.debug('Initializing PaData class for storing data')
     data = PaData()
 
@@ -603,11 +583,11 @@ if __name__ == "__main__":
                 logger.debug(f'"{stat_ans}" menu option choosen')
 
                 if stat_ans == 'Init hardware':
-                    init_hardware(hardware)
+                    init_hardware()
                 elif stat_ans == 'Home stages':
-                    home(hardware)
+                    home()
                 elif stat_ans == 'Get status':
-                    print_status(hardware)
+                    print_status()
                 elif stat_ans == 'Back':
                     break
                 else:
@@ -659,13 +639,13 @@ if __name__ == "__main__":
                 logger.debug(f'"{utils_menu}" menu option choosen')
 
                 if utils_menu == 'Power meter':
-                    pa_logic.track_power(hardware, 100)
+                    pa_logic.track_power(100)
                 elif utils_menu == 'Glan check':
-                    glan_check(hardware)
+                    glan_check()
                 elif utils_menu == 'Filter caclulation':
-                    calc_filters_for_energy(hardware)
+                    calc_filters_for_energy()
                 elif utils_menu == 'Move detector':
-                    set_new_position(hardware)
+                    set_new_position()
                 elif utils_menu == 'Back':
                     break
                 else:
@@ -686,13 +666,13 @@ if __name__ == "__main__":
                 logger.debug(f'"{measure_ans}" menu option choosen')
                 
                 if measure_ans == 'Measure 0D data':
-                    data = measure_0d(hardware, data)
+                    data = measure_0d(data)
 
                 elif measure_ans == 'Measure 1D data':
-                    data = measure_1d(hardware, data)
+                    data = measure_1d(data)
 
                 elif measure_ans == 'Measure 2D data':
-                    data = measure_2d(hardware, data)
+                    data = measure_2d(data)
 
                 elif measure_ans == 'View measured data':
                     data.plot()
@@ -709,11 +689,8 @@ if __name__ == "__main__":
                 ).execute()
             if exit_ans:
                 logger.info('Stopping application')
-                if hardware['stage_x']:
-                    hardware['stage_x'].close()
-                if hardware['stage_y']:
-                    hardware['stage_y'].close()
+                for stage in dc.hardware.stages:
+                    stage.close()
                 exit()
-
         else:
             logger.warning(f'Unknown command "{menu_ans}" in the main menu!')

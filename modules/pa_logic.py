@@ -2,8 +2,7 @@
 PA backend
 """
 
-from doctest import debug
-from typing import Any, List, Tuple, Optional, cast
+from typing import List, Tuple, Optional, cast
 import logging
 import os
 from itertools import combinations
@@ -190,15 +189,15 @@ def init_osc() -> bool:
     Return true if connection is already established or
     initialization is successfull.
     """
-    
+    osc = dc.hardware.osc
     logger.debug('Starting init_osc...')
-    if osc_open():
+    if osc.connection_check():
         logger.info('Connection to oscilloscope is already established!')
         logger.debug('...Finishing.')
         return True
 
     logger.debug('No connection found. Trying to establish connection')
-    if dc.hardware.osc.initialize():
+    if osc.initialize():
         logger.debug('...Finishing. Oscilloscope initialization complete')
         return True
     else:
@@ -214,127 +213,82 @@ def stages_open() -> bool:
 
     logger.debug('Starting connection check to stages...')
     connected = True
-    try:
-        if not hardware['stage_x'].is_opened():
-            logger.warning('Stage X is not open')
+    axes = dc.hardware.motor_axes
+    for stage, index in zip(dc.hardware.stages, range(axes)):
+        if stage is None or not stage.is_opened():
+            logger.warning(f'stage {index+1} is not open')
             connected = False
         else:
-            logger.debug('Stage X is open')
-        if not hardware['stage_y'].is_opened():
-            logger.warning('Stage Y is not open')
-            connected = False
-        else:
-            logger.debug('Stage Y is open')
-        stage_z = hardware.get('stage_z', None)
-        if stage_z is not None:
-            if not hardware['stage_z'].is_opened():
-                logger.warning('Stage Z is not open')
-                connected = False
-            else:
-                logger.debug('Stage Z is open')
-    except:
-        logger.debug('Stages are not connected.')
-        connected = False
-    
+            logger.debug(f'stage {index+1} is open')  
     if connected:
         logger.debug('All stages are connected and open')
 
     logger.debug(f'...Finishing. stages {connected=}')
     return connected
 
-def osc_open(hardware: Hardware) -> bool:
-    """Return true if oscilloscope is connected."""
-
-    logger.debug('Starting connection check to oscilloscope...')
-    hardware['osc'].connection_check()
-    connected = not hardware['osc'].not_found
-    logger.debug(f'...Finishing. Oscilloscope {connected=}')
-    return connected
-
-def pm_open(hardware: Hardware) -> bool:
+def pm_open() -> bool:
     """Return true if power meter is configured."""
 
     logger.debug('Starting power meter connection check...')
 
-    if hardware.get('power_meter') is None:
-        logger.warning('Power meter is missing in config file.')
+    if dc.hardware.power_meter is None:
+        logger.warning('Power meter is off in config file.')
         connected = False
     else:
-        connected = osc_open(hardware)
+        connected = dc.hardware.osc.connection_check()
         logger.debug(f'...Finishing. Power meter {connected=}')
     return connected
 
-def move_to(X: float, Y: float, hardware: Hardware) -> None:
-    """Send PA detector to (X,Y) position.
+def move_to(X: float, Y: float, Z: float|None=None) -> None:
+    """Send PA detector to (X,Y,Z) position.
     
     Do not wait for stop moving.
     Coordinates are in mm.
     """
-    
-    x_dest_mm = X/1000
-    y_dest_mm = Y/1000
 
     logger.debug('Starting...')
-    logger.debug(f'Sending X stage to {x_dest_mm} mm position')
-    try:
-        hardware['stage_x'].move_to(x_dest_mm)
-    except:
-        msg = 'Stage X move_to command failed'
-        logger.error('...Terminating. ' + msg)
-        raise StageError(msg)
+    if Z is None:
+        dest = (X/1000,Y/1000)
+    else:
+        dest = (X/1000,Y/1000,Z/1000)
+    logger.debug(f'Sending stages to {dest} mm position')
 
-    logger.debug(f'Sending Y stage to {y_dest_mm} mm position')
-    try:
-        hardware['stage_y'].move_to(y_dest_mm)
-    except:
-        msg = 'Stage Y move_to command failed'
-        logger.error('...Terminating. ' + msg)
-        raise StageError(msg)
+    for stage, pos in zip(dc.hardware.stages, dest):
+        try:
+            stage.move_to(pos)
+        except:
+            msg = 'Stage move_to command failed'
+            logger.error('...Terminating. ' + msg)
+            raise StageError(msg)
 
-def wait_stages_stop(hardware: Hardware) -> None:
+def wait_stages_stop() -> None:
     """Wait untill all (2) stages stop."""
 
     logger.debug('Starting...')
     logger.debug('Waiting untill stages complete moving.')
-    try:
-        hardware['stage_x'].wait_for_stop()
-        logger.debug('Stage X stopped')
-    except:
-        msg = 'Stage X wait_for_stop command failed'
-        logger.error('...Terminating. ' + msg)
-        raise StageError(msg)
-    
-    try:
-        hardware['stage_y'].wait_for_stop()
-        logger.debug('Stage Y stopped')
-    except:
-        msg = 'Stage Y wait_for_stop command failed'
-        logger.error('...Terminating. ' + msg)
-        raise StageError(msg)
+    for stage in dc.hardware.stages:
+        try:
+            stage.wait_for_stop()
+            logger.debug('Stage stopped')
+        except:
+            msg = 'Stage wait_for_stop command failed'
+            logger.error('...Terminating. ' + msg)
+            raise StageError(msg)
 
-def home(hardware: Hardware) -> None:
-    """Home all (2) stages."""
+def home() -> None:
+    """Home all stages."""
 
     logger.debug('Starting homing...')
-    try:
-        logger.debug('homing stage X')
-        hardware['stage_x'].home(sync=False,force=True)
-    except:
-        msg = 'Stage X homing command failed'
-        logger.error('...Terminating. ' + msg)
-        raise StageError(msg)
+    for stage in dc.hardware.stages:
+        try:
+            stage.home(sync=False,force=True)
+        except:
+            msg = 'Stage homing command failed'
+            logger.error('...Terminating. ' + msg)
+            raise StageError(msg)
+    wait_stages_stop()
 
-    try:
-        logger.debug('homing stage Y')
-        hardware['stage_y'].home(sync=False,force=True)
-    except:
-        msg = 'Stage Z homing command failed'
-        logger.error('...Terminating. ' + msg)
-        raise StageError(msg)
-    
-    wait_stages_stop(hardware)
-
-def track_power(hardware: Hardware, tune_width: int) -> PlainQuantity:
+def track_power(tune_width: int) -> PlainQuantity:
     """Build energy graph.
 
     Return averaged mean energy"""
@@ -350,7 +304,10 @@ def track_power(hardware: Hardware, tune_width: int) -> PlainQuantity:
 
     logger.debug('Starting tracking power with params: '
                  + f'{aver=}, {threshold=}, {measure_delay=}...')
-    pm = hardware['power_meter'] #type: ignore
+    pm = dc.hardware.power_meter
+    if pm is None:
+        logger.warning('Power meter is off in config')
+        return Q_(-1,'J')
     
     #tune_width cannot be smaller than averaging
     if tune_width < aver:
@@ -380,7 +337,7 @@ def track_power(hardware: Hardware, tune_width: int) -> PlainQuantity:
         except OscConnectError:
             logger.warning('Oscilloscope disconnected!')
             if confirm_action('Do you want to reconnect to osc?'):
-                if init_osc(hardware):
+                if init_osc():
                     logger.debug('Oscilloscope reconnected. '
                                  + 'Continue measurements.')
                     continue
@@ -437,13 +394,12 @@ def track_power(hardware: Hardware, tune_width: int) -> PlainQuantity:
     return mean
 
 def spectrum(
-        hardware: Hardware,
         start_wl: PlainQuantity,
         end_wl: PlainQuantity,
         step: PlainQuantity,
         target_energy: PlainQuantity,
         averaging: int
-) -> Optional[PaData]:
+    ) -> Optional[PaData]:
     """Measure dependence of PA signal on excitation wavelength.
     
     Measurements start at <start_wl> wavelength and are taken
@@ -478,10 +434,10 @@ def spectrum(
                     +'Please set it!')
 
         if not i:
-            if not set_energy(hardware, current_wl, target_energy):
+            if not set_energy(current_wl, target_energy):
                 logger.debug('...Terminating.')
                 return
-        measurement, proceed = _ameasure_point(hardware, averaging, current_wl)
+        measurement, proceed = _ameasure_point(averaging, current_wl)
         data.add_measurement(measurement, [current_wl])
         data.save_tmp()
         if not proceed:
@@ -492,11 +448,10 @@ def spectrum(
     return data
 
 def single_measure(
-        hardware: Hardware,
         wl: PlainQuantity,
         target_energy: PlainQuantity,
         averaging: int
-) -> Optional[PaData]:
+    ) -> Optional[PaData]:
     """Measure single PA point.
     
     Measurement is taken at <target_energy>.
@@ -506,10 +461,10 @@ def single_measure(
     logger.info('Starting single point measurement...')
     data = PaData(dims=0)
 
-    if not set_energy(hardware, wl, target_energy):
+    if not set_energy(wl, target_energy):
         logger.debug('...Terminating single point measurement.')
         return None
-    measurement, _ = _ameasure_point(hardware, averaging, wl)
+    measurement, _ = _ameasure_point(averaging, wl)
     if measurement['pa_signal'] is not None:
         data.add_measurement(measurement, [wl])
     data.save_tmp()
@@ -518,10 +473,9 @@ def single_measure(
     return data
 
 def set_energy(
-    hardware: Hardware,
     current_wl: PlainQuantity,
     target_energy: PlainQuantity
-) -> bool:
+    ) -> bool:
     """Set laser energy for measurements.
     
     Set <target_energy> at <current_wl>.
@@ -529,16 +483,16 @@ def set_energy(
     call of set_energy."""
 
     logger.debug('Starting...')
-    config = hardware['config']
+    config = dc.hardware.config
     if config['power_control'] == 'Filters':
         logger.info('Please remove all filters and measure '
                     + 'energy at glass reflection.')
         #measure mean energy at glass reflection
-        energy = track_power(hardware, 50)
+        energy = track_power(50)
         logger.info(f'Power meter energy = {energy}')
 
         #find valid filters combinations for current parameters
-        max_filter_comb = hardware['config']['energy']['max_filters']
+        max_filter_comb = config['energy']['max_filters']
         logger.debug(f'{max_filter_comb=}')
         filters = glass_calculator(
             current_wl,
@@ -562,7 +516,7 @@ def set_energy(
             logger.info('Please set it using filters combination '
                         + ' from above. Additional adjustment by '
                         + 'laser software could be required.')
-            track_power(hardware, 50)
+            track_power(50)
         else:
             logger.warning('Target power meter energy '
                             + 'cannot be calculated!')
@@ -573,7 +527,7 @@ def set_energy(
         target_pm_value = glan_calc_reverse(target_energy)
         logger.info(f'Target power meter energy is {target_pm_value}!') # type: ignore
         logger.info(f'Please set it using Glan prism.')
-        track_power(hardware, 50)
+        track_power(50)
     else:
         logger.error('Unknown power control method! '
                         + 'Measurements terminated!')
@@ -582,13 +536,14 @@ def set_energy(
     logger.debug('...Finishing.')
     return True
                 
-def glass_calculator(wavelength: PlainQuantity,
-                     current_energy_pm: PlainQuantity,
-                     target_energy: PlainQuantity,
-                     max_combinations: int,
-                     threshold: float = 2.5,
-                     results: int = 5,
-                     ) -> dict:
+def glass_calculator(
+        wavelength: PlainQuantity,
+        current_energy_pm: PlainQuantity,
+        target_energy: PlainQuantity,
+        max_combinations: int,
+        threshold: float = 2.5,
+        results: int = 5,
+    ) -> dict:
     """Calculate filter combination to get required energy on sample.
     
     Return a dict with up to <results> filter combinations, 
@@ -708,7 +663,8 @@ def glass_limit_comb(
         filter_combs: dict,
         target_transm: float,
         results: int,
-        threshold: float) -> dict:
+        threshold: float
+    ) -> dict:
     """Limit combinations of filters.
     
     Up to <results> with transmission higher than <target_transm>,
@@ -837,10 +793,9 @@ def glan_calc(
     return sample_en
 
 def _ameasure_point(
-    hardware: Hardware,
     averaging: int,
     current_wl: PlainQuantity
-) -> Tuple[Data_point, bool]:
+    ) -> Tuple[dc.Data_point, bool]:
     """Measure single PA data point with averaging.
     
     second value in the returned tuple (bool) is a flag to 
@@ -849,16 +804,16 @@ def _ameasure_point(
 
     logger.debug('Starting measuring PA data point with averaging...')
     counter = 0
-    msmnts: List[Data_point]=[]
+    msmnts: List[dc.Data_point]=[]
     while counter < averaging:
         logger.info(f'Signal at {current_wl} should be measured '
                 + f'{averaging-counter} more times.')
         action = set_next_measure_action()
         if action == 'Tune power':
-            track_power(hardware, 40)
+            track_power(40)
         elif action == 'Measure':
-            tmp_measurement = _measure_point(hardware, current_wl)
-            if verify_measurement(hardware, tmp_measurement):
+            tmp_measurement = _measure_point(current_wl)
+            if verify_measurement(tmp_measurement):
                 msmnts.append(tmp_measurement)
                 counter += 1
                 if counter == averaging:
@@ -884,17 +839,20 @@ def _ameasure_point(
     return new_data_point(), True
 
 def _measure_point(
-        hardware: Hardware,
         wavelength: PlainQuantity
-) -> Data_point:
+    ) -> dc.Data_point:
     """Measure single PA data point."""
 
     logger.debug('Starting PA point measurement...')
-    osc = hardware['osc']
-    pm = hardware['power_meter'] #type: ignore
-    pa_ch_id = int(hardware['config']['pa_sensor']['connected_chan']) - 1
-    pm_ch_id = int(hardware['config']['power_meter']['connected_chan']) - 1
     measurement = new_data_point()
+    osc = dc.hardware.osc
+    pm = dc.hardware.power_meter
+    config = dc.hardware.config
+    if pm is None:
+        logger.warning('...Terminating. Power meter is off in config')
+        return measurement
+    pa_ch_id = int(config['pa_sensor']['connected_chan']) - 1
+    pm_ch_id = int(config['power_meter']['connected_chan']) - 1
     try:
         data = osc.measure()
         data = cast(
@@ -904,10 +862,10 @@ def _measure_point(
     except OscConnectError:
         logger.warning('Oscilloscope disconnected!')
         if confirm_action('Do you want to reconnect to osc?'):
-            if init_osc(hardware):
+            if init_osc():
                 logger.info('Oscilloscope reconnected. '
                                 + 'Measure point again.')
-                return _measure_point(hardware, wavelength)
+                return _measure_point(wavelength)
             else:
                 logger.debug(f'...Terminating PA measurement.')
                 return measurement
@@ -929,7 +887,7 @@ def _measure_point(
     except OscValueError:
         logger.warning('Power meter energy cannot be measured!')
         if confirm_action('Do you want to repeat measurement?'):
-            return _measure_point(hardware, wavelength)
+            return _measure_point(wavelength)
         else:
             pm_energy = Q_(0, 'uJ')
             logger.warning(f'Power meter energy set to {pm_energy}')
@@ -945,7 +903,7 @@ def _measure_point(
         }
     )
 
-    if hardware['config']['power_control'] == 'Filters':
+    if config['power_control'] == 'Filters':
         reflection = glass_reflection(wavelength)
         if reflection is not None and reflection !=0:
             sample_energy = pm_energy/reflection
@@ -956,7 +914,7 @@ def _measure_point(
             pa_amp = 0*ureg.uJ
             logger.warning('Sample energy cannot be '
                             +'calculated')
-    elif hardware['config']['power_control'] == 'Glan prism':
+    elif config['power_control'] == 'Glan prism':
         sample_energy = glan_calc(pm_energy)
         if sample_energy is not None and sample_energy:
             pa_signal = pa_signal/sample_energy
@@ -984,7 +942,7 @@ def _measure_point(
     logger.debug('...Finishing PA point measurement.')
     return measurement
 
-def aver_measurements(measurements: List[Data_point]) -> Data_point:
+def aver_measurements(measurements: List[dc.Data_point]) -> dc.Data_point:
     """Calculate average measurement from a given list.
     
     Actually only amplitude values are averaged, in other cases data
@@ -1023,14 +981,16 @@ def aver_measurements(measurements: List[Data_point]) -> Data_point:
     return result
 
 def verify_measurement(
-        hardware: Hardware,
-        measurement: Data_point
-) -> bool:
+        measurement: dc.Data_point
+    ) -> bool:
     """Verify a PA measurement."""
 
     logger.debug('Starting measurement verification...')
     # update state of power meter
-    pm = hardware['power_meter'] #type:ignore
+    pm = dc.hardware.power_meter
+    if pm is None:
+        logger.warning('Power meter is off in config')
+        return False
     pm_signal = measurement['pm_signal']
     dt = measurement['dt'].to('us')
     pa_signal = measurement['pa_signal']
