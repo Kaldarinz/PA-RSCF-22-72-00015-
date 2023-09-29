@@ -15,6 +15,7 @@ from pint.facets.plain.quantity import PlainQuantity
 import numpy as np
 import numpy.typing as npt
 from InquirerPy import inquirer
+from pylablib.devices.Thorlabs import KinesisMotor
 from pylablib.devices import Thorlabs
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
@@ -263,6 +264,17 @@ def move_to(X: float, Y: float, Z: float|None=None) -> None:
             msg = 'Stage move_to command failed'
             logger.error('...Terminating. ' + msg)
             raise StageError(msg)
+
+def mech_ident(
+        stage: KinesisMotor,
+        amp: PlainQuantity = Q_(1,'mm')
+    ) -> None:
+    """Vibrate several times near current position.
+    
+    <amp> is vibration amplitude.
+    """
+
+    stage.lock()
 
 def wait_stages_stop() -> None:
     """Wait untill all (2) stages stop."""

@@ -14,6 +14,7 @@ from InquirerPy import inquirer
 from InquirerPy.validator import PathValidator
 import pint
 import yaml
+from pylablib.devices.Thorlabs import KinesisMotor
 
 from modules import ureg, Q_
 import modules.validators as vd
@@ -59,17 +60,17 @@ def ident_stages() -> None:
     """Identify stage connection."""
 
     logger.debug('Starting stage identification...')
-    stages = dc.hardware.stages
+    stages = dc.hardware.stages.copy()
     titles = dc.hardware.axes_titles
-    for stage, axis in zip(stages, titles):
+    amount = dc.hardware.motor_axes
+    new_stages = []
+    for stage, axis, id in zip(dc.hardware.stages, titles, range(amount)):
+        if (amount - id) < 2:
+            new_stages.append(stages.pop())
+            continue
         logger.debug(f'Starting stage {axis} ident')
         while True:
-            try:
-                stage.blink()
-            except:
-                logger.warning('General exception catched. Change the code!')
-                logger.warning('Stage error. Assign procedure is cancelled.')
-                return
+            stage.blink()
             ident_ans = inquirer.rawlist(
                     message = (f'Controller of stage {axis} is blinking. '
                             + '\n Confirm .'),
@@ -81,30 +82,34 @@ def ident_stages() -> None:
                     ]).execute()
             logger.debug(f'"{ident_ans}" menu option choosen')
             if ident_ans == 'Correct':
+                logger.debug(f'Stage {axis} is correctly set.')
+                new_stages.append(stage)
                 break
             elif ident_ans == 'Not correct':
-                assign_stage(axis)
-            elif ident_ans == 'Blink again':
-                try:
-                    stage.blink()
-                except:
-                    logger.warning('General exception catched. '
-                                   + 'Change the code!')
-                    logger.warning('Stage error. Assign procedure'
-                                   + ' is cancelled.')
+                new_stage = assign_stage(stages, axis)
+                if new_stage is None:
+                    logger.warning('Stage identification failed')
                     return
+                else:
+                    new_stages.append(new_stage)
+                    break
+            elif ident_ans == 'Blink again':
+                stage.blink()
             elif ident_ans == 'Cancel':
+                logger.debug('Stage ident canceled')
                 return
             else:
                 logger.warning(f'Unknown command {ident_ans} in ident menu.')
+                return
         logger.debug(f'Stage {axis} identified and set.')
-    logger.debug('...Finishing stage check and identification. Success!')
+    dc.hardware.stages = new_stages
+    logger.info('All stages correctly identified!')
     
-def assign_stage(axis: str) -> None:
+def assign_stage(stages: list[KinesisMotor], axis: str) -> KinesisMotor|None:
     """Assign stage."""
     
     logger.debug(f'Starting stage {axis} assignment...')
-    stages_id = list(range(dc.hardware.motor_axes))
+    stages_id = [stage.get_device_info()[0] for stage in stages]
     while True:
         assign_ans = inquirer.rawlist(
                     message = (f'Blink controller'),
@@ -113,17 +118,12 @@ def assign_stage(axis: str) -> None:
         logger.debug(f'"{assign_ans}" menu option choosen')
         if assign_ans == 'cancel':
             logger.debug('...Stage assignment termintaed.')
-            return
+            return None
         else:
-            stage_id = int(assign_ans)
-            try:
-                dc.hardware.stages[stage_id].blink()
-            except:
-                logger.warning('General exception catched. Change the code!')
-                logger.warning('Stage error. Assign procedure is cancelled.')
-                return
+            id = stages_id.index(assign_ans)
+            stages[id].blink()
             if pa_logic.confirm_action(f'Is this controller of {axis} stage?'):
-                break
+                return stages.pop(id)
 
 def home() -> None:
     """CLI for Homes stages"""

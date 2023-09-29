@@ -1,7 +1,4 @@
+import numpy as np
 lst = [1,2,3]
-
-lst1 = lst.copy()
-lst1.append(5)
-print(lst1)
-print(lst)
-enumerate()
+ind = [2,0,1]
+print(list(enumerate(zip(lst,ind))))
