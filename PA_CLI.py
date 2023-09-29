@@ -18,7 +18,6 @@ import yaml
 from modules import ureg, Q_
 import modules.validators as vd
 from modules.pa_data import PaData
-import modules.osc_devices as osc_devices
 import modules.pa_logic as pa_logic
 from modules.exceptions import StageError, HardwareError
 import modules.data_classes as dc
@@ -71,7 +70,8 @@ def print_status() -> None:
     logger.debug('print_status called')
     for stage, axis in zip(dc.hardware.stages,('X','Y','Z')):
         try:
-            logger.info(axis + f' stage'
+            logger.info(axis
+                + f' stage'
                 + f'homing status: {stage.is_homed()}, '
                 + f'state: {stage.get_status()}, '
                 + f'position: {stage.get_position()*1000:.2f} mm.')

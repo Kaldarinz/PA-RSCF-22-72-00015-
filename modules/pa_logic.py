@@ -116,7 +116,10 @@ def load_config() -> dict:
         return {}
     
     dc.hardware.config = config
-    dc.hardware.motor_axes = int(config['stages']['axes'])
+    axes = int(config['stages']['axes'])
+    dc.hardware.motor_axes = axes
+    for _ in range(axes):
+        dc.hardware.stages.append(None)
     logger.debug('Config loaded into hardware["config"]')
     
     osc = dc.hardware.osc
@@ -173,7 +176,7 @@ def init_stages() -> bool:
                 connected = False
         else:
             dc.hardware.stages[id] = stage
-            logger.info(f'Stage {id} with ID={stage_id} is initiated')
+            logger.info(f'Stage {id+1} with ID={stage_id} is initiated')
     
     if connected:
         logger.info('Stages initiated.')
@@ -216,7 +219,7 @@ def stages_open() -> bool:
     axes = dc.hardware.motor_axes
     for stage, index in zip(dc.hardware.stages, range(axes)):
         if stage is None or not stage.is_opened():
-            logger.warning(f'stage {index+1} is not open')
+            logger.debug(f'stage {index+1} is not open')
             connected = False
         else:
             logger.debug(f'stage {index+1} is open')  

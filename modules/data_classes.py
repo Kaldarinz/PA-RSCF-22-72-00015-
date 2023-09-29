@@ -80,9 +80,9 @@ class Hardware():
     def __init__(self):
         self.power_meter: PowerMeter | None = None
         self.pa_sens: PhotoAcousticSensOlymp | None = None
-        self.stages: List[KinesisMotor]
-        self.motor_axes: int
-        self.osc: Oscilloscope
-        self.config: dict
+        self.stages: List[KinesisMotor] = []
+        self.motor_axes: int = -1
+        self.osc: Oscilloscope = Oscilloscope()
+        self.config: dict = {}
 
 hardware = Hardware()
