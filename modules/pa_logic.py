@@ -168,7 +168,7 @@ def init_stages() -> bool:
         #motor units [m]
         stage = Thorlabs.KinesisMotor(stage_id[0], scale='stage')
         try:
-            stage.is_opened()
+            connected = stage.is_opened()
         except:
             msg = f'Failed attempt to coomunicate with stage{id}'
             logger.error(msg)

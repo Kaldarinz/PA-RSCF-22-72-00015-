@@ -82,6 +82,7 @@ class Hardware():
         self.pa_sens: PhotoAcousticSensOlymp | None = None
         self.stages: List[KinesisMotor] = []
         self.motor_axes: int = -1
+        self.axes_titles = ('X','Y','Z')
         self.osc: Oscilloscope = Oscilloscope()
         self.config: dict = {}
 

@@ -55,6 +55,76 @@ def init_hardware() -> None:
     except HardwareError:
         logger.error('Hardware initialization failed')
 
+def ident_stages() -> None:
+    """Identify stage connection."""
+
+    logger.debug('Starting stage identification...')
+    stages = dc.hardware.stages
+    titles = dc.hardware.axes_titles
+    for stage, axis in zip(stages, titles):
+        logger.debug(f'Starting stage {axis} ident')
+        while True:
+            try:
+                stage.blink()
+            except:
+                logger.warning('General exception catched. Change the code!')
+                logger.warning('Stage error. Assign procedure is cancelled.')
+                return
+            ident_ans = inquirer.rawlist(
+                    message = (f'Controller of stage {axis} is blinking. '
+                            + '\n Confirm .'),
+                    choices=[
+                        'Correct',
+                        'Not correct',
+                        'Blink again',
+                        'Cancel'
+                    ]).execute()
+            logger.debug(f'"{ident_ans}" menu option choosen')
+            if ident_ans == 'Correct':
+                break
+            elif ident_ans == 'Not correct':
+                assign_stage(axis)
+            elif ident_ans == 'Blink again':
+                try:
+                    stage.blink()
+                except:
+                    logger.warning('General exception catched. '
+                                   + 'Change the code!')
+                    logger.warning('Stage error. Assign procedure'
+                                   + ' is cancelled.')
+                    return
+            elif ident_ans == 'Cancel':
+                return
+            else:
+                logger.warning(f'Unknown command {ident_ans} in ident menu.')
+        logger.debug(f'Stage {axis} identified and set.')
+    logger.debug('...Finishing stage check and identification. Success!')
+    
+def assign_stage(axis: str) -> None:
+    """Assign stage."""
+    
+    logger.debug(f'Starting stage {axis} assignment...')
+    stages_id = list(range(dc.hardware.motor_axes))
+    while True:
+        assign_ans = inquirer.rawlist(
+                    message = (f'Blink controller'),
+                    choices = stages_id + ['cancel']
+                    ).execute()
+        logger.debug(f'"{assign_ans}" menu option choosen')
+        if assign_ans == 'cancel':
+            logger.debug('...Stage assignment termintaed.')
+            return
+        else:
+            stage_id = int(assign_ans)
+            try:
+                dc.hardware.stages[stage_id].blink()
+            except:
+                logger.warning('General exception catched. Change the code!')
+                logger.warning('Stage error. Assign procedure is cancelled.')
+                return
+            if pa_logic.confirm_action(f'Is this controller of {axis} stage?'):
+                break
+
 def home() -> None:
     """CLI for Homes stages"""
 
@@ -576,6 +646,7 @@ if __name__ == "__main__":
                 message='Choose an action',
                 choices=[
                     'Init hardware',
+                    'Assign stage axes',
                     'Get status',
                     'Home stages',
                     'Back'
@@ -584,6 +655,8 @@ if __name__ == "__main__":
 
                 if stat_ans == 'Init hardware':
                     init_hardware()
+                elif stat_ans == 'Assign stage axes':
+                    ident_stages()
                 elif stat_ans == 'Home stages':
                     home()
                 elif stat_ans == 'Get status':
