@@ -328,6 +328,7 @@ def track_power(tune_width: int) -> PlainQuantity:
     ax_pm = fig.add_subplot(gs[0,0])
     #axis for energy graph
     ax_pa = fig.add_subplot(gs[0,1])
+    fig.canvas.draw()
     
     mean = 0*ureg('J')
     logger.debug('Entering measuring loop')
