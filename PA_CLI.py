@@ -61,6 +61,9 @@ def ident_stages() -> None:
 
     logger.debug('Starting stage identification...')
     stages = dc.hardware.stages.copy()
+    if not len(stages):
+        logger.info('Stages are not initialized!')
+        return
     titles = dc.hardware.axes_titles
     amount = dc.hardware.motor_axes
     new_stages = []
