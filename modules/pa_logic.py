@@ -8,6 +8,7 @@ import os
 from itertools import combinations
 from collections import deque
 import math
+from threading import Thread
 
 import yaml
 import pint
@@ -119,8 +120,6 @@ def load_config() -> dict:
     dc.hardware.config = config
     axes = int(config['stages']['axes'])
     dc.hardware.motor_axes = axes
-    for _ in range(axes):
-        dc.hardware.stages.append(None)
     logger.debug('Config loaded into hardware["config"]')
     
     osc = dc.hardware.osc
@@ -131,7 +130,7 @@ def load_config() -> dict:
         pre_time = float(config['power_meter']['pre_time'])*ureg.us
         post_time = float(config['power_meter']['post_time'])*ureg.us
         pm.set_channel(pm_chan, pre_time, post_time)
-        logger.debug(f'Power meter added to hardare list at CHAN{pm_chan}')
+        logger.debug(f'Power meter added to hardare list at CHAN{pm_chan+1}')
     if bool(config['pa_sensor']['connected']):
         pa = osc_devices.PhotoAcousticSensOlymp(osc)
         dc.hardware.pa_sens = pa
@@ -139,7 +138,7 @@ def load_config() -> dict:
         pre_time = float(config['pa_sensor']['pre_time'])*ureg.us
         post_time = float(config['pa_sensor']['post_time'])*ureg.us
         pa.set_channel(pa_chan, pre_time, post_time)
-        logger.debug(f'PA sensor added to hardare list at CHAN{pa_chan}')
+        logger.debug(f'PA sensor added to hardare list at CHAN{pa_chan+1}')
     logger.debug(f'...Finishing. Config file read.')
     return config
 
@@ -176,7 +175,7 @@ def init_stages() -> bool:
             if connected:
                 connected = False
         else:
-            dc.hardware.stages[id] = stage
+            dc.hardware.stages.append(stage)
             logger.info(f'Stage {id+1} with ID={stage_id} is initiated')
     
     if connected:
@@ -218,6 +217,9 @@ def stages_open() -> bool:
     logger.debug('Starting connection check to stages...')
     connected = True
     axes = dc.hardware.motor_axes
+    if len(dc.hardware.stages) < axes:
+        logger.debug('...Finishing. Stages are not initialized.')
+        return False
     for stage, index in zip(dc.hardware.stages, range(axes)):
         if stage is None or not stage.is_opened():
             logger.debug(f'stage {index+1} is not open')
@@ -265,6 +267,16 @@ def move_to(X: float, Y: float, Z: float|None=None) -> None:
             logger.error('...Terminating. ' + msg)
             raise StageError(msg)
 
+def asinc_mech_ident(
+        stage: KinesisMotor,
+        amp: PlainQuantity = Q_(1,'mm')
+    ) -> Thread:
+    """Asinc call of mech_ident."""
+
+    vibration = Thread(target=mech_ident, args=(stage, amp))
+    vibration.start()
+    return vibration
+
 def mech_ident(
         stage: KinesisMotor,
         amp: PlainQuantity = Q_(1,'mm')
@@ -273,8 +285,15 @@ def mech_ident(
     
     <amp> is vibration amplitude.
     """
-
-    stage.lock()
+    cycles: int = 3
+    amp_val = amp.to('m').m
+    for _ in range(cycles):
+        stage.move_by(amp_val)
+        stage.wait_move()
+        stage.move_by(-2*amp_val)
+        stage.wait_move()
+        stage.move_by(amp_val)
+        stage.wait_move()
 
 def wait_stages_stop() -> None:
     """Wait untill all (2) stages stop."""
