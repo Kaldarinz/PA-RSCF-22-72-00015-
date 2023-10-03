@@ -15,6 +15,6 @@ hardware:
   energy:
     max_filters: !!int 2
   stages:
-    axes: !!int 2
+    axes: !!int 3
   power_control_lst: ['Glan prism', 'Filters']
   power_control: 'Glan prism'

@@ -8,6 +8,7 @@ import os
 from itertools import combinations
 from collections import deque
 import math
+from threading import Thread
 
 import yaml
 import pint
@@ -15,6 +16,7 @@ from pint.facets.plain.quantity import PlainQuantity
 import numpy as np
 import numpy.typing as npt
 from InquirerPy import inquirer
+from pylablib.devices.Thorlabs import KinesisMotor
 from pylablib.devices import Thorlabs
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
@@ -118,8 +120,6 @@ def load_config() -> dict:
     dc.hardware.config = config
     axes = int(config['stages']['axes'])
     dc.hardware.motor_axes = axes
-    for _ in range(axes):
-        dc.hardware.stages.append(None)
     logger.debug('Config loaded into hardware["config"]')
     
     osc = dc.hardware.osc
@@ -130,7 +130,7 @@ def load_config() -> dict:
         pre_time = float(config['power_meter']['pre_time'])*ureg.us
         post_time = float(config['power_meter']['post_time'])*ureg.us
         pm.set_channel(pm_chan, pre_time, post_time)
-        logger.debug(f'Power meter added to hardare list at CHAN{pm_chan}')
+        logger.debug(f'Power meter added to hardare list at CHAN{pm_chan+1}')
     if bool(config['pa_sensor']['connected']):
         pa = osc_devices.PhotoAcousticSensOlymp(osc)
         dc.hardware.pa_sens = pa
@@ -138,7 +138,7 @@ def load_config() -> dict:
         pre_time = float(config['pa_sensor']['pre_time'])*ureg.us
         post_time = float(config['pa_sensor']['post_time'])*ureg.us
         pa.set_channel(pa_chan, pre_time, post_time)
-        logger.debug(f'PA sensor added to hardare list at CHAN{pa_chan}')
+        logger.debug(f'PA sensor added to hardare list at CHAN{pa_chan+1}')
     logger.debug(f'...Finishing. Config file read.')
     return config
 
@@ -168,14 +168,14 @@ def init_stages() -> bool:
         #motor units [m]
         stage = Thorlabs.KinesisMotor(stage_id[0], scale='stage')
         try:
-            stage.is_opened()
+            connected = stage.is_opened()
         except:
             msg = f'Failed attempt to coomunicate with stage{id}'
             logger.error(msg)
             if connected:
                 connected = False
         else:
-            dc.hardware.stages[id] = stage
+            dc.hardware.stages.append(stage)
             logger.info(f'Stage {id+1} with ID={stage_id} is initiated')
     
     if connected:
@@ -217,6 +217,9 @@ def stages_open() -> bool:
     logger.debug('Starting connection check to stages...')
     connected = True
     axes = dc.hardware.motor_axes
+    if len(dc.hardware.stages) < axes:
+        logger.debug('...Finishing. Stages are not initialized.')
+        return False
     for stage, index in zip(dc.hardware.stages, range(axes)):
         if stage is None or not stage.is_opened():
             logger.debug(f'stage {index+1} is not open')
@@ -263,6 +266,45 @@ def move_to(X: float, Y: float, Z: float|None=None) -> None:
             msg = 'Stage move_to command failed'
             logger.error('...Terminating. ' + msg)
             raise StageError(msg)
+
+def stage_ident(stage: KinesisMotor) -> Thread:
+    """Identify a stage.
+    
+    Identification is done by stage vibration
+    and stage controller blinking.
+    """
+
+    stage.blink()
+    return_thread = asinc_mech_ident(stage)
+    return return_thread
+
+def asinc_mech_ident(
+        stage: KinesisMotor,
+        amp: PlainQuantity = Q_(1,'mm')
+    ) -> Thread:
+    """Asinc call of mech_ident."""
+
+    vibration = Thread(target=mech_ident, args=(stage, amp))
+    vibration.start()
+    return vibration
+
+def mech_ident(
+        stage: KinesisMotor,
+        amp: PlainQuantity = Q_(1,'mm')
+    ) -> None:
+    """Vibrate several times near current position.
+    
+    <amp> is vibration amplitude.
+    """
+    cycles: int = 1
+    amp_val = amp.to('m').m
+    for _ in range(cycles):
+        stage.move_by(amp_val)
+        stage.wait_for_stop()
+        stage.move_by(-2*amp_val)
+        stage.wait_for_stop()
+        stage.move_by(amp_val)
+        stage.wait_for_stop()
 
 def wait_stages_stop() -> None:
     """Wait untill all (2) stages stop."""

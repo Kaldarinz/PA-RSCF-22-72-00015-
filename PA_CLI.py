@@ -14,6 +14,7 @@ from InquirerPy import inquirer
 from InquirerPy.validator import PathValidator
 import pint
 import yaml
+from pylablib.devices.Thorlabs import KinesisMotor
 
 from modules import ureg, Q_
 import modules.validators as vd
@@ -54,6 +55,80 @@ def init_hardware() -> None:
         pa_logic.init_hardware()
     except HardwareError:
         logger.error('Hardware initialization failed')
+
+def ident_stages() -> None:
+    """Identify stage connection."""
+
+    logger.debug('Starting stage identification...')
+    stages = dc.hardware.stages.copy()
+    if not len(stages):
+        logger.info('Stages are not initialized!')
+        return
+    titles = dc.hardware.axes_titles
+    amount = dc.hardware.motor_axes
+    new_stages = [] 
+    for stage, axis, id in zip(dc.hardware.stages, titles, range(amount)):
+        if (amount - id) < 2:
+            new_stages.append(stages.pop())
+            continue
+        logger.debug(f'Starting stage {axis} ident')
+        while True:
+            pa_logic.stage_ident(stage)
+            ident_ans = inquirer.rawlist(
+                    message = (f'Controller of stage {axis} is blinking. '
+                               + 'and controller is vibrating'
+                               + '\n Confirm .'),
+                    choices=[
+                        'Correct',
+                        'Not correct',
+                        'Ident again',
+                        'Cancel'
+                    ]).execute()
+            logger.debug(f'"{ident_ans}" menu option choosen')
+            if ident_ans == 'Correct':
+                logger.debug(f'Stage {axis} is correctly set.')
+                new_stages.append(stage)
+                stages.remove(stage)
+                break
+            elif ident_ans == 'Not correct':
+                new_stage = assign_stage(stages, axis)
+                if new_stage is None:
+                    logger.warning('Stage identification failed')
+                    return
+                else:
+                    new_stages.append(new_stage)
+                    break
+            elif ident_ans == 'Ident again':
+                pa_logic.stage_ident(stage)
+            elif ident_ans == 'Cancel':
+                logger.debug('Stage ident canceled')
+                return
+            else:
+                logger.warning(f'Unknown command {ident_ans} in ident menu.')
+                return
+        logger.debug(f'Stage {axis} identified and set.')
+    dc.hardware.stages = new_stages
+    logger.info('All stages correctly identified!')
+    
+def assign_stage(stages: list[KinesisMotor], axis: str) -> KinesisMotor|None:
+    """Assign stage."""
+    
+    logger.debug(f'Starting stage {axis} assignment...')
+    stages_id = [stage.get_device_info()[0] for stage in stages]
+    while True:
+        assign_ans = inquirer.rawlist(
+                    message = (f'Ident controller'),
+                    choices = stages_id + ['cancel']
+                    ).execute()
+        logger.debug(f'"{assign_ans}" menu option choosen')
+        if assign_ans == 'cancel':
+            logger.debug('...Stage assignment termintaed.')
+            return None
+        else:
+            id = stages_id.index(assign_ans)
+            pa_logic.stage_ident(stages[id])
+            if pa_logic.confirm_action(f'Is this controller of {axis} stage?'):
+                return stages.pop(id)
 
 def home() -> None:
     """CLI for Homes stages"""
@@ -576,6 +651,7 @@ if __name__ == "__main__":
                 message='Choose an action',
                 choices=[
                     'Init hardware',
+                    'Assign stage axes',
                     'Get status',
                     'Home stages',
                     'Back'
@@ -584,6 +660,8 @@ if __name__ == "__main__":
 
                 if stat_ans == 'Init hardware':
                     init_hardware()
+                elif stat_ans == 'Assign stage axes':
+                    ident_stages()
                 elif stat_ans == 'Home stages':
                     home()
                 elif stat_ans == 'Get status':
