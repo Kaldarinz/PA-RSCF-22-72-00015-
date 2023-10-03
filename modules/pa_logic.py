@@ -463,7 +463,7 @@ def single_measure(
     """
 
     logger.info('Starting single point measurement...')
-    data = PaData(dims=0)
+    data = PaData(dims=0, params=['Wavelength'])
 
     if not set_energy(wl, target_energy):
         logger.debug('...Terminating single point measurement.')

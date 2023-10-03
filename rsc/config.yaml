@@ -5,7 +5,7 @@ hardware:
     connected: !!bool True
     connected_chan: !!int 2
     pre_time: !!int 150 # in [us]
-    post_time: !!int 2500 # in [us]
+    post_time: !!int 3500 # in [us]
   pa_sensor:
     connected: !!bool True
     connected_chan: !!int 1

@@ -453,6 +453,10 @@ class PaData:
                 'zoom_post_time': general['zoom_post_time']*ureg(time_unit) # type: ignore
                 }
             )
+            #in old version of 0D data save parameter name was missed
+            #but it was wavelength in all cases. Fix it on load old data.
+            if not len(self.attrs['parameter_name']):
+                self.attrs['parameter_name'] = ['Wavelength']
             logger.debug(f'General metadata with {len(general)}'
                          + ' records loaded.')
         
