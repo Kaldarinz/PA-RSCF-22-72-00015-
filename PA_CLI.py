@@ -66,27 +66,29 @@ def ident_stages() -> None:
         return
     titles = dc.hardware.axes_titles
     amount = dc.hardware.motor_axes
-    new_stages = []
+    new_stages = [] 
     for stage, axis, id in zip(dc.hardware.stages, titles, range(amount)):
         if (amount - id) < 2:
             new_stages.append(stages.pop())
             continue
         logger.debug(f'Starting stage {axis} ident')
         while True:
-            stage.blink()
+            pa_logic.stage_ident(stage)
             ident_ans = inquirer.rawlist(
                     message = (f'Controller of stage {axis} is blinking. '
-                            + '\n Confirm .'),
+                               + 'and controller is vibrating'
+                               + '\n Confirm .'),
                     choices=[
                         'Correct',
                         'Not correct',
-                        'Blink again',
+                        'Ident again',
                         'Cancel'
                     ]).execute()
             logger.debug(f'"{ident_ans}" menu option choosen')
             if ident_ans == 'Correct':
                 logger.debug(f'Stage {axis} is correctly set.')
                 new_stages.append(stage)
+                stages.remove(stage)
                 break
             elif ident_ans == 'Not correct':
                 new_stage = assign_stage(stages, axis)
@@ -96,8 +98,8 @@ def ident_stages() -> None:
                 else:
                     new_stages.append(new_stage)
                     break
-            elif ident_ans == 'Blink again':
-                stage.blink()
+            elif ident_ans == 'Ident again':
+                pa_logic.stage_ident(stage)
             elif ident_ans == 'Cancel':
                 logger.debug('Stage ident canceled')
                 return
@@ -115,7 +117,7 @@ def assign_stage(stages: list[KinesisMotor], axis: str) -> KinesisMotor|None:
     stages_id = [stage.get_device_info()[0] for stage in stages]
     while True:
         assign_ans = inquirer.rawlist(
-                    message = (f'Blink controller'),
+                    message = (f'Ident controller'),
                     choices = stages_id + ['cancel']
                     ).execute()
         logger.debug(f'"{assign_ans}" menu option choosen')
@@ -124,7 +126,7 @@ def assign_stage(stages: list[KinesisMotor], axis: str) -> KinesisMotor|None:
             return None
         else:
             id = stages_id.index(assign_ans)
-            stages[id].blink()
+            pa_logic.stage_ident(stages[id])
             if pa_logic.confirm_action(f'Is this controller of {axis} stage?'):
                 return stages.pop(id)
 

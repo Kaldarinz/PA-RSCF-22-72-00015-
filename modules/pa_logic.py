@@ -267,6 +267,17 @@ def move_to(X: float, Y: float, Z: float|None=None) -> None:
             logger.error('...Terminating. ' + msg)
             raise StageError(msg)
 
+def stage_ident(stage: KinesisMotor) -> Thread:
+    """Identify a stage.
+    
+    Identification is done by stage vibration
+    and stage controller blinking.
+    """
+
+    stage.blink()
+    return_thread = asinc_mech_ident(stage)
+    return return_thread
+
 def asinc_mech_ident(
         stage: KinesisMotor,
         amp: PlainQuantity = Q_(1,'mm')
@@ -285,15 +296,15 @@ def mech_ident(
     
     <amp> is vibration amplitude.
     """
-    cycles: int = 3
+    cycles: int = 1
     amp_val = amp.to('m').m
     for _ in range(cycles):
         stage.move_by(amp_val)
-        stage.wait_move()
+        stage.wait_for_stop()
         stage.move_by(-2*amp_val)
-        stage.wait_move()
+        stage.wait_for_stop()
         stage.move_by(amp_val)
-        stage.wait_move()
+        stage.wait_for_stop()
 
 def wait_stages_stop() -> None:
     """Wait untill all (2) stages stop."""
