@@ -90,7 +90,7 @@ def save_data(data: PaData) -> None:
         logger.debug('Filename is missing in data, '
                      + 'asking to set filename.')
         filename = inquirer.text(
-            message='Enter Sample name' + vd.cancel_option,
+            message='Enter File name' + vd.cancel_option,
             default='Unknown',
             mandatory=False
         ).execute()
@@ -494,9 +494,9 @@ def export_to_txt(data: PaData) -> None:
     export_type = inquirer.rawlist(
         message='Choose data to export:',
         choices=[
-            'raw_data',
-            'filt_data',
-            'freq_data',
+            'Raw data',
+            'Filtered data',
+            'Freq data',
             'Spectral',
             'back'
         ]
@@ -504,7 +504,7 @@ def export_to_txt(data: PaData) -> None:
     logger.debug(f'{export_type} selected in data export menu.')
     if export_type == 'back':
         return
-    elif export_type in ('raw_data', 'filt_data', 'freq_data'):
+    elif export_type in ('Raw data', 'Filtered data', 'Freq data'):
         #build full filename
         filename = data.attrs['filename']
         if not filename:
@@ -513,18 +513,18 @@ def export_to_txt(data: PaData) -> None:
             filename = filename.split('.hdf5')[0]
         if export_type == 'Raw data':
             filename += '-raw.txt'
+            export_type = 'raw_data'
         elif export_type == 'Filtered data':
             filename += '-filt.txt'
+            export_type = 'filt_data'
         elif export_type == 'Freq data':
             filename += '-freq.txt'
+            export_type = 'freq_data'
 
         #if file already exists, ask to override it
         if os.path.exists(filename):
-            override = inquirer.confirm(
-                message=f'Do you want to override file {filename}?'
-            ).execute()
-            logger.debug(f'File override = {override}')
-            if override:
+            if pa_logic.confirm_action(
+                f'Do you want to override file {filename}?'):
                 try:
                     os.remove(filename)
                 except OSError:

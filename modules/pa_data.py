@@ -266,35 +266,35 @@ class PaData:
             logger.warning(f'{group_name} is missing in PaData class.')
             return
         if len(self.attrs['parameter_name']) > 1:
-            logger.warning('Export to txt is supported only for 1d data.')
+            logger.warning('Export to txt is supported only for 0D and 1D data.')
             return
         data = []
         header = ('# 1st line: name of data. 2nd line: units of data.'
                   + '3rd line: paramter name. 4th line: parameter units.'
                   + '5th line: excitation energy units. 6th line: '
                   + 'parameter value. 7th line: excitation energy value.'
-                  + 'following lines: data.')
-        for ds in group:
-            if ds == 'attrs':
+                  + 'following lines: data.\n')
+        for ds_name, datapoint in group.items():
+            if ds_name == 'attrs':
                 continue
-            logger.debug(f'Building list with x data for {ds}')
+            logger.debug(f'Building list with x data for {ds_name}')
             col_x = []
             col_x.append(group['attrs']['x_var_name'])
-            col_x.append(ds['x_var_step'].u)
+            col_x.append(datapoint['x_var_step'].u)
             param_name = self.attrs['parameter_name'][0]
             col_x.append(param_name)
-            param_units = ds['param_val'].u
-            param_val = ds['param_val'].m
+            param_units = datapoint['param_val'][0].u
+            param_val = datapoint['param_val'][0].m
             col_x.append(param_units)
-            energy_units = ds['sample_en'].u
-            energy_val = ds['sample_en'].m
+            energy_units = datapoint['sample_en'].u
+            energy_val = datapoint['sample_en'].m
             col_x.append(energy_units)
             col_x.append(param_val)
             col_x.append(energy_val)
             
             col_y = []
             col_y.append(group['attrs']['y_var_name'])
-            col_y.append(ds['data'][0].u)
+            col_y.append(datapoint['data'][0].u)
             col_y.append(param_name)
             col_y.append(param_units)
             col_y.append(energy_units)
@@ -302,9 +302,9 @@ class PaData:
             col_y.append(energy_val)
 
             if group_name in ('raw_data', 'filt_data') and not full:
-                max_y = np.amax(ds['data'])
-                max_ind = np.flatnonzero(ds['data']==max_y)[0]
-                x_step = ds['x_var_step']
+                max_y = np.amax(datapoint['data'])
+                max_ind = np.flatnonzero(datapoint['data']==max_y)[0]
+                x_step = datapoint['x_var_step']
                 pre_time = self.attrs['zoom_pre_time']
                 post_time = self.attrs['zoom_post_time']
                 pre_points = int(pre_time.to(x_step.u).m/x_step.m)
@@ -312,20 +312,21 @@ class PaData:
                 start_zoom_ind = max_ind-pre_points
                 if start_zoom_ind < 0:
                     start_zoom_ind = 0
-                t_points = int((ds['x_var_stop'] - ds['x_var_start'])/x_step)
+                t_points = int((datapoint['x_var_stop']
+                                - datapoint['x_var_start'])/x_step)
                 stop_zoom_ind = max_ind + post_points
                 if stop_zoom_ind > t_points:
                     stop_zoom_ind = t_points
                 for i in range(start_zoom_ind, stop_zoom_ind):
-                    col_x.append(ds['x_var_start']+i*x_step)
-                    col_y.append(ds['data'][i])
+                    col_x.append((datapoint['x_var_start']+i*x_step).m)
+                    col_y.append(datapoint['data'][i].m)
             else:
-                x = ds['x_var_start'].m
+                x = datapoint['x_var_start'].m
                 col_x.append(x)
-                while x < (ds['x_var_stop'].m - ds['x_var_step'].m):
-                    x += ds['x_var_step'].m
+                while x < (datapoint['x_var_stop'].m - datapoint['x_var_step'].m):
+                    x += datapoint['x_var_step'].m
                     col_x.append(x)
-                col_y.extend((val.m for val in ds['data']))
+                col_y.extend((val.m for val in datapoint['data']))
 
             data.append(col_x)
             data.append(col_y)
@@ -448,7 +449,6 @@ class PaData:
                 'data_points': general['data_points'],
                 'created': general['created'],
                 'updated': general['updated'],
-                'filename': general['filename'],
                 'zoom_pre_time': general['zoom_pre_time']*ureg(time_unit), # type: ignore
                 'zoom_post_time': general['zoom_post_time']*ureg(time_unit) # type: ignore
                 }
