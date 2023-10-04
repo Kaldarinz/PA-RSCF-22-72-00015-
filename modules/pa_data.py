@@ -133,7 +133,7 @@ class PaData:
         <params> contain names of the dimensions."""
 
         #general metadata
-        self.attrs: BaseMetadata = {
+        self.attrs: dc.BaseMetadata = {
             'version': self.VERSION,
             'measurement_dims': dims,
             'parameter_name': params,
@@ -144,7 +144,7 @@ class PaData:
             'zoom_pre_time': 2*ureg.us,
             'zoom_post_time': 13*ureg.us
         }
-        raw_attrs: RawMetadata = {
+        raw_attrs: dc.RawMetadata = {
             'max_len': 0,
             'x_var_name': 'Time',
             'y_var_name': 'PhotoAcoustic signal'
@@ -152,7 +152,7 @@ class PaData:
         self.raw_data = {}
         self.raw_data.update({'attrs': raw_attrs})
         
-        filt_attrs: FiltMetadata = {
+        filt_attrs: dc.FiltMetadata = {
             'x_var_name': 'Time',
             'y_var_name': 'Filtered photoAcoustic signal'
         }
@@ -160,7 +160,7 @@ class PaData:
         self.filt_data = {}
         self.filt_data.update({'attrs': filt_attrs})
         
-        freq_attrs: RawMetadata = {
+        freq_attrs: dc.RawMetadata = {
             'max_len': 0,
             'x_var_name': 'Frequency',
             'y_var_name': 'FFT amplitude'
@@ -172,7 +172,7 @@ class PaData:
 
     def add_measurement(
             self, 
-            data: Data_point,
+            data: dc.Data_point,
             param_val: List[PlainQuantity] = []
         ) -> None:
         """Add a single data point.
@@ -205,7 +205,7 @@ class PaData:
                 logger.debug(f'Changing units of data from {data["pa_signal"].u} '
                              +f'to {data_u}')
                 data['pa_signal'] = data['pa_signal'].to(data_u) #type: ignore
-        ds: RawData = {
+        ds: dc.RawData = {
             'data': data['pa_signal'], #type: ignore
             'data_raw': data['pa_signal_raw'],
             'param_val': param_val,
@@ -612,10 +612,7 @@ class PaData:
 
         logger.debug('Starting 1D plotting...')
         self._param_ind = 0 #index of active data on plot
-
-        #plot max_signal_amp(parameter)
         self._plot_param()
-        self._plot_init_cur_param()
         self._fig.canvas.mpl_connect('key_press_event', self._on_key_press)
         self._plot_update()
         plt.show()
@@ -686,6 +683,8 @@ class PaData:
                    + f'{self.raw_data["point001"]["data"][0].u}'
                    + ']')
         self._ax_sp.set_ylabel(y_label)
+
+        self._plot_init_cur_param()
 
     def _plot_init_cur_param(self) -> None:
         """Plot initial param value.
@@ -940,7 +939,7 @@ class PaData:
                     low: PlainQuantity,
                     high: PlainQuantity,
                     ds_name: str,
-                    ds: RawData) -> None:
+                    ds: dc.RawData) -> None:
         """Internal bandpass filtration method.
         
         Actually do the filtration."""
@@ -965,7 +964,7 @@ class PaData:
         #pass frequencies
         filtered_freq = W[(W>low)*(W<high)]
         filtered_data = f_signal[(W>low)*(W<high)]
-        freq_ds: FreqData = {
+        freq_ds: dc.FreqData = {
             'data': Q_(filtered_data, ds['data'].u), #type: ignore
             'x_var_step': (filtered_freq[1]-filtered_freq[0])*ureg.Hz,
             'x_var_start': filtered_freq.min()*ureg.Hz,
