@@ -32,7 +32,14 @@ def init_logs() -> logging.Logger:
     """Initiate logging"""
 
     with open('rsc/log_config.yaml', 'r') as f:
-        log_config = yaml.load(f, Loader=yaml.FullLoader)
+        config = yaml.load(f, Loader=yaml.FullLoader)
+        log_config = config['official']
+        max_files = int(config['additional']['maxfiles'])
+    filesnames = [f for f in os.listdir('./logs') if f.startswith('PA')]
+    filesnames.sort(key = lambda x: os.path.getctime('./logs/' + x))
+    while len(filesnames) > max_files:
+        old_file = filesnames.pop(0)
+        os.remove('./logs/' + old_file)
 
     # adding current data to name of log files
     for i in (log_config["handlers"].keys()):

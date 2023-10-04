@@ -1,28 +1,31 @@
-version: 1
-disable_existing_loggers: true
-formatters:
-  simple:
-    format: '%(asctime)s - %(name)s.%(funcName)s - line:%(lineno)s - %(levelname)s - %(message)s'
-    datefmt: '%I:%M:%S'
-  inline:
-    format: '%(levelname)s - %(message)s'
-handlers:
-  console:
-    class: logging.StreamHandler
-    level: INFO
-    formatter: inline
-    stream: ext://sys.stdout
-  file:
-    class: logging.FileHandler
+official:
+  version: 1
+  disable_existing_loggers: true
+  formatters:
+    simple:
+      format: '%(asctime)s - %(name)s.%(funcName)s - line:%(lineno)s - %(levelname)s - %(message)s'
+      datefmt: '%I:%M:%S'
+    inline:
+      format: '%(levelname)s - %(message)s'
+  handlers:
+    console:
+      class: logging.StreamHandler
+      level: INFO
+      formatter: inline
+      stream: ext://sys.stdout
+    file:
+      class: logging.FileHandler
+      level: DEBUG
+      formatter: simple
+      filename: logs/PA_CLI.log
+      encoding: utf-8
+  loggers:
+    modules:
+      level: DEBUG
+      handlers: [console,file]
+      propagate: no
+  root:
     level: DEBUG
-    formatter: simple
-    filename: logs/PA_CLI.log
-    encoding: utf-8
-loggers:
-  modules:
-    level: DEBUG
-    handlers: [console,file]
-    propagate: no
-root:
-  level: DEBUG
-  handlers: [console, file]
+    handlers: [console, file]
+additional:
+  maxfiles: 5
