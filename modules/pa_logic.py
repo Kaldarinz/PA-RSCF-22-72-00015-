@@ -495,7 +495,7 @@ def single_measure(
         logger.debug('...Terminating single point measurement.')
         return None
     measurement, _ = _ameasure_point(averaging, wl)
-    if measurement['pa_signal'] is not None:
+    if measurement.pa_signal is not None:
         data.add_measurement(measurement, [wl])
     data.save_tmp()
     data.bp_filter()
@@ -873,7 +873,7 @@ def _measure_point(
     """Measure single PA data point."""
 
     logger.debug('Starting PA point measurement...')
-    measurement = dc.DataPoint
+    measurement = dc.DataPoint()
     osc = dc.hardware.osc
     pm = dc.hardware.power_meter
     config = dc.hardware.config
@@ -940,15 +940,15 @@ def _measure_point(
             pa_signal = pa_signal_v/sample_energy
             pa_amp = pa_amp_v/sample_energy
         else:
-            sample_energy = 0*ureg.uJ
-            pa_amp = 0*ureg.uJ
+            sample_energy = Q_(0, 'J')
+            pa_amp = Q_(0, 'V/J')
             logger.warning('Sample energy cannot be '
                             +'calculated')
     elif config['power_control'] == 'Glan prism':
         sample_energy = glan_calc(pm_energy)
         if sample_energy is not None and sample_energy:
-            pa_signal = pa_signal/sample_energy
-            pa_amp = pa_amp/sample_energy
+            pa_signal = pa_signal_v/sample_energy
+            pa_amp = pa_amp_v/sample_energy
         else:
             logger.warning(f'Sample energy = {sample_energy}')
             pa_amp = Q_(0, 'uJ')
@@ -1000,9 +1000,9 @@ def aver_measurements(measurements: List[dc.DataPoint]) -> dc.DataPoint:
         result.sample_energy = Q_(0, 'J')
         result.max_amp = Q_(0, 'V/J')
 
-    logger.info(f'Average power meter energy {result["pm_energy"]}')
-    logger.info(f'Average energy at {result["sample_energy"]}')
-    logger.info(f'Average PA signal amp {result["max_amp"]}')
+    logger.info(f'Average power meter energy {result.pm_energy}')
+    logger.info(f'Average energy at {result.sample_energy}')
+    logger.info(f'Average PA signal amp {result.max_amp}')
     
     logger.debug('...Finishing averaging of measurements.')
     return result

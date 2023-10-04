@@ -100,7 +100,7 @@ import h5py
 import numpy as np
 import numpy.typing as npt
 
-from . import ureg, Q_
+from . import Q_
 from . import data_classes as dc
 from modules.exceptions import (
     PlotError
@@ -141,8 +141,8 @@ class PaData:
             'created': self._get_cur_time(),
             'updated': self._get_cur_time(),
             'filename': '',
-            'zoom_pre_time': 2*ureg.us,
-            'zoom_post_time': 13*ureg.us
+            'zoom_pre_time': Q_(2, 'us'),
+            'zoom_post_time': Q_(13, 'us')
         }
         raw_attrs: dc.RawMetadata = {
             'max_len': 0,
@@ -464,8 +464,8 @@ class PaData:
                 'data_points': general['data_points'],
                 'created': general['created'],
                 'updated': general['updated'],
-                'zoom_pre_time': general['zoom_pre_time']*ureg(time_unit), # type: ignore
-                'zoom_post_time': general['zoom_post_time']*ureg(time_unit) # type: ignore
+                'zoom_pre_time': Q_(general['zoom_pre_time'], time_unit), # type: ignore
+                'zoom_post_time': Q_(general['zoom_post_time'], time_unit) # type: ignore
                 }
             )
             #in old version of 0D data save parameter name was missed
@@ -509,15 +509,15 @@ class PaData:
 
         p = np.poly1d([ds.attrs['a'], ds.attrs['b']]) # type: ignore
         data_raw = ds[...]
-        data = p(data_raw)*ureg(y_var_unit)
+        data = Q_(p(data_raw), y_var_unit)
         p_vals = ds.attrs['param_val']
-        param_val = [x*ureg(y) for x, y in zip(p_vals,param_units)] # type: ignore
-        x_var_step = ds.attrs['x_var_step']*ureg(x_var_unit)
-        x_var_start = ds.attrs['x_var_start']*ureg(x_var_unit)
-        x_var_stop = ds.attrs['x_var_stop']*ureg(x_var_unit)
-        pm_en = ds.attrs['pm_en']*ureg(ds.attrs['pm_en_u']) # type: ignore
-        sample_en = ds.attrs['sample_en']* ureg(ds.attrs['sample_en_u']) # type: ignore
-        max_amp = ds.attrs['max_amp']*ureg(ds.attrs['max_amp_u']) # type: ignore
+        param_val = [Q_(x, y) for x, y in zip(p_vals,param_units)] # type: ignore
+        x_var_step = Q_(ds.attrs['x_var_step'], x_var_unit)
+        x_var_start = Q_(ds.attrs['x_var_start'], x_var_unit)
+        x_var_stop = Q_(ds.attrs['x_var_stop'], x_var_unit)
+        pm_en = Q_(ds.attrs['pm_en'], ds.attrs['pm_en_u']) # type: ignore
+        sample_en = Q_(ds.attrs['sample_en'], ds.attrs['sample_en_u']) # type: ignore
+        max_amp = Q_(ds.attrs['max_amp'], ds.attrs['max_amp_u']) # type: ignore
 
         self.raw_data.update(
                     {
@@ -685,10 +685,9 @@ class PaData:
             logger.debug(err_msg)
             raise PlotError(err_msg)
         else:
-            self._filt_vals = filt_vals
+            units = self._raw_vals.u
+            self._filt_vals = filt_vals.to(units)
         
-        self._ax_sp.set_xlabel(self.raw_data['attrs']['x_var_name'])
-        self._ax_sp.set_ylabel(self.raw_data['attrs']['y_var_name'])
         self._ax_sp.plot(
             self._param_values.m,
             self._raw_vals.m,
@@ -702,12 +701,12 @@ class PaData:
         self._ax_sp.set_ylim(bottom=0)
         x_label = (self.attrs['parameter_name'][0] 
                    + ', ['
-                   + f'{self.raw_data["point001"]["param_val"][0].u}'
+                   + f'{self._param_values.u}'
                    + ']')
         self._ax_sp.set_xlabel(x_label)
         y_label = (self.raw_data['attrs']['y_var_name']
                    + ', ['
-                   + f'{self.raw_data["point001"]["data"][0].u}'
+                   + f'{self._raw_vals.u}'
                    + ']')
         self._ax_sp.set_ylabel(y_label)
 
@@ -944,8 +943,8 @@ class PaData:
         return dep
 
     def bp_filter(self,
-                  low: PlainQuantity=1*ureg.MHz,
-                  high: PlainQuantity=10*ureg.MHz,
+                  low: PlainQuantity=Q_(1, 'MHz'),
+                  high: PlainQuantity=Q_(10, 'MHz'),
                   ds_name: str='') -> None:
         """Perform bandpass filtration on data.
         
@@ -993,9 +992,9 @@ class PaData:
         filtered_data = f_signal[(W>low)*(W<high)]
         freq_ds: dc.FreqData = {
             'data': Q_(filtered_data, ds['data'].u), #type: ignore
-            'x_var_step': (filtered_freq[1]-filtered_freq[0])*ureg.Hz,
-            'x_var_start': filtered_freq.min()*ureg.Hz,
-            'x_var_stop': filtered_freq.max()*ureg.Hz,
+            'x_var_step': Q_((filtered_freq[1]-filtered_freq[0]), 'Hz'),
+            'x_var_start': Q_(filtered_freq.min(), 'Hz'),
+            'x_var_stop': Q_(filtered_freq.max(), 'Hz'),
             'max_amp': filtered_data.ptp()
         }
         logger.debug(f'freq step: {freq_ds["x_var_step"]}')
