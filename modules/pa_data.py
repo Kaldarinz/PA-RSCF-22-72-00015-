@@ -89,7 +89,6 @@ import time
 import os, os.path
 import logging
 from itertools import zip_longest
-from collections import Counter
 
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
@@ -102,7 +101,10 @@ import numpy as np
 import numpy.typing as npt
 
 from . import ureg, Q_
-from .data_classes import *
+from . import data_classes as dc
+from modules.exceptions import (
+    PlotError
+)
 
 logger = logging.getLogger(__name__)
 
@@ -110,6 +112,19 @@ class PaData:
     """Class for PA data storage and manipulations"""
 
     VERSION = 1.0
+
+    _ax_sp: plt.Axes
+    "Axes for plotting dependence of max_amp on parameter."
+    _ax_raw: plt.Axes
+    "Axes for plotting raw signal."
+    _ax_freq: plt.Axes
+    "Axes for plotting signal in frequnecy domain."
+    _ax_filt: plt.Axes
+    "Axes for plotting filtered data."
+    _ax_raw_zoom: plt.Axes
+    "Axes for plotting a region containing actual RAW signal."
+    _ax_filt_zoom: plt.Axes
+    "Axes for plotting a region containing actual FILTERED signal."
 
     def __init__(self, dims: int=-1, params: List[str]=[]) -> None:
         """Class init.
@@ -573,16 +588,19 @@ class PaData:
         }
 
         dims = self.attrs['measurement_dims']
-        if dims == 0:
-            self._plot_0d()
-        elif dims == 1:
-            self._plot_1d()
-        elif dims == 2:
-            self._plot_2d()
-        elif dims == 3:
-            self._plot_3d()
-        else:
-            logger.warning(f'Unsupported dimensionality: ({dims})')
+        try:
+            if dims == 0:
+                self._plot_0d()
+            elif dims == 1:
+                self._plot_1d()
+            elif dims == 2:
+                self._plot_2d()
+            elif dims == 3:
+                self._plot_3d()
+            else:
+                logger.warning(f'Unsupported dimensionality: ({dims})')
+        except PlotError as err:
+            logger.warning(f'Plot attempt failed. {err.value}')
 
     def _plot_0d(self) -> None:
         """Plot 0D data."""
@@ -596,38 +614,65 @@ class PaData:
         self._param_ind = 0 #index of active data on plot
 
         #plot max_signal_amp(parameter)
+        self._plot_param()
+        self._plot_init_cur_param()
+        self._fig.canvas.mpl_connect('key_press_event', self._on_key_press)
+        self._plot_update()
+        plt.show()
+
+    def _plot_2d(self) -> None:
+        """Plot 2D data."""
+
+        logger.warning('Plotting 2D data is not implemented!')
+
+    def _plot_3d(self) -> None:
+        """Plot 3D data."""
+
+        logger.warning('Plotting 3D data is not implemented!')
+
+    def _plot_param(
+            self,
+            value: str = 'max_amp'
+        ) -> None:
+        """Plot parameter data.
+        
+        <value> define which quantity will be plotted.
+        """
+
         param_values = self.get_dependance('raw_data','param_val[0]')
         if param_values is None:
-            logger.warning('Plot attempt failed.')
-            logger.debug('...Terminating. raw_data on param_val dependence failed.')
-            return None
+            err_msg = 'Cannot get param_val for all datapoints.'
+            logger.debug(err_msg)
+            raise PlotError(err_msg)
         else:
             self._param_values = param_values
-        raw_amps = self.get_dependance('raw_data', 'max_amp')
-        if raw_amps is None:
-            logger.warning('Plot attempt failed.')
-            logger.debug('...Terminating. raw_data on max_amp dependence failed.')
-            return None
+
+        raw_vals = self.get_dependance('raw_data', value)
+        if raw_vals is None:
+            err_msg = f'Cant get {value} of raw_data.'
+            logger.debug(err_msg)
+            raise PlotError(err_msg)
         else:
-            self._raw_amps = raw_amps
-        filt_amps = self.get_dependance('filt_data', 'max_amp')
-        if filt_amps is None:
-            logger.warning('Plot attempt failed.')
-            logger.debug('...Terminating. filt_data on max_amp dependence failed.')
-            return None
+            self._raw_vals = raw_vals
+
+        filt_vals = self.get_dependance('filt_data', value)
+        if filt_vals is None:
+            err_msg = f'Cant get {value} of raw_data.'
+            logger.debug(err_msg)
+            raise PlotError(err_msg)
         else:
-            self._filt_amps = filt_amps
+            self._filt_vals = filt_vals
         
         self._ax_sp.set_xlabel(self.raw_data['attrs']['x_var_name'])
         self._ax_sp.set_ylabel(self.raw_data['attrs']['y_var_name'])
         self._ax_sp.plot(
             self._param_values.m,
-            self._raw_amps.m,
-            label='Max amplitude of raw data')
+            self._raw_vals.m,
+            label=f'{value} of raw data')
         self._ax_sp.plot(
             self._param_values.m,
-            self._filt_amps.m,
-            label='Max amplitude of filtered data'
+            self._filt_vals.m,
+            label=f'{value} of filtered data'
         )
         self._ax_sp.legend(loc='upper right')
         self._ax_sp.set_ylim(bottom=0)
@@ -642,29 +687,28 @@ class PaData:
                    + ']')
         self._ax_sp.set_ylabel(y_label)
 
+    def _plot_init_cur_param(self) -> None:
+        """Plot initial param value.
+        
+        This method should be called after _plot_param.
+        """
+
+        if (not len(self._param_values) 
+            or not len(self._raw_vals)
+            or not len(self._filt_vals)):
+            err_msg = 'No data for displaying current param value.'
+            logger.debug(err_msg)
+            raise PlotError(err_msg)
+
         self._plot_selected_raw, = self._ax_sp.plot(
             self._param_values[self._param_ind].m, #type:ignore
-            self._raw_amps[self._param_ind].m, #type:ignore
+            self._raw_vals[self._param_ind].m, #type:ignore
             **self._marker_style)
         
         self._plot_selected_filt, = self._ax_sp.plot(
             self._param_values[self._param_ind].m, #type:ignore
-            self._filt_amps[self._param_ind].m, #type:ignore
+            self._filt_vals[self._param_ind].m, #type:ignore
             **self._marker_style)
-
-        self._fig.canvas.mpl_connect('key_press_event', self._on_key_press)
-        self._plot_update()
-        plt.show()
-
-    def _plot_2d(self) -> None:
-        """Plot 2D data."""
-
-        logger.warning('Plotting 2D data is not implemented!')
-
-    def _plot_3d(self) -> None:
-        """Plot 3D data."""
-
-        logger.warning('Plotting 3D data is not implemented!')
 
     def _on_key_press(self, event) -> None:
         """Callback function for changing active data on plot."""
@@ -690,7 +734,7 @@ class PaData:
         if self.filt_data[ds_name].get('data') is None:
             return None
         #update parameter plot
-        self._update_pos_ax_sp()
+        self._plot_update_cur_param()
         #update filt plot withh filt_zoom
         self._plot_update_signal(
             self.filt_data[ds_name],
@@ -719,7 +763,7 @@ class PaData:
         self._fig.align_labels()
         self._fig.canvas.draw()
 
-    def _update_pos_ax_sp(self) -> None:
+    def _plot_update_cur_param(self) -> None:
         """Update current position in parameter subplot."""
 
         title = (self.attrs['parameter_name'][0] + ': '
@@ -727,10 +771,10 @@ class PaData:
         self._ax_sp.set_title(title)
         self._plot_selected_raw.set_data(
             self._param_values[self._param_ind].m, #type:ignore
-            self._raw_amps[self._param_ind].m) #type:ignore
+            self._raw_vals[self._param_ind].m) #type:ignore
         self._plot_selected_filt.set_data(
             self._param_values[self._param_ind].m, #type:ignore
-            self._filt_amps[self._param_ind].m) #type:ignore
+            self._filt_vals[self._param_ind].m) #type:ignore
 
     def _plot_update_signal(
             self,
