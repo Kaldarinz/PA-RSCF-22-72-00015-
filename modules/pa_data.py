@@ -605,7 +605,34 @@ class PaData:
     def _plot_0d(self) -> None:
         """Plot 0D data."""
 
-        logger.warning('Plotting 0D data is not implemented!')
+        logger.debug('Starting 0D plotting...')
+        for ds_name, ds in self.filt_data.items():
+            if ds_name != 'attrs':
+                break
+        #update filt plot withh filt_zoom
+        self._plot_update_signal(
+            self.filt_data[ds_name],
+            self.filt_data['attrs'],
+            'Filtered data',
+            self._ax_filt,
+            self._ax_filt_zoom,
+        )
+        #update raw plot with raw_zoom
+        self._plot_update_signal( 
+            self.raw_data[ds_name],
+            self.raw_data['attrs'],
+            'Raw data',
+            self._ax_raw,
+            self._ax_raw_zoom,
+        )
+        #update freq plot
+        self._plot_update_signal(
+            self.freq_data[ds_name],
+            self.freq_data['attrs'],
+            'FFT data',
+            self._ax_freq
+        )
+        plt.show()
 
     def _plot_1d(self) -> None:
         """Plot 1D data."""
