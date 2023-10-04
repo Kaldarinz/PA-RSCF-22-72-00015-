@@ -28,4 +28,4 @@ official:
     level: DEBUG
     handlers: [console, file]
 additional:
-  maxfiles: 5
+  maxfiles: 9
