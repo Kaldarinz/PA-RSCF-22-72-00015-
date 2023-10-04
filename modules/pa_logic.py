@@ -196,7 +196,7 @@ def init_osc() -> bool:
     logger.debug('Starting init_osc...')
     if osc.connection_check():
         logger.info('Connection to oscilloscope is already established!')
-        logger.debug('...Finishing.')
+        logger.debug('...Finishing init_osc.')
         return True
 
     logger.debug('No connection found. Trying to establish connection')
@@ -528,7 +528,7 @@ def set_energy(
     <repeated> is flag which indicates that this is not the first
     call of set_energy."""
 
-    logger.debug('Starting...')
+    logger.debug('Starting setting laser energy...')
     config = dc.hardware.config
     if config['power_control'] == 'Filters':
         logger.info('Please remove all filters and measure '
@@ -548,9 +548,7 @@ def set_energy(
         if not len(filters):
             logger.warning(f'No valid filter combination for '
                     + f'{current_wl}')
-            cont_ans = inquirer.confirm(
-                message='Do you want to continue?').execute()
-            if not cont_ans:
+            if not confirm_action('Do you want to continue?'):
                 logger.warning('Spectral measurements terminated!')
                 logger.debug('...Terminating.')
                 return False
@@ -579,7 +577,7 @@ def set_energy(
                         + 'Measurements terminated!')
         logger.debug('...Terminating.')
         return False
-    logger.debug('...Finishing.')
+    logger.debug('...Finishing. Laser energy set.')
     return True
                 
 def glass_calculator(
@@ -598,7 +596,7 @@ def glass_calculator(
     Accept only wavelengthes, which are present in rsc/ColorGlass.txt.
     """
 
-    logger.debug('Starting...')
+    logger.debug('Starting calculation of filter combinations...')
     #file with filter's properties
     sub_folder = 'rsc'
     filename = 'ColorGlass.txt'
@@ -616,7 +614,7 @@ def glass_calculator(
         logger.debug('...Terminating')
         return {}
     
-    glass_rm_zeros(data)
+    _glass_rm_zeros(data)
     glass_calc_od(data)
     filter_titles = header.split('\n')[0].split('\t')[2:]
 
@@ -656,13 +654,13 @@ def glass_calculator(
     for comb_name, transmission in result_comb.items():
         logger.info(f'{comb_name}: {transmission*100:.1f} %')
 
-    logger.debug('...Finishing.')
+    logger.debug('...Finishing. Filter combinations calculated.')
     return result_comb
 
-def glass_rm_zeros(data: np.ndarray) -> None:
+def _glass_rm_zeros(data: np.ndarray) -> None:
     """Replaces zeros in filters data by linear fit from nearest values."""
 
-    logger.debug('Starting...')
+    logger.debug('Starting replacement of zeros in filter data...')
     for j in range(data.shape[1]-2):
         for i in range(data.shape[0]-1):
             if data[i+1,j+2] == 0:
@@ -681,7 +679,7 @@ def glass_rm_zeros(data: np.ndarray) -> None:
                         logger.warning('adjacent zeros in filter data are not supported!')
                     else:
                         data[i+1,j+2] = (data[i,j+2] + data[i+2,j+2])/2
-    logger.debug('...Finishing')
+    logger.debug('...Finishing. Zeros removed from filter data.')
 
 def glass_calc_od(data: np.ndarray) -> None:
     """Calculate OD using thickness of filters."""
@@ -736,7 +734,7 @@ def glass_reflection(wl: PlainQuantity) -> Optional[float]:
     
     pm_energy/sample_energy = glass_reflection."""
 
-    logger.debug('Starting...')
+    logger.debug('Starting calculation of glass reflection...')
      #file with filter's properties
     sub_folder = 'rsc'
     filename = 'ColorGlass.txt'
@@ -761,7 +759,7 @@ def glass_reflection(wl: PlainQuantity) -> Optional[float]:
         logger.debug('...Terminating')
         return
     
-    logger.debug('...Finishing')
+    logger.debug('...Finishing. Glass reflection calculated')
     return data[wl_index,1]/100
 
 def glan_calc_reverse(
@@ -776,7 +774,8 @@ def glan_calc_reverse(
     <fit_order> is a ploynom order used for fitting callibration data.
     """
 
-    logger.debug('Starting...')
+    logger.debug('Starting calculation of power meter '
+                 + 'energy from sample energy...')
     sub_folder = 'rsc'
     filename = 'GlanCalibr.txt'
     filename = os.path.join(sub_folder,filename)
@@ -802,7 +801,7 @@ def glan_calc_reverse(
                        'realized! Linear fit used instead!')
         energy = (target_energy.to('uJ').m - coef[1])/coef[0]*ureg.uJ
     
-    logger.debug('...Finishing')
+    logger.debug('...Finishing. Power meter energy calculated')
     return energy
 
 def glan_calc(
@@ -811,7 +810,7 @@ def glan_calc(
     ) -> Optional[PlainQuantity]:
     """Calculates energy at sample for a given power meter energy"""
 
-    logger.debug('Starting...')
+    logger.debug('Starting sample energy calculation...')
     sub_folder = 'rsc'
     filename = 'GlanCalibr.txt'
     filename = os.path.join(sub_folder,filename)
@@ -835,7 +834,7 @@ def glan_calc(
 
     #return the value of polynom at energy
     sample_en = fit(energy.to('uJ').m)*ureg.uJ
-    logger.debug('...Finishing')
+    logger.debug('...Finishing. Sample energy calculated.')
     return sample_en
 
 def _ameasure_point(
@@ -989,12 +988,12 @@ def _measure_point(
     return measurement
 
 def aver_measurements(measurements: List[dc.Data_point]) -> dc.Data_point:
-    """Calculate average measurement from a given list.
+    """Calculate average measurement from a given list of measurements.
     
     Actually only amplitude values are averaged, in other cases data
     from the last measurement from the <measurements> is used."""
 
-    logger.debug('Starting...')
+    logger.debug('Starting measurement averaging...')
     result = new_data_point()
     total = len(measurements)
     for measurement in measurements:
@@ -1023,7 +1022,7 @@ def aver_measurements(measurements: List[dc.Data_point]) -> dc.Data_point:
     logger.info(f'Average energy at {result["sample_energy"]}')
     logger.info(f'Average PA signal amp {result["max_amp"]}')
     
-    logger.debug('...Finishing')
+    logger.debug('...Finishing averaging of measurements.')
     return result
 
 def verify_measurement(
@@ -1071,12 +1070,8 @@ def verify_measurement(
     ax_pa.set_ylabel(f'PA signal, [{pa_signal.u}]')
     plt.show()
 
-    #confirm that the data is OK
-    good_data = inquirer.confirm(
-        message='Data looks good?').execute()
-    logger.debug(f'{good_data=} was choosen')
-
-    logger.debug('...Finishing')
+    good_data = confirm_action('Data looks good?')
+    logger.debug('...Finishing measurement verification.')
     return good_data
 
 def set_next_measure_action() -> str:
