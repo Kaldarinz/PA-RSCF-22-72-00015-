@@ -172,7 +172,7 @@ class PaData:
 
     def add_measurement(
             self, 
-            data: dc.Data_point,
+            data: dc.DataPoint,
             param_val: List[PlainQuantity] = []
         ) -> None:
         """Add a single data point.
@@ -181,10 +181,10 @@ class PaData:
         """
 
         logger.debug('Starting datapoint addition to file...')
-        if data['pa_signal'] is None or not len(data['pa_signal']):
+        if data.pa_signal is None or not len(data.pa_signal):
             logger.debug('...Terminating datapoint addition. PA signal is missing.')
             return None
-        if data['pa_signal_raw'] is None or not len(data['pa_signal_raw']):
+        if data.pa_signal_raw is None or not len(data.pa_signal_raw):
             logger.debug('...Terminating datapoint addition. PA signal_raw is missing.')
             return None
         ds_name = self._build_ds_name(self.attrs['data_points']+1)
@@ -198,23 +198,23 @@ class PaData:
             params = self.raw_data['point001']['param_val']
             #should be changed for 0D case, when there is no parameter
             logger.debug(f'Param values changed from {param_val}...')
-            param_val = [x.to(y.u) for x,y in zip(param_val,params)] # type: ignore
+            param_val = [x.to(y.u) for x,y in zip(param_val,params)]
             logger.debug(f'... to {param_val}')
             data_u = self.raw_data['point001']['data'].u
-            if data_u != data['pa_signal'].u:
-                logger.debug(f'Changing units of data from {data["pa_signal"].u} '
+            if data_u != data.pa_signal.u:
+                logger.debug(f'Changing units of data from {data.pa_signal.u} '
                              +f'to {data_u}')
-                data['pa_signal'] = data['pa_signal'].to(data_u) #type: ignore
+                data.pa_signal = data.pa_signal.to(data_u)
         ds: dc.RawData = {
-            'data': data['pa_signal'], #type: ignore
-            'data_raw': data['pa_signal_raw'],
+            'data': data.pa_signal, #type: ignore
+            'data_raw': data.pa_signal_raw,
             'param_val': param_val,
-            'x_var_step': data['dt'].to('us'),
-            'x_var_start': data['start_time'].to('us'),
-            'x_var_stop': data['stop_time'].to('us'),
-            'pm_en': data['pm_energy'],
-            'sample_en': data['sample_energy'],
-            'max_amp': data['max_amp']
+            'x_var_step': data.dt.to('us'),
+            'x_var_start': data.start_time.to('us'),
+            'x_var_stop': data.stop_time.to('us'),
+            'pm_en': data.pm_energy,
+            'sample_en': data.sample_energy,
+            'max_amp': data.max_amp
         }
 
         cur_data_len = len(ds['data'])

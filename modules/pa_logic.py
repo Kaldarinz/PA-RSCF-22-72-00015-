@@ -9,6 +9,7 @@ from itertools import combinations
 from collections import deque
 import math
 from threading import Thread
+from dataclasses import replace
 
 import yaml
 import pint
@@ -34,23 +35,6 @@ from . import data_classes as dc
 from . import ureg, Q_
 
 logger = logging.getLogger(__name__)
-
-def new_data_point() -> dc.Data_point:
-    """Return default data point."""
-
-    measurement: dc.Data_point = {
-                    'dt': 0*ureg.s,
-                    'pa_signal': Q_(np.empty(0), 'V'), # type: ignore
-                    'pa_signal_raw': np.empty(0, dtype=np.int8),
-                    'pm_signal': 0*ureg.V,
-                    'start_time': 0*ureg.s,
-                    'stop_time': 0*ureg.s,
-                    'pm_energy': 0*ureg.uJ,
-                    'sample_energy': 0*ureg.uJ,
-                    'max_amp': 0*ureg.V/ureg.uJ,
-                    'wavelength': 0*ureg.nm
-                }
-    return measurement
 
 def init_hardware() -> bool:
     """Initialize all hardware.
@@ -840,7 +824,7 @@ def glan_calc(
 def _ameasure_point(
     averaging: int,
     current_wl: PlainQuantity
-    ) -> Tuple[dc.Data_point, bool]:
+    ) -> Tuple[dc.DataPoint, bool]:
     """Measure single PA data point with averaging.
     
     second value in the returned tuple (bool) is a flag to 
@@ -849,7 +833,7 @@ def _ameasure_point(
 
     logger.debug('Starting measuring PA data point with averaging...')
     counter = 0
-    msmnts: List[dc.Data_point]=[]
+    msmnts: List[dc.DataPoint]=[]
     while counter < averaging:
         logger.info(f'Signal at {current_wl} should be measured '
                 + f'{averaging-counter} more times.')
@@ -872,7 +856,7 @@ def _ameasure_point(
                     measurement = aver_measurements(msmnts)
                 else:
                     logger.debug('No data was measured')
-                    measurement = new_data_point()
+                    measurement = dc.DataPoint()
                 logger.warning('Spectral measurement terminated')
                 logger.debug('...Terminating.')
                 return measurement, False
@@ -881,15 +865,15 @@ def _ameasure_point(
     
     logger.warning('Unexpectedly passed after main measure sycle!')
     logger.debug('...Terminating with empty data point.')
-    return new_data_point(), True
+    return dc.DataPoint(), True
 
 def _measure_point(
         wavelength: PlainQuantity
-    ) -> dc.Data_point:
+    ) -> dc.DataPoint:
     """Measure single PA data point."""
 
     logger.debug('Starting PA point measurement...')
-    measurement = new_data_point()
+    measurement = dc.DataPoint
     osc = dc.hardware.osc
     pm = dc.hardware.power_meter
     config = dc.hardware.config
@@ -921,12 +905,12 @@ def _measure_point(
         logger.warning(f'Error during PA measurement: {err.value}')
         return measurement
     dt = 1/osc.sample_rate
-    pa_signal = data[0][pa_ch_id]
+    pa_signal_v = data[0][pa_ch_id]
     pm_signal = data[0][pm_ch_id]
     pa_signal_raw = data[1][pa_ch_id]
-    pa_amp = osc.amp[pa_ch_id]
+    pa_amp_v = osc.amp[pa_ch_id]
     start_time = 0*ureg.s
-    stop_time = cast(PlainQuantity, dt*(len(pa_signal.m)-1))
+    stop_time = cast(PlainQuantity, dt*(len(pa_signal_v.m)-1))
     try:
         pm_energy = pm.energy_from_data(pm_signal, dt)
     except OscValueError:
@@ -936,10 +920,11 @@ def _measure_point(
         else:
             pm_energy = Q_(0, 'uJ')
             logger.warning(f'Power meter energy set to {pm_energy}')
-    measurement.update(
-        {
+    measurement = replace(
+        measurement,                 
+        **{
             'wavelength': wavelength,
-            'dt': dt.to('s'), # type: ignore
+            'dt': dt.to('s'),
             'pa_signal_raw': pa_signal_raw,
             'start_time': start_time,
             'stop_time': stop_time,
@@ -952,8 +937,8 @@ def _measure_point(
         reflection = glass_reflection(wavelength)
         if reflection is not None and reflection !=0:
             sample_energy = pm_energy/reflection
-            pa_signal = pa_signal/sample_energy
-            pa_amp = pa_amp/sample_energy
+            pa_signal = pa_signal_v/sample_energy
+            pa_amp = pa_amp_v/sample_energy
         else:
             sample_energy = 0*ureg.uJ
             pa_amp = 0*ureg.uJ
@@ -973,12 +958,9 @@ def _measure_point(
                     + 'Measurements terminated!')
         logger.debug('...Terminating.')
         return measurement
-    
-    measurement.update(
-        {'sample_energy': sample_energy,
-         'pa_signal': pa_signal,
-         'max_amp': pa_amp}
-    )
+    measurement.sample_energy = sample_energy
+    measurement.pa_signal = pa_signal
+    measurement.max_amp = pa_amp
     logger.debug(f'{sample_energy=}')
     logger.debug(f'PA data has {len(pa_signal)} points '
                     + f'with max value={pa_signal.max():.2D}') #type: ignore
@@ -987,36 +969,36 @@ def _measure_point(
     logger.debug('...Finishing PA point measurement.')
     return measurement
 
-def aver_measurements(measurements: List[dc.Data_point]) -> dc.Data_point:
+def aver_measurements(measurements: List[dc.DataPoint]) -> dc.DataPoint:
     """Calculate average measurement from a given list of measurements.
     
     Actually only amplitude values are averaged, in other cases data
     from the last measurement from the <measurements> is used."""
 
     logger.debug('Starting measurement averaging...')
-    result = new_data_point()
+    result = dc.DataPoint()
     total = len(measurements)
     for measurement in measurements:
-        result['dt'] = measurement['dt']
-        result['pa_signal'] = measurement['pa_signal']
-        result['pa_signal_raw'] = measurement['pa_signal_raw']
-        result['pm_signal'] = measurement['pm_signal']
-        result['start_time'] = measurement['start_time']
-        result['stop_time'] = measurement['stop_time']
-        result['wavelength'] = measurement['wavelength']
+        result.dt = measurement.dt
+        result.pa_signal = measurement.pa_signal
+        result.pa_signal_raw = measurement.pa_signal_raw
+        result.pm_signal = measurement.pm_signal
+        result.start_time = measurement.start_time
+        result.stop_time = measurement.stop_time
+        result.wavelength = measurement.wavelength
         
-        result['pm_energy'] += measurement['pm_energy'] # type: ignore
-        result['sample_energy'] += measurement['sample_energy'] # type: ignore
-        result['max_amp'] += measurement['max_amp'] # type: ignore
+        result.pm_energy += measurement.pm_energy
+        result.sample_energy += measurement.sample_energy
+        result.max_amp += measurement.max_amp
 
     if total:
-        result['pm_energy'] = result['pm_energy']/total
-        result['sample_energy'] = result['sample_energy']/total
-        result['max_amp'] = result['max_amp']/total
+        result.pm_energy = result.pm_energy/total
+        result.sample_energy = result.sample_energy/total
+        result.max_amp = result.max_amp/total
     else:
-        result['pm_energy'] = 0*ureg.J
-        result['sample_energy'] = 0*ureg.J
-        result['max_amp'] = 0*ureg.J
+        result.pm_energy = Q_(0, 'J')
+        result.sample_energy = Q_(0, 'J')
+        result.max_amp = Q_(0, 'V/J')
 
     logger.info(f'Average power meter energy {result["pm_energy"]}')
     logger.info(f'Average energy at {result["sample_energy"]}')
@@ -1026,7 +1008,7 @@ def aver_measurements(measurements: List[dc.Data_point]) -> dc.Data_point:
     return result
 
 def verify_measurement(
-        measurement: dc.Data_point
+        measurement: dc.DataPoint
     ) -> bool:
     """Verify a PA measurement."""
 
@@ -1036,9 +1018,9 @@ def verify_measurement(
     if pm is None:
         logger.warning('Power meter is off in config')
         return False
-    pm_signal = measurement['pm_signal']
-    dt = measurement['dt'].to('us')
-    pa_signal = measurement['pa_signal']
+    pm_signal = measurement.pm_signal
+    dt = measurement.dt.to('us')
+    pa_signal = measurement.pa_signal
 
     fig = plt.figure(tight_layout=True)
     gs = gridspec.GridSpec(1,2)
