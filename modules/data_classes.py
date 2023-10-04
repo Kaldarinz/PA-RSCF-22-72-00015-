@@ -75,19 +75,19 @@ class DataPoint:
     "Sampled PA signal in int8 format"
     dt: PlainQuantity = Q_(0,'s')
     "Sampling interval"
-    pa_signal: PlainQuantity = Q_(np.empty(0), 'V/J')
+    pa_signal: PlainQuantity = Q_(np.empty(0), 'V/uJ')
     "Sampled PA signal in physical units"
     pm_signal: PlainQuantity = Q_(np.empty(0), 'V')
     "Sampled power meter signal in volts"
-    start_time: PlainQuantity = Q_(0, 's')
+    start_time: PlainQuantity = Q_(0, 'us')
     "Start of sampling interval relative to begining of laser pulse"
-    stop_time: PlainQuantity = Q_(0, 's')
+    stop_time: PlainQuantity = Q_(0, 'us')
     "Stop of sampling interval relative to begining of laser pulse"
-    pm_energy: PlainQuantity = Q_(0, 'J')
+    pm_energy: PlainQuantity = Q_(0, 'uJ')
     "Energy at power meter in physical units"
-    sample_energy: PlainQuantity = Q_(0, 'J')
+    sample_energy: PlainQuantity = Q_(0, 'uJ')
     "Energy at sample in physical units"
-    max_amp: PlainQuantity = Q_(0, 'V/J')
+    max_amp: PlainQuantity = Q_(0, 'V/uJ')
     "Maximum PA signal amplitude"
     wavelength: PlainQuantity = Q_(0, 'nm')
     "Excitation laser wavelength"
