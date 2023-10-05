@@ -74,7 +74,9 @@ class DataPoint:
     pa_signal_raw: npt.NDArray[np.uint8|np.int16] = field(default_factory=empty_ndarray)
     "Sampled PA signal in int8 format"
     dt: PlainQuantity = Q_(0,'s')
-    "Sampling interval"
+    "Sampling interval for PA data"
+    dt_pm: PlainQuantity = Q_(0, 's')
+    "Sampling interval for PM data, could differ from dt due to downsampling of PM data."
     pa_signal: PlainQuantity = Q_(np.empty(0), 'V/uJ')
     "Sampled PA signal in physical units"
     pm_signal: PlainQuantity = Q_(np.empty(0), 'V')

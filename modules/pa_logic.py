@@ -468,8 +468,9 @@ def spectrum(
                 logger.debug('...Terminating.')
                 return
         measurement, proceed = _ameasure_point(averaging, current_wl)
-        data.add_measurement(measurement, [current_wl])
-        data.save_tmp()
+        if measurement:
+            data.add_measurement(measurement, [current_wl])
+            data.save_tmp()
         if not proceed:
             logger.debug('...Terminating.')
             return data
@@ -495,10 +496,10 @@ def single_measure(
         logger.debug('...Terminating single point measurement.')
         return None
     measurement, _ = _ameasure_point(averaging, wl)
-    if measurement.pa_signal is not None:
+    if measurement is not None:
         data.add_measurement(measurement, [wl])
-    data.save_tmp()
-    data.bp_filter()
+        data.save_tmp()
+        data.bp_filter()
     logger.info('...Finishing single point measurement!')
     return data
 
@@ -824,7 +825,7 @@ def glan_calc(
 def _ameasure_point(
     averaging: int,
     current_wl: PlainQuantity
-    ) -> Tuple[dc.DataPoint, bool]:
+    ) -> Tuple[dc.DataPoint|None, bool]:
     """Measure single PA data point with averaging.
     
     second value in the returned tuple (bool) is a flag to 
@@ -856,7 +857,7 @@ def _ameasure_point(
                     measurement = aver_measurements(msmnts)
                 else:
                     logger.debug('No data was measured')
-                    measurement = dc.DataPoint()
+                    measurement = None
                 logger.warning('Spectral measurement terminated')
                 logger.debug('...Terminating.')
                 return measurement, False
@@ -904,16 +905,18 @@ def _measure_point(
     except OscIOError as err:
         logger.warning(f'Error during PA measurement: {err.value}')
         return measurement
-    dt = 1/osc.sample_rate
+    dt = (1/osc.sample_rate).to('us')
     pm_start = osc.pre_t[pm_ch_id]
     pa_start = osc.pre_t[pa_ch_id]
     pa_signal_v = data[0][pa_ch_id]
-    pm_signal = data[0][pm_ch_id]
+    pm_signal_raw, pm_time_decim = osc.decimate_data(data[1][pm_ch_id])
+    dt_pm = dt*pm_time_decim
+    pm_signal = osc._to_volts(pm_signal_raw)
     pa_signal_raw = data[1][pa_ch_id]
     pa_amp_v = osc.amp[pa_ch_id]
     try:
-        pm_energy = pm.energy_from_data(pm_signal, dt)
-        pm_offset = pm.pulse_offset(pm_signal, dt)
+        pm_energy = pm.energy_from_data(pm_signal, dt_pm)
+        pm_offset = pm.pulse_offset(pm_signal, dt_pm)
     except OscValueError:
         logger.warning('Power meter energy cannot be measured!')
         if confirm_action('Do you want to repeat measurement?'):
@@ -927,7 +930,8 @@ def _measure_point(
         measurement,                 
         **{
             'wavelength': wavelength,
-            'dt': dt.to('s'),
+            'dt': dt,
+            'dt_pm': dt_pm,
             'pa_signal_raw': pa_signal_raw,
             'start_time': start_time,
             'stop_time': stop_time,
@@ -1022,27 +1026,28 @@ def verify_measurement(
         logger.warning('Power meter is off in config')
         return False
     pm_signal = measurement.pm_signal
-    dt = measurement.dt.to('us')
+    dt = measurement.dt
+    dt_pm = measurement.dt_pm
     pa_signal = measurement.pa_signal
 
     fig = plt.figure(tight_layout=True)
     gs = gridspec.GridSpec(1,2)
     ax_pm = fig.add_subplot(gs[0,0])
-    pm_time = Q_(np.arange(len(pm_signal))*dt.m, dt.u)
+    pm_time = Q_(np.arange(len(pm_signal))*dt_pm.m, dt.u)
     ax_pm.plot(pm_time.m,pm_signal.m)
     ax_pm.set_xlabel(f'Time, [{pm_time.u}]')
     ax_pm.set_ylabel(f'Power meter signal, [{pm_signal.u}]')
 
     #add markers for data start and stop
     ax_pm.plot(
-        pm.start_ind*dt.m,
+        pm.start_ind*dt_pm.m,
         pm_signal[pm.start_ind].m,
         'o',
         alpha=0.4,
         ms=12,
         color='green')
     ax_pm.plot(
-        pm.stop_ind*dt.m,
+        pm.stop_ind*dt_pm.m,
         pm_signal[pm.stop_ind].m,
         'o',
         alpha=0.4,

@@ -111,7 +111,7 @@ logger = logging.getLogger(__name__)
 class PaData:
     """Class for PA data storage and manipulations"""
 
-    VERSION = 1.0
+    VERSION = 1.1
 
     _ax_sp: plt.Axes
     "Axes for plotting dependence of max_amp on parameter."
@@ -870,10 +870,16 @@ class PaData:
                 **self._fill_style
             )
 
+            #plot zoomed
             zoom_ax.clear()
-            z_time_off = time_data[start_zoom_ind].m #type:ignore
+            # uncomment to change into absolute x_axis for zoomed adrea
+            # z_time_off = time_data[start_zoom_ind].m #type:ignore
+            # zoom_ax.plot(
+            #     time_data[start_zoom_ind:stop_zoom_ind+1].m-z_time_off, #type:ignore
+            #     ds['data'][start_zoom_ind:stop_zoom_ind+1].m
+            # )
             zoom_ax.plot(
-                time_data[start_zoom_ind:stop_zoom_ind+1].m-z_time_off, #type:ignore
+                time_data[start_zoom_ind:stop_zoom_ind+1].m,
                 ds['data'][start_zoom_ind:stop_zoom_ind+1].m
             )
             zoom_ax.set_xlabel(x_label)

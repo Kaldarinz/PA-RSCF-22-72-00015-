@@ -3,7 +3,6 @@
 ## General structure of .hdf5 file
 
 # version 1.0
-
 / - <root group>
 |.attrs
 |  |--'created': str - date and time of data measurement
@@ -47,3 +46,15 @@
    |    |--'b': float - y = a*x+b, where 'x' - values from 'data', 'y' - values in 'y var units' scale
    |    ...
    ...
+
+# version 1.1
+/ - <root group>
+|.attrs
+|--'raw_data' - <group>
+   |.attrs
+   |--point001 - <dataset>: ndarray[uint8] - measured PA signal
+   |  |--.attrs 
+   |    |--'x_var_start': float
+   |    |--'x_var_stop': float
+
+'x_var_start' and 'x_var_stop' are now time points relative to the start of the laser pulse.

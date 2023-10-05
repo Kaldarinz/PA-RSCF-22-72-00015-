@@ -19,10 +19,12 @@ from typing import List, Optional, Tuple, cast
 from collections import abc
 import logging
 import time
+import math
 
 import pyvisa as pv
 import numpy as np
 import numpy.typing as npt
+from scipy.signal import decimate
 from pint.facets.plain.quantity import PlainQuantity
 
 from modules.exceptions import OscConnectError, OscIOError, OscValueError
@@ -123,8 +125,12 @@ class Oscilloscope:
             self.__osc = rm.open_resource(self.OSC_ID) # type: ignore
             self.not_found = False
             logger.debug('Oscilloscope device found!')
-        self._set_preamble()
-        self._set_sample_rate()
+        try:
+            self._set_preamble()
+            self._set_sample_rate()
+        except (OscConnectError, OscIOError, OscValueError) as err:
+            logger.debug(f'...Terminating. {err.value}')
+            return False
         #smoothing parameters
         self.ra_kernel = ra_kernel_size
         logger.debug('...Finishing. Osc fully initiated.')
@@ -170,17 +176,18 @@ class Oscilloscope:
 
         logger.debug('Starting measure signal from oscilloscope '
                      + 'memory.')
-        logger.debug('Resetting data and data_raw attributes.')
-        self.data = [None]*self.CHANNELS
-        self.data_raw = [None]*self.CHANNELS
         self._wait_trig()
         logger.debug('Writing :STOP to enable reading from memory')
         self._write([':STOP'])
         for i, read_flag in enumerate([read_ch1, read_ch2]):
             if read_flag:
+                logger.debug('Resetting data and data_raw attributes '
+                             + f'for CHAN{i+1}.')
+                self.data[i] = None
+                self.data_raw[i] = None
                 data_raw = self._read_data(i)
                 if smooth:
-                    data_raw = self._rolling_average(data_raw)
+                    data_raw = self.rolling_average(data_raw)
                 if correct_bl:
                     data_raw = self._baseline_correction(data_raw)
                 data = self._to_volts(data_raw)
@@ -213,7 +220,7 @@ class Oscilloscope:
             if read_flag:
                 data_raw = self._read_scr_data(i)
                 if smooth:
-                    data_raw = self._rolling_average(data_raw)
+                    data_raw = self.rolling_average(data_raw)
                 if correct_bl:
                     data_raw = self._baseline_correction(data_raw)
                 data = self._to_volts(data_raw)
@@ -419,21 +426,33 @@ class Oscilloscope:
         else:
             return False
             
-    def _rolling_average(self,
-                        data: npt.NDArray[np.int8]
-                        ) -> npt.NDArray[np.int8]:
-        """Smooth data using rolling average method."""
+    def rolling_average(
+            self,
+            data: npt.NDArray[np.int8],
+            auto_kernel: bool = False
+        ) -> npt.NDArray[np.int8]:
+        """Smooth data using rolling average method.
+        
+        If <auto_kernel> is True, then BL_LENGTH is used for 
+        calculation kernel.
+        Does not modify any attributes.
+        """
         
         logger.debug('Starting _rolling_average smoothing...')
-        min_signal_size = int(self.SMOOTH_LEN_FACTOR*self.ra_kernel)
+        if auto_kernel:
+            kernel_size = int(len(data)*self.BL_LENGTH)
+            
+        else:
+            kernel_size = self.ra_kernel
+        min_signal_size = int(self.SMOOTH_LEN_FACTOR*kernel_size)
         if len(data) < min_signal_size:
             err_msg = (f'Signal has only {len(data)} data points, '
                        + f'but at least {min_signal_size} is required.')
             logger.debug(err_msg)
             raise OscIOError(err_msg)
-        kernel = np.ones(self.ra_kernel)/self.ra_kernel
+        kernel = np.ones(kernel_size)/kernel_size
         tmp_array = np.zeros(len(data))
-        border = int(self.ra_kernel/2)
+        border = int(kernel_size/2)
         tmp_array[border:-(border-1)] = np.convolve(data,kernel,mode='valid')
         #leave edges unfiltered
         tmp_array[:border] = tmp_array[border]
@@ -442,6 +461,33 @@ class Oscilloscope:
         logger.debug(f'...Finishing. Success. '
                      +f'max val = {result.max()}, min val = {result.min()}.')
         return result
+
+    def decimate_data(
+            self,
+            data: npt.NDArray[np.int8],
+            target: int = 10_000,
+        ) -> Tuple[npt.NDArray, int]:
+        """Downsample data to <target> size.
+        
+        Does not guarantee size of output array.
+        Return decimated data and decimation factor.
+        """
+
+        logger.debug(f'Starting decimation data with {len(data)} size.')
+        factor = int(len(data)/target)
+        logger.debug(f'Decimation factor = {factor}')
+        iterations = int(math.log10(factor))
+        rem = factor//10**iterations
+        decim_factor = 1
+        for _ in range(iterations):
+            data = decimate(data,10)
+            decim_factor *=10
+        if rem > 1:
+            data = decimate(data,rem)
+            decim_factor *=rem
+        logger.debug(f'...Finishing. Final size is {len(data)}')
+        return data, decim_factor
+        
 
     def _read_chunk(self, start: int, dur: int
         ) -> npt.NDArray[np.int8]:
@@ -599,11 +645,13 @@ class PowerMeter:
     
     data: PlainQuantity|None
     laser_amp: PlainQuantity
+    start_ind: int = 0
+    stop_ind: int = 1
 
     def __init__(self, 
                  osc: Oscilloscope,
                  ch_id: int=1,
-                 threshold: float=0.03) -> None:
+                 threshold: float=0.01) -> None:
         """PowerMeter class for Thorlabs ES111C pyroelectric detector.
 
         Osc is as instance of Oscilloscope class, 
@@ -655,11 +703,11 @@ class PowerMeter:
 
         logger.debug('Starting convertion of raw signal to energy...')
         self._check_data(data)
-        strt_ind = self._find_pm_start_ind(data)
+        self.start_ind = self._find_pm_start_ind(data)
         try:
             logger.debug('Starting search for signal end...')
-            neg_data = np.where(data[strt_ind:] < 0)[0] #type: ignore
-            stop_ind_arr = neg_data + strt_ind
+            neg_data = np.where(data[self.start_ind:] < 0)[0] #type: ignore
+            stop_ind_arr = neg_data + self.start_ind
             logger.debug(f'{len(stop_ind_arr)} points with negative '
                          + 'values found after signal start')
             stop_index = 0
@@ -683,7 +731,7 @@ class PowerMeter:
             raise OscValueError(err_msg)
 
         laser_amp = np.sum(
-            data[strt_ind:self.stop_ind])*step.to('s').m*self.SENS # type: ignore
+            data[self.start_ind:self.stop_ind])*step.to('s').m*self.SENS # type: ignore
         laser_amp = Q_(laser_amp.m, 'mJ')
         logger.debug(f'...Finishing. Laser amplitude = {laser_amp}')
         return laser_amp
@@ -761,7 +809,7 @@ class PowerMeter:
         logger.debug('Starting lase pulse offset calculation...')
         self._check_data(data)
         index = self._find_pm_start_ind(data)
-        offset = step*index
+        offset = (step*index).to('us')
         logger.debug(f'Laser pulse offset is {offset}')
         return offset
 
