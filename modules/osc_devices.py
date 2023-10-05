@@ -591,7 +591,7 @@ class Oscilloscope:
 class PowerMeter:
     
     ###DEFAULTS###
-    SENS = 210.4 #scalar coef to convert integral readings into [uJ]
+    SENS = 210.4 #scalar coef to convert integral readings into [mJ]
 
     ch: int # channel ID number
     osc: Oscilloscope
@@ -599,14 +599,11 @@ class PowerMeter:
     
     data: PlainQuantity|None
     laser_amp: PlainQuantity
-    #start and stop indexes of the measured signal
-    start_ind: int = 0
-    stop_ind: int = 1
 
     def __init__(self, 
                  osc: Oscilloscope,
                  ch_id: int=1,
-                 threshold: float=0.05) -> None:
+                 threshold: float=0.03) -> None:
         """PowerMeter class for Thorlabs ES111C pyroelectric detector.
 
         Osc is as instance of Oscilloscope class, 
@@ -645,9 +642,11 @@ class PowerMeter:
             logger.debug(err_msg)
             raise OscValueError(err_msg)
 
-    def energy_from_data(self,
-                         data: PlainQuantity,
-                         step: PlainQuantity) -> PlainQuantity:
+    def energy_from_data(
+            self,
+            data: PlainQuantity,
+            step: PlainQuantity
+        ) -> PlainQuantity:
         """Calculate laser energy from data.
 
         <Step> is time step for the data.
@@ -655,34 +654,12 @@ class PowerMeter:
         """
 
         logger.debug('Starting convertion of raw signal to energy...')
-        if not isinstance(data.m, abc.Sized):
-            err_msg = 'data is not iterable.'
-            logger.debug(err_msg)
-            raise OscValueError(err_msg)
-        if len(data.m) < 10:
-            err_msg = ('data too small for laser energy '
-                       + f'calc ({len(data.m)})')
-            logger.debug(err_msg)
-            raise OscValueError(err_msg)
-
-        max_amp = data.max() # type: ignore
-        logger.debug(f'Max value in signal is {max_amp}')
-        thr = max_amp*self.threshold # type: ignore
-        logger.debug(f'Signal starts when amplitude exceeds {thr}')
-        try:
-            str_ind = np.where(data>thr)[0][0]
-            self.start_ind = str_ind
-            logger.debug(f'Position of signal start is {str_ind}/'
-                         + f'{len(data.m)}')
-        except IndexError:
-            err_msg = 'Problem in set_laser_amp start_index'
-            logger.debug(err_msg)
-            raise OscValueError(err_msg)
-
+        self._check_data(data)
+        strt_ind = self._find_pm_start_ind(data)
         try:
             logger.debug('Starting search for signal end...')
-            neg_data = np.where(data[self.start_ind:] < 0)[0] #type: ignore
-            stop_ind_arr = neg_data + self.start_ind
+            neg_data = np.where(data[strt_ind:] < 0)[0] #type: ignore
+            stop_ind_arr = neg_data + strt_ind
             logger.debug(f'{len(stop_ind_arr)} points with negative '
                          + 'values found after signal start')
             stop_index = 0
@@ -706,11 +683,27 @@ class PowerMeter:
             raise OscValueError(err_msg)
 
         laser_amp = np.sum(
-            data[self.start_ind:self.stop_ind])*step.to('s').m*self.SENS # type: ignore
+            data[strt_ind:self.stop_ind])*step.to('s').m*self.SENS # type: ignore
         laser_amp = Q_(laser_amp.m, 'mJ')
         logger.debug(f'...Finishing. Laser amplitude = {laser_amp}')
         return laser_amp
     
+    def _check_data(self, data: PlainQuantity) -> None:
+        """Check whether data is valid power meter data.
+        
+        Raise OscValueError if data is not correct.
+        """
+
+        if not isinstance(data.m, abc.Sized):
+            err_msg = 'data is not iterable.'
+            logger.debug(err_msg)
+            raise OscValueError(err_msg)
+        if len(data.m) < 10:
+            err_msg = ('data too small for laser energy '
+                       + f'calc ({len(data.m)})')
+            logger.debug(err_msg)
+            raise OscValueError(err_msg)
+
     def set_channel(
             self,
             chan: int,
@@ -739,6 +732,38 @@ class PowerMeter:
                 result.append(False)
             channel -= 1
         return result
+
+    def _find_pm_start_ind(self, data: PlainQuantity) -> int:
+        """Find index of power meter signal begining."""
+
+        logger.debug('Starting search for power meter signal start...')
+        max_amp = data.max() # type: ignore
+        logger.debug(f'Max value in signal is {max_amp}')
+        thr = max_amp*self.threshold # type: ignore
+        logger.debug(f'Signal starts when amplitude exceeds {thr}')
+        try:
+            str_ind = np.where(data>thr)[0][0]
+            logger.debug(f'Position of signal start is {str_ind}/'
+                         + f'{len(data.m)}')
+        except IndexError:
+            err_msg = 'Problem in set_laser_amp start_index'
+            logger.debug(err_msg)
+            raise OscValueError(err_msg)
+        return str_ind
+
+    def pulse_offset(
+            self,
+            data: PlainQuantity,
+            step: PlainQuantity
+        ) -> PlainQuantity:
+        """Calculate time offset of laser in PM data."""
+
+        logger.debug('Starting lase pulse offset calculation...')
+        self._check_data(data)
+        index = self._find_pm_start_ind(data)
+        offset = step*index
+        logger.debug(f'Laser pulse offset is {offset}')
+        return offset
 
 class PhotoAcousticSensOlymp:
     
