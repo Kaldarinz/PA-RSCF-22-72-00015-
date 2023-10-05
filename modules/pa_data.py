@@ -433,6 +433,8 @@ class PaData:
 
         data = self.raw_data[ds_name]['data']
         data_raw = self.raw_data[ds_name]['data_raw']
+        #in the begining of data there could be long baseline
+        #therefore start searching for meaningfull data from maximum
         max_ind = np.flatnonzero(data==data.max())[0]
         x = data_raw[max_ind:max_ind+points]
         if len(np.unique(x))< DIFF_VALS:
@@ -822,8 +824,6 @@ class PaData:
         If <zoom_ax> is not set, then zoom version of plot is
         not updated AND markers for max and min values are not plotted.
         """
-
-        logger.debug(f'Start updating subplot {title}')
         
         start = ds['x_var_start']
         stop = ds['x_var_stop']
