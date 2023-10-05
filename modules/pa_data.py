@@ -216,7 +216,6 @@ class PaData:
             'sample_en': data.sample_energy,
             'max_amp': data.max_amp
         }
-
         cur_data_len = len(ds['data'])
         old_data_len = self.raw_data['attrs']['max_len']
         if cur_data_len > old_data_len:
@@ -224,6 +223,9 @@ class PaData:
             logger.debug(f'max_len updated from {old_data_len} '
                          + f'to {cur_data_len}')
         self.raw_data.update({ds_name: ds})
+        a, b = self._calc_data_fit(ds_name)
+        self.raw_data[ds_name]['a'] = a
+        self.raw_data[ds_name]['b'] = b
         self.bp_filter(ds_name=ds_name)
         
         self.attrs['data_points'] += 1
@@ -401,11 +403,10 @@ class PaData:
         """Build dict with attributes for <ds_name>"""
         
         ds_attrs = self.raw_data[ds_name]
-        a, b = self._calc_data_fit(ds_name)
         attrs = {
             'param_val': [param.m for param in ds_attrs['param_val']],
-            'a': a,
-            'b': b,
+            'a': ds_attrs['a'],
+            'b': ds_attrs['b'],
             'x_var_step': ds_attrs['x_var_step'].m,
             'x_var_start': ds_attrs['x_var_start'].m,
             'x_var_stop': ds_attrs['x_var_stop'].m,
@@ -431,13 +432,18 @@ class PaData:
         DIFF_VALS = 5
 
         data = self.raw_data[ds_name]['data']
-        x = self.raw_data[ds_name]['data_raw'][:points]
+        data_raw = self.raw_data[ds_name]['data_raw']
+        max_ind = np.flatnonzero(data==data.max())[0]
+        x = data_raw[max_ind:max_ind+points]
         if len(np.unique(x))< DIFF_VALS:
             for i in range(len(self.raw_data[ds_name]['data_raw'])):
-                x = self.raw_data[ds_name]['data_raw'][:(points+i)]
+                stop_ind = max_ind+points+i
+                x = data_raw[max_ind:stop_ind].copy()
                 if len(np.unique(x)) == DIFF_VALS:
                     break
-        y = [quantity.m for quantity, _ in zip(data, x)]
+        logger.debug(f'{i} additional points added to find '
+                     + f'{DIFF_VALS} unique values.')
+        y = [quantity.m for quantity, _ in zip(data[max_ind:], x)]
         coef = np.polyfit(x, y, 1)
         return coef
 

@@ -46,6 +46,8 @@ class RawData(TypedDict):
 
     data: pint.Quantity
     data_raw: npt.NDArray[np.uint8|np.int16]
+    a: float
+    b: float
     param_val: List[pint.Quantity]
     x_var_step: pint.Quantity
     x_var_start: pint.Quantity
