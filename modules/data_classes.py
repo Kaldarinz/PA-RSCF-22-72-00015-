@@ -3,13 +3,16 @@ Module with data classes.
 """
 
 from typing import TypedDict, List
+from dataclasses import dataclass, field
 
 import pint
+from pint.facets.plain.quantity import PlainQuantity
 import numpy.typing as npt
 import numpy as np
 from pylablib.devices.Thorlabs import KinesisMotor
 
 from .osc_devices import Oscilloscope, PowerMeter, PhotoAcousticSensOlymp
+from . import ureg, Q_
 
 
 class BaseMetadata(TypedDict):
@@ -60,19 +63,34 @@ class FreqData(TypedDict):
     x_var_stop: pint.Quantity
     max_amp: pint.Quantity
 
-class Data_point(TypedDict):
-    """Single PA measurement"""
+def empty_ndarray():
 
-    dt: pint.Quantity
-    pa_signal: pint.Quantity
-    pa_signal_raw: npt.NDArray[np.uint8|np.int16]
-    pm_signal: pint.Quantity
-    start_time: pint.Quantity
-    stop_time: pint.Quantity
-    pm_energy: pint.Quantity
-    sample_energy: pint.Quantity
-    max_amp: pint.Quantity
-    wavelength: pint.Quantity
+    return np.empty(0, dtype=np.int8)
+
+@dataclass
+class DataPoint:
+    """Single PA measurement."""
+
+    pa_signal_raw: npt.NDArray[np.uint8|np.int16] = field(default_factory=empty_ndarray)
+    "Sampled PA signal in int8 format"
+    dt: PlainQuantity = Q_(0,'s')
+    "Sampling interval"
+    pa_signal: PlainQuantity = Q_(np.empty(0), 'V/uJ')
+    "Sampled PA signal in physical units"
+    pm_signal: PlainQuantity = Q_(np.empty(0), 'V')
+    "Sampled power meter signal in volts"
+    start_time: PlainQuantity = Q_(0, 'us')
+    "Start of sampling interval relative to begining of laser pulse"
+    stop_time: PlainQuantity = Q_(0, 'us')
+    "Stop of sampling interval relative to begining of laser pulse"
+    pm_energy: PlainQuantity = Q_(0, 'uJ')
+    "Energy at power meter in physical units"
+    sample_energy: PlainQuantity = Q_(0, 'uJ')
+    "Energy at sample in physical units"
+    max_amp: PlainQuantity = Q_(0, 'V/uJ')
+    "Maximum PA signal amplitude"
+    wavelength: PlainQuantity = Q_(0, 'nm')
+    "Excitation laser wavelength"
 
 class Hardware():
     """Class for hardware references."""
@@ -87,3 +105,6 @@ class Hardware():
         self.config: dict = {}
 
 hardware = Hardware()
+
+tst = DataPoint()
+tst.dt
