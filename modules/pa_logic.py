@@ -905,14 +905,15 @@ def _measure_point(
         logger.warning(f'Error during PA measurement: {err.value}')
         return measurement
     dt = 1/osc.sample_rate
+    pm_start = osc.pre_t[pm_ch_id]
+    pa_start = osc.pre_t[pa_ch_id]
     pa_signal_v = data[0][pa_ch_id]
     pm_signal = data[0][pm_ch_id]
     pa_signal_raw = data[1][pa_ch_id]
     pa_amp_v = osc.amp[pa_ch_id]
-    start_time = 0*ureg.s
-    stop_time = cast(PlainQuantity, dt*(len(pa_signal_v.m)-1))
     try:
         pm_energy = pm.energy_from_data(pm_signal, dt)
+        pm_offset = pm.pulse_offset(pm_signal, dt)
     except OscValueError:
         logger.warning('Power meter energy cannot be measured!')
         if confirm_action('Do you want to repeat measurement?'):
@@ -920,6 +921,8 @@ def _measure_point(
         else:
             pm_energy = Q_(0, 'uJ')
             logger.warning(f'Power meter energy set to {pm_energy}')
+    start_time = (pm_start - pm_offset) - pa_start
+    stop_time = dt*(len(pa_signal_v.m)-1) + start_time
     measurement = replace(
         measurement,                 
         **{
