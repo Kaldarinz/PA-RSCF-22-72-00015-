@@ -35,7 +35,7 @@ def init_logs() -> logging.Logger:
         config = yaml.load(f, Loader=yaml.FullLoader)
         log_config = config['official']
         max_files = int(config['additional']['maxfiles'])
-    filesnames = [f for f in os.listdir('./logs') if f.startswith('PA')]
+    filesnames = [f for f in os.listdir('./logs') if f.endswith('log')]
     filesnames.sort(key = lambda x: os.path.getctime('./logs/' + x))
     while len(filesnames) > max_files:
         old_file = filesnames.pop(0)
