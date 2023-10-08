@@ -421,7 +421,7 @@ class PaData:
             'x_var_step': ds_attrs['x_var_step'].m,
             'x_var_start': ds_attrs['x_var_start'].m,
             'x_var_stop': ds_attrs['x_var_stop'].m,
-            'pm_en': ds_attrs['pm_en'],
+            'pm_en': ds_attrs['pm_en'].m,
             'pm_en_u': str(ds_attrs['pm_en'].u),
             'sample_en': ds_attrs['sample_en'].m,
             'sample_en_u': str(ds_attrs['sample_en'].u),
