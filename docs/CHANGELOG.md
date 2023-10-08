@@ -40,6 +40,11 @@
 
 ### Changed
 
+#### General
+
+* `logs` folder now keeps only 10 last *.log file.
+  When a new log file is created the oldest one is removed.
+
 #### Data storage and representation
 
 * PA data is now stored relative to the begining of laser pulse.
