@@ -25,6 +25,7 @@ class BaseMetadata(TypedDict):
     created: str
     updated: str
     filename: str
+    notes: str
     zoom_pre_time: pint.Quantity
     zoom_post_time: pint.Quantity
 

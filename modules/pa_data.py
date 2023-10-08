@@ -18,6 +18,7 @@ Data structure of PaData class:
     |  |--'created': str - date and time of data measurement
     |  |--'updated': str - date and time of last data update
     |  |--'filename': str - full path to the data file
+    |  |--'notes': str - description
     |  |--'zoom_pre_time': Quantity - start time from the center of the PA data frame for zoom in data view
     |  |--'zoom_post_time': Quantity - end time from the center of the PA data frame for zoom in data view
     |
@@ -51,6 +52,8 @@ Data structure of PaData class:
     |  |--point001
     |  |  |--'data': List[Quantity] - measured PA signal
     |  |  |--'data_raw': ndarray[int8]
+    |  |  |--'a': float
+    |  |  |--'b': float - <data> = a*<data_raw> + b
     |  |  |--'param_val': List[Quantity] - value of independent parameter
     |  |  |--'x_var_step': Quantity
     |  |  |--'x_var_start': Quantity
@@ -82,6 +85,7 @@ Data structure of PaData class:
        |  ...
        ...
 """
+
 import warnings
 from typing import Iterable, Any, Tuple, TypedDict, List
 from datetime import datetime
@@ -99,9 +103,11 @@ from pint.facets.plain.quantity import PlainQuantity
 import h5py
 import numpy as np
 import numpy.typing as npt
+import texteditor
 
 from . import Q_
 from . import data_classes as dc
+from .utils import confirm_action
 from modules.exceptions import (
     PlotError
 )
@@ -141,6 +147,7 @@ class PaData:
             'created': self._get_cur_time(),
             'updated': self._get_cur_time(),
             'filename': '',
+            'notes': '',
             'zoom_pre_time': Q_(2, 'us'),
             'zoom_post_time': Q_(13, 'us')
         }
@@ -242,7 +249,7 @@ class PaData:
         return date_time
 
     def save(self, filename: str='') -> None:
-        """Saves data to file."""
+        """Save data to file."""
 
         if filename:
             self.attrs['filename'] = filename
@@ -251,6 +258,9 @@ class PaData:
         else:
             logger.warning('Filename is not set. Data cannot be saved!')
             return
+        if confirm_action('Do you want to add notes to the file?'):
+            self.attrs['notes'] = texteditor.open(
+                'Add description preferably in one line.')
         self._flush(filename)
 
     def save_tmp(self) -> None:
@@ -374,6 +384,7 @@ class PaData:
         param_vals = self.raw_data['point001']['param_val']
         attrs = {
             'version': self.attrs['version'],
+            'notes': self.attrs['notes'],
             'measurement_dims': self.attrs['measurement_dims'],
             'parameter_name': self.attrs['parameter_name'],
             'parameter_u': [str(param.u) for param in param_vals],
@@ -476,6 +487,11 @@ class PaData:
                 'zoom_post_time': Q_(general['zoom_post_time'], time_unit) # type: ignore
                 }
             )
+
+            if (general.get('version', 0)) >= 1.1:
+                self.attrs.update(
+                    {'notes': general['notes']}
+                )
             #in old version of 0D data save parameter name was missed
             #but it was wavelength in all cases. Fix it on load old data.
             if not len(self.attrs['parameter_name']):
@@ -501,7 +517,7 @@ class PaData:
                     raw_data[ds_name], # type: ignore
                     raw_data.attrs['y_var_u'], # type: ignore
                     raw_data.attrs['x_var_u'], # type: ignore
-                    general['parameter_u'] # type: ignore
+                    general['parameter_u']
                 )
             self.bp_filter()
             logger.debug('...Data loaded!')
@@ -532,6 +548,8 @@ class PaData:
                         ds_name:{
                             'data': data,
                             'data_raw': data_raw,
+                            'a': ds.attrs['a'],
+                            'b': ds.attrs['b'],
                             'param_val': param_val,
                             'x_var_step': x_var_step,
                             'x_var_start': x_var_start,
@@ -574,8 +592,9 @@ class PaData:
         warnings.filterwarnings('ignore',
                                 category=MatplotlibDeprecationWarning)
         self._fig = plt.figure(tight_layout=True)
-        filename = os.path.basename(self.attrs['filename'])
-        self._fig.suptitle(filename)
+        d_dscr = 'Filename: ' + os.path.basename(self.attrs['filename'])
+        d_dscr += '\nDescription: ' + self.attrs['notes']
+        self._fig.suptitle(d_dscr)
         gs = gridspec.GridSpec(2,3)
         self._ax_sp = self._fig.add_subplot(gs[0,0])
         self._ax_raw = self._fig.add_subplot(gs[0,1])

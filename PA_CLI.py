@@ -22,6 +22,7 @@ from modules.pa_data import PaData
 import modules.pa_logic as pa_logic
 from modules.exceptions import StageError, HardwareError
 import modules.data_classes as dc
+from modules.utils import confirm_action
 
 
 MESSAGES = {
@@ -134,7 +135,7 @@ def assign_stage(stages: list[KinesisMotor], axis: str) -> KinesisMotor|None:
         else:
             id = stages_id.index(assign_ans)
             pa_logic.stage_ident(stages[id])
-            if pa_logic.confirm_action(f'Is this controller of {axis} stage?'):
+            if confirm_action(f'Is this controller of {axis} stage?'):
                 return stages.pop(id)
 
 def home() -> None:
@@ -605,7 +606,7 @@ def export_to_txt(data: PaData) -> None:
 
         #if file already exists, ask to override it
         if os.path.exists(filename):
-            if pa_logic.confirm_action(
+            if confirm_action(
                 f'Do you want to override file {filename}?'):
                 try:
                     os.remove(filename)

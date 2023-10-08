@@ -24,6 +24,7 @@ import matplotlib.gridspec as gridspec
 import keyboard
 
 import modules.osc_devices as osc_devices
+from .utils import confirm_action
 from modules.exceptions import (
     OscConnectError,
     OscIOError,
@@ -1080,11 +1081,3 @@ def set_next_measure_action() -> str:
     logger.debug(f'...Finishing. {measure_ans=} was choosen')
     return measure_ans
 
-def confirm_action(message: str='') -> bool:
-    """Confirm execution of an action."""
-
-    if not message:
-        message = 'Are you sure?'
-    confirm = inquirer.confirm(message=message).execute()
-    logger.debug(f'"{message}" = {confirm}')
-    return confirm
