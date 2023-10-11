@@ -56,11 +56,11 @@ def init_logs(window: Window) -> logging.Logger:
 
     #adding textbox handler. I cannot handle it with file config.
     logTextBox = window.LogTextEdit
-    logTextBox.setFormatter()
     logging.config.dictConfig(log_config)
     logTextBox.setFormatter(
         logging.Formatter(
-            '%(levelname)s - %(message)s'))
+            '%(asctime)s - %(levelname)s - %(message)s',
+            '%I:%M:%S'))
     logging.getLogger('root').addHandler(logTextBox)
     logging.getLogger('root').setLevel(logging.INFO)
     logging.getLogger('modules').addHandler(logTextBox)
