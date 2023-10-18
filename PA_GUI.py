@@ -65,11 +65,9 @@ def init_logs(q_log_handler: QLogHandler) -> logging.Logger:
     #adding textbox handler. I cannot handle it with file config.
     logging.config.dictConfig(log_config)
     logging.getLogger('root').addHandler(q_log_handler)
-    logging.getLogger('root').setLevel(logging.INFO)
     logging.getLogger('modules').addHandler(q_log_handler)
-    logging.getLogger('modules').setLevel(logging.INFO)
 
-    return logging.getLogger()
+    return logging.getLogger('pa_cli')
 
 def init_hardware() -> None:
     """CLI for hardware init"""
@@ -106,7 +104,6 @@ class Window(QMainWindow, Ui_MainWindow):
         worker = Worker(pa_logic.init_hardware)
         self.pool.start(worker)
         
-
 class LoggerThread(QThread):
     """Thread for logging."""
 
@@ -120,7 +117,7 @@ class LoggerThread(QThread):
             while self.waiting_for_data:
                 time.sleep(0.01)
             while len(self.data):
-                self.log.emit(self.data.pop())
+                self.log.emit(self.data.pop(0))
             self.waiting_for_data = True
 
     def get_data(self, log_entry: str) -> None:
@@ -140,6 +137,7 @@ class QLogHandler(logging.Handler):
                 '%I:%M:%S'
             )
         )
+        self.setLevel(logging.INFO)
 
     def emit(self, record):
         msg = self.format(record)
