@@ -10,12 +10,12 @@ import time
 import logging, logging.config
 from datetime import datetime
 import traceback
+from typing import Iterable
 
-from InquirerPy import inquirer
-from InquirerPy.validator import PathValidator
 import pint
 import yaml
 from pylablib.devices.Thorlabs import KinesisMotor
+from pint.facets.plain.quantity import PlainQuantity
 from PySide6.QtCore import (
     QObject,
     QThread,
@@ -26,7 +26,8 @@ from PySide6.QtCore import (
 )
 from PySide6.QtWidgets import (
     QApplication,
-    QMainWindow
+    QMainWindow,
+    QMessageBox
 )
 from PySide6.QtGui import (
     QColor,
@@ -102,11 +103,50 @@ class Window(QMainWindow, Ui_MainWindow):
 
         self.action_Init.triggered.connect(self.init_hardware)
         self.q_logger.thread.log.connect(self.LogTextEdit.appendPlainText)
+        self.btnPMStop.pressed.connect(self.confirm_action)
 
     def init_hardware(self) -> None:
         """Hardware initiation."""
         worker = Worker(pa_logic.init_hardware)
         self.pool.start(worker)
+
+    def update_pm(
+            self,
+            rsignal: PlainQuantity|None = None,
+            data: Iterable|None = None,
+            energy: PlainQuantity|None = None,
+            mean: PlainQuantity|None = None,
+            std: PlainQuantity|None = None,
+            **kwargs
+        ) -> None:
+        """
+        Update power meter widget.
+
+        ``rsignal`` - raw signal from power meter\n
+        ``data`` - iterable containing list of energy values\n
+        ``energy`` - current energy value\n
+        ``mean`` - averaged energy\n
+        ``std`` - standart deviation of energy
+        """
+        pass
+
+    def confirm_action(self,
+            title: str = 'Confirm',
+            message: str = 'Are you sure?'
+        ) -> bool:
+        """Dialog to confirm an action."""
+
+        answer = QMessageBox.question(
+            self,
+            title,
+            message
+        )
+        if answer == QMessageBox.StandardButton.Yes:
+            result = True
+        else:
+            result = False
+        logger.debug(f'{message} = {result}')
+        return result
         
 class LoggerThread(QThread):
     """Thread for logging."""
@@ -155,6 +195,7 @@ class WorkerSignals(QObject):
     finished = Signal()
     error = Signal(tuple)
     result = Signal(object)
+    progess = Signal(object)
 
 class Worker(QRunnable):
     """
@@ -167,6 +208,7 @@ class Worker(QRunnable):
         self.args = args
         self.kwargs = kwargs
         self.signals = WorkerSignals()
+        self.kwargs['signals'] = self.signals
 
     @Slot()
     def run(self) -> None:
