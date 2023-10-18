@@ -1,5 +1,5 @@
 """
-Latest developing version
+Latest developing GUI version
 """
 
 from __future__ import annotations
@@ -9,7 +9,7 @@ import sys
 import time
 import logging, logging.config
 from datetime import datetime
-from typing import Optional
+import traceback
 
 from InquirerPy import inquirer
 from InquirerPy.validator import PathValidator
@@ -17,6 +17,7 @@ import pint
 import yaml
 from pylablib.devices.Thorlabs import KinesisMotor
 from PySide6.QtCore import (
+    QObject,
     QThread,
     QRunnable,
     QThreadPool,
@@ -85,16 +86,26 @@ class Window(QMainWindow, Ui_MainWindow):
         super().__init__(parent)
         self.setupUi(self)
         
+        #Long-running threads
         self.q_logger = QLogHandler()
         self.q_logger.thread.start()
+
+        #Threadpool
+        self.pool = QThreadPool()
 
         self.connectSignalsSlots()
 
     def connectSignalsSlots(self):
         """Connect signals and slots."""
 
-        self.action_Init.triggered.connect(init_hardware)
+        self.action_Init.triggered.connect(self.init_hardware)
         self.q_logger.thread.log.connect(self.LogTextEdit.appendPlainText)
+
+    def init_hardware(self) -> None:
+        """Hardware initiation."""
+        worker = Worker(pa_logic.init_hardware)
+        self.pool.start(worker)
+        
 
 class LoggerThread(QThread):
     """Thread for logging."""
@@ -107,21 +118,22 @@ class LoggerThread(QThread):
         self.waiting_for_data = True
         while True:
             while self.waiting_for_data:
-                time.sleep(0.1)
+                time.sleep(0.01)
             while len(self.data):
                 self.log.emit(self.data.pop())
             self.waiting_for_data = True
 
     def get_data(self, log_entry: str) -> None:
+        """Store a log entry for displaying."""
         self.data.append(log_entry)
         self.waiting_for_data = False
 
 class QLogHandler(logging.Handler):
+    """Log handler for GUI."""
 
     def __init__(self):
         super().__init__()
         self.thread = LoggerThread()
-
         self.setFormatter(
             logging.Formatter(
                 '%(asctime)s - %(levelname)s - %(message)s',
@@ -132,6 +144,44 @@ class QLogHandler(logging.Handler):
     def emit(self, record):
         msg = self.format(record)
         self.thread.get_data(msg)
+
+class WorkerSignals(QObject):
+    """
+    Signals available from a running worker thred.
+    """
+
+    finished = Signal()
+    error = Signal(tuple)
+    result = Signal(object)
+
+class Worker(QRunnable):
+    """
+    Generic working thread for backend functions.
+    """
+
+    def __init__(self, func, *args, **kwargs) -> None:
+        super().__init__()
+        self.func = func
+        self.args = args
+        self.kwargs = kwargs
+        self.signals = WorkerSignals()
+
+    @Slot()
+    def run(self) -> None:
+        """Actually run a func."""
+
+        try:
+            self.result = self.func(*self.args, **self.kwargs)
+        except:
+            exctype, value = sys.exc_info()[:2]
+            logger.warning(f'An error occured: {exctype}, {value}')
+            self.signals.error.emit(
+                (exctype, value, traceback.format_exc())
+            )
+        else:
+            self.signals.result.emit(self.result)
+        finally:
+            self.signals.finished.emit()
 
 if __name__ == '__main__':
 
