@@ -6,21 +6,29 @@ from __future__ import annotations
 
 import os, os.path
 import sys
+import time
 import logging, logging.config
 from datetime import datetime
 from typing import Optional
 
 from InquirerPy import inquirer
 from InquirerPy.validator import PathValidator
-from PyQt5 import QtCore
 import pint
 import yaml
 from pylablib.devices.Thorlabs import KinesisMotor
-from PyQt5.QtWidgets import (
-    QApplication, QDialog, QMainWindow, QMessageBox, QWidget, QPlainTextEdit
+from PySide6.QtCore import (
+    QThread,
+    QRunnable,
+    QThreadPool,
+    Slot,
+    Signal
 )
-from PyQt5.uic import loadUi
+from PySide6.QtWidgets import (
+    QApplication,
+    QMainWindow
+)
 
+from gui.PA_main_window_ui import Ui_MainWindow
 from modules import ureg, Q_
 import modules.validators as vd
 from modules.pa_data import PaData
@@ -28,9 +36,8 @@ import modules.pa_logic as pa_logic
 from modules.exceptions import StageError, HardwareError
 import modules.data_classes as dc
 from modules.utils import confirm_action
-from gui.PA_main_window_ui import Ui_MainWindow
 
-def init_logs(window: Window) -> logging.Logger:
+def init_logs(q_log_handler: QLogHandler) -> logging.Logger:
     """Initiate logging"""
 
     with open('rsc/log_config.yaml', 'r') as f:
@@ -55,15 +62,10 @@ def init_logs(window: Window) -> logging.Logger:
             log_config["handlers"][i]["filename"] = log_filename
 
     #adding textbox handler. I cannot handle it with file config.
-    logTextBox = window.LogTextEdit
-    logTextBox.setFormatter()
     logging.config.dictConfig(log_config)
-    logTextBox.setFormatter(
-        logging.Formatter(
-            '%(levelname)s - %(message)s'))
-    logging.getLogger('root').addHandler(logTextBox)
+    logging.getLogger('root').addHandler(q_log_handler)
     logging.getLogger('root').setLevel(logging.INFO)
-    logging.getLogger('modules').addHandler(logTextBox)
+    logging.getLogger('modules').addHandler(q_log_handler)
     logging.getLogger('modules').setLevel(logging.INFO)
 
     return logging.getLogger()
@@ -82,36 +84,60 @@ class Window(QMainWindow, Ui_MainWindow):
     def __init__(self, parent:QMainWindow = None) -> None:
         super().__init__(parent)
         self.setupUi(self)
+        
+        self.q_logger = QLogHandler()
+        self.q_logger.thread.start()
+
         self.connectSignalsSlots()
-        self.LogTextEdit = QTextEditLogger(self.LogTextEdit)
 
     def connectSignalsSlots(self):
         """Connect signals and slots."""
 
         self.action_Init.triggered.connect(init_hardware)
+        self.q_logger.thread.log.connect(self.LogTextEdit.appendPlainText)
 
-class QTextEditLogger(logging.Handler, QPlainTextEdit):
-    appendLogText = QtCore.pyqtSignal(str)
+class LoggerThread(QThread):
+    """Thread for logging."""
 
-    def __init__(self, parent: QPlainTextEdit):
+    log = Signal(str)
+    data = []
+
+    @Slot()
+    def run(self) -> None:
+        self.waiting_for_data = True
+        while True:
+            while self.waiting_for_data:
+                time.sleep(0.1)
+            while len(self.data):
+                self.log.emit(self.data.pop())
+            self.waiting_for_data = True
+
+    def get_data(self, log_entry: str) -> None:
+        self.data.append(log_entry)
+        self.waiting_for_data = False
+
+class QLogHandler(logging.Handler):
+
+    def __init__(self):
         super().__init__()
-        QPlainTextEdit.__init__(self)
-        self.widget = parent
-        self.widget.setReadOnly(True)
-        self.appendLogText.connect(self.widget.appendPlainText)
+        self.thread = LoggerThread()
+
+        self.setFormatter(
+            logging.Formatter(
+                '%(asctime)s - %(levelname)s - %(message)s',
+                '%I:%M:%S'
+            )
+        )
 
     def emit(self, record):
         msg = self.format(record)
-        self.appendLogText.emit(msg)
-
-def dumb_handler(logger:QTextEditLogger) ->QTextEditLogger:
-    return(logger)
+        self.thread.get_data(msg)
 
 if __name__ == '__main__':
 
     app = QApplication(sys.argv)
     win = Window()
-    logger = init_logs(win)
+    logger = init_logs(win.q_logger)
     logger.info('Starting application')
 
     ureg = pint.UnitRegistry(auto_reduce_dimensions=True) # type: ignore
