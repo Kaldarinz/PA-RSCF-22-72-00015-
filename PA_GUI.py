@@ -28,6 +28,10 @@ from PySide6.QtWidgets import (
     QApplication,
     QMainWindow
 )
+from PySide6.QtGui import (
+    QColor,
+    QPalette
+)
 
 from gui.PA_main_window_ui import Ui_MainWindow
 from modules import ureg, Q_

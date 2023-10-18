@@ -321,7 +321,8 @@ def home() -> None:
 def track_power(tune_width: int) -> PlainQuantity:
     """Build energy graph.
 
-    Return averaged mean energy"""
+    Return averaged mean energy.
+    """
 
     ### config parameters
     #Averaging for mean and std calculations
@@ -423,6 +424,70 @@ def track_power(tune_width: int) -> PlainQuantity:
 
     logger.debug(f'...Finishing. Energy = {mean}')
     return mean
+
+def true_track_power(
+        tune_width: int,
+        data: deque[PlainQuantity]|None = None,
+    ) -> Tuple:
+    """Measure laser energy.
+
+    Measured energy is added to ``data`` queue, which is then
+    returned along with other parameters.
+    ``tune_width`` is maximum length of the queue.
+    
+    Return a dict, which contains:
+
+    ``data``: deque[PlainQuantity] - a queue with data
+
+    ``signal``: PlainQuantity|None - measured PM signal(full data)
+
+    ``energy``: PlainQuantity|None - just measured energy value
+
+    ``aver``: PlainQuantity - average energy
+
+    ``std``: PlainQuantity - standart deviation of the measured data
+    """
+
+    ### config parameters
+    #Averaging for mean and std calculations
+    aver = 10
+    # ignore energy read if it is smaller than threshold*mean
+    threshold = 0.01
+    # time delay between measurements
+    measure_delay = ureg('10ms')
+    ###
+
+    if data is None:
+        data = deque(maxlen=tune_width)
+        logger.debug('Starting tracking power with params: '
+                    + f'{aver=}, {threshold=}, {measure_delay=}...')
+        #tune_width cannot be smaller than averaging
+        if tune_width < aver:
+            logger.warning(f'{tune_width=} is smaller than averaging='
+                        + f'{aver}. tune_width set to {aver}.')
+            tune_width = aver
+        pm = dc.hardware.power_meter
+        if pm is None:
+            logger.warning('Power meter is off in config')
+            return Q_(-1,'J')
+    
+    laser_amp = pm.get_energy_scr()
+    data.append(laser_amp)
+    #ndarray for up to last <aver> values
+    tmp_data = pint.Quantity.from_list(
+        [x for i,x in enumerate(reversed(data)) if i<aver])
+    mean = tmp_data.mean() # type: ignore
+    std = tmp_data.std() # type: ignore
+    logger.debug(f'{laser_amp=}, {mean=}, {std=}')
+    result = {
+        'data': data,
+        'signal': pm.data,
+        'energy': laser_amp,
+        'aver': mean,
+        'str': std
+    }
+    return result
+
 
 def spectrum(
         start_wl: PlainQuantity,

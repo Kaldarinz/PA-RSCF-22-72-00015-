@@ -16,15 +16,16 @@ from PySide6.QtGui import (QAction, QBrush, QColor, QConicalGradient,
     QIcon, QImage, QKeySequence, QLinearGradient,
     QPainter, QPalette, QPixmap, QRadialGradient,
     QTransform)
-from PySide6.QtWidgets import (QApplication, QMainWindow, QMenu, QMenuBar,
-    QPlainTextEdit, QSizePolicy, QSpacerItem, QStatusBar,
+from PySide6.QtWidgets import (QApplication, QHBoxLayout, QLabel, QLineEdit,
+    QMainWindow, QMenu, QMenuBar, QPlainTextEdit,
+    QPushButton, QSizePolicy, QSpacerItem, QStatusBar,
     QToolBar, QVBoxLayout, QWidget)
 
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
         if not MainWindow.objectName():
             MainWindow.setObjectName(u"MainWindow")
-        MainWindow.resize(977, 487)
+        MainWindow.resize(977, 806)
         sizePolicy = QSizePolicy(QSizePolicy.Expanding, QSizePolicy.Minimum)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
@@ -55,17 +56,95 @@ class Ui_MainWindow(object):
         self.centralwidget.setObjectName(u"centralwidget")
         self.verticalLayout = QVBoxLayout(self.centralwidget)
         self.verticalLayout.setObjectName(u"verticalLayout")
-        self.verticalSpacer = QSpacerItem(20, 204, QSizePolicy.Minimum, QSizePolicy.Expanding)
+        self.wPowerMeter = QWidget(self.centralwidget)
+        self.wPowerMeter.setObjectName(u"wPowerMeter")
+        self.verticalLayout_2 = QVBoxLayout(self.wPowerMeter)
+        self.verticalLayout_2.setObjectName(u"verticalLayout_2")
+        self.verticalLayout_2.setContentsMargins(0, 0, 0, 0)
+        self.horizontalLayout_2 = QHBoxLayout()
+        self.horizontalLayout_2.setObjectName(u"horizontalLayout_2")
+        self.lblCurEnergy = QLabel(self.wPowerMeter)
+        self.lblCurEnergy.setObjectName(u"lblCurEnergy")
 
-        self.verticalLayout.addItem(self.verticalSpacer)
+        self.horizontalLayout_2.addWidget(self.lblCurEnergy)
+
+        self.leCurEnergy = QLineEdit(self.wPowerMeter)
+        self.leCurEnergy.setObjectName(u"leCurEnergy")
+        self.leCurEnergy.setReadOnly(True)
+
+        self.horizontalLayout_2.addWidget(self.leCurEnergy)
+
+        self.lblAverEnergy = QLabel(self.wPowerMeter)
+        self.lblAverEnergy.setObjectName(u"lblAverEnergy")
+
+        self.horizontalLayout_2.addWidget(self.lblAverEnergy)
+
+        self.leAverEnergy = QLineEdit(self.wPowerMeter)
+        self.leAverEnergy.setObjectName(u"leAverEnergy")
+        self.leAverEnergy.setReadOnly(True)
+
+        self.horizontalLayout_2.addWidget(self.leAverEnergy)
+
+        self.lblStdEnergy = QLabel(self.wPowerMeter)
+        self.lblStdEnergy.setObjectName(u"lblStdEnergy")
+
+        self.horizontalLayout_2.addWidget(self.lblStdEnergy)
+
+        self.leStdEnergy = QLineEdit(self.wPowerMeter)
+        self.leStdEnergy.setObjectName(u"leStdEnergy")
+        self.leStdEnergy.setReadOnly(True)
+
+        self.horizontalLayout_2.addWidget(self.leStdEnergy)
+
+        self.horizontalSpacer_2 = QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum)
+
+        self.horizontalLayout_2.addItem(self.horizontalSpacer_2)
+
+        self.btnPMStop = QPushButton(self.wPowerMeter)
+        self.btnPMStop.setObjectName(u"btnPMStop")
+        font = QFont()
+        font.setBold(True)
+        font.setUnderline(False)
+        font.setStrikeOut(False)
+        self.btnPMStop.setFont(font)
+
+        self.horizontalLayout_2.addWidget(self.btnPMStop)
+
+
+        self.verticalLayout_2.addLayout(self.horizontalLayout_2)
+
+        self.horizontalLayout = QHBoxLayout()
+        self.horizontalLayout.setObjectName(u"horizontalLayout")
+        self.pltPMLeft = QWidget(self.wPowerMeter)
+        self.pltPMLeft.setObjectName(u"pltPMLeft")
+        sizePolicy1 = QSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        sizePolicy1.setHorizontalStretch(0)
+        sizePolicy1.setVerticalStretch(0)
+        sizePolicy1.setHeightForWidth(self.pltPMLeft.sizePolicy().hasHeightForWidth())
+        self.pltPMLeft.setSizePolicy(sizePolicy1)
+
+        self.horizontalLayout.addWidget(self.pltPMLeft)
+
+        self.pltPMRight = QWidget(self.wPowerMeter)
+        self.pltPMRight.setObjectName(u"pltPMRight")
+        sizePolicy1.setHeightForWidth(self.pltPMRight.sizePolicy().hasHeightForWidth())
+        self.pltPMRight.setSizePolicy(sizePolicy1)
+
+        self.horizontalLayout.addWidget(self.pltPMRight)
+
+
+        self.verticalLayout_2.addLayout(self.horizontalLayout)
+
+
+        self.verticalLayout.addWidget(self.wPowerMeter)
 
         self.LogTextEdit = QPlainTextEdit(self.centralwidget)
         self.LogTextEdit.setObjectName(u"LogTextEdit")
-        sizePolicy1 = QSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        sizePolicy1.setHorizontalStretch(0)
-        sizePolicy1.setVerticalStretch(0)
-        sizePolicy1.setHeightForWidth(self.LogTextEdit.sizePolicy().hasHeightForWidth())
-        self.LogTextEdit.setSizePolicy(sizePolicy1)
+        sizePolicy2 = QSizePolicy(QSizePolicy.Expanding, QSizePolicy.Maximum)
+        sizePolicy2.setHorizontalStretch(0)
+        sizePolicy2.setVerticalStretch(0)
+        sizePolicy2.setHeightForWidth(self.LogTextEdit.sizePolicy().hasHeightForWidth())
+        self.LogTextEdit.setSizePolicy(sizePolicy2)
         self.LogTextEdit.setMinimumSize(QSize(0, 0))
         self.LogTextEdit.setMaximumSize(QSize(16777215, 200))
 
@@ -88,6 +167,9 @@ class Ui_MainWindow(object):
         self.toolBar = QToolBar(MainWindow)
         self.toolBar.setObjectName(u"toolBar")
         MainWindow.addToolBar(Qt.TopToolBarArea, self.toolBar)
+#if QT_CONFIG(shortcut)
+        self.lblCurEnergy.setBuddy(self.leCurEnergy)
+#endif // QT_CONFIG(shortcut)
 
         self.menubar.addAction(self.menu_Data.menuAction())
         self.menubar.addAction(self.menu_Hardware.menuAction())
@@ -126,6 +208,10 @@ class Ui_MainWindow(object):
         self.action_Init.setText(QCoreApplication.translate("MainWindow", u"&Init All", None))
         self.action_Point_measurement.setText(QCoreApplication.translate("MainWindow", u"&Point Measurement", None))
         self.action_Power_Meter.setText(QCoreApplication.translate("MainWindow", u"&Power Meter", None))
+        self.lblCurEnergy.setText(QCoreApplication.translate("MainWindow", u"Current Energy", None))
+        self.lblAverEnergy.setText(QCoreApplication.translate("MainWindow", u"Average Energy", None))
+        self.lblStdEnergy.setText(QCoreApplication.translate("MainWindow", u"std Energy", None))
+        self.btnPMStop.setText(QCoreApplication.translate("MainWindow", u"STOP", None))
         self.menu_Data.setTitle(QCoreApplication.translate("MainWindow", u"&Data", None))
         self.menu_Hardware.setTitle(QCoreApplication.translate("MainWindow", u"&Hardware", None))
         self.menu_Measurements.setTitle(QCoreApplication.translate("MainWindow", u"&Measurements", None))
