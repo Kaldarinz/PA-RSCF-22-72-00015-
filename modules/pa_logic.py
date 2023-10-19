@@ -428,6 +428,7 @@ def track_power(tune_width: int) -> PlainQuantity:
 def true_track_power(
         tune_width: int,
         data: deque[PlainQuantity]|None = None,
+        **kwargs
     ) -> Tuple:
     """Measure laser energy.
 
@@ -487,7 +488,6 @@ def true_track_power(
         'str': std
     }
     return result
-
 
 def spectrum(
         start_wl: PlainQuantity,

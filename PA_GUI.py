@@ -101,6 +101,7 @@ class Window(QMainWindow, Ui_MainWindow):
         #Threadpool
         self.pool = QThreadPool()
         self.upd_plot('plot_pm_left', [4,5,6], [1,2,3])
+        self.upd_plot('plot_pm_right', [4,5,6], [1,2,3])
 
         self.connectSignalsSlots()
 
@@ -109,12 +110,16 @@ class Window(QMainWindow, Ui_MainWindow):
 
         self.action_Init.triggered.connect(self.init_hardware)
         self.q_logger.thread.log.connect(self.LogTextEdit.appendPlainText)
-        self.btn_pm_stop.pressed.connect(self.confirm_action)
+        self.btn_pm_stop.clicked.connect(self.confirm_action)
+        self.btn_pm_start.clicked.connect(self.track_power)
 
     def init_hardware(self) -> None:
         """Hardware initiation."""
         worker = Worker(pa_logic.init_hardware)
         self.pool.start(worker)
+
+    def track_power(self) -> None:
+        pass
 
     def update_pm(
             self,
@@ -134,6 +139,12 @@ class Window(QMainWindow, Ui_MainWindow):
         ``mean`` - averaged energy\n
         ``std`` - standart deviation of energy
         """
+
+        self.upd_plot('plot_pm_left', rsignal)
+        self.upd_plot('plot_pm_right', data)
+        self.le_cur_en.setText(str(energy))
+        self.le_aver_en.setText(str(mean))
+        self.le_std_en.setText(str(std))
     
     def upd_plot(
             self,
@@ -192,25 +203,21 @@ class Window(QMainWindow, Ui_MainWindow):
                 result.extend(self._unpack_layout(item.children()))
         return result
 
-    def upd_le(self, name: str, val: str|PlainQuantity) -> None:
+    def upd_le(self, widget: QWidget, val: str|PlainQuantity) -> None:
         """
         Update text of a line edit.
         
-        ``name`` - name of the line edit widget,\n
+        ``widget`` - line edit widget,\n
         ``val`` - value to be set.
         """
 
-        le = getattr(self, name, None)
-        if le is None:
-            logger.warning(f'Trying to set value of non-existing LINE EDIT={name}')
+        if not isinstance(widget, QLineEdit):
+            logger.warning(
+                'Trying to set text of a LINE EDIT = '
+                + f'{widget.objectName()}, which actually is '
+                + f'{type(widget)}.')
             return
-        if isinstance(le, QLineEdit):
-            le = cast(QLineEdit, le)
-        else:
-            logger.warning('Trying to set text of a LINE EDIT = '
-                           + f'{name}, which actually is {type(le)}.')
-            return
-        le.setText(str(val))
+        widget.setText(str(val))
 
     def confirm_action(self,
             title: str = 'Confirm',
@@ -290,7 +297,14 @@ class Worker(QRunnable):
         self.args = args
         self.kwargs = kwargs
         self.signals = WorkerSignals()
+
+        #allow signals emit from func
         self.kwargs['signals'] = self.signals
+
+        #for sending data to running func
+        self.kwargs['flags'] = {
+            'is_running': True
+        }
 
     @Slot()
     def run(self) -> None:

@@ -106,6 +106,7 @@ class Ui_MainWindow(object):
 
         self.le_cur_en = QLineEdit(self.w_pm)
         self.le_cur_en.setObjectName(u"le_cur_en")
+        self.le_cur_en.setEnabled(False)
         self.le_cur_en.setReadOnly(True)
 
         self.horizontalLayout_9.addWidget(self.le_cur_en)
@@ -117,6 +118,7 @@ class Ui_MainWindow(object):
 
         self.le_aver_en = QLineEdit(self.w_pm)
         self.le_aver_en.setObjectName(u"le_aver_en")
+        self.le_aver_en.setEnabled(False)
         self.le_aver_en.setReadOnly(True)
 
         self.horizontalLayout_9.addWidget(self.le_aver_en)
@@ -128,21 +130,30 @@ class Ui_MainWindow(object):
 
         self.le_std_en = QLineEdit(self.w_pm)
         self.le_std_en.setObjectName(u"le_std_en")
+        self.le_std_en.setEnabled(False)
         self.le_std_en.setReadOnly(True)
 
         self.horizontalLayout_9.addWidget(self.le_std_en)
 
-        self.horizontalSpacer_6 = QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum)
+        self.horizontalSpacer = QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum)
 
-        self.horizontalLayout_9.addItem(self.horizontalSpacer_6)
+        self.horizontalLayout_9.addItem(self.horizontalSpacer)
+
+        self.btn_pm_start = QPushButton(self.w_pm)
+        self.btn_pm_start.setObjectName(u"btn_pm_start")
+        font = QFont()
+        font.setBold(True)
+        self.btn_pm_start.setFont(font)
+
+        self.horizontalLayout_9.addWidget(self.btn_pm_start)
 
         self.btn_pm_stop = QPushButton(self.w_pm)
         self.btn_pm_stop.setObjectName(u"btn_pm_stop")
-        font = QFont()
-        font.setBold(True)
-        font.setUnderline(False)
-        font.setStrikeOut(False)
-        self.btn_pm_stop.setFont(font)
+        font1 = QFont()
+        font1.setBold(True)
+        font1.setUnderline(False)
+        font1.setStrikeOut(False)
+        self.btn_pm_stop.setFont(font1)
 
         self.horizontalLayout_9.addWidget(self.btn_pm_stop)
 
@@ -161,7 +172,7 @@ class Ui_MainWindow(object):
 
         self.horizontalLayout_10.addWidget(self.plot_pm_left)
 
-        self.plot_pm_right = QWidget(self.w_pm)
+        self.plot_pm_right = MplCanvas(self.w_pm)
         self.plot_pm_right.setObjectName(u"plot_pm_right")
         sizePolicy2.setHeightForWidth(self.plot_pm_right.sizePolicy().hasHeightForWidth())
         self.plot_pm_right.setSizePolicy(sizePolicy2)
@@ -218,6 +229,7 @@ class Ui_MainWindow(object):
         self.lbl_cur_en.setText(QCoreApplication.translate("MainWindow", u"Current Energy", None))
         self.lbl_aver_en.setText(QCoreApplication.translate("MainWindow", u"Average Energy", None))
         self.lbl_std_en.setText(QCoreApplication.translate("MainWindow", u"std Energy", None))
+        self.btn_pm_start.setText(QCoreApplication.translate("MainWindow", u"START", None))
         self.btn_pm_stop.setText(QCoreApplication.translate("MainWindow", u"STOP", None))
     # retranslateUi
 
