@@ -10,7 +10,7 @@ import time
 import logging, logging.config
 from datetime import datetime
 import traceback
-from typing import Iterable
+from typing import Iterable, cast
 
 import pint
 import yaml
@@ -27,14 +27,18 @@ from PySide6.QtCore import (
 from PySide6.QtWidgets import (
     QApplication,
     QMainWindow,
-    QMessageBox
+    QWidget,
+    QMessageBox,
+    QLineEdit,
+    QLayout
 )
 from PySide6.QtGui import (
     QColor,
     QPalette
 )
+import numpy as np
 
-from gui.PA_main_window_ui import Ui_MainWindow
+from modules.PA_main_window_ui import Ui_MainWindow
 from modules import ureg, Q_
 import modules.validators as vd
 from modules.pa_data import PaData
@@ -42,6 +46,7 @@ import modules.pa_logic as pa_logic
 from modules.exceptions import StageError, HardwareError
 import modules.data_classes as dc
 from modules.utils import confirm_action
+from modules.widgets import MplCanvas
 
 def init_logs(q_log_handler: QLogHandler) -> logging.Logger:
     """Initiate logging"""
@@ -95,6 +100,7 @@ class Window(QMainWindow, Ui_MainWindow):
 
         #Threadpool
         self.pool = QThreadPool()
+        self.upd_plot('plot_pm_left', [4,5,6], [1,2,3])
 
         self.connectSignalsSlots()
 
@@ -103,7 +109,7 @@ class Window(QMainWindow, Ui_MainWindow):
 
         self.action_Init.triggered.connect(self.init_hardware)
         self.q_logger.thread.log.connect(self.LogTextEdit.appendPlainText)
-        self.btnPMStop.pressed.connect(self.confirm_action)
+        self.btn_pm_stop.pressed.connect(self.confirm_action)
 
     def init_hardware(self) -> None:
         """Hardware initiation."""
@@ -128,7 +134,83 @@ class Window(QMainWindow, Ui_MainWindow):
         ``mean`` - averaged energy\n
         ``std`` - standart deviation of energy
         """
-        pass
+    
+    def upd_plot(
+            self,
+            name: str,
+            ydata: Iterable|None,
+            xdata: Iterable|None = None
+        ) -> None:
+        """
+        Update a plot.
+        
+        ``name`` - name of the plot widget,\n
+        ``xdata`` - Iterable containing data for X axes. Should not
+         be shorter than ``ydata``. If None, then enumeration of 
+         ``ydata`` will be used.\n
+         ``ydata`` - Iterable containing data for Y axes.
+        """
+
+        widget = getattr(self, name, None)
+        if widget is None:
+            logger.warning(f'Trying to update non-existing PLOT={name}')
+        if not isinstance(widget, MplCanvas):
+            logger.warning('Trying to update a PLOT, '
+                           + f'which actually is {type(widget)}.')
+            return
+        widget = cast(MplCanvas, widget)
+        if xdata is None:
+            widget.xdata = np.array([range(len(ydata))])
+        else:
+            widget.xdata = xdata
+        widget.ydata = ydata
+        if widget._plot_ref is None:
+            widget._plot_ref = widget.axes.plot(
+                widget.xdata, widget.ydata, 'r'
+            )[0]
+        else:
+            widget._plot_ref.set_xdata(widget.xdata)
+            widget._plot_ref.set_ydata(widget.ydata)
+        widget.draw()
+
+    def get_layout(self, widget: QWidget) -> QLayout:
+        """Return parent layout for a widget."""
+
+        parent = widget.parent()
+        child_layouts = self._unpack_layout(parent.children())
+        for layout in child_layouts:
+            if layout.indexOf(widget) > -1:
+                return layout
+
+    def _unpack_layout(self, childs: list[QObject]) -> list[QLayout]:
+        """Recurrent function to find all layouts in a list of widgets."""
+
+        result = []
+        for item in childs:
+            if isinstance(item, QLayout):
+                result.append(item)
+                result.extend(self._unpack_layout(item.children()))
+        return result
+
+    def upd_le(self, name: str, val: str|PlainQuantity) -> None:
+        """
+        Update text of a line edit.
+        
+        ``name`` - name of the line edit widget,\n
+        ``val`` - value to be set.
+        """
+
+        le = getattr(self, name, None)
+        if le is None:
+            logger.warning(f'Trying to set value of non-existing LINE EDIT={name}')
+            return
+        if isinstance(le, QLineEdit):
+            le = cast(QLineEdit, le)
+        else:
+            logger.warning('Trying to set text of a LINE EDIT = '
+                           + f'{name}, which actually is {type(le)}.')
+            return
+        le.setText(str(val))
 
     def confirm_action(self,
             title: str = 'Confirm',
@@ -147,7 +229,7 @@ class Window(QMainWindow, Ui_MainWindow):
             result = False
         logger.debug(f'{message} = {result}')
         return result
-        
+
 class LoggerThread(QThread):
     """Thread for logging."""
 
