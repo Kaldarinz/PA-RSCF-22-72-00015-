@@ -389,7 +389,8 @@ def track_power(
         std = tmp_data.std() # type: ignore
         logger.debug(f'{laser_amp=}, {mean=}, {std=}')
         results = {
-            'data': [x for x in data],
+            'data': pint.Quantity.from_list(
+                [x for x in data]),
             'signal': pm.data,
             'sbx': pm.start_ind,
             'sby': pm.data[pm.start_ind],

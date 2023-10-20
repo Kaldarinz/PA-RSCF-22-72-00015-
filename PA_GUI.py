@@ -106,8 +106,10 @@ class Window(QMainWindow, Ui_MainWindow):
 
         #Threadpool
         self.pool = QThreadPool()
-        self.upd_plot('plot_pm_left', [4,5,6], [1,2,3])
-        self.upd_plot('plot_pm_right', [4,5,6], [1,2,3])
+        tst_signalx = Q_([1,2,3,4,5], 's')
+        tst_signaly = Q_([1,2,3,4,5], 'V')
+        #self.upd_plot('plot_pm_left', ydata=tst_signaly)
+        #self.upd_plot('plot_pm_right', [4,5,6], [1,2,3])
 
         self.connectSignalsSlots()
 
@@ -158,13 +160,17 @@ class Window(QMainWindow, Ui_MainWindow):
         ``std``: PlainQuantity - standart deviation of the measured data\n
         """
 
-        logger.info('Recived data from pm')
-        self.upd_plot('plot_pm_left', measurement['signal'])
-        self.upd_plot('plot_pm_right', measurement['data'])
-        self.le_cur_en.setText(str(measurement['energy']))
-        self.le_aver_en.setText(str(measurement['aver']))
-        self.le_std_en.setText(str(measurement['std']))
+        self.upd_plot('plot_pm_left', ydata=measurement['signal'])
+        self.upd_plot('plot_pm_right', ydata=measurement['data'])
+        self.le_cur_en.setText(self.form_quant(measurement['energy']))
+        self.le_aver_en.setText(self.form_quant(measurement['aver']))
+        self.le_std_en.setText(self.form_quant(measurement['std']))
     
+    def form_quant(self, quant: PlainQuantity) -> str:
+        """Format str representation of a quantity."""
+
+        return f'{quant:~.2gP}'
+
     def upd_plot(
             self,
             name: str,
@@ -190,7 +196,7 @@ class Window(QMainWindow, Ui_MainWindow):
             return
         widget = cast(MplCanvas, widget)
         if xdata is None:
-            widget.xdata = np.array([range(len(ydata))])
+            widget.xdata = np.array(range(len(ydata)))
         else:
             widget.xdata = xdata
         widget.ydata = ydata
@@ -201,6 +207,10 @@ class Window(QMainWindow, Ui_MainWindow):
         else:
             widget._plot_ref.set_xdata(widget.xdata)
             widget._plot_ref.set_ydata(widget.ydata)
+        widget.axes.set_xlabel(widget.xlabel)
+        widget.axes.set_ylabel(widget.ylabel)
+        widget.axes.relim()
+        widget.axes.autoscale_view(True,True,True)
         widget.draw()
 
     def get_layout(self, widget: QWidget) -> QLayout:

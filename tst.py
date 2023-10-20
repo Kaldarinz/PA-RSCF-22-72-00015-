@@ -1,10 +1,10 @@
-class Tst:
-    def __init__(self) -> None:
-        self.b = 5
+from pint.facets.plain.quantity import PlainQuantity
+from modules import Q_
 
-    def add_attr(self, name, val):
-        setattr(self, name, val)
+a = Q_([1,2],'V')
 
-tst = Tst()
-tst.add_attr('a', 10)
-print(tst.__dict__)
+if isinstance(a,PlainQuantity):
+    print('True')
+else: 
+    print('False')
+
