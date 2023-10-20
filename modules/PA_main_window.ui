@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>977</width>
-    <height>806</height>
+    <width>1067</width>
+    <height>871</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -23,7 +23,7 @@
    </size>
   </property>
   <property name="windowTitle">
-   <string>MainWindow</string>
+   <string>Photoacoustics</string>
   </property>
   <widget class="QWidget" name="centralwidget">
    <layout class="QVBoxLayout" name="verticalLayout">
@@ -69,7 +69,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>977</width>
+     <width>1067</width>
      <height>21</height>
     </rect>
    </property>
@@ -103,9 +103,17 @@
     <addaction name="separator"/>
     <addaction name="action_Power_Meter"/>
    </widget>
+   <widget class="QMenu" name="menu_Tools">
+    <property name="title">
+     <string>&amp;Tools</string>
+    </property>
+    <addaction name="action_Logs"/>
+    <addaction name="separator"/>
+   </widget>
    <addaction name="menu_Data"/>
    <addaction name="menu_Hardware"/>
    <addaction name="menu_Measurements"/>
+   <addaction name="menu_Tools"/>
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
   <widget class="QToolBar" name="toolBar">
@@ -119,8 +127,28 @@
     <bool>false</bool>
    </attribute>
    <addaction name="action_Init"/>
+   <addaction name="separator"/>
+   <addaction name="action_Power_Meter"/>
   </widget>
   <widget class="QDockWidget" name="dock_pm">
+   <property name="minimumSize">
+    <size>
+     <width>584</width>
+     <height>250</height>
+    </size>
+   </property>
+   <property name="acceptDrops">
+    <bool>true</bool>
+   </property>
+   <property name="accessibleName">
+    <string/>
+   </property>
+   <property name="floating">
+    <bool>true</bool>
+   </property>
+   <property name="windowTitle">
+    <string>Power Meter</string>
+   </property>
    <attribute name="dockWidgetArea">
     <number>2</number>
    </attribute>
@@ -140,6 +168,24 @@
          <property name="enabled">
           <bool>false</bool>
          </property>
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+         <property name="minimumSize">
+          <size>
+           <width>50</width>
+           <height>20</height>
+          </size>
+         </property>
+         <property name="maximumSize">
+          <size>
+           <width>50</width>
+           <height>16777215</height>
+          </size>
+         </property>
          <property name="readOnly">
           <bool>true</bool>
          </property>
@@ -157,6 +203,24 @@
          <property name="enabled">
           <bool>false</bool>
          </property>
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+         <property name="minimumSize">
+          <size>
+           <width>50</width>
+           <height>20</height>
+          </size>
+         </property>
+         <property name="maximumSize">
+          <size>
+           <width>50</width>
+           <height>16777215</height>
+          </size>
+         </property>
          <property name="readOnly">
           <bool>true</bool>
          </property>
@@ -173,6 +237,24 @@
         <widget class="QLineEdit" name="le_std_en">
          <property name="enabled">
           <bool>false</bool>
+         </property>
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+         <property name="minimumSize">
+          <size>
+           <width>50</width>
+           <height>20</height>
+          </size>
+         </property>
+         <property name="maximumSize">
+          <size>
+           <width>50</width>
+           <height>16777215</height>
+          </size>
          </property>
          <property name="readOnly">
           <bool>true</bool>
@@ -285,6 +367,10 @@
    </property>
   </action>
   <action name="action_Init">
+   <property name="icon">
+    <iconset resource="qt_resources.qrc">
+     <normaloff>:/icons/qt_resources/battery-plug.png</normaloff>:/icons/qt_resources/battery-plug.png</iconset>
+   </property>
    <property name="text">
     <string>&amp;Init All</string>
    </property>
@@ -295,8 +381,17 @@
    </property>
   </action>
   <action name="action_Power_Meter">
+   <property name="icon">
+    <iconset resource="qt_resources.qrc">
+     <normaloff>:/icons/qt_resources/application-monitor.png</normaloff>:/icons/qt_resources/application-monitor.png</iconset>
+   </property>
    <property name="text">
     <string>&amp;Power Meter</string>
+   </property>
+  </action>
+  <action name="action_Logs">
+   <property name="text">
+    <string>&amp;Logs</string>
    </property>
   </action>
  </widget>
@@ -308,6 +403,8 @@
    <container>1</container>
   </customwidget>
  </customwidgets>
- <resources/>
+ <resources>
+  <include location="qt_resources.qrc"/>
+ </resources>
  <connections/>
 </ui>

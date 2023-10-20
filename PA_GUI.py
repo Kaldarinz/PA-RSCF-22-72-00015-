@@ -139,6 +139,7 @@ class Window(QMainWindow, Ui_MainWindow):
         worker = self.worker_pm
         if worker is not None:
             worker.kwargs['flags']['is_running'] = False
+            self.worker_pm = None
 
     def update_pm(
             self,
@@ -320,5 +321,5 @@ if __name__ == '__main__':
     pa_logic.load_config()
     logger.debug('Initializing PaData class for storing data')
     data = PaData()
-    win.show()
+    win.showMaximized()
     sys.exit(app.exec())
