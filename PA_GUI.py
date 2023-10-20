@@ -17,6 +17,7 @@ import yaml
 from pylablib.devices.Thorlabs import KinesisMotor
 from pint.facets.plain.quantity import PlainQuantity
 from PySide6.QtCore import (
+    Qt,
     QObject,
     QThread,
     QRunnable,
@@ -112,12 +113,13 @@ class Window(QMainWindow, Ui_MainWindow):
 
         #Set visibility of some widgets
         self.dock_pm.hide()
+        self.dock_log.hide()
 
     def connectSignalsSlots(self):
         """Connect signals and slots."""
 
         self.action_Init.triggered.connect(self.init_hardware)
-        self.q_logger.thread.log.connect(self.LogTextEdit.appendPlainText)
+        self.q_logger.thread.log.connect(self.te_log.appendPlainText)
         self.btn_pm_stop.clicked.connect(self.stop_track_power)
         self.btn_pm_start.clicked.connect(self.track_power)
 
