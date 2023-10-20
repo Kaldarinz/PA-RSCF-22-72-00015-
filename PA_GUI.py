@@ -10,7 +10,7 @@ import time
 import logging, logging.config
 from datetime import datetime
 import traceback
-from typing import Iterable, cast
+from typing import Iterable, cast, Callable
 
 import pint
 import yaml
@@ -45,6 +45,9 @@ from modules.pa_data import PaData
 import modules.pa_logic as pa_logic
 from modules.exceptions import StageError, HardwareError
 import modules.data_classes as dc
+from modules.data_classes import (
+    Worker
+)
 from modules.utils import confirm_action
 from modules.widgets import MplCanvas
 
@@ -90,6 +93,9 @@ def init_hardware() -> None:
 class Window(QMainWindow, Ui_MainWindow):
     """Application MainWindow."""
 
+    worker_pm: Worker|None = None
+    "Thread for measuring energy."
+
     def __init__(self, parent:QMainWindow = None) -> None:
         super().__init__(parent)
         self.setupUi(self)
@@ -110,7 +116,7 @@ class Window(QMainWindow, Ui_MainWindow):
 
         self.action_Init.triggered.connect(self.init_hardware)
         self.q_logger.thread.log.connect(self.LogTextEdit.appendPlainText)
-        self.btn_pm_stop.clicked.connect(self.confirm_action)
+        self.btn_pm_stop.clicked.connect(self.stop_track_power)
         self.btn_pm_start.clicked.connect(self.track_power)
 
     def init_hardware(self) -> None:
@@ -119,32 +125,45 @@ class Window(QMainWindow, Ui_MainWindow):
         self.pool.start(worker)
 
     def track_power(self) -> None:
-        pass
+        """Start energy measurements."""
+
+        if self.worker_pm is None:
+            self.worker_pm = Worker(pa_logic.track_power)
+            self.worker_pm.signals.progess.connect(self.update_pm)
+            self.pool.start(self.worker_pm)
+
+    def stop_track_power(self) -> None:
+        
+        worker = self.worker_pm
+        if worker is not None:
+            worker.kwargs['flags']['is_running'] = False
 
     def update_pm(
             self,
-            rsignal: PlainQuantity|None = None,
-            data: Iterable|None = None,
-            energy: PlainQuantity|None = None,
-            mean: PlainQuantity|None = None,
-            std: PlainQuantity|None = None,
-            **kwargs
+            measurement: dict
         ) -> None:
         """
         Update power meter widget.
 
-        ``rsignal`` - raw signal from power meter\n
-        ``data`` - iterable containing list of energy values\n
-        ``energy`` - current energy value\n
-        ``mean`` - averaged energy\n
-        ``std`` - standart deviation of energy
+        Expect that ``measurement`` match return of 
+        ``pa_logic.track_power``, i.e. it should contain:\n 
+        ``data``: list[PlainQuantity] - a list with data\n
+        ``signal``: PlainQuantity - measured PM signal(full data)\n
+        ``sbx``: int - Signal Begining X
+        ``sby``: PlainQuantity - Signal Begining Y
+        ``sex``: int - Signal End X
+        ``sey``: PlainQuantity - Signal End Y
+        ``energy``: PlainQuantity - just measured energy value\n
+        ``aver``: PlainQuantity - average energy\n
+        ``std``: PlainQuantity - standart deviation of the measured data\n
         """
 
-        self.upd_plot('plot_pm_left', rsignal)
-        self.upd_plot('plot_pm_right', data)
-        self.le_cur_en.setText(str(energy))
-        self.le_aver_en.setText(str(mean))
-        self.le_std_en.setText(str(std))
+        logger.info('Recived data from pm')
+        self.upd_plot('plot_pm_left', measurement['signal'])
+        self.upd_plot('plot_pm_right', measurement['data'])
+        self.le_cur_en.setText(str(measurement['energy']))
+        self.le_aver_en.setText(str(measurement['aver']))
+        self.le_std_en.setText(str(measurement['std']))
     
     def upd_plot(
             self,
@@ -275,53 +294,6 @@ class QLogHandler(logging.Handler):
     def emit(self, record):
         msg = self.format(record)
         self.thread.get_data(msg)
-
-class WorkerSignals(QObject):
-    """
-    Signals available from a running worker thred.
-    """
-
-    finished = Signal()
-    error = Signal(tuple)
-    result = Signal(object)
-    progess = Signal(object)
-
-class Worker(QRunnable):
-    """
-    Generic working thread for backend functions.
-    """
-
-    def __init__(self, func, *args, **kwargs) -> None:
-        super().__init__()
-        self.func = func
-        self.args = args
-        self.kwargs = kwargs
-        self.signals = WorkerSignals()
-
-        #allow signals emit from func
-        self.kwargs['signals'] = self.signals
-
-        #for sending data to running func
-        self.kwargs['flags'] = {
-            'is_running': True
-        }
-
-    @Slot()
-    def run(self) -> None:
-        """Actually run a func."""
-
-        try:
-            self.result = self.func(*self.args, **self.kwargs)
-        except:
-            exctype, value = sys.exc_info()[:2]
-            logger.warning(f'An error occured: {exctype}, {value}')
-            self.signals.error.emit(
-                (exctype, value, traceback.format_exc())
-            )
-        else:
-            self.signals.result.emit(self.result)
-        finally:
-            self.signals.finished.emit()
 
 if __name__ == '__main__':
 

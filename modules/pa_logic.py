@@ -10,6 +10,7 @@ from collections import deque
 import math
 from threading import Thread
 from dataclasses import replace
+import time
 
 import yaml
 import pint
@@ -33,6 +34,10 @@ from modules.exceptions import (
     )
 from .pa_data import PaData
 from . import data_classes as dc
+from .data_classes import (
+    WorkerSignals,
+    Worker
+)
 from . import ureg, Q_
 
 logger = logging.getLogger(__name__)
@@ -318,10 +323,28 @@ def home() -> None:
             raise StageError(msg)
     wait_stages_stop()
 
-def track_power(tune_width: int) -> PlainQuantity:
-    """Build energy graph.
+def track_power(
+        signals: WorkerSignals,
+        flags: dict,
+        tune_width: int = 50,
+        **kwargs
+    ) -> Tuple:
+    """Measure laser energy.
 
-    Return averaged mean energy.
+    Run infinite loop and measure energy from power meter.\n
+    To stop the measurements ``flags['is_running']`` should be set
+    to FALSE, which can be done from outside.\n
+    After each measurement fire ``signals.progress``, which return
+    a dict, containing:\n
+    ``data``: list[PlainQuantity] - a list with data\n
+    ``signal``: PlainQuantity - measured PM signal(full data)\n
+    ``sbx``: int - Signal Begining X
+    ``sby``: PlainQuantity - Signal Begining Y
+    ``sex``: int - Signal End X
+    ``sey``: PlainQuantity - Signal End Y
+    ``energy``: PlainQuantity - just measured energy value\n
+    ``aver``: PlainQuantity - average energy\n
+    ``std``: PlainQuantity - standart deviation of the measured data\n
     """
 
     ### config parameters
@@ -333,31 +356,19 @@ def track_power(tune_width: int) -> PlainQuantity:
     measure_delay = ureg('10ms')
     ###
 
-    logger.debug('Starting tracking power with params: '
-                 + f'{aver=}, {threshold=}, {measure_delay=}...')
+    results = {}
+
     pm = dc.hardware.power_meter
     if pm is None:
         logger.warning('Power meter is off in config')
-        return Q_(-1,'J')
+        raise OscIOError
     
     #tune_width cannot be smaller than averaging
     if tune_width < aver:
         logger.warning(f'{tune_width=} is smaller than averaging='
                        + f'{aver}. tune_width set to {aver}.')
         tune_width = aver
-    data = deque(maxlen=tune_width)
-
-    logger.info('Hold "q" button to stop power measurements')
-    
-    logger.debug('Initializing plt')
-    fig = plt.figure(tight_layout=True)
-    gs = gridspec.GridSpec(1,2)
-    #axis for signal from osc
-    ax_pm = fig.add_subplot(gs[0,0])
-    #axis for energy graph
-    ax_pa = fig.add_subplot(gs[0,1])
-    fig.canvas.draw()
-    
+    data = deque(maxlen=tune_width)   
     mean = 0*ureg('J')
     logger.debug('Entering measuring loop')
     while True:
@@ -366,19 +377,9 @@ def track_power(tune_width: int) -> PlainQuantity:
         except (OscValueError, OscIOError):
             logger.debug('Measurement failed. Trying again.')
             continue
-        except OscConnectError:
-            logger.warning('Oscilloscope disconnected!')
-            if confirm_action('Do you want to reconnect to osc?'):
-                if init_osc():
-                    logger.debug('Oscilloscope reconnected. '
-                                 + 'Continue measurements.')
-                    continue
-                else:
-                    logger.debug(f'...Terminating, energy = {mean}')
-                    return mean
-            else:
-                logger.debug(f'...Terminating, energy = {mean}')
-                return mean
+        if len(data) and laser_amp < data[-1]*threshold:
+            logger.debug('Measurement failed. Trying again.')
+            continue
         data.append(laser_amp)
         
         #ndarray for up to last <aver> values
@@ -386,108 +387,22 @@ def track_power(tune_width: int) -> PlainQuantity:
             [x for i,x in enumerate(reversed(data)) if i<aver])
         mean = tmp_data.mean() # type: ignore
         std = tmp_data.std() # type: ignore
-        title = (f'Energy={laser_amp}, '
-                + f'Mean (last {aver}) = {mean:~.3P}, '
-                + f'Std (last {aver}) = {std:~.3P}')
         logger.debug(f'{laser_amp=}, {mean=}, {std=}')
-        
-        #plotting data
-        ax_pm.clear()
-        ax_pa.clear()
-        ax_pm.plot(pm.data)
-        fig.suptitle(title)
-        
-        #add markers for data start and stop
-        ax_pm.plot(
-            pm.start_ind,
-            pm.data[pm.start_ind], # type: ignore
-            'o',
-            alpha=0.4,
-            ms=12,
-            color='green')
-        ax_pm.plot(
-            pm.stop_ind,
-            pm.data[pm.stop_ind], # type: ignore
-            'o',
-            alpha=0.4,
-            ms=12,
-            color='red')
-        ax_pa.plot([x.m for x in data])
-        ax_pa.set_ylim(bottom=0)
-        fig.canvas.draw()
-        plt.pause(measure_delay.to('s').m)
-            
-        if keyboard.is_pressed('q'):
-            break
-        if not plt.get_fignums():
-            break
-
-    logger.debug(f'...Finishing. Energy = {mean}')
-    return mean
-
-def true_track_power(
-        tune_width: int,
-        data: deque[PlainQuantity]|None = None,
-        **kwargs
-    ) -> Tuple:
-    """Measure laser energy.
-
-    Measured energy is added to ``data`` queue, which is then
-    returned along with other parameters.
-    ``tune_width`` is maximum length of the queue.
-    
-    Return a dict, which contains:
-
-    ``data``: deque[PlainQuantity] - a queue with data
-
-    ``signal``: PlainQuantity|None - measured PM signal(full data)
-
-    ``energy``: PlainQuantity|None - just measured energy value
-
-    ``aver``: PlainQuantity - average energy
-
-    ``std``: PlainQuantity - standart deviation of the measured data
-    """
-
-    ### config parameters
-    #Averaging for mean and std calculations
-    aver = 10
-    # ignore energy read if it is smaller than threshold*mean
-    threshold = 0.01
-    # time delay between measurements
-    measure_delay = ureg('10ms')
-    ###
-
-    if data is None:
-        data = deque(maxlen=tune_width)
-        logger.debug('Starting tracking power with params: '
-                    + f'{aver=}, {threshold=}, {measure_delay=}...')
-        #tune_width cannot be smaller than averaging
-        if tune_width < aver:
-            logger.warning(f'{tune_width=} is smaller than averaging='
-                        + f'{aver}. tune_width set to {aver}.')
-            tune_width = aver
-        pm = dc.hardware.power_meter
-        if pm is None:
-            logger.warning('Power meter is off in config')
-            return Q_(-1,'J')
-    
-    laser_amp = pm.get_energy_scr()
-    data.append(laser_amp)
-    #ndarray for up to last <aver> values
-    tmp_data = pint.Quantity.from_list(
-        [x for i,x in enumerate(reversed(data)) if i<aver])
-    mean = tmp_data.mean() # type: ignore
-    std = tmp_data.std() # type: ignore
-    logger.debug(f'{laser_amp=}, {mean=}, {std=}')
-    result = {
-        'data': data,
-        'signal': pm.data,
-        'energy': laser_amp,
-        'aver': mean,
-        'str': std
-    }
-    return result
+        results = {
+            'data': [x for x in data],
+            'signal': pm.data,
+            'sbx': pm.start_ind,
+            'sby': pm.data[pm.start_ind],
+            'sex': pm.stop_ind,
+            'sey': pm.data[pm.stop_ind],
+            'energy': laser_amp,
+            'aver': mean,
+            'std': std
+        }
+        signals.progess.emit(results)
+        if not flags['is_running']:
+            return results
+        time.sleep(measure_delay.to('s').m)
 
 def spectrum(
         start_wl: PlainQuantity,

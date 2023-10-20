@@ -226,9 +226,9 @@ class Ui_MainWindow(object):
         self.menu_Hardware.setTitle(QCoreApplication.translate("MainWindow", u"&Hardware", None))
         self.menu_Measurements.setTitle(QCoreApplication.translate("MainWindow", u"&Measurements", None))
         self.toolBar.setWindowTitle(QCoreApplication.translate("MainWindow", u"toolBar", None))
-        self.lbl_cur_en.setText(QCoreApplication.translate("MainWindow", u"Current Energy", None))
-        self.lbl_aver_en.setText(QCoreApplication.translate("MainWindow", u"Average Energy", None))
-        self.lbl_std_en.setText(QCoreApplication.translate("MainWindow", u"std Energy", None))
+        self.lbl_cur_en.setText(QCoreApplication.translate("MainWindow", u"Current Energy:", None))
+        self.lbl_aver_en.setText(QCoreApplication.translate("MainWindow", u"Average Energy:", None))
+        self.lbl_std_en.setText(QCoreApplication.translate("MainWindow", u"std Energy:", None))
         self.btn_pm_start.setText(QCoreApplication.translate("MainWindow", u"START", None))
         self.btn_pm_stop.setText(QCoreApplication.translate("MainWindow", u"STOP", None))
     # retranslateUi

@@ -131,7 +131,7 @@
        <item>
         <widget class="QLabel" name="lbl_cur_en">
          <property name="text">
-          <string>Current Energy</string>
+          <string>Current Energy:</string>
          </property>
         </widget>
        </item>
@@ -148,7 +148,7 @@
        <item>
         <widget class="QLabel" name="lbl_aver_en">
          <property name="text">
-          <string>Average Energy</string>
+          <string>Average Energy:</string>
          </property>
         </widget>
        </item>
@@ -165,7 +165,7 @@
        <item>
         <widget class="QLabel" name="lbl_std_en">
          <property name="text">
-          <string>std Energy</string>
+          <string>std Energy:</string>
          </property>
         </widget>
        </item>

@@ -2,18 +2,28 @@
 Module with data classes.
 """
 
-from typing import TypedDict, List
+import sys
+from typing import TypedDict, List, Callable
 from dataclasses import dataclass, field
+import traceback
+import logging
 
 import pint
 from pint.facets.plain.quantity import PlainQuantity
 import numpy.typing as npt
 import numpy as np
 from pylablib.devices.Thorlabs import KinesisMotor
+from PySide6.QtCore import (
+    QObject,
+    Signal,
+    Slot,
+    QRunnable
+)
 
 from .osc_devices import Oscilloscope, PowerMeter, PhotoAcousticSensOlymp
 from . import ureg, Q_
 
+logger = logging.getLogger(__name__)
 
 class BaseMetadata(TypedDict):
     """Typed dict for general metadata."""
@@ -111,5 +121,56 @@ class Hardware():
 
 hardware = Hardware()
 
-tst = DataPoint()
-tst.dt
+class WorkerSignals(QObject):
+    """
+    Signals available from a running worker thred.
+    """
+
+    finished = Signal()
+    error = Signal(tuple)
+    result = Signal(object)
+    progess = Signal(object)
+
+class Worker(QRunnable):
+
+    def __init__(self, func: Callable, *args, **kwargs) -> None:
+        """
+        Generic working thread for backend functions.
+
+        ``func`` - any callable. It should at least accept following 
+        argurments: ``signals``: WorkerSignals, which contains callback
+        functions and ``flags``: Dict, which contains flags for 
+        communication with the running callable.\n
+        ``*args`` and ``**kwargs`` are additional arguments,
+        which will passed to the callable. 
+        """
+        super().__init__()
+        self.func = func
+        self.args = args
+        self.kwargs = kwargs
+        self.signals = WorkerSignals()
+
+        #allow signals emit from func
+        self.kwargs['signals'] = self.signals
+
+        #for sending data to running func
+        self.kwargs['flags'] = {
+            'is_running': True
+        }
+
+    @Slot()
+    def run(self) -> None:
+        """Actually run a func."""
+
+        try:
+            self.result = self.func(*self.args, **self.kwargs)
+        except:
+            exctype, value = sys.exc_info()[:2]
+            logger.warning(f'An error occured: {exctype}, {value}')
+            self.signals.error.emit(
+                (exctype, value, traceback.format_exc())
+            )
+        else:
+            self.signals.result.emit(self.result)
+        finally:
+            self.signals.finished.emit()
