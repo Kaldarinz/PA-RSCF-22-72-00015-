@@ -131,6 +131,9 @@
    <addaction name="action_Power_Meter"/>
   </widget>
   <widget class="QDockWidget" name="dock_pm">
+   <property name="enabled">
+    <bool>true</bool>
+   </property>
    <property name="minimumSize">
     <size>
      <width>584</width>
@@ -381,6 +384,9 @@
    </property>
   </action>
   <action name="action_Power_Meter">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
    <property name="icon">
     <iconset resource="qt_resources.qrc">
      <normaloff>:/icons/qt_resources/application-monitor.png</normaloff>:/icons/qt_resources/application-monitor.png</iconset>
@@ -406,5 +412,38 @@
  <resources>
   <include location="qt_resources.qrc"/>
  </resources>
- <connections/>
+ <connections>
+  <connection>
+   <sender>action_Power_Meter</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>dock_pm</receiver>
+   <slot>setVisible(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>-1</x>
+     <y>-1</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>725</x>
+     <y>452</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>dock_pm</sender>
+   <signal>visibilityChanged(bool)</signal>
+   <receiver>action_Power_Meter</receiver>
+   <slot>setChecked(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>725</x>
+     <y>452</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>-1</x>
+     <y>-1</y>
+    </hint>
+   </hints>
+  </connection>
+ </connections>
 </ui>

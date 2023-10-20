@@ -106,12 +106,12 @@ class Window(QMainWindow, Ui_MainWindow):
 
         #Threadpool
         self.pool = QThreadPool()
-        tst_signalx = Q_([1,2,3,4,5], 's')
-        tst_signaly = Q_([1,2,3,4,5], 'V')
-        #self.upd_plot('plot_pm_left', ydata=tst_signaly)
-        #self.upd_plot('plot_pm_right', [4,5,6], [1,2,3])
 
+        #Connect custom signals and slots
         self.connectSignalsSlots()
+
+        #Set visibility of some widgets
+        self.dock_pm.hide()
 
     def connectSignalsSlots(self):
         """Connect signals and slots."""

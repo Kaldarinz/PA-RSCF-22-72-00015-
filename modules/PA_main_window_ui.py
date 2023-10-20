@@ -58,6 +58,7 @@ class Ui_MainWindow(object):
         self.action_Point_measurement.setObjectName(u"action_Point_measurement")
         self.action_Power_Meter = QAction(MainWindow)
         self.action_Power_Meter.setObjectName(u"action_Power_Meter")
+        self.action_Power_Meter.setCheckable(True)
         icon1 = QIcon()
         icon1.addFile(u":/icons/qt_resources/application-monitor.png", QSize(), QIcon.Normal, QIcon.Off)
         self.action_Power_Meter.setIcon(icon1)
@@ -104,6 +105,7 @@ class Ui_MainWindow(object):
         MainWindow.addToolBar(Qt.TopToolBarArea, self.toolBar)
         self.dock_pm = QDockWidget(MainWindow)
         self.dock_pm.setObjectName(u"dock_pm")
+        self.dock_pm.setEnabled(True)
         self.dock_pm.setMinimumSize(QSize(584, 250))
         self.dock_pm.setAcceptDrops(True)
         self.dock_pm.setFloating(True)
@@ -240,6 +242,8 @@ class Ui_MainWindow(object):
         self.toolBar.addAction(self.action_Power_Meter)
 
         self.retranslateUi(MainWindow)
+        self.action_Power_Meter.toggled.connect(self.dock_pm.setVisible)
+        self.dock_pm.visibilityChanged.connect(self.action_Power_Meter.setChecked)
 
         QMetaObject.connectSlotsByName(MainWindow)
     # setupUi
