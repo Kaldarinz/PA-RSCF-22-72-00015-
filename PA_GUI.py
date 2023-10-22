@@ -31,7 +31,9 @@ from PySide6.QtWidgets import (
     QWidget,
     QMessageBox,
     QLineEdit,
-    QLayout
+    QLayout,
+    QComboBox,
+    QVBoxLayout
 )
 from PySide6.QtGui import (
     QColor,
@@ -115,6 +117,14 @@ class Window(QMainWindow, Ui_MainWindow):
         self.dock_pm.hide()
         self.dock_log.hide()
 
+        #Set mode selection combo box
+        self.set_mode_selector()
+
+        #By some reason it is not possible to set in designer
+        self.clayout = QVBoxLayout()
+        self.clayout.addWidget(self.stackedWidget)
+        self.centralwidget.setLayout(self.clayout)
+
     def connectSignalsSlots(self):
         """Connect signals and slots."""
 
@@ -122,6 +132,18 @@ class Window(QMainWindow, Ui_MainWindow):
         self.q_logger.thread.log.connect(self.te_log.appendPlainText)
         self.btn_pm_stop.clicked.connect(self.stop_track_power)
         self.btn_pm_start.clicked.connect(self.track_power)
+
+    def set_mode_selector(self):
+        """Set mode selection view."""
+
+        cb = QComboBox()
+        cb.addItems(
+            ('Single point', 'Curve', 'Map')
+        )
+        cb.setEditable(False)
+        self.tb_mode.addWidget(cb)
+        self.cb_mode_select = cb
+
 
     def init_hardware(self) -> None:
         """Hardware initiation."""

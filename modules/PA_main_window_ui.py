@@ -16,11 +16,11 @@ from PySide6.QtGui import (QAction, QBrush, QColor, QConicalGradient,
     QIcon, QImage, QKeySequence, QLinearGradient,
     QPainter, QPalette, QPixmap, QRadialGradient,
     QTransform)
-from PySide6.QtWidgets import (QApplication, QDockWidget, QHBoxLayout, QLabel,
-    QLineEdit, QMainWindow, QMenu, QMenuBar,
-    QPlainTextEdit, QPushButton, QSizePolicy, QSpacerItem,
-    QStackedWidget, QStatusBar, QToolBar, QVBoxLayout,
-    QWidget)
+from PySide6.QtWidgets import (QApplication, QComboBox, QDockWidget, QFrame,
+    QHBoxLayout, QLabel, QLineEdit, QMainWindow,
+    QMenu, QMenuBar, QPlainTextEdit, QPushButton,
+    QSizePolicy, QSpacerItem, QSpinBox, QStackedWidget,
+    QStatusBar, QToolBar, QVBoxLayout, QWidget)
 
 from .widgets import MplCanvas
 from . import qt_resources_rc
@@ -29,7 +29,7 @@ class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
         if not MainWindow.objectName():
             MainWindow.setObjectName(u"MainWindow")
-        MainWindow.resize(1037, 891)
+        MainWindow.resize(1577, 1089)
         sizePolicy = QSizePolicy(QSizePolicy.Expanding, QSizePolicy.Minimum)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
@@ -75,10 +75,15 @@ class Ui_MainWindow(object):
         self.action_Logs.setIcon(icon3)
         self.centralwidget = QWidget(MainWindow)
         self.centralwidget.setObjectName(u"centralwidget")
+        sizePolicy1 = QSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        sizePolicy1.setHorizontalStretch(0)
+        sizePolicy1.setVerticalStretch(0)
+        sizePolicy1.setHeightForWidth(self.centralwidget.sizePolicy().hasHeightForWidth())
+        self.centralwidget.setSizePolicy(sizePolicy1)
         self.dock_pm = QDockWidget(self.centralwidget)
         self.dock_pm.setObjectName(u"dock_pm")
         self.dock_pm.setEnabled(True)
-        self.dock_pm.setGeometry(QRect(220, 220, 626, 281))
+        self.dock_pm.setGeometry(QRect(9, 669, 666, 250))
         self.dock_pm.setMinimumSize(QSize(626, 250))
         self.dock_pm.setAcceptDrops(True)
         self.dock_pm.setFloating(True)
@@ -98,11 +103,11 @@ class Ui_MainWindow(object):
         self.le_cur_en = QLineEdit(self.w_pm)
         self.le_cur_en.setObjectName(u"le_cur_en")
         self.le_cur_en.setEnabled(True)
-        sizePolicy1 = QSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
-        sizePolicy1.setHorizontalStretch(0)
-        sizePolicy1.setVerticalStretch(0)
-        sizePolicy1.setHeightForWidth(self.le_cur_en.sizePolicy().hasHeightForWidth())
-        self.le_cur_en.setSizePolicy(sizePolicy1)
+        sizePolicy2 = QSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        sizePolicy2.setHorizontalStretch(0)
+        sizePolicy2.setVerticalStretch(0)
+        sizePolicy2.setHeightForWidth(self.le_cur_en.sizePolicy().hasHeightForWidth())
+        self.le_cur_en.setSizePolicy(sizePolicy2)
         self.le_cur_en.setMinimumSize(QSize(70, 20))
         self.le_cur_en.setMaximumSize(QSize(50, 16777215))
         self.le_cur_en.setReadOnly(True)
@@ -117,8 +122,8 @@ class Ui_MainWindow(object):
         self.le_aver_en = QLineEdit(self.w_pm)
         self.le_aver_en.setObjectName(u"le_aver_en")
         self.le_aver_en.setEnabled(True)
-        sizePolicy1.setHeightForWidth(self.le_aver_en.sizePolicy().hasHeightForWidth())
-        self.le_aver_en.setSizePolicy(sizePolicy1)
+        sizePolicy2.setHeightForWidth(self.le_aver_en.sizePolicy().hasHeightForWidth())
+        self.le_aver_en.setSizePolicy(sizePolicy2)
         self.le_aver_en.setMinimumSize(QSize(70, 20))
         self.le_aver_en.setMaximumSize(QSize(50, 16777215))
         self.le_aver_en.setReadOnly(True)
@@ -133,8 +138,8 @@ class Ui_MainWindow(object):
         self.le_std_en = QLineEdit(self.w_pm)
         self.le_std_en.setObjectName(u"le_std_en")
         self.le_std_en.setEnabled(True)
-        sizePolicy1.setHeightForWidth(self.le_std_en.sizePolicy().hasHeightForWidth())
-        self.le_std_en.setSizePolicy(sizePolicy1)
+        sizePolicy2.setHeightForWidth(self.le_std_en.sizePolicy().hasHeightForWidth())
+        self.le_std_en.setSizePolicy(sizePolicy2)
         self.le_std_en.setMinimumSize(QSize(70, 20))
         self.le_std_en.setMaximumSize(QSize(50, 16777215))
         self.le_std_en.setReadOnly(True)
@@ -170,18 +175,15 @@ class Ui_MainWindow(object):
         self.horizontalLayout_10.setObjectName(u"horizontalLayout_10")
         self.plot_pm_left = MplCanvas(self.w_pm)
         self.plot_pm_left.setObjectName(u"plot_pm_left")
-        sizePolicy2 = QSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        sizePolicy2.setHorizontalStretch(0)
-        sizePolicy2.setVerticalStretch(0)
-        sizePolicy2.setHeightForWidth(self.plot_pm_left.sizePolicy().hasHeightForWidth())
-        self.plot_pm_left.setSizePolicy(sizePolicy2)
+        sizePolicy1.setHeightForWidth(self.plot_pm_left.sizePolicy().hasHeightForWidth())
+        self.plot_pm_left.setSizePolicy(sizePolicy1)
 
         self.horizontalLayout_10.addWidget(self.plot_pm_left)
 
         self.plot_pm_right = MplCanvas(self.w_pm)
         self.plot_pm_right.setObjectName(u"plot_pm_right")
-        sizePolicy2.setHeightForWidth(self.plot_pm_right.sizePolicy().hasHeightForWidth())
-        self.plot_pm_right.setSizePolicy(sizePolicy2)
+        sizePolicy1.setHeightForWidth(self.plot_pm_right.sizePolicy().hasHeightForWidth())
+        self.plot_pm_right.setSizePolicy(sizePolicy1)
 
         self.horizontalLayout_10.addWidget(self.plot_pm_right)
 
@@ -191,7 +193,7 @@ class Ui_MainWindow(object):
         self.dock_pm.setWidget(self.w_pm)
         self.dock_log = QDockWidget(self.centralwidget)
         self.dock_log.setObjectName(u"dock_log")
-        self.dock_log.setGeometry(QRect(300, 250, 421, 221))
+        self.dock_log.setGeometry(QRect(9, 339, 256, 214))
         self.dock_log.setFloating(True)
         self.dock_log.setAllowedAreas(Qt.AllDockWidgetAreas)
         self.dockWidgetContents_7 = QWidget()
@@ -203,8 +205,8 @@ class Ui_MainWindow(object):
         self.te_log = QPlainTextEdit(self.dockWidgetContents_7)
         self.te_log.setObjectName(u"te_log")
         self.te_log.setEnabled(True)
-        sizePolicy2.setHeightForWidth(self.te_log.sizePolicy().hasHeightForWidth())
-        self.te_log.setSizePolicy(sizePolicy2)
+        sizePolicy1.setHeightForWidth(self.te_log.sizePolicy().hasHeightForWidth())
+        self.te_log.setSizePolicy(sizePolicy1)
         self.te_log.setMinimumSize(QSize(0, 0))
         self.te_log.setMaximumSize(QSize(16777215, 16777215))
         self.te_log.setReadOnly(True)
@@ -212,12 +214,149 @@ class Ui_MainWindow(object):
         self.horizontalLayout.addWidget(self.te_log)
 
         self.dock_log.setWidget(self.dockWidgetContents_7)
+        self.stackedWidget = QStackedWidget(self.centralwidget)
+        self.stackedWidget.setObjectName(u"stackedWidget")
+        self.stackedWidget.setGeometry(QRect(9, 9, 596, 108))
+        sizePolicy1.setHeightForWidth(self.stackedWidget.sizePolicy().hasHeightForWidth())
+        self.stackedWidget.setSizePolicy(sizePolicy1)
+        self.stackedWidget.setMaximumSize(QSize(16777215, 16777215))
+        self.page = QWidget()
+        self.page.setObjectName(u"page")
+        sizePolicy1.setHeightForWidth(self.page.sizePolicy().hasHeightForWidth())
+        self.page.setSizePolicy(sizePolicy1)
+        self.stackedWidget.addWidget(self.page)
+        self.p_curve = QWidget()
+        self.p_curve.setObjectName(u"p_curve")
+        sizePolicy1.setHeightForWidth(self.p_curve.sizePolicy().hasHeightForWidth())
+        self.p_curve.setSizePolicy(sizePolicy1)
+        self.horizontalLayout_3 = QHBoxLayout(self.p_curve)
+        self.horizontalLayout_3.setObjectName(u"horizontalLayout_3")
+        self.verticalLayout = QVBoxLayout()
+        self.verticalLayout.setObjectName(u"verticalLayout")
+        self.horizontalLayout_2 = QHBoxLayout()
+        self.horizontalLayout_2.setObjectName(u"horizontalLayout_2")
+        self.btn_curve_run = QPushButton(self.p_curve)
+        self.btn_curve_run.setObjectName(u"btn_curve_run")
+        self.btn_curve_run.setFont(font)
+        icon4 = QIcon()
+        icon4.addFile(u":/icons/qt_resources/control.png", QSize(), QIcon.Normal, QIcon.Off)
+        self.btn_curve_run.setIcon(icon4)
+        self.btn_curve_run.setCheckable(True)
+
+        self.horizontalLayout_2.addWidget(self.btn_curve_run)
+
+        self.line_3 = QFrame(self.p_curve)
+        self.line_3.setObjectName(u"line_3")
+        self.line_3.setFrameShape(QFrame.VLine)
+        self.line_3.setFrameShadow(QFrame.Sunken)
+
+        self.horizontalLayout_2.addWidget(self.line_3)
+
+        self.lbl_curve_mode = QLabel(self.p_curve)
+        self.lbl_curve_mode.setObjectName(u"lbl_curve_mode")
+
+        self.horizontalLayout_2.addWidget(self.lbl_curve_mode)
+
+        self.cb_curve_mode = QComboBox(self.p_curve)
+        self.cb_curve_mode.addItem("")
+        self.cb_curve_mode.addItem("")
+        self.cb_curve_mode.addItem("")
+        self.cb_curve_mode.setObjectName(u"cb_curve_mode")
+
+        self.horizontalLayout_2.addWidget(self.cb_curve_mode)
+
+        self.line_2 = QFrame(self.p_curve)
+        self.line_2.setObjectName(u"line_2")
+        self.line_2.setFrameShape(QFrame.VLine)
+        self.line_2.setFrameShadow(QFrame.Sunken)
+
+        self.horizontalLayout_2.addWidget(self.line_2)
+
+        self.lbl_curve_from = QLabel(self.p_curve)
+        self.lbl_curve_from.setObjectName(u"lbl_curve_from")
+
+        self.horizontalLayout_2.addWidget(self.lbl_curve_from)
+
+        self.spinBox = QSpinBox(self.p_curve)
+        self.spinBox.setObjectName(u"spinBox")
+
+        self.horizontalLayout_2.addWidget(self.spinBox)
+
+        self.lbl_curve_to = QLabel(self.p_curve)
+        self.lbl_curve_to.setObjectName(u"lbl_curve_to")
+
+        self.horizontalLayout_2.addWidget(self.lbl_curve_to)
+
+        self.spinBox_2 = QSpinBox(self.p_curve)
+        self.spinBox_2.setObjectName(u"spinBox_2")
+
+        self.horizontalLayout_2.addWidget(self.spinBox_2)
+
+        self.lbl_curve_range_u = QLabel(self.p_curve)
+        self.lbl_curve_range_u.setObjectName(u"lbl_curve_range_u")
+        self.lbl_curve_range_u.setMinimumSize(QSize(40, 0))
+
+        self.horizontalLayout_2.addWidget(self.lbl_curve_range_u)
+
+        self.line = QFrame(self.p_curve)
+        self.line.setObjectName(u"line")
+        self.line.setFrameShape(QFrame.VLine)
+        self.line.setFrameShadow(QFrame.Sunken)
+
+        self.horizontalLayout_2.addWidget(self.line)
+
+        self.lbl_curve_step = QLabel(self.p_curve)
+        self.lbl_curve_step.setObjectName(u"lbl_curve_step")
+
+        self.horizontalLayout_2.addWidget(self.lbl_curve_step)
+
+        self.spinBox_3 = QSpinBox(self.p_curve)
+        self.spinBox_3.setObjectName(u"spinBox_3")
+
+        self.horizontalLayout_2.addWidget(self.spinBox_3)
+
+        self.lbl_curve_step_u = QLabel(self.p_curve)
+        self.lbl_curve_step_u.setObjectName(u"lbl_curve_step_u")
+        self.lbl_curve_step_u.setMinimumSize(QSize(40, 0))
+
+        self.horizontalLayout_2.addWidget(self.lbl_curve_step_u)
+
+        self.line_7 = QFrame(self.p_curve)
+        self.line_7.setObjectName(u"line_7")
+        self.line_7.setFrameShape(QFrame.VLine)
+        self.line_7.setFrameShadow(QFrame.Sunken)
+
+        self.horizontalLayout_2.addWidget(self.line_7)
+
+        self.horizontalSpacer_2 = QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum)
+
+        self.horizontalLayout_2.addItem(self.horizontalSpacer_2)
+
+
+        self.verticalLayout.addLayout(self.horizontalLayout_2)
+
+        self.plot_pa_1d = MplCanvas(self.p_curve)
+        self.plot_pa_1d.setObjectName(u"plot_pa_1d")
+        sizePolicy1.setHeightForWidth(self.plot_pa_1d.sizePolicy().hasHeightForWidth())
+        self.plot_pa_1d.setSizePolicy(sizePolicy1)
+
+        self.verticalLayout.addWidget(self.plot_pa_1d)
+
+        self.verticalSpacer = QSpacerItem(20, 40, QSizePolicy.Minimum, QSizePolicy.Expanding)
+
+        self.verticalLayout.addItem(self.verticalSpacer)
+
+
+        self.horizontalLayout_3.addLayout(self.verticalLayout)
+
+        self.stackedWidget.addWidget(self.p_curve)
         MainWindow.setCentralWidget(self.centralwidget)
         self.dock_log.raise_()
         self.dock_pm.raise_()
+        self.stackedWidget.raise_()
         self.menubar = QMenuBar(MainWindow)
         self.menubar.setObjectName(u"menubar")
-        self.menubar.setGeometry(QRect(0, 0, 1037, 21))
+        self.menubar.setGeometry(QRect(0, 0, 1577, 21))
         self.menu_Data = QMenu(self.menubar)
         self.menu_Data.setObjectName(u"menu_Data")
         self.menu_Hardware = QMenu(self.menubar)
@@ -230,27 +369,13 @@ class Ui_MainWindow(object):
         self.statusbar = QStatusBar(MainWindow)
         self.statusbar.setObjectName(u"statusbar")
         MainWindow.setStatusBar(self.statusbar)
-        self.toolBar = QToolBar(MainWindow)
-        self.toolBar.setObjectName(u"toolBar")
-        MainWindow.addToolBar(Qt.TopToolBarArea, self.toolBar)
-        self.dock_pa = QDockWidget(MainWindow)
-        self.dock_pa.setObjectName(u"dock_pa")
-        self.dockWidgetContents = QWidget()
-        self.dockWidgetContents.setObjectName(u"dockWidgetContents")
-        self.pushButton = QPushButton(self.dockWidgetContents)
-        self.pushButton.setObjectName(u"pushButton")
-        self.pushButton.setGeometry(QRect(60, 50, 75, 23))
-        self.stackedWidget = QStackedWidget(self.dockWidgetContents)
-        self.stackedWidget.setObjectName(u"stackedWidget")
-        self.stackedWidget.setGeometry(QRect(330, 90, 120, 80))
-        self.page = QWidget()
-        self.page.setObjectName(u"page")
-        self.stackedWidget.addWidget(self.page)
-        self.page_2 = QWidget()
-        self.page_2.setObjectName(u"page_2")
-        self.stackedWidget.addWidget(self.page_2)
-        self.dock_pa.setWidget(self.dockWidgetContents)
-        MainWindow.addDockWidget(Qt.LeftDockWidgetArea, self.dock_pa)
+        self.tb_main = QToolBar(MainWindow)
+        self.tb_main.setObjectName(u"tb_main")
+        MainWindow.addToolBar(Qt.TopToolBarArea, self.tb_main)
+        self.tb_mode = QToolBar(MainWindow)
+        self.tb_mode.setObjectName(u"tb_mode")
+        MainWindow.addToolBar(Qt.TopToolBarArea, self.tb_mode)
+        MainWindow.insertToolBarBreak(self.tb_mode)
 
         self.menubar.addAction(self.menu_Data.menuAction())
         self.menubar.addAction(self.menu_Hardware.menuAction())
@@ -274,19 +399,22 @@ class Ui_MainWindow(object):
         self.menu_Measurements.addSeparator()
         self.menu_Tools.addAction(self.action_Logs)
         self.menu_Tools.addSeparator()
-        self.toolBar.addAction(self.action_Init)
-        self.toolBar.addSeparator()
-        self.toolBar.addAction(self.action_Power_Meter)
-        self.toolBar.addSeparator()
-        self.toolBar.addAction(self.action_measure_PA)
-        self.toolBar.addSeparator()
-        self.toolBar.addAction(self.action_Logs)
+        self.tb_main.addAction(self.action_Init)
+        self.tb_main.addSeparator()
+        self.tb_main.addAction(self.action_Power_Meter)
+        self.tb_main.addSeparator()
+        self.tb_main.addAction(self.action_measure_PA)
+        self.tb_main.addSeparator()
+        self.tb_main.addAction(self.action_Logs)
 
         self.retranslateUi(MainWindow)
-        self.action_Power_Meter.toggled.connect(self.dock_pm.setVisible)
-        self.dock_pm.visibilityChanged.connect(self.action_Power_Meter.setChecked)
         self.dock_log.visibilityChanged.connect(self.action_Logs.setChecked)
         self.action_Logs.toggled.connect(self.dock_log.setVisible)
+        self.dock_pm.visibilityChanged.connect(self.action_Power_Meter.setChecked)
+        self.action_Power_Meter.toggled.connect(self.dock_pm.setVisible)
+
+        self.stackedWidget.setCurrentIndex(1)
+
 
         QMetaObject.connectSlotsByName(MainWindow)
     # setupUi
@@ -314,12 +442,22 @@ class Ui_MainWindow(object):
         self.btn_pm_start.setText(QCoreApplication.translate("MainWindow", u"START", None))
         self.btn_pm_stop.setText(QCoreApplication.translate("MainWindow", u"STOP", None))
         self.dock_log.setWindowTitle(QCoreApplication.translate("MainWindow", u"Logs", None))
+        self.btn_curve_run.setText(QCoreApplication.translate("MainWindow", u"RUN", None))
+        self.lbl_curve_mode.setText(QCoreApplication.translate("MainWindow", u"Mode", None))
+        self.cb_curve_mode.setItemText(0, QCoreApplication.translate("MainWindow", u"Wavelength", None))
+        self.cb_curve_mode.setItemText(1, QCoreApplication.translate("MainWindow", u"Energy", None))
+        self.cb_curve_mode.setItemText(2, QCoreApplication.translate("MainWindow", u"Concentration", None))
+
+        self.lbl_curve_from.setText(QCoreApplication.translate("MainWindow", u"From", None))
+        self.lbl_curve_to.setText(QCoreApplication.translate("MainWindow", u"To", None))
+        self.lbl_curve_range_u.setText(QCoreApplication.translate("MainWindow", u"Units", None))
+        self.lbl_curve_step.setText(QCoreApplication.translate("MainWindow", u"Step", None))
+        self.lbl_curve_step_u.setText(QCoreApplication.translate("MainWindow", u"Units", None))
         self.menu_Data.setTitle(QCoreApplication.translate("MainWindow", u"&Data", None))
         self.menu_Hardware.setTitle(QCoreApplication.translate("MainWindow", u"&Hardware", None))
         self.menu_Measurements.setTitle(QCoreApplication.translate("MainWindow", u"&Measurements", None))
         self.menu_Tools.setTitle(QCoreApplication.translate("MainWindow", u"&Tools", None))
-        self.toolBar.setWindowTitle(QCoreApplication.translate("MainWindow", u"toolBar", None))
-        self.dock_pa.setWindowTitle(QCoreApplication.translate("MainWindow", u"PA Signal Measurement", None))
-        self.pushButton.setText(QCoreApplication.translate("MainWindow", u"PushButton", None))
+        self.tb_main.setWindowTitle(QCoreApplication.translate("MainWindow", u"toolBar", None))
+        self.tb_mode.setWindowTitle(QCoreApplication.translate("MainWindow", u"toolBar_2", None))
     # retranslateUi
 
