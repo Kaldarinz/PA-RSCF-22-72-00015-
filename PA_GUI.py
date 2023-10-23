@@ -185,7 +185,6 @@ class Window(QMainWindow, Ui_MainWindow):
             logger.warning('Sample energy cannot be calculated')
             sample_energy = Q_(-1, 'uJ')
         self.sb_curve_pm_energy.quantity = pm_energy
-        print(self.sb_curve_pm_energy.quantity)
         self.sb_curve_sample_energy.quantity = sample_energy
         self.upd_plot(self.plot_curve_signal, ydata=measurement['signal'])
         self.upd_plot(self.plot_curve_adjust, ydata=measurement['data'])

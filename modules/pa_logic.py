@@ -328,7 +328,7 @@ def track_power(
         flags: dict,
         tune_width: int = 50,
         **kwargs
-    ) -> Tuple:
+    ) -> dict:
     """Measure laser energy.
 
     Run infinite loop and measure energy from power meter.\n
@@ -372,6 +372,8 @@ def track_power(
     mean = 0*ureg('J')
     logger.debug('Entering measuring loop')
     while True:
+        if not flags['is_running']:
+            return results
         try:
             laser_amp = pm.get_energy_scr()
         except (OscValueError, OscIOError):
@@ -401,8 +403,6 @@ def track_power(
             'std': std
         }
         signals.progess.emit(results)
-        if not flags['is_running']:
-            return results
         time.sleep(measure_delay.to('s').m)
 
 def spectrum(

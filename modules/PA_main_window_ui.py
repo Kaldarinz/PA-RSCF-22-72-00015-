@@ -352,6 +352,7 @@ class Ui_MainWindow(object):
         self.w_curve_measure.setObjectName(u"w_curve_measure")
         self.verticalLayout = QVBoxLayout(self.w_curve_measure)
         self.verticalLayout.setObjectName(u"verticalLayout")
+        self.verticalLayout.setContentsMargins(0, 0, 0, 0)
         self.btn_curve_measure = QPushButton(self.w_curve_measure)
         self.btn_curve_measure.setObjectName(u"btn_curve_measure")
         self.btn_curve_measure.setFont(font)

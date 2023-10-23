@@ -33,7 +33,9 @@ class MplCanvas(FigureCanvasQTAgg):
     @xdata.setter
     def xdata(self, data: Iterable) -> None:
         if isinstance(data, PlainQuantity):
-            self.xlabel = data.u
+            if self.xlabel is not None:
+                data = data.to(self.xlabel)
+            self.xlabel = f'{data.u:~.2gP}'
             self._xdata = data.m
         else:
             self.xlabel = None
@@ -46,7 +48,9 @@ class MplCanvas(FigureCanvasQTAgg):
     @ydata.setter
     def ydata(self, data: Iterable) -> None:
         if isinstance(data, PlainQuantity):
-            self.ylabel = data.u
+            if self.ylabel is not None:
+                data = data.to(self.ylabel)
+            self.ylabel = f'{data.u:~.2gP}'
             self._ydata = data.m
         else:
             self.ylabel = None
@@ -65,6 +69,4 @@ class QuantSpinBox(QDoubleSpinBox):
     def quantity(self, value: PlainQuantity) -> None:
         val = value.to_compact()
         self.setSuffix(' ' + f'{val.u:~.2gP}')
-        print(f'{float(val.m)=}')
         self.setValue(float(val.m))
-        print(self.value())
