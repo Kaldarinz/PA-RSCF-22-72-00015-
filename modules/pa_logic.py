@@ -406,9 +406,7 @@ def track_power(
         time.sleep(measure_delay.to('s').m)
 
 def spectrum(
-        start_wl: PlainQuantity,
-        end_wl: PlainQuantity,
-        step: PlainQuantity,
+        wl: PlainQuantity,
         target_energy: PlainQuantity,
         averaging: int
     ) -> Optional[PaData]:
@@ -423,39 +421,14 @@ def spectrum(
 
     logger.info('Starting measuring spectra...')
     data = PaData(dims=1, params=['Wavelength'])
-    #make steps negative if going from long WLs to short
-    if start_wl > end_wl:
-        step = -step # type: ignore
-    #calculate amount of data points
-    d_wl = end_wl-start_wl
-    if d_wl%step:
-        spectral_points = int(d_wl/step) + 2
-    else:
-        spectral_points = int(d_wl/step) + 1
 
-    #main measurement cycle
-    for i in range(spectral_points):
-        if abs(step*i) < abs(d_wl):
-            current_wl = start_wl + step*i
-            current_wl = cast(PlainQuantity, current_wl)
-        else:
-            current_wl = end_wl
-
-        logger.info(f'Start measuring point {(i+1)}')
-        logger.info(f'Current wavelength is {current_wl}.'
-                    +'Please set it!')
-
-        if not i:
-            if not set_energy(current_wl, target_energy):
-                logger.debug('...Terminating.')
-                return
-        measurement, proceed = _ameasure_point(averaging, current_wl)
-        if measurement:
-            data.add_measurement(measurement, [current_wl])
-            data.save_tmp()
-        if not proceed:
-            logger.debug('...Terminating.')
-            return data
+    measurement, proceed = _ameasure_point(averaging, wl)
+    if measurement:
+        data.add_measurement(measurement, [current_wl])
+        data.save_tmp()
+    if not proceed:
+        logger.debug('...Terminating.')
+        return data
     data.bp_filter()
     logger.info('...Finishing. Spectral scanning complete!')
     return data
@@ -851,7 +824,8 @@ def _ameasure_point(
     return dc.DataPoint(), True
 
 def _measure_point(
-        wavelength: PlainQuantity
+        wavelength: PlainQuantity,
+        **kwargs
     ) -> dc.DataPoint:
     """Measure single PA data point."""
 

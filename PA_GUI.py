@@ -10,7 +10,7 @@ import time
 import logging, logging.config
 from datetime import datetime
 import traceback
-from typing import Iterable, cast, Callable
+from typing import Iterable, Optional, cast, Callable
 
 import pint
 import yaml
@@ -34,7 +34,8 @@ from PySide6.QtWidgets import (
     QLayout,
     QComboBox,
     QSpinBox,
-    QVBoxLayout
+    QVBoxLayout,
+    QDialog
 )
 from PySide6.QtGui import (
     QColor,
@@ -43,6 +44,7 @@ from PySide6.QtGui import (
 import numpy as np
 
 from modules.PA_main_window_ui import Ui_MainWindow
+from modules.verify_measure_ui import Ui_Dialog
 from modules import ureg, Q_
 import modules.validators as vd
 from modules.pa_data import PaData
@@ -50,9 +52,9 @@ import modules.pa_logic as pa_logic
 from modules.exceptions import StageError, HardwareError
 import modules.data_classes as dc
 from modules.data_classes import (
-    Worker
+    Worker,
+    DataPoint
 )
-from modules.utils import confirm_action
 from modules.widgets import (
     MplCanvas,
     QuantSpinBox
@@ -116,6 +118,9 @@ class Window(QMainWindow, Ui_MainWindow):
         #Threadpool
         self.pool = QThreadPool()
 
+        #Set additional windows
+        self.pa_verifier = PAVerifierDialog()
+
         #Set visibility of some widgets
         self.dock_pm.hide()
         self.dock_log.hide()
@@ -131,6 +136,7 @@ class Window(QMainWindow, Ui_MainWindow):
 
         #Set initial SetPoints
         self.plot_curve_adjust.sp = self.sb_curve_sample_sp.quantity
+        self.upd_sp(self.sb_curve_sample_sp)
 
         #Connect custom signals and slots
         self.connectSignalsSlots()
@@ -161,18 +167,83 @@ class Window(QMainWindow, Ui_MainWindow):
     def measure_curve(self) -> None:
         """Measure a point for 1D PA measurement."""
 
-        worker = self.worker_curve_adj
-        if worker is not None:
-            cur = worker.kwargs['flags']['is_running']
-            worker.kwargs['flags']['is_running'] = not cur
+        #Stop adjustment measurements
+        if self.worker_curve_adj is not None:
+            self.worker_curve_adj.kwargs['flags']['is_running'] = False
+
+        wl = self.sb_curve_cur_param.quantity
+        worker = Worker(pa_logic._measure_point, wl)
+        worker.signals.result.connect(self.verify_measurement)
+        self.pool.start(worker)
+
+    def verify_measurement(self, data: DataPoint) -> DataPoint|None:
+        """Verifies a measurement."""
+
+        plot_pa = self.pa_verifier.plot_pa
+        plot_pm = self.pa_verifier.plot_pm
+
+        ydata=data.pm_signal,
+        xdata=Q_(
+            np.arange(len(data.pm_signal)*data.dt_pm.m),
+            data.dt_pm.u
+        )
+        print(f'{len(xdata)=}')
+        print(f'{len(ydata)=}')
+        self.upd_plot(
+            plot_pm,
+            ydata=ydata,
+            xdata=xdata
+        )
+        start = data.start_time
+        stop = data.stop_time.to(start.u)
+        step = data.dt.to(start.u)
+        self.upd_plot(
+            plot_pa,
+            ydata=data.pa_signal,
+            xdata=Q_(
+                np.arange(start.m, stop.m, step.m),
+                start.u
+            )
+        )
+        print(self.pa_verifier.exec())
 
     def run_curve(self) -> None:
-        """Launch 1D measurement."""
+        """
+        Start 1D measurement.
+        
+        Launch energy adjustment.\n
+        Set ``step`` and ``spectral_points`` attributes.
+        Also set progress bar and realted widgets.
+        """
 
+        #launch energy adjustment
         if self.worker_curve_adj is None:
             self.worker_curve_adj = Worker(pa_logic.track_power)
             self.worker_curve_adj.signals.progess.connect(self.upd_curve_adj)
             self.pool.start(self.worker_curve_adj)
+
+        #set progress bar and related widgets
+        param_start = self.sb_curve_from.quantity
+        param_end = self.sb_curve_to.quantity
+        step = self.sb_curve_step.quantity
+        delta = abs(param_end-param_start)
+        if delta%step:
+            spectral_points = int(delta/step) + 2
+        else:
+            spectral_points = int(delta/step) + 1
+        self.pb_curve.setValue(0)
+        self.lbl_curve_progr.setText(f'0/{spectral_points}')
+        self.spectral_points = spectral_points
+
+        if param_start < param_end:
+            self.sb_curve_cur_param.setMinimum(param_start.m)
+            self.sb_curve_cur_param.setMaximum(param_end.m)
+            self.step = step
+        else:
+            self.sb_curve_cur_param.setMinimum(param_end.m)
+            self.sb_curve_cur_param.setMaximum(param_start.m)
+            self.step = -step
+        self.sb_curve_cur_param.quantity = self.sb_curve_from.quantity
 
     def upd_curve_adj(self, measurement: dict) -> None:
         """
@@ -210,6 +281,7 @@ class Window(QMainWindow, Ui_MainWindow):
                 new_sp = pa_logic.glan_calc_reverse(caller.quantity).to('uJ')
                 if new_sp.m > self.sb_curve_pm_sp.maximum():
                     new_sp.m = self.sb_curve_pm_sp.maximum()
+                #prevent infinite mutual update
                 self.sb_curve_pm_sp.blockSignals(True)
                 self.sb_curve_pm_sp.quantity = new_sp
                 self.sb_curve_pm_sp.blockSignals(False)
@@ -218,13 +290,13 @@ class Window(QMainWindow, Ui_MainWindow):
                 new_sp = pa_logic.glan_calc(caller.quantity).to('uJ')
                 if new_sp.m > self.sb_curve_sample_sp.maximum():
                     new_sp.m = self.sb_curve_sample_sp.maximum()
+                #prevent infinite mutual update
                 self.sb_curve_sample_sp.blockSignals(True)
                 self.sb_curve_sample_sp.quantity = new_sp
                 self.sb_curve_sample_sp.blockSignals(False)
                     
             self.plot_curve_adjust.sp = caller.quantity
                 
-
     def upd_mode(self, value: str) -> None:
         """Change widget for current measuring mode."""
 
@@ -342,7 +414,6 @@ class Window(QMainWindow, Ui_MainWindow):
             widget._plot_ref.set_xdata(widget.xdata)
             widget._plot_ref.set_ydata(widget.ydata)
         if widget.sp is not None:
-            print(widget.sp)
             spdata = [widget.sp]*len(widget.xdata)
             if widget._sp_ref is None:
                 widget._sp_ref = widget.axes.plot(
@@ -409,6 +480,12 @@ class Window(QMainWindow, Ui_MainWindow):
             result = False
         logger.debug(f'{message} = {result}')
         return result
+
+class PAVerifierDialog(QDialog, Ui_Dialog):
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.setupUi(self)
 
 class LoggerThread(QThread):
     """Thread for logging."""

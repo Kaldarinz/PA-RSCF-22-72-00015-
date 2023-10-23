@@ -19,9 +19,9 @@ from PySide6.QtGui import (QAction, QBrush, QColor, QConicalGradient,
 from PySide6.QtWidgets import (QAbstractSpinBox, QApplication, QComboBox, QDockWidget,
     QFrame, QHBoxLayout, QLabel, QLineEdit,
     QMainWindow, QMenu, QMenuBar, QPlainTextEdit,
-    QPushButton, QSizePolicy, QSpacerItem, QSpinBox,
-    QStackedWidget, QStatusBar, QToolBar, QVBoxLayout,
-    QWidget)
+    QProgressBar, QPushButton, QSizePolicy, QSpacerItem,
+    QSpinBox, QStackedWidget, QStatusBar, QToolBar,
+    QVBoxLayout, QWidget)
 
 from .widgets import (MplCanvas, QuantSpinBox)
 from . import qt_resources_rc
@@ -90,7 +90,7 @@ class Ui_MainWindow(object):
         self.dock_pm = QDockWidget(self.centralwidget)
         self.dock_pm.setObjectName(u"dock_pm")
         self.dock_pm.setEnabled(True)
-        self.dock_pm.setGeometry(QRect(20, 530, 666, 250))
+        self.dock_pm.setGeometry(QRect(50, 530, 666, 250))
         self.dock_pm.setMinimumSize(QSize(644, 250))
         self.dock_pm.setAcceptDrops(True)
         self.dock_pm.setFloating(True)
@@ -246,6 +246,7 @@ class Ui_MainWindow(object):
         self.p_curve.setSizePolicy(sizePolicy1)
         self.verticalLayout_3 = QVBoxLayout(self.p_curve)
         self.verticalLayout_3.setObjectName(u"verticalLayout_3")
+        self.verticalLayout_3.setContentsMargins(0, 0, 0, 0)
         self.horizontalLayout_2 = QHBoxLayout()
         self.horizontalLayout_2.setObjectName(u"horizontalLayout_2")
         self.btn_curve_run = QPushButton(self.p_curve)
@@ -288,13 +289,13 @@ class Ui_MainWindow(object):
 
         self.horizontalLayout_2.addWidget(self.lbl_curve_from)
 
-        self.sb_curve_from = QSpinBox(self.p_curve)
+        self.sb_curve_from = QuantSpinBox(self.p_curve)
         self.sb_curve_from.setObjectName(u"sb_curve_from")
-        self.sb_curve_from.setMinimum(600)
-        self.sb_curve_from.setMaximum(1000)
-        self.sb_curve_from.setSingleStep(10)
-        self.sb_curve_from.setStepType(QAbstractSpinBox.DefaultStepType)
-        self.sb_curve_from.setValue(740)
+        self.sb_curve_from.setDecimals(0)
+        self.sb_curve_from.setMinimum(500.000000000000000)
+        self.sb_curve_from.setMaximum(1000.000000000000000)
+        self.sb_curve_from.setSingleStep(10.000000000000000)
+        self.sb_curve_from.setValue(740.000000000000000)
 
         self.horizontalLayout_2.addWidget(self.sb_curve_from)
 
@@ -303,12 +304,13 @@ class Ui_MainWindow(object):
 
         self.horizontalLayout_2.addWidget(self.lbl_curve_to)
 
-        self.sb_curve_to = QSpinBox(self.p_curve)
+        self.sb_curve_to = QuantSpinBox(self.p_curve)
         self.sb_curve_to.setObjectName(u"sb_curve_to")
-        self.sb_curve_to.setMinimum(600)
-        self.sb_curve_to.setMaximum(1000)
-        self.sb_curve_to.setSingleStep(10)
-        self.sb_curve_to.setValue(750)
+        self.sb_curve_to.setDecimals(0)
+        self.sb_curve_to.setMinimum(500.000000000000000)
+        self.sb_curve_to.setMaximum(1000.000000000000000)
+        self.sb_curve_to.setSingleStep(10.000000000000000)
+        self.sb_curve_to.setValue(750.000000000000000)
 
         self.horizontalLayout_2.addWidget(self.sb_curve_to)
 
@@ -324,11 +326,11 @@ class Ui_MainWindow(object):
 
         self.horizontalLayout_2.addWidget(self.lbl_curve_step)
 
-        self.sb_curve_step = QSpinBox(self.p_curve)
+        self.sb_curve_step = QuantSpinBox(self.p_curve)
         self.sb_curve_step.setObjectName(u"sb_curve_step")
-        self.sb_curve_step.setMinimum(1)
-        self.sb_curve_step.setMaximum(500)
-        self.sb_curve_step.setValue(10)
+        self.sb_curve_step.setDecimals(0)
+        self.sb_curve_step.setMinimum(1.000000000000000)
+        self.sb_curve_step.setValue(10.000000000000000)
 
         self.horizontalLayout_2.addWidget(self.sb_curve_step)
 
@@ -350,11 +352,21 @@ class Ui_MainWindow(object):
         self.horizontalLayout_8.setObjectName(u"horizontalLayout_8")
         self.w_curve_measure = QWidget(self.p_curve)
         self.w_curve_measure.setObjectName(u"w_curve_measure")
+        sizePolicy3 = QSizePolicy(QSizePolicy.Minimum, QSizePolicy.Preferred)
+        sizePolicy3.setHorizontalStretch(0)
+        sizePolicy3.setVerticalStretch(0)
+        sizePolicy3.setHeightForWidth(self.w_curve_measure.sizePolicy().hasHeightForWidth())
+        self.w_curve_measure.setSizePolicy(sizePolicy3)
         self.verticalLayout = QVBoxLayout(self.w_curve_measure)
         self.verticalLayout.setObjectName(u"verticalLayout")
         self.verticalLayout.setContentsMargins(0, 0, 0, 0)
         self.btn_curve_measure = QPushButton(self.w_curve_measure)
         self.btn_curve_measure.setObjectName(u"btn_curve_measure")
+        sizePolicy4 = QSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+        sizePolicy4.setHorizontalStretch(0)
+        sizePolicy4.setVerticalStretch(0)
+        sizePolicy4.setHeightForWidth(self.btn_curve_measure.sizePolicy().hasHeightForWidth())
+        self.btn_curve_measure.setSizePolicy(sizePolicy4)
         self.btn_curve_measure.setFont(font)
         icon6 = QIcon()
         icon6.addFile(u":/icons/qt_resources/control-stop.png", QSize(), QIcon.Normal, QIcon.Off)
@@ -363,14 +375,61 @@ class Ui_MainWindow(object):
 
         self.verticalLayout.addWidget(self.btn_curve_measure)
 
-        self.lbl_curve_energy = QLabel(self.w_curve_measure)
-        self.lbl_curve_energy.setObjectName(u"lbl_curve_energy")
-        font2 = QFont()
-        font2.setPointSize(8)
-        font2.setBold(True)
-        self.lbl_curve_energy.setFont(font2)
+        self.horizontalLayout_11 = QHBoxLayout()
+        self.horizontalLayout_11.setObjectName(u"horizontalLayout_11")
+        self.pb_curve = QProgressBar(self.w_curve_measure)
+        self.pb_curve.setObjectName(u"pb_curve")
+        sizePolicy4.setHeightForWidth(self.pb_curve.sizePolicy().hasHeightForWidth())
+        self.pb_curve.setSizePolicy(sizePolicy4)
+        self.pb_curve.setMinimumSize(QSize(145, 0))
+        self.pb_curve.setValue(24)
+        self.pb_curve.setTextVisible(False)
 
-        self.verticalLayout.addWidget(self.lbl_curve_energy)
+        self.horizontalLayout_11.addWidget(self.pb_curve)
+
+        self.lbl_curve_progr = QLabel(self.w_curve_measure)
+        self.lbl_curve_progr.setObjectName(u"lbl_curve_progr")
+        self.lbl_curve_progr.setLineWidth(0)
+        self.lbl_curve_progr.setAlignment(Qt.AlignLeading|Qt.AlignLeft|Qt.AlignVCenter)
+
+        self.horizontalLayout_11.addWidget(self.lbl_curve_progr)
+
+
+        self.verticalLayout.addLayout(self.horizontalLayout_11)
+
+        self.horizontalLayout_12 = QHBoxLayout()
+        self.horizontalLayout_12.setObjectName(u"horizontalLayout_12")
+        self.lbl_curve_cur_param = QLabel(self.w_curve_measure)
+        self.lbl_curve_cur_param.setObjectName(u"lbl_curve_cur_param")
+        self.lbl_curve_cur_param.setFont(font)
+
+        self.horizontalLayout_12.addWidget(self.lbl_curve_cur_param)
+
+        self.sb_curve_cur_param = QuantSpinBox(self.w_curve_measure)
+        self.sb_curve_cur_param.setObjectName(u"sb_curve_cur_param")
+        sizePolicy5 = QSizePolicy(QSizePolicy.Minimum, QSizePolicy.Fixed)
+        sizePolicy5.setHorizontalStretch(0)
+        sizePolicy5.setVerticalStretch(0)
+        sizePolicy5.setHeightForWidth(self.sb_curve_cur_param.sizePolicy().hasHeightForWidth())
+        self.sb_curve_cur_param.setSizePolicy(sizePolicy5)
+        self.sb_curve_cur_param.setMinimumSize(QSize(71, 0))
+        self.sb_curve_cur_param.setMaximumSize(QSize(71, 16777215))
+        self.sb_curve_cur_param.setBaseSize(QSize(0, 0))
+        self.sb_curve_cur_param.setReadOnly(True)
+        self.sb_curve_cur_param.setButtonSymbols(QAbstractSpinBox.NoButtons)
+        self.sb_curve_cur_param.setDecimals(0)
+
+        self.horizontalLayout_12.addWidget(self.sb_curve_cur_param)
+
+
+        self.verticalLayout.addLayout(self.horizontalLayout_12)
+
+        self.line_8 = QFrame(self.w_curve_measure)
+        self.line_8.setObjectName(u"line_8")
+        self.line_8.setFrameShape(QFrame.HLine)
+        self.line_8.setFrameShadow(QFrame.Sunken)
+
+        self.verticalLayout.addWidget(self.line_8)
 
         self.horizontalLayout_4 = QHBoxLayout()
         self.horizontalLayout_4.setObjectName(u"horizontalLayout_4")
@@ -381,15 +440,17 @@ class Ui_MainWindow(object):
 
         self.sb_curve_sample_energy = QuantSpinBox(self.w_curve_measure)
         self.sb_curve_sample_energy.setObjectName(u"sb_curve_sample_energy")
+        sizePolicy5.setHeightForWidth(self.sb_curve_sample_energy.sizePolicy().hasHeightForWidth())
+        self.sb_curve_sample_energy.setSizePolicy(sizePolicy5)
         self.sb_curve_sample_energy.setMinimumSize(QSize(71, 0))
-        self.sb_curve_sample_energy.setMaximumSize(QSize(16777215, 16777215))
+        self.sb_curve_sample_energy.setMaximumSize(QSize(71, 16777215))
         self.sb_curve_sample_energy.setReadOnly(True)
         self.sb_curve_sample_energy.setButtonSymbols(QAbstractSpinBox.NoButtons)
         self.sb_curve_sample_energy.setDecimals(1)
         self.sb_curve_sample_energy.setMinimum(0.000000000000000)
         self.sb_curve_sample_energy.setMaximum(2000.000000000000000)
         self.sb_curve_sample_energy.setSingleStep(50.000000000000000)
-        self.sb_curve_sample_energy.setValue(500.000000000000000)
+        self.sb_curve_sample_energy.setValue(0.000000000000000)
 
         self.horizontalLayout_4.addWidget(self.sb_curve_sample_energy)
 
@@ -405,8 +466,10 @@ class Ui_MainWindow(object):
 
         self.sb_curve_sample_sp = QuantSpinBox(self.w_curve_measure)
         self.sb_curve_sample_sp.setObjectName(u"sb_curve_sample_sp")
+        sizePolicy5.setHeightForWidth(self.sb_curve_sample_sp.sizePolicy().hasHeightForWidth())
+        self.sb_curve_sample_sp.setSizePolicy(sizePolicy5)
         self.sb_curve_sample_sp.setMinimumSize(QSize(71, 0))
-        self.sb_curve_sample_sp.setMaximumSize(QSize(16777215, 16777215))
+        self.sb_curve_sample_sp.setMaximumSize(QSize(71, 16777215))
         self.sb_curve_sample_sp.setDecimals(1)
         self.sb_curve_sample_sp.setMinimum(1.000000000000000)
         self.sb_curve_sample_sp.setMaximum(5000.000000000000000)
@@ -434,13 +497,16 @@ class Ui_MainWindow(object):
 
         self.sb_curve_pm_energy = QuantSpinBox(self.w_curve_measure)
         self.sb_curve_pm_energy.setObjectName(u"sb_curve_pm_energy")
+        sizePolicy5.setHeightForWidth(self.sb_curve_pm_energy.sizePolicy().hasHeightForWidth())
+        self.sb_curve_pm_energy.setSizePolicy(sizePolicy5)
         self.sb_curve_pm_energy.setMinimumSize(QSize(71, 0))
+        self.sb_curve_pm_energy.setMaximumSize(QSize(71, 16777215))
         self.sb_curve_pm_energy.setReadOnly(True)
         self.sb_curve_pm_energy.setButtonSymbols(QAbstractSpinBox.NoButtons)
         self.sb_curve_pm_energy.setDecimals(1)
         self.sb_curve_pm_energy.setMinimum(0.000000000000000)
         self.sb_curve_pm_energy.setMaximum(2000.000000000000000)
-        self.sb_curve_pm_energy.setValue(500.000000000000000)
+        self.sb_curve_pm_energy.setValue(0.000000000000000)
 
         self.horizontalLayout_3.addWidget(self.sb_curve_pm_energy)
 
@@ -456,7 +522,10 @@ class Ui_MainWindow(object):
 
         self.sb_curve_pm_sp = QuantSpinBox(self.w_curve_measure)
         self.sb_curve_pm_sp.setObjectName(u"sb_curve_pm_sp")
+        sizePolicy5.setHeightForWidth(self.sb_curve_pm_sp.sizePolicy().hasHeightForWidth())
+        self.sb_curve_pm_sp.setSizePolicy(sizePolicy5)
         self.sb_curve_pm_sp.setMinimumSize(QSize(71, 0))
+        self.sb_curve_pm_sp.setMaximumSize(QSize(71, 16777215))
         self.sb_curve_pm_sp.setButtonSymbols(QAbstractSpinBox.UpDownArrows)
         self.sb_curve_pm_sp.setDecimals(1)
         self.sb_curve_pm_sp.setMinimum(0.000000000000000)
@@ -485,6 +554,8 @@ class Ui_MainWindow(object):
 
         self.sb_curve_averaging = QSpinBox(self.w_curve_measure)
         self.sb_curve_averaging.setObjectName(u"sb_curve_averaging")
+        sizePolicy5.setHeightForWidth(self.sb_curve_averaging.sizePolicy().hasHeightForWidth())
+        self.sb_curve_averaging.setSizePolicy(sizePolicy5)
         self.sb_curve_averaging.setMinimumSize(QSize(71, 0))
         self.sb_curve_averaging.setMaximumSize(QSize(43, 16777215))
         self.sb_curve_averaging.setButtonSymbols(QAbstractSpinBox.NoButtons)
@@ -546,6 +617,10 @@ class Ui_MainWindow(object):
         self.dock_log.raise_()
         self.dock_pm.raise_()
         self.stackedWidget.raise_()
+        self.pb_curve.raise_()
+        self.lbl_curve_progr.raise_()
+        self.lbl_curve_cur_param.raise_()
+        self.sb_curve_cur_param.raise_()
         self.menubar = QMenuBar(MainWindow)
         self.menubar.setObjectName(u"menubar")
         self.menubar.setGeometry(QRect(0, 0, 973, 21))
@@ -708,13 +783,14 @@ class Ui_MainWindow(object):
         self.btn_curve_measure.setStatusTip(QCoreApplication.translate("MainWindow", u"Start PhotoAcoustic measurement", None))
 #endif // QT_CONFIG(statustip)
         self.btn_curve_measure.setText(QCoreApplication.translate("MainWindow", u"MEASURE", None))
-        self.lbl_curve_energy.setText(QCoreApplication.translate("MainWindow", u"Energy", None))
-        self.lbl_curve_sample_energy.setText(QCoreApplication.translate("MainWindow", u"Sample", None))
+        self.lbl_curve_progr.setText(QCoreApplication.translate("MainWindow", u"5/10", None))
+        self.lbl_curve_cur_param.setText(QCoreApplication.translate("MainWindow", u"Set Wavelength", None))
+        self.lbl_curve_sample_energy.setText(QCoreApplication.translate("MainWindow", u"Sample Energy", None))
         self.sb_curve_sample_energy.setSuffix(QCoreApplication.translate("MainWindow", u" uJ", None))
         self.lbl_curve_sample_sp.setText(QCoreApplication.translate("MainWindow", u"SetPoint", None))
         self.sb_curve_sample_sp.setPrefix("")
         self.sb_curve_sample_sp.setSuffix(QCoreApplication.translate("MainWindow", u" uJ", None))
-        self.lbl_curve_pm_energy.setText(QCoreApplication.translate("MainWindow", u"Power Meter", None))
+        self.lbl_curve_pm_energy.setText(QCoreApplication.translate("MainWindow", u"Power Meter Energy", None))
         self.sb_curve_pm_energy.setSuffix(QCoreApplication.translate("MainWindow", u" uJ", None))
         self.lbl_curve_pm_sp.setText(QCoreApplication.translate("MainWindow", u"SetPoint", None))
         self.sb_curve_pm_sp.setSuffix(QCoreApplication.translate("MainWindow", u" uJ", None))
