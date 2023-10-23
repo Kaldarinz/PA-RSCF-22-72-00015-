@@ -99,6 +99,8 @@ class Window(QMainWindow, Ui_MainWindow):
 
     worker_pm: Worker|None = None
     "Thread for measuring energy."
+    worker_curve_adj: Worker|None = None
+    "Thread for curve adjustments."
 
     def __init__(self, parent:QMainWindow = None) -> None:
         super().__init__(parent)
@@ -138,28 +140,55 @@ class Window(QMainWindow, Ui_MainWindow):
         self.btn_pm_start.clicked.connect(self.track_power)
         self.btn_pm_stop.clicked.connect(self.stop_track_power)
         self.btn_curve_run.clicked.connect(self.run_curve)
+        self.btn_curve_measure.clicked.connect(self.measure_curve)
 
         #interface
         self.cb_mode_select.currentTextChanged.connect(self.upd_mode)
+        self.btn_curve_run.toggled.connect(self.w_curve_measure.setVisible)
+
+    def measure_curve(self) -> None:
+        """Measure a point for 1D PA measurement."""
+
+        worker = self.worker_curve_adj
+        if worker is not None:
+            cur = worker.kwargs['flags']['is_running']
+            worker.kwargs['flags']['is_running'] = not cur
 
     def run_curve(self) -> None:
         """Launch 1D measurement."""
 
-        start_param = self._sb_quantity(self.sb_curve_from)
-        stop_param = self._sb_quantity(self.sb_curve_to)
-        step_param = self._sb_quantity(self.sb_curve_step)
-        target_energy = self.sb_curve_sample_energy.quantity
-        aver = self._sb_quantity(self.sb_curve_averaging)
+        if self.worker_curve_adj is None:
+            self.worker_curve_adj = Worker(pa_logic.track_power)
+            self.worker_curve_adj.signals.progess.connect(self.upd_curve_adj)
+            self.pool.start(self.worker_curve_adj)
 
-        self.w_curve_measure.setVisible(True)
+    def upd_curve_adj(self, measurement: dict) -> None:
+        """
+        Update information on measure widgets and adj plots.
 
-    def _sb_quantity(self, sb: QSpinBox) -> PlainQuantity:
-        """Return spinbox value as quantity."""
+        Expect that ``measurement`` match return of 
+        ``pa_logic.track_power``, i.e. it should contain:\n 
+        ``data``: list[PlainQuantity] - a list with data\n
+        ``signal``: PlainQuantity - measured PM signal(full data)\n
+        ``sbx``: int - Signal Begining X
+        ``sby``: PlainQuantity - Signal Begining Y
+        ``sex``: int - Signal End X
+        ``sey``: PlainQuantity - Signal End Y
+        ``energy``: PlainQuantity - just measured energy value\n
+        ``aver``: PlainQuantity - average energy\n
+        ``std``: PlainQuantity - standart deviation of the measured data\n
+        """
 
-        units = sb.suffix().strip()
-        value = sb.value()
-        result = Q_(value, units)
-        return result
+        pm_energy = measurement['energy']
+        sample_energy = pa_logic.glan_calc(pm_energy)
+        if sample_energy is None:
+            logger.warning('Sample energy cannot be calculated')
+            sample_energy = Q_(-1, 'uJ')
+        self.sb_curve_pm_energy.quantity = pm_energy
+        print(self.sb_curve_pm_energy.quantity)
+        self.sb_curve_sample_energy.quantity = sample_energy
+        self.upd_plot(self.plot_curve_signal, ydata=measurement['signal'])
+        self.upd_plot(self.plot_curve_adjust, ydata=measurement['data'])
 
     def upd_mode(self, value: str) -> None:
         """Change widget for current measuring mode."""
@@ -238,8 +267,8 @@ class Window(QMainWindow, Ui_MainWindow):
         ``std``: PlainQuantity - standart deviation of the measured data\n
         """
 
-        self.upd_plot('plot_pm_left', ydata=measurement['signal'])
-        self.upd_plot('plot_pm_right', ydata=measurement['data'])
+        self.upd_plot(self.plot_pm_left, ydata=measurement['signal'])
+        self.upd_plot(self.plot_pm_right, ydata=measurement['data'])
         self.le_cur_en.setText(self.form_quant(measurement['energy']))
         self.le_aver_en.setText(self.form_quant(measurement['aver']))
         self.le_std_en.setText(self.form_quant(measurement['std']))
@@ -251,7 +280,7 @@ class Window(QMainWindow, Ui_MainWindow):
 
     def upd_plot(
             self,
-            name: str,
+            widget: MplCanvas,
             ydata: Iterable|None,
             xdata: Iterable|None = None
         ) -> None:
@@ -265,14 +294,6 @@ class Window(QMainWindow, Ui_MainWindow):
          ``ydata`` - Iterable containing data for Y axes.
         """
 
-        widget = getattr(self, name, None)
-        if widget is None:
-            logger.warning(f'Trying to update non-existing PLOT={name}')
-        if not isinstance(widget, MplCanvas):
-            logger.warning('Trying to update a PLOT, '
-                           + f'which actually is {type(widget)}.')
-            return
-        widget = cast(MplCanvas, widget)
         if xdata is None:
             widget.xdata = np.array(range(len(ydata)))
         else:

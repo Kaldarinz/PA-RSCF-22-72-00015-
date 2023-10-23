@@ -62,6 +62,9 @@ class QuantSpinBox(QDoubleSpinBox):
         return result
     
     @quantity.setter
-    def quantity(self, val: PlainQuantity) -> None:
+    def quantity(self, value: PlainQuantity) -> None:
+        val = value.to_compact()
         self.setSuffix(' ' + f'{val.u:~.2gP}')
-        self.setValue(val.m)
+        print(f'{float(val.m)=}')
+        self.setValue(float(val.m))
+        print(self.value())

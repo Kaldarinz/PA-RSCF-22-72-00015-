@@ -44,15 +44,15 @@
     </property>
     <property name="geometry">
      <rect>
-      <x>10</x>
-      <y>740</y>
+      <x>20</x>
+      <y>530</y>
       <width>666</width>
       <height>250</height>
      </rect>
     </property>
     <property name="minimumSize">
      <size>
-      <width>626</width>
+      <width>644</width>
       <height>250</height>
      </size>
     </property>
@@ -265,10 +265,10 @@
    <widget class="QDockWidget" name="dock_log">
     <property name="geometry">
      <rect>
-      <x>600</x>
-      <y>440</y>
-      <width>256</width>
-      <height>214</height>
+      <x>9</x>
+      <y>424</y>
+      <width>955</width>
+      <height>93</height>
      </rect>
     </property>
     <property name="floating">
@@ -334,10 +334,10 @@
    <widget class="QStackedWidget" name="stackedWidget">
     <property name="geometry">
      <rect>
-      <x>20</x>
-      <y>30</y>
-      <width>583</width>
-      <height>522</height>
+      <x>9</x>
+      <y>9</y>
+      <width>955</width>
+      <height>409</height>
      </rect>
     </property>
     <property name="sizePolicy">
@@ -597,22 +597,10 @@
        </layout>
       </item>
       <item>
-       <layout class="QHBoxLayout" name="horizontalLayout_6">
+       <layout class="QHBoxLayout" name="horizontalLayout_8">
         <item>
          <widget class="QWidget" name="w_curve_measure" native="true">
           <layout class="QVBoxLayout" name="verticalLayout">
-           <property name="leftMargin">
-            <number>0</number>
-           </property>
-           <property name="topMargin">
-            <number>0</number>
-           </property>
-           <property name="rightMargin">
-            <number>0</number>
-           </property>
-           <property name="bottomMargin">
-            <number>0</number>
-           </property>
            <item>
             <widget class="QPushButton" name="btn_curve_measure">
              <property name="font">
@@ -633,13 +621,6 @@
              </property>
              <property name="checkable">
               <bool>true</bool>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <widget class="Line" name="line_4">
-             <property name="orientation">
-              <enum>Qt::Horizontal</enum>
              </property>
             </widget>
            </item>
@@ -668,11 +649,20 @@
              </item>
              <item>
               <widget class="QuantSpinBox" name="sb_curve_sample_energy">
+               <property name="minimumSize">
+                <size>
+                 <width>71</width>
+                 <height>0</height>
+                </size>
+               </property>
                <property name="maximumSize">
                 <size>
-                 <width>43</width>
+                 <width>16777215</width>
                  <height>16777215</height>
                 </size>
+               </property>
+               <property name="readOnly">
+                <bool>true</bool>
                </property>
                <property name="buttonSymbols">
                 <enum>QAbstractSpinBox::NoButtons</enum>
@@ -681,10 +671,10 @@
                 <string> uJ</string>
                </property>
                <property name="decimals">
-                <number>0</number>
+                <number>1</number>
                </property>
                <property name="minimum">
-                <double>100.000000000000000</double>
+                <double>0.000000000000000</double>
                </property>
                <property name="maximum">
                 <double>2000.000000000000000</double>
@@ -700,24 +690,54 @@
             </layout>
            </item>
            <item>
-            <widget class="QSpinBox" name="sb_curve_sample_sp">
-             <property name="suffix">
-              <string> uJ</string>
-             </property>
-             <property name="prefix">
-              <string>SetPoint: </string>
-             </property>
-             <property name="minimum">
-              <number>10</number>
-             </property>
-             <property name="maximum">
-              <number>1500</number>
-             </property>
-             <property name="singleStep">
-              <number>100</number>
-             </property>
-             <property name="value">
-              <number>500</number>
+            <layout class="QHBoxLayout" name="horizontalLayout_7">
+             <item>
+              <widget class="QLabel" name="lbl_curve_sample_sp">
+               <property name="text">
+                <string>SetPoint</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QuantSpinBox" name="sb_curve_sample_sp">
+               <property name="minimumSize">
+                <size>
+                 <width>71</width>
+                 <height>0</height>
+                </size>
+               </property>
+               <property name="maximumSize">
+                <size>
+                 <width>16777215</width>
+                 <height>16777215</height>
+                </size>
+               </property>
+               <property name="prefix">
+                <string/>
+               </property>
+               <property name="suffix">
+                <string> uJ</string>
+               </property>
+               <property name="decimals">
+                <number>1</number>
+               </property>
+               <property name="minimum">
+                <double>50.000000000000000</double>
+               </property>
+               <property name="maximum">
+                <double>5000.000000000000000</double>
+               </property>
+               <property name="value">
+                <double>500.000000000000000</double>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </item>
+           <item>
+            <widget class="Line" name="line_6">
+             <property name="orientation">
+              <enum>Qt::Horizontal</enum>
              </property>
             </widget>
            </item>
@@ -731,56 +751,79 @@
               </widget>
              </item>
              <item>
-              <widget class="QSpinBox" name="sb_curve_pm_energy">
+              <widget class="QuantSpinBox" name="sb_curve_pm_energy">
+               <property name="minimumSize">
+                <size>
+                 <width>71</width>
+                 <height>0</height>
+                </size>
+               </property>
+               <property name="readOnly">
+                <bool>true</bool>
+               </property>
                <property name="buttonSymbols">
                 <enum>QAbstractSpinBox::NoButtons</enum>
                </property>
                <property name="suffix">
                 <string> uJ</string>
                </property>
-               <property name="prefix">
-                <string/>
+               <property name="decimals">
+                <number>1</number>
                </property>
                <property name="minimum">
-                <number>10</number>
+                <double>0.000000000000000</double>
                </property>
                <property name="maximum">
-                <number>1500</number>
-               </property>
-               <property name="singleStep">
-                <number>100</number>
+                <double>2000.000000000000000</double>
                </property>
                <property name="value">
-                <number>500</number>
+                <double>500.000000000000000</double>
                </property>
               </widget>
              </item>
             </layout>
            </item>
            <item>
-            <widget class="QSpinBox" name="sb_curve_pm_sp">
-             <property name="buttonSymbols">
-              <enum>QAbstractSpinBox::UpDownArrows</enum>
-             </property>
-             <property name="suffix">
-              <string> uJ</string>
-             </property>
-             <property name="prefix">
-              <string>SetPoint: </string>
-             </property>
-             <property name="minimum">
-              <number>10</number>
-             </property>
-             <property name="maximum">
-              <number>1500</number>
-             </property>
-             <property name="singleStep">
-              <number>100</number>
-             </property>
-             <property name="value">
-              <number>500</number>
-             </property>
-            </widget>
+            <layout class="QHBoxLayout" name="horizontalLayout_6">
+             <item>
+              <widget class="QLabel" name="lbl_curve_pm_sp">
+               <property name="text">
+                <string>SetPoint</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QuantSpinBox" name="sb_curve_pm_sp">
+               <property name="minimumSize">
+                <size>
+                 <width>71</width>
+                 <height>0</height>
+                </size>
+               </property>
+               <property name="buttonSymbols">
+                <enum>QAbstractSpinBox::UpDownArrows</enum>
+               </property>
+               <property name="suffix">
+                <string> uJ</string>
+               </property>
+               <property name="decimals">
+                <number>1</number>
+               </property>
+               <property name="minimum">
+                <double>10.000000000000000</double>
+               </property>
+               <property name="maximum">
+                <double>600.000000000000000</double>
+               </property>
+               <property name="singleStep">
+                <double>50.000000000000000</double>
+               </property>
+               <property name="value">
+                <double>500.000000000000000</double>
+               </property>
+              </widget>
+             </item>
+            </layout>
            </item>
            <item>
             <widget class="Line" name="line_5">
@@ -800,6 +843,12 @@
              </item>
              <item>
               <widget class="QSpinBox" name="sb_curve_averaging">
+               <property name="minimumSize">
+                <size>
+                 <width>71</width>
+                 <height>0</height>
+                </size>
+               </property>
                <property name="maximumSize">
                 <size>
                  <width>43</width>
@@ -838,8 +887,8 @@
              </property>
              <property name="sizeHint" stdset="0">
               <size>
-               <width>20</width>
-               <height>40</height>
+               <width>17</width>
+               <height>22</height>
               </size>
              </property>
             </spacer>
