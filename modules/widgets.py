@@ -24,6 +24,8 @@ class MplCanvas(FigureCanvasQTAgg):
         self.xlabel: str|None = None
         self.ylabel: str|None = None
         self._plot_ref: Line2D|None = None
+        self._sp_ref: Line2D|None = None
+        self._sp: float|None = None
         super().__init__(fig)
 
     @property
@@ -55,6 +57,18 @@ class MplCanvas(FigureCanvasQTAgg):
         else:
             self.ylabel = None
             self._ydata = data
+
+    @property
+    def sp(self) -> float|None:
+        return self._sp
+    
+    @sp.setter
+    def sp(self, value: float) -> None:
+        if self.ylabel is not None:
+            value = value.to(self.ylabel)
+        else:
+            self.ylabel = f'{value.u:~.2gP}'
+        self._sp = value.m
             
 class QuantSpinBox(QDoubleSpinBox):
 
@@ -66,7 +80,10 @@ class QuantSpinBox(QDoubleSpinBox):
         return result
     
     @quantity.setter
-    def quantity(self, value: PlainQuantity) -> None:
-        val = value.to_compact()
+    def quantity(self, val: PlainQuantity) -> None:
+
+        # For editable it leads to problems with units
+        if self.isReadOnly():
+            val = val.to_compact()
         self.setSuffix(' ' + f'{val.u:~.2gP}')
         self.setValue(float(val.m))

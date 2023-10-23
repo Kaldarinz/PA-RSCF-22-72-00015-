@@ -53,7 +53,10 @@ from modules.data_classes import (
     Worker
 )
 from modules.utils import confirm_action
-from modules.widgets import MplCanvas
+from modules.widgets import (
+    MplCanvas,
+    QuantSpinBox
+)
 
 def init_logs(q_log_handler: QLogHandler) -> logging.Logger:
     """Initiate logging"""
@@ -126,6 +129,9 @@ class Window(QMainWindow, Ui_MainWindow):
         self.clayout.addWidget(self.stackedWidget)
         self.centralwidget.setLayout(self.clayout)
 
+        #Set initial SetPoints
+        self.plot_curve_adjust.sp = self.sb_curve_sample_sp.quantity
+
         #Connect custom signals and slots
         self.connectSignalsSlots()
 
@@ -141,6 +147,12 @@ class Window(QMainWindow, Ui_MainWindow):
         self.btn_pm_stop.clicked.connect(self.stop_track_power)
         self.btn_curve_run.clicked.connect(self.run_curve)
         self.btn_curve_measure.clicked.connect(self.measure_curve)
+        self.sb_curve_sample_sp.valueChanged.connect(
+            lambda x: self.upd_sp(self.sb_curve_sample_sp)
+        )
+        self.sb_curve_pm_sp.valueChanged.connect(
+            lambda x: self.upd_sp(self.sb_curve_pm_sp)
+        )
 
         #interface
         self.cb_mode_select.currentTextChanged.connect(self.upd_mode)
@@ -188,6 +200,30 @@ class Window(QMainWindow, Ui_MainWindow):
         self.sb_curve_sample_energy.quantity = sample_energy
         self.upd_plot(self.plot_curve_signal, ydata=measurement['signal'])
         self.upd_plot(self.plot_curve_adjust, ydata=measurement['data'])
+
+    def upd_sp(self, caller: QuantSpinBox) -> None:
+        """Update Set Point data for currently active page"""
+
+        #Curve
+        if self.stackedWidget.currentIndex() == 1:
+            if caller == self.sb_curve_sample_sp:
+                new_sp = pa_logic.glan_calc_reverse(caller.quantity).to('uJ')
+                if new_sp.m > self.sb_curve_pm_sp.maximum():
+                    new_sp.m = self.sb_curve_pm_sp.maximum()
+                self.sb_curve_pm_sp.blockSignals(True)
+                self.sb_curve_pm_sp.quantity = new_sp
+                self.sb_curve_pm_sp.blockSignals(False)
+                   
+            elif caller == self.sb_curve_pm_sp:
+                new_sp = pa_logic.glan_calc(caller.quantity).to('uJ')
+                if new_sp.m > self.sb_curve_sample_sp.maximum():
+                    new_sp.m = self.sb_curve_sample_sp.maximum()
+                self.sb_curve_sample_sp.blockSignals(True)
+                self.sb_curve_sample_sp.quantity = new_sp
+                self.sb_curve_sample_sp.blockSignals(False)
+                    
+            self.plot_curve_adjust.sp = caller.quantity
+                
 
     def upd_mode(self, value: str) -> None:
         """Change widget for current measuring mode."""
@@ -305,6 +341,16 @@ class Window(QMainWindow, Ui_MainWindow):
         else:
             widget._plot_ref.set_xdata(widget.xdata)
             widget._plot_ref.set_ydata(widget.ydata)
+        if widget.sp is not None:
+            print(widget.sp)
+            spdata = [widget.sp]*len(widget.xdata)
+            if widget._sp_ref is None:
+                widget._sp_ref = widget.axes.plot(
+                    widget.xdata, spdata, 'b'
+                )[0]
+            else:
+                widget._sp_ref.set_xdata(widget.xdata)
+                widget._sp_ref.set_ydata(spdata)
         widget.axes.set_xlabel(widget.xlabel)
         widget.axes.set_ylabel(widget.ylabel)
         widget.axes.relim()
