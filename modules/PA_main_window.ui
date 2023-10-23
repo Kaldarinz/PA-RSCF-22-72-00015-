@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1577</width>
-    <height>1089</height>
+    <width>873</width>
+    <height>857</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -334,10 +334,10 @@
    <widget class="QStackedWidget" name="stackedWidget">
     <property name="geometry">
      <rect>
-      <x>9</x>
-      <y>9</y>
-      <width>1401</width>
-      <height>491</height>
+      <x>20</x>
+      <y>30</y>
+      <width>583</width>
+      <height>466</height>
      </rect>
     </property>
     <property name="sizePolicy">
@@ -399,25 +399,209 @@
        <verstretch>0</verstretch>
       </sizepolicy>
      </property>
-     <layout class="QHBoxLayout" name="horizontalLayout_3">
-      <property name="leftMargin">
-       <number>0</number>
-      </property>
-      <property name="topMargin">
-       <number>0</number>
-      </property>
-      <property name="rightMargin">
-       <number>0</number>
-      </property>
-      <property name="bottomMargin">
-       <number>0</number>
-      </property>
+     <layout class="QVBoxLayout" name="verticalLayout_3">
       <item>
-       <layout class="QVBoxLayout" name="verticalLayout">
+       <layout class="QHBoxLayout" name="horizontalLayout_2">
         <item>
-         <layout class="QHBoxLayout" name="horizontalLayout_2">
+         <widget class="QPushButton" name="btn_curve_run">
+          <property name="font">
+           <font>
+            <weight>75</weight>
+            <bold>true</bold>
+           </font>
+          </property>
+          <property name="statusTip">
+           <string>Start PhotoAcoustic measurement</string>
+          </property>
+          <property name="text">
+           <string>RUN</string>
+          </property>
+          <property name="icon">
+           <iconset resource="qt_resources.qrc">
+            <normaloff>:/icons/qt_resources/control.png</normaloff>:/icons/qt_resources/control.png</iconset>
+          </property>
+          <property name="checkable">
+           <bool>true</bool>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="Line" name="line_3">
+          <property name="orientation">
+           <enum>Qt::Vertical</enum>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QLabel" name="lbl_curve_mode">
+          <property name="statusTip">
+           <string>Choose an independent variable</string>
+          </property>
+          <property name="text">
+           <string>Mode</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QComboBox" name="cb_curve_mode">
+          <property name="statusTip">
+           <string>Choose an independent variable</string>
+          </property>
           <item>
-           <widget class="QPushButton" name="btn_curve_run">
+           <property name="text">
+            <string>Wavelength</string>
+           </property>
+          </item>
+          <item>
+           <property name="text">
+            <string>Energy</string>
+           </property>
+          </item>
+          <item>
+           <property name="text">
+            <string>Concentration</string>
+           </property>
+          </item>
+         </widget>
+        </item>
+        <item>
+         <widget class="Line" name="line_2">
+          <property name="orientation">
+           <enum>Qt::Vertical</enum>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QLabel" name="lbl_curve_from">
+          <property name="statusTip">
+           <string>Start value of the independent variable</string>
+          </property>
+          <property name="text">
+           <string>From</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QSpinBox" name="sb_curve_from">
+          <property name="statusTip">
+           <string>Start value of the independent variable</string>
+          </property>
+          <property name="suffix">
+           <string> nm</string>
+          </property>
+          <property name="minimum">
+           <number>600</number>
+          </property>
+          <property name="maximum">
+           <number>1000</number>
+          </property>
+          <property name="singleStep">
+           <number>10</number>
+          </property>
+          <property name="stepType">
+           <enum>QAbstractSpinBox::DefaultStepType</enum>
+          </property>
+          <property name="value">
+           <number>740</number>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QLabel" name="lbl_curve_to">
+          <property name="statusTip">
+           <string>End value of the independent variable</string>
+          </property>
+          <property name="text">
+           <string>To</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QSpinBox" name="spinBox_2">
+          <property name="statusTip">
+           <string>End value of the independent variable</string>
+          </property>
+          <property name="suffix">
+           <string> nm</string>
+          </property>
+          <property name="minimum">
+           <number>600</number>
+          </property>
+          <property name="maximum">
+           <number>1000</number>
+          </property>
+          <property name="singleStep">
+           <number>10</number>
+          </property>
+          <property name="value">
+           <number>750</number>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="Line" name="line">
+          <property name="orientation">
+           <enum>Qt::Vertical</enum>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QLabel" name="lbl_curve_step">
+          <property name="statusTip">
+           <string>Step value of the independent variable</string>
+          </property>
+          <property name="text">
+           <string>Step</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QSpinBox" name="spinBox_3">
+          <property name="statusTip">
+           <string>Step value of the independent variable</string>
+          </property>
+          <property name="suffix">
+           <string> nm</string>
+          </property>
+          <property name="minimum">
+           <number>1</number>
+          </property>
+          <property name="maximum">
+           <number>500</number>
+          </property>
+          <property name="value">
+           <number>10</number>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="Line" name="line_7">
+          <property name="orientation">
+           <enum>Qt::Vertical</enum>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <spacer name="horizontalSpacer_2">
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>40</width>
+            <height>20</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <layout class="QHBoxLayout" name="horizontalLayout_5">
+        <item>
+         <layout class="QVBoxLayout" name="verticalLayout">
+          <item>
+           <widget class="QPushButton" name="btn_curve_measure">
             <property name="font">
              <font>
               <weight>75</weight>
@@ -428,11 +612,11 @@
              <string>Start PhotoAcoustic measurement</string>
             </property>
             <property name="text">
-             <string>RUN</string>
+             <string>MEASURE</string>
             </property>
             <property name="icon">
              <iconset resource="qt_resources.qrc">
-              <normaloff>:/icons/qt_resources/control.png</normaloff>:/icons/qt_resources/control.png</iconset>
+              <normaloff>:/icons/qt_resources/control-stop.png</normaloff>:/icons/qt_resources/control-stop.png</iconset>
             </property>
             <property name="checkable">
              <bool>true</bool>
@@ -440,170 +624,160 @@
            </widget>
           </item>
           <item>
-           <widget class="Line" name="line_3">
-            <property name="orientation">
-             <enum>Qt::Vertical</enum>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QLabel" name="lbl_curve_mode">
-            <property name="statusTip">
-             <string>Choose an independent variable</string>
-            </property>
-            <property name="text">
-             <string>Mode</string>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QComboBox" name="cb_curve_mode">
-            <property name="statusTip">
-             <string>Choose an independent variable</string>
-            </property>
-            <item>
-             <property name="text">
-              <string>Wavelength</string>
-             </property>
-            </item>
-            <item>
-             <property name="text">
-              <string>Energy</string>
-             </property>
-            </item>
-            <item>
-             <property name="text">
-              <string>Concentration</string>
-             </property>
-            </item>
-           </widget>
-          </item>
-          <item>
-           <widget class="Line" name="line_2">
-            <property name="orientation">
-             <enum>Qt::Vertical</enum>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QLabel" name="lbl_curve_from">
-            <property name="statusTip">
-             <string>Start value of the independent variable</string>
-            </property>
-            <property name="text">
-             <string>From</string>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QSpinBox" name="sb_curve_from">
-            <property name="statusTip">
-             <string>Start value of the independent variable</string>
-            </property>
-            <property name="suffix">
-             <string> nm</string>
-            </property>
-            <property name="minimum">
-             <number>600</number>
-            </property>
-            <property name="maximum">
-             <number>1000</number>
-            </property>
-            <property name="singleStep">
-             <number>10</number>
-            </property>
-            <property name="stepType">
-             <enum>QAbstractSpinBox::DefaultStepType</enum>
-            </property>
-            <property name="value">
-             <number>740</number>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QLabel" name="lbl_curve_to">
-            <property name="statusTip">
-             <string>End value of the independent variable</string>
-            </property>
-            <property name="text">
-             <string>To</string>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QSpinBox" name="spinBox_2">
-            <property name="statusTip">
-             <string>End value of the independent variable</string>
-            </property>
-            <property name="suffix">
-             <string> nm</string>
-            </property>
-            <property name="minimum">
-             <number>600</number>
-            </property>
-            <property name="maximum">
-             <number>1000</number>
-            </property>
-            <property name="singleStep">
-             <number>10</number>
-            </property>
-            <property name="value">
-             <number>750</number>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="Line" name="line">
-            <property name="orientation">
-             <enum>Qt::Vertical</enum>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QLabel" name="lbl_curve_step">
-            <property name="statusTip">
-             <string>Step value of the independent variable</string>
-            </property>
-            <property name="text">
-             <string>Step</string>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QSpinBox" name="spinBox_3">
-            <property name="statusTip">
-             <string>Step value of the independent variable</string>
-            </property>
-            <property name="suffix">
-             <string> nm</string>
-            </property>
-            <property name="minimum">
-             <number>1</number>
-            </property>
-            <property name="maximum">
-             <number>500</number>
-            </property>
-            <property name="value">
-             <number>10</number>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="Line" name="line_7">
-            <property name="orientation">
-             <enum>Qt::Vertical</enum>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <spacer name="horizontalSpacer_2">
+           <widget class="Line" name="line_4">
             <property name="orientation">
              <enum>Qt::Horizontal</enum>
             </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLabel" name="lbl_curve_energy">
+            <property name="font">
+             <font>
+              <pointsize>8</pointsize>
+              <weight>75</weight>
+              <bold>true</bold>
+             </font>
+            </property>
+            <property name="text">
+             <string>Energy</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <layout class="QHBoxLayout" name="horizontalLayout_4">
+            <item>
+             <widget class="QLabel" name="lbl_curve_sample">
+              <property name="text">
+               <string>Sample</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QSpinBox" name="sb_curve_sample_energy">
+              <property name="maximumSize">
+               <size>
+                <width>43</width>
+                <height>16777215</height>
+               </size>
+              </property>
+              <property name="buttonSymbols">
+               <enum>QAbstractSpinBox::NoButtons</enum>
+              </property>
+              <property name="suffix">
+               <string> uJ</string>
+              </property>
+              <property name="prefix">
+               <string/>
+              </property>
+              <property name="minimum">
+               <number>10</number>
+              </property>
+              <property name="maximum">
+               <number>1500</number>
+              </property>
+              <property name="singleStep">
+               <number>100</number>
+              </property>
+              <property name="value">
+               <number>500</number>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+          <item>
+           <widget class="QSpinBox" name="sb_curve_sample_sp">
+            <property name="suffix">
+             <string> uJ</string>
+            </property>
+            <property name="prefix">
+             <string>SetPoint: </string>
+            </property>
+            <property name="minimum">
+             <number>10</number>
+            </property>
+            <property name="maximum">
+             <number>1500</number>
+            </property>
+            <property name="singleStep">
+             <number>100</number>
+            </property>
+            <property name="value">
+             <number>500</number>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <layout class="QHBoxLayout" name="horizontalLayout_3">
+            <item>
+             <widget class="QLabel" name="lbl_curve_pm">
+              <property name="text">
+               <string>Power Meter</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QSpinBox" name="sb_curve_pm_energy">
+              <property name="buttonSymbols">
+               <enum>QAbstractSpinBox::NoButtons</enum>
+              </property>
+              <property name="suffix">
+               <string> uJ</string>
+              </property>
+              <property name="prefix">
+               <string/>
+              </property>
+              <property name="minimum">
+               <number>10</number>
+              </property>
+              <property name="maximum">
+               <number>1500</number>
+              </property>
+              <property name="singleStep">
+               <number>100</number>
+              </property>
+              <property name="value">
+               <number>500</number>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+          <item>
+           <widget class="QSpinBox" name="sb_curve_pm_sp">
+            <property name="buttonSymbols">
+             <enum>QAbstractSpinBox::UpDownArrows</enum>
+            </property>
+            <property name="suffix">
+             <string> uJ</string>
+            </property>
+            <property name="prefix">
+             <string>SetPoint: </string>
+            </property>
+            <property name="minimum">
+             <number>10</number>
+            </property>
+            <property name="maximum">
+             <number>1500</number>
+            </property>
+            <property name="singleStep">
+             <number>100</number>
+            </property>
+            <property name="value">
+             <number>500</number>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <spacer name="verticalSpacer">
+            <property name="orientation">
+             <enum>Qt::Vertical</enum>
+            </property>
             <property name="sizeHint" stdset="0">
              <size>
-              <width>40</width>
-              <height>20</height>
+              <width>20</width>
+              <height>40</height>
              </size>
             </property>
            </spacer>
@@ -611,7 +785,7 @@
          </layout>
         </item>
         <item>
-         <widget class="MplCanvas" name="plot_pa_1d" native="true">
+         <widget class="MplCanvas" name="plot_curve_signal" native="true">
           <property name="sizePolicy">
            <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
             <horstretch>0</horstretch>
@@ -620,26 +794,45 @@
           </property>
           <property name="minimumSize">
            <size>
-            <width>300</width>
-            <height>200</height>
+            <width>100</width>
+            <height>50</height>
            </size>
           </property>
          </widget>
         </item>
         <item>
-         <spacer name="verticalSpacer">
-          <property name="orientation">
-           <enum>Qt::Vertical</enum>
+         <widget class="MplCanvas" name="plot_curve_adjust" native="true">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
           </property>
-          <property name="sizeHint" stdset="0">
+          <property name="minimumSize">
            <size>
-            <width>20</width>
-            <height>40</height>
+            <width>100</width>
+            <height>50</height>
            </size>
           </property>
-         </spacer>
+         </widget>
         </item>
        </layout>
+      </item>
+      <item>
+       <widget class="MplCanvas" name="plot_curve_pa" native="true">
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+        <property name="minimumSize">
+         <size>
+          <width>300</width>
+          <height>200</height>
+         </size>
+        </property>
+       </widget>
       </item>
      </layout>
     </widget>
@@ -684,7 +877,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1577</width>
+     <width>873</width>
      <height>21</height>
     </rect>
    </property>

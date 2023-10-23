@@ -30,7 +30,7 @@ class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
         if not MainWindow.objectName():
             MainWindow.setObjectName(u"MainWindow")
-        MainWindow.resize(1577, 1089)
+        MainWindow.resize(873, 857)
         sizePolicy = QSizePolicy(QSizePolicy.Expanding, QSizePolicy.Minimum)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
@@ -223,7 +223,7 @@ class Ui_MainWindow(object):
         self.dock_log.setWidget(self.dockWidgetContents_7)
         self.stackedWidget = QStackedWidget(self.centralwidget)
         self.stackedWidget.setObjectName(u"stackedWidget")
-        self.stackedWidget.setGeometry(QRect(9, 9, 1401, 491))
+        self.stackedWidget.setGeometry(QRect(20, 30, 583, 466))
         sizePolicy1.setHeightForWidth(self.stackedWidget.sizePolicy().hasHeightForWidth())
         self.stackedWidget.setSizePolicy(sizePolicy1)
         self.stackedWidget.setMaximumSize(QSize(16777215, 16777215))
@@ -244,11 +244,8 @@ class Ui_MainWindow(object):
         self.p_curve.setObjectName(u"p_curve")
         sizePolicy1.setHeightForWidth(self.p_curve.sizePolicy().hasHeightForWidth())
         self.p_curve.setSizePolicy(sizePolicy1)
-        self.horizontalLayout_3 = QHBoxLayout(self.p_curve)
-        self.horizontalLayout_3.setObjectName(u"horizontalLayout_3")
-        self.horizontalLayout_3.setContentsMargins(0, 0, 0, 0)
-        self.verticalLayout = QVBoxLayout()
-        self.verticalLayout.setObjectName(u"verticalLayout")
+        self.verticalLayout_3 = QVBoxLayout(self.p_curve)
+        self.verticalLayout_3.setObjectName(u"verticalLayout_3")
         self.horizontalLayout_2 = QHBoxLayout()
         self.horizontalLayout_2.setObjectName(u"horizontalLayout_2")
         self.btn_curve_run = QPushButton(self.p_curve)
@@ -347,22 +344,131 @@ class Ui_MainWindow(object):
         self.horizontalLayout_2.addItem(self.horizontalSpacer_2)
 
 
-        self.verticalLayout.addLayout(self.horizontalLayout_2)
+        self.verticalLayout_3.addLayout(self.horizontalLayout_2)
 
-        self.plot_pa_1d = MplCanvas(self.p_curve)
-        self.plot_pa_1d.setObjectName(u"plot_pa_1d")
-        sizePolicy1.setHeightForWidth(self.plot_pa_1d.sizePolicy().hasHeightForWidth())
-        self.plot_pa_1d.setSizePolicy(sizePolicy1)
-        self.plot_pa_1d.setMinimumSize(QSize(300, 200))
+        self.horizontalLayout_5 = QHBoxLayout()
+        self.horizontalLayout_5.setObjectName(u"horizontalLayout_5")
+        self.verticalLayout = QVBoxLayout()
+        self.verticalLayout.setObjectName(u"verticalLayout")
+        self.btn_curve_measure = QPushButton(self.p_curve)
+        self.btn_curve_measure.setObjectName(u"btn_curve_measure")
+        self.btn_curve_measure.setFont(font)
+        icon6 = QIcon()
+        icon6.addFile(u":/icons/qt_resources/control-stop.png", QSize(), QIcon.Normal, QIcon.Off)
+        self.btn_curve_measure.setIcon(icon6)
+        self.btn_curve_measure.setCheckable(True)
 
-        self.verticalLayout.addWidget(self.plot_pa_1d)
+        self.verticalLayout.addWidget(self.btn_curve_measure)
+
+        self.line_4 = QFrame(self.p_curve)
+        self.line_4.setObjectName(u"line_4")
+        self.line_4.setFrameShape(QFrame.HLine)
+        self.line_4.setFrameShadow(QFrame.Sunken)
+
+        self.verticalLayout.addWidget(self.line_4)
+
+        self.lbl_curve_energy = QLabel(self.p_curve)
+        self.lbl_curve_energy.setObjectName(u"lbl_curve_energy")
+        font2 = QFont()
+        font2.setPointSize(8)
+        font2.setBold(True)
+        self.lbl_curve_energy.setFont(font2)
+
+        self.verticalLayout.addWidget(self.lbl_curve_energy)
+
+        self.horizontalLayout_4 = QHBoxLayout()
+        self.horizontalLayout_4.setObjectName(u"horizontalLayout_4")
+        self.lbl_curve_sample = QLabel(self.p_curve)
+        self.lbl_curve_sample.setObjectName(u"lbl_curve_sample")
+
+        self.horizontalLayout_4.addWidget(self.lbl_curve_sample)
+
+        self.sb_curve_sample_energy = QSpinBox(self.p_curve)
+        self.sb_curve_sample_energy.setObjectName(u"sb_curve_sample_energy")
+        self.sb_curve_sample_energy.setMaximumSize(QSize(43, 16777215))
+        self.sb_curve_sample_energy.setButtonSymbols(QAbstractSpinBox.NoButtons)
+        self.sb_curve_sample_energy.setMinimum(10)
+        self.sb_curve_sample_energy.setMaximum(1500)
+        self.sb_curve_sample_energy.setSingleStep(100)
+        self.sb_curve_sample_energy.setValue(500)
+
+        self.horizontalLayout_4.addWidget(self.sb_curve_sample_energy)
+
+
+        self.verticalLayout.addLayout(self.horizontalLayout_4)
+
+        self.sb_curve_sample_sp = QSpinBox(self.p_curve)
+        self.sb_curve_sample_sp.setObjectName(u"sb_curve_sample_sp")
+        self.sb_curve_sample_sp.setMinimum(10)
+        self.sb_curve_sample_sp.setMaximum(1500)
+        self.sb_curve_sample_sp.setSingleStep(100)
+        self.sb_curve_sample_sp.setValue(500)
+
+        self.verticalLayout.addWidget(self.sb_curve_sample_sp)
+
+        self.horizontalLayout_3 = QHBoxLayout()
+        self.horizontalLayout_3.setObjectName(u"horizontalLayout_3")
+        self.lbl_curve_pm = QLabel(self.p_curve)
+        self.lbl_curve_pm.setObjectName(u"lbl_curve_pm")
+
+        self.horizontalLayout_3.addWidget(self.lbl_curve_pm)
+
+        self.sb_curve_pm_energy = QSpinBox(self.p_curve)
+        self.sb_curve_pm_energy.setObjectName(u"sb_curve_pm_energy")
+        self.sb_curve_pm_energy.setButtonSymbols(QAbstractSpinBox.NoButtons)
+        self.sb_curve_pm_energy.setMinimum(10)
+        self.sb_curve_pm_energy.setMaximum(1500)
+        self.sb_curve_pm_energy.setSingleStep(100)
+        self.sb_curve_pm_energy.setValue(500)
+
+        self.horizontalLayout_3.addWidget(self.sb_curve_pm_energy)
+
+
+        self.verticalLayout.addLayout(self.horizontalLayout_3)
+
+        self.sb_curve_pm_sp = QSpinBox(self.p_curve)
+        self.sb_curve_pm_sp.setObjectName(u"sb_curve_pm_sp")
+        self.sb_curve_pm_sp.setButtonSymbols(QAbstractSpinBox.UpDownArrows)
+        self.sb_curve_pm_sp.setMinimum(10)
+        self.sb_curve_pm_sp.setMaximum(1500)
+        self.sb_curve_pm_sp.setSingleStep(100)
+        self.sb_curve_pm_sp.setValue(500)
+
+        self.verticalLayout.addWidget(self.sb_curve_pm_sp)
 
         self.verticalSpacer = QSpacerItem(20, 40, QSizePolicy.Minimum, QSizePolicy.Expanding)
 
         self.verticalLayout.addItem(self.verticalSpacer)
 
 
-        self.horizontalLayout_3.addLayout(self.verticalLayout)
+        self.horizontalLayout_5.addLayout(self.verticalLayout)
+
+        self.plot_curve_signal = MplCanvas(self.p_curve)
+        self.plot_curve_signal.setObjectName(u"plot_curve_signal")
+        sizePolicy1.setHeightForWidth(self.plot_curve_signal.sizePolicy().hasHeightForWidth())
+        self.plot_curve_signal.setSizePolicy(sizePolicy1)
+        self.plot_curve_signal.setMinimumSize(QSize(100, 50))
+
+        self.horizontalLayout_5.addWidget(self.plot_curve_signal)
+
+        self.plot_curve_adjust = MplCanvas(self.p_curve)
+        self.plot_curve_adjust.setObjectName(u"plot_curve_adjust")
+        sizePolicy1.setHeightForWidth(self.plot_curve_adjust.sizePolicy().hasHeightForWidth())
+        self.plot_curve_adjust.setSizePolicy(sizePolicy1)
+        self.plot_curve_adjust.setMinimumSize(QSize(100, 50))
+
+        self.horizontalLayout_5.addWidget(self.plot_curve_adjust)
+
+
+        self.verticalLayout_3.addLayout(self.horizontalLayout_5)
+
+        self.plot_curve_pa = MplCanvas(self.p_curve)
+        self.plot_curve_pa.setObjectName(u"plot_curve_pa")
+        sizePolicy1.setHeightForWidth(self.plot_curve_pa.sizePolicy().hasHeightForWidth())
+        self.plot_curve_pa.setSizePolicy(sizePolicy1)
+        self.plot_curve_pa.setMinimumSize(QSize(300, 200))
+
+        self.verticalLayout_3.addWidget(self.plot_curve_pa)
 
         self.stackedWidget.addWidget(self.p_curve)
         self.p_map = QWidget()
@@ -380,7 +486,7 @@ class Ui_MainWindow(object):
         self.stackedWidget.raise_()
         self.menubar = QMenuBar(MainWindow)
         self.menubar.setObjectName(u"menubar")
-        self.menubar.setGeometry(QRect(0, 0, 1577, 21))
+        self.menubar.setGeometry(QRect(0, 0, 873, 21))
         self.menu_Data = QMenu(self.menubar)
         self.menu_Data.setObjectName(u"menu_Data")
         self.menu_Hardware = QMenu(self.menubar)
@@ -536,6 +642,21 @@ class Ui_MainWindow(object):
         self.spinBox_3.setStatusTip(QCoreApplication.translate("MainWindow", u"Step value of the independent variable", None))
 #endif // QT_CONFIG(statustip)
         self.spinBox_3.setSuffix(QCoreApplication.translate("MainWindow", u" nm", None))
+#if QT_CONFIG(statustip)
+        self.btn_curve_measure.setStatusTip(QCoreApplication.translate("MainWindow", u"Start PhotoAcoustic measurement", None))
+#endif // QT_CONFIG(statustip)
+        self.btn_curve_measure.setText(QCoreApplication.translate("MainWindow", u"MEASURE", None))
+        self.lbl_curve_energy.setText(QCoreApplication.translate("MainWindow", u"Energy", None))
+        self.lbl_curve_sample.setText(QCoreApplication.translate("MainWindow", u"Sample", None))
+        self.sb_curve_sample_energy.setSuffix(QCoreApplication.translate("MainWindow", u" uJ", None))
+        self.sb_curve_sample_energy.setPrefix("")
+        self.sb_curve_sample_sp.setSuffix(QCoreApplication.translate("MainWindow", u" uJ", None))
+        self.sb_curve_sample_sp.setPrefix(QCoreApplication.translate("MainWindow", u"SetPoint: ", None))
+        self.lbl_curve_pm.setText(QCoreApplication.translate("MainWindow", u"Power Meter", None))
+        self.sb_curve_pm_energy.setSuffix(QCoreApplication.translate("MainWindow", u" uJ", None))
+        self.sb_curve_pm_energy.setPrefix("")
+        self.sb_curve_pm_sp.setSuffix(QCoreApplication.translate("MainWindow", u" uJ", None))
+        self.sb_curve_pm_sp.setPrefix(QCoreApplication.translate("MainWindow", u"SetPoint: ", None))
 #if QT_CONFIG(statustip)
         self.btn_map_run.setStatusTip(QCoreApplication.translate("MainWindow", u"Start PhotoAcoustic measurement", None))
 #endif // QT_CONFIG(statustip)
