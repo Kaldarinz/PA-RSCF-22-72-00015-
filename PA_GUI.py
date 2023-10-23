@@ -33,6 +33,7 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QLayout,
     QComboBox,
+    QSpinBox,
     QVBoxLayout
 )
 from PySide6.QtGui import (
@@ -113,6 +114,7 @@ class Window(QMainWindow, Ui_MainWindow):
         #Set visibility of some widgets
         self.dock_pm.hide()
         self.dock_log.hide()
+        self.w_curve_measure.hide()
 
         #Set mode selection combo box
         self.set_mode_selector()
@@ -135,9 +137,29 @@ class Window(QMainWindow, Ui_MainWindow):
         self.action_Init.triggered.connect(self.init_hardware)
         self.btn_pm_start.clicked.connect(self.track_power)
         self.btn_pm_stop.clicked.connect(self.stop_track_power)
+        self.btn_curve_run.clicked.connect(self.run_curve)
 
         #interface
         self.cb_mode_select.currentTextChanged.connect(self.upd_mode)
+
+    def run_curve(self) -> None:
+        """Launch 1D measurement."""
+
+        start_param = self._sb_quantity(self.sb_curve_from)
+        stop_param = self._sb_quantity(self.sb_curve_to)
+        step_param = self._sb_quantity(self.sb_curve_step)
+        target_energy = self.sb_curve_sample_energy.quantity
+        aver = self._sb_quantity(self.sb_curve_averaging)
+
+        self.w_curve_measure.setVisible(True)
+
+    def _sb_quantity(self, sb: QSpinBox) -> PlainQuantity:
+        """Return spinbox value as quantity."""
+
+        units = sb.suffix().strip()
+        value = sb.value()
+        result = Q_(value, units)
+        return result
 
     def upd_mode(self, value: str) -> None:
         """Change widget for current measuring mode."""

@@ -7,6 +7,12 @@ from pint.facets.plain.quantity import PlainQuantity
 from PySide6.QtCore import (
     QRunnable
 )
+from PySide6.QtWidgets import (
+    QSpinBox,
+    QDoubleSpinBox
+)
+
+from modules import ureg, Q_
 
 class MplCanvas(FigureCanvasQTAgg):
     """Single plot MatPlotLib widget."""
@@ -46,3 +52,16 @@ class MplCanvas(FigureCanvasQTAgg):
             self.ylabel = None
             self._ydata = data
             
+class QuantSpinBox(QDoubleSpinBox):
+
+    @property
+    def quantity(self) -> PlainQuantity:
+        units = self.suffix().strip()
+        value = self.value()
+        result = Q_(value, units)
+        return result
+    
+    @quantity.setter
+    def quantity(self, val: PlainQuantity) -> None:
+        self.setSuffix(' ' + f'{val.u:~.2gP}')
+        self.setValue(val.m)
