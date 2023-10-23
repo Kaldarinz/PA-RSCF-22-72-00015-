@@ -150,6 +150,7 @@ class Window(QMainWindow, Ui_MainWindow):
             self.stackedWidget.setCurrentIndex(2)
         else:
             logger.warning(f'Unsupported mode selected: {value}')
+    
     def set_mode_selector(self):
         """Set mode selection view."""
 
@@ -162,6 +163,18 @@ class Window(QMainWindow, Ui_MainWindow):
         self.tb_mode.addWidget(cb)
         self.cb_mode_select = cb
 
+    def closeEvent(self, event) -> None:
+        """Exis routines."""
+
+        if self.confirm_action(
+            title = 'Confirm Close',
+            message = 'Do you really want to exit?'
+        ):
+            logger.info('Stopping application')
+            for stage in dc.hardware.stages:
+                stage.close()
+        else:
+            event.ignore()
 
     def init_hardware(self) -> None:
         """Hardware initiation."""

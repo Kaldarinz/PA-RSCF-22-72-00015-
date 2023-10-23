@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>873</width>
+    <width>973</width>
     <height>857</height>
    </rect>
   </property>
@@ -265,8 +265,8 @@
    <widget class="QDockWidget" name="dock_log">
     <property name="geometry">
      <rect>
-      <x>20</x>
-      <y>530</y>
+      <x>600</x>
+      <y>440</y>
       <width>256</width>
       <height>214</height>
      </rect>
@@ -877,7 +877,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>873</width>
+     <width>973</width>
      <height>21</height>
     </rect>
    </property>

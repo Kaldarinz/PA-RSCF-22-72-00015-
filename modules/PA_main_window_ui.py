@@ -30,7 +30,7 @@ class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
         if not MainWindow.objectName():
             MainWindow.setObjectName(u"MainWindow")
-        MainWindow.resize(873, 857)
+        MainWindow.resize(973, 857)
         sizePolicy = QSizePolicy(QSizePolicy.Expanding, QSizePolicy.Minimum)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
@@ -200,7 +200,7 @@ class Ui_MainWindow(object):
         self.dock_pm.setWidget(self.w_pm)
         self.dock_log = QDockWidget(self.centralwidget)
         self.dock_log.setObjectName(u"dock_log")
-        self.dock_log.setGeometry(QRect(20, 530, 256, 214))
+        self.dock_log.setGeometry(QRect(600, 440, 256, 214))
         self.dock_log.setFloating(True)
         self.dock_log.setAllowedAreas(Qt.AllDockWidgetAreas)
         self.dockWidgetContents_7 = QWidget()
@@ -486,7 +486,7 @@ class Ui_MainWindow(object):
         self.stackedWidget.raise_()
         self.menubar = QMenuBar(MainWindow)
         self.menubar.setObjectName(u"menubar")
-        self.menubar.setGeometry(QRect(0, 0, 873, 21))
+        self.menubar.setGeometry(QRect(0, 0, 973, 21))
         self.menu_Data = QMenu(self.menubar)
         self.menu_Data.setObjectName(u"menu_Data")
         self.menu_Hardware = QMenu(self.menubar)
