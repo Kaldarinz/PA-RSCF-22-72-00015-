@@ -110,9 +110,6 @@ class Window(QMainWindow, Ui_MainWindow):
         #Threadpool
         self.pool = QThreadPool()
 
-        #Connect custom signals and slots
-        self.connectSignalsSlots()
-
         #Set visibility of some widgets
         self.dock_pm.hide()
         self.dock_log.hide()
@@ -125,14 +122,34 @@ class Window(QMainWindow, Ui_MainWindow):
         self.clayout.addWidget(self.stackedWidget)
         self.centralwidget.setLayout(self.clayout)
 
+        #Connect custom signals and slots
+        self.connectSignalsSlots()
+
     def connectSignalsSlots(self):
         """Connect signals and slots."""
 
-        self.action_Init.triggered.connect(self.init_hardware)
+        #logs
         self.q_logger.thread.log.connect(self.te_log.appendPlainText)
-        self.btn_pm_stop.clicked.connect(self.stop_track_power)
-        self.btn_pm_start.clicked.connect(self.track_power)
 
+        #backend functions
+        self.action_Init.triggered.connect(self.init_hardware)
+        self.btn_pm_start.clicked.connect(self.track_power)
+        self.btn_pm_stop.clicked.connect(self.stop_track_power)
+
+        #interface
+        self.cb_mode_select.currentTextChanged.connect(self.upd_mode)
+
+    def upd_mode(self, value: str) -> None:
+        """Change widget for current measuring mode."""
+
+        if value == 'Single point':
+            self.stackedWidget.setCurrentIndex(0)
+        elif value == 'Curve':
+            self.stackedWidget.setCurrentIndex(1)
+        elif value == 'Map':
+            self.stackedWidget.setCurrentIndex(2)
+        else:
+            logger.warning(f'Unsupported mode selected: {value}')
     def set_mode_selector(self):
         """Set mode selection view."""
 
@@ -141,6 +158,7 @@ class Window(QMainWindow, Ui_MainWindow):
             ('Single point', 'Curve', 'Map')
         )
         cb.setEditable(False)
+        cb.setCurrentIndex(self.stackedWidget.currentIndex())
         self.tb_mode.addWidget(cb)
         self.cb_mode_select = cb
 

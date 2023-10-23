@@ -25,6 +25,9 @@
   <property name="windowTitle">
    <string>Photoacoustics</string>
   </property>
+  <property name="statusTip">
+   <string>Set PhotoAcoustic measuring mode</string>
+  </property>
   <property name="dockNestingEnabled">
    <bool>true</bool>
   </property>
@@ -41,8 +44,8 @@
     </property>
     <property name="geometry">
      <rect>
-      <x>9</x>
-      <y>669</y>
+      <x>10</x>
+      <y>740</y>
       <width>666</width>
       <height>250</height>
      </rect>
@@ -262,8 +265,8 @@
    <widget class="QDockWidget" name="dock_log">
     <property name="geometry">
      <rect>
-      <x>9</x>
-      <y>339</y>
+      <x>20</x>
+      <y>530</y>
       <width>256</width>
       <height>214</height>
      </rect>
@@ -333,8 +336,8 @@
      <rect>
       <x>9</x>
       <y>9</y>
-      <width>596</width>
-      <height>108</height>
+      <width>1401</width>
+      <height>491</height>
      </rect>
     </property>
     <property name="sizePolicy">
@@ -352,13 +355,42 @@
     <property name="currentIndex">
      <number>1</number>
     </property>
-    <widget class="QWidget" name="page">
+    <widget class="QWidget" name="p_point">
      <property name="sizePolicy">
       <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
        <horstretch>0</horstretch>
        <verstretch>0</verstretch>
       </sizepolicy>
      </property>
+     <widget class="QPushButton" name="btn_point_run">
+      <property name="geometry">
+       <rect>
+        <x>760</x>
+        <y>190</y>
+        <width>75</width>
+        <height>24</height>
+       </rect>
+      </property>
+      <property name="font">
+       <font>
+        <weight>75</weight>
+        <bold>true</bold>
+       </font>
+      </property>
+      <property name="statusTip">
+       <string>Start PhotoAcoustic measurement</string>
+      </property>
+      <property name="text">
+       <string>RUN</string>
+      </property>
+      <property name="icon">
+       <iconset resource="qt_resources.qrc">
+        <normaloff>:/icons/qt_resources/control.png</normaloff>:/icons/qt_resources/control.png</iconset>
+      </property>
+      <property name="checkable">
+       <bool>true</bool>
+      </property>
+     </widget>
     </widget>
     <widget class="QWidget" name="p_curve">
      <property name="sizePolicy">
@@ -368,6 +400,18 @@
       </sizepolicy>
      </property>
      <layout class="QHBoxLayout" name="horizontalLayout_3">
+      <property name="leftMargin">
+       <number>0</number>
+      </property>
+      <property name="topMargin">
+       <number>0</number>
+      </property>
+      <property name="rightMargin">
+       <number>0</number>
+      </property>
+      <property name="bottomMargin">
+       <number>0</number>
+      </property>
       <item>
        <layout class="QVBoxLayout" name="verticalLayout">
         <item>
@@ -379,6 +423,9 @@
               <weight>75</weight>
               <bold>true</bold>
              </font>
+            </property>
+            <property name="statusTip">
+             <string>Start PhotoAcoustic measurement</string>
             </property>
             <property name="text">
              <string>RUN</string>
@@ -401,6 +448,9 @@
           </item>
           <item>
            <widget class="QLabel" name="lbl_curve_mode">
+            <property name="statusTip">
+             <string>Choose an independent variable</string>
+            </property>
             <property name="text">
              <string>Mode</string>
             </property>
@@ -408,6 +458,9 @@
           </item>
           <item>
            <widget class="QComboBox" name="cb_curve_mode">
+            <property name="statusTip">
+             <string>Choose an independent variable</string>
+            </property>
             <item>
              <property name="text">
               <string>Wavelength</string>
@@ -434,34 +487,68 @@
           </item>
           <item>
            <widget class="QLabel" name="lbl_curve_from">
+            <property name="statusTip">
+             <string>Start value of the independent variable</string>
+            </property>
             <property name="text">
              <string>From</string>
             </property>
            </widget>
           </item>
           <item>
-           <widget class="QSpinBox" name="spinBox"/>
+           <widget class="QSpinBox" name="sb_curve_from">
+            <property name="statusTip">
+             <string>Start value of the independent variable</string>
+            </property>
+            <property name="suffix">
+             <string> nm</string>
+            </property>
+            <property name="minimum">
+             <number>600</number>
+            </property>
+            <property name="maximum">
+             <number>1000</number>
+            </property>
+            <property name="singleStep">
+             <number>10</number>
+            </property>
+            <property name="stepType">
+             <enum>QAbstractSpinBox::DefaultStepType</enum>
+            </property>
+            <property name="value">
+             <number>740</number>
+            </property>
+           </widget>
           </item>
           <item>
            <widget class="QLabel" name="lbl_curve_to">
+            <property name="statusTip">
+             <string>End value of the independent variable</string>
+            </property>
             <property name="text">
              <string>To</string>
             </property>
            </widget>
           </item>
           <item>
-           <widget class="QSpinBox" name="spinBox_2"/>
-          </item>
-          <item>
-           <widget class="QLabel" name="lbl_curve_range_u">
-            <property name="minimumSize">
-             <size>
-              <width>40</width>
-              <height>0</height>
-             </size>
+           <widget class="QSpinBox" name="spinBox_2">
+            <property name="statusTip">
+             <string>End value of the independent variable</string>
             </property>
-            <property name="text">
-             <string>Units</string>
+            <property name="suffix">
+             <string> nm</string>
+            </property>
+            <property name="minimum">
+             <number>600</number>
+            </property>
+            <property name="maximum">
+             <number>1000</number>
+            </property>
+            <property name="singleStep">
+             <number>10</number>
+            </property>
+            <property name="value">
+             <number>750</number>
             </property>
            </widget>
           </item>
@@ -474,24 +561,30 @@
           </item>
           <item>
            <widget class="QLabel" name="lbl_curve_step">
+            <property name="statusTip">
+             <string>Step value of the independent variable</string>
+            </property>
             <property name="text">
              <string>Step</string>
             </property>
            </widget>
           </item>
           <item>
-           <widget class="QSpinBox" name="spinBox_3"/>
-          </item>
-          <item>
-           <widget class="QLabel" name="lbl_curve_step_u">
-            <property name="minimumSize">
-             <size>
-              <width>40</width>
-              <height>0</height>
-             </size>
+           <widget class="QSpinBox" name="spinBox_3">
+            <property name="statusTip">
+             <string>Step value of the independent variable</string>
             </property>
-            <property name="text">
-             <string>Units</string>
+            <property name="suffix">
+             <string> nm</string>
+            </property>
+            <property name="minimum">
+             <number>1</number>
+            </property>
+            <property name="maximum">
+             <number>500</number>
+            </property>
+            <property name="value">
+             <number>10</number>
             </property>
            </widget>
           </item>
@@ -525,6 +618,12 @@
             <verstretch>0</verstretch>
            </sizepolicy>
           </property>
+          <property name="minimumSize">
+           <size>
+            <width>300</width>
+            <height>200</height>
+           </size>
+          </property>
          </widget>
         </item>
         <item>
@@ -543,6 +642,37 @@
        </layout>
       </item>
      </layout>
+    </widget>
+    <widget class="QWidget" name="p_map">
+     <widget class="QPushButton" name="btn_map_run">
+      <property name="geometry">
+       <rect>
+        <x>110</x>
+        <y>80</y>
+        <width>75</width>
+        <height>24</height>
+       </rect>
+      </property>
+      <property name="font">
+       <font>
+        <weight>75</weight>
+        <bold>true</bold>
+       </font>
+      </property>
+      <property name="statusTip">
+       <string>Start PhotoAcoustic measurement</string>
+      </property>
+      <property name="text">
+       <string>RUN</string>
+      </property>
+      <property name="icon">
+       <iconset resource="qt_resources.qrc">
+        <normaloff>:/icons/qt_resources/control.png</normaloff>:/icons/qt_resources/control.png</iconset>
+      </property>
+      <property name="checkable">
+       <bool>true</bool>
+      </property>
+     </widget>
     </widget>
    </widget>
    <zorder>dock_log</zorder>
@@ -604,7 +734,16 @@
   <widget class="QStatusBar" name="statusbar"/>
   <widget class="QToolBar" name="tb_main">
    <property name="windowTitle">
-    <string>toolBar</string>
+    <string>Main</string>
+   </property>
+   <property name="statusTip">
+    <string>Basic operations</string>
+   </property>
+   <property name="allowedAreas">
+    <set>Qt::TopToolBarArea</set>
+   </property>
+   <property name="floatable">
+    <bool>false</bool>
    </property>
    <attribute name="toolBarArea">
     <enum>TopToolBarArea</enum>
@@ -614,22 +753,40 @@
    </attribute>
    <addaction name="action_Init"/>
    <addaction name="separator"/>
-   <addaction name="action_Power_Meter"/>
+   <addaction name="action_Data"/>
    <addaction name="separator"/>
    <addaction name="action_measure_PA"/>
    <addaction name="separator"/>
-   <addaction name="action_Logs"/>
   </widget>
   <widget class="QToolBar" name="tb_mode">
    <property name="windowTitle">
-    <string>toolBar_2</string>
+    <string>Measuring mode</string>
+   </property>
+   <property name="statusTip">
+    <string>Set PhotoAcoustic measuring mode</string>
    </property>
    <attribute name="toolBarArea">
     <enum>TopToolBarArea</enum>
    </attribute>
    <attribute name="toolBarBreak">
-    <bool>true</bool>
+    <bool>false</bool>
    </attribute>
+  </widget>
+  <widget class="QToolBar" name="tb_tools">
+   <property name="windowTitle">
+    <string>Tools</string>
+   </property>
+   <property name="statusTip">
+    <string>Tools</string>
+   </property>
+   <attribute name="toolBarArea">
+    <enum>TopToolBarArea</enum>
+   </attribute>
+   <attribute name="toolBarBreak">
+    <bool>false</bool>
+   </attribute>
+   <addaction name="action_Logs"/>
+   <addaction name="action_Power_Meter"/>
   </widget>
   <action name="action_Open">
    <property name="text">
@@ -674,6 +831,12 @@
    <property name="text">
     <string>&amp;Init All</string>
    </property>
+   <property name="statusTip">
+    <string>Initialize hardware</string>
+   </property>
+   <property name="whatsThis">
+    <string>Start initialization procedure to start working with the system</string>
+   </property>
   </action>
   <action name="action_measure_PA">
    <property name="icon">
@@ -695,6 +858,9 @@
    <property name="text">
     <string>&amp;Power Meter</string>
    </property>
+   <property name="statusTip">
+    <string>Start laser energy measurement</string>
+   </property>
   </action>
   <action name="action_Logs">
    <property name="checkable">
@@ -706,6 +872,27 @@
    </property>
    <property name="text">
     <string>&amp;Logs</string>
+   </property>
+   <property name="statusTip">
+    <string>Open logs</string>
+   </property>
+  </action>
+  <action name="action_Data">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="icon">
+    <iconset resource="qt_resources.qrc">
+     <normaloff>:/icons/qt_resources/television-image.png</normaloff>:/icons/qt_resources/television-image.png</iconset>
+   </property>
+   <property name="text">
+    <string>Data</string>
+   </property>
+   <property name="toolTip">
+    <string>Open data viewer</string>
+   </property>
+   <property name="statusTip">
+    <string>Data viewer</string>
    </property>
   </action>
  </widget>
