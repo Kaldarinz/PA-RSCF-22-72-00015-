@@ -44,9 +44,12 @@ from PySide6.QtGui import (
 )
 import numpy as np
 
-from modules.PA_main_window_ui import Ui_MainWindow
-from modules.verify_measure_ui import Ui_Dialog
-from modules.data_viewer_ui import Ui_Form
+from modules.gui.designer import (
+    PA_main_window_ui,
+    verify_measure_ui,
+    data_viewer_ui
+)
+
 from modules import ureg, Q_
 import modules.validators as vd
 from modules.pa_data import PaData
@@ -57,7 +60,7 @@ from modules.data_classes import (
     Worker,
     DataPoint
 )
-from modules.widgets import (
+from modules.gui.widgets import (
     MplCanvas,
     QuantSpinBox
 )
@@ -101,7 +104,7 @@ def init_hardware() -> None:
     except HardwareError:
         logger.error('Hardware initialization failed')
 
-class Window(QMainWindow, Ui_MainWindow):
+class Window(QMainWindow, PA_main_window_ui.Ui_MainWindow):
     """Application MainWindow."""
 
     worker_pm: Worker|None = None
@@ -510,14 +513,14 @@ class Window(QMainWindow, Ui_MainWindow):
         logger.debug(f'{message} = {result}')
         return result
 
-class PAVerifierDialog(QDialog, Ui_Dialog):
+class PAVerifierDialog(QDialog, verify_measure_ui.Ui_Dialog):
     """Dialog window for verification of a PA measurement."""
 
     def __init__(self) -> None:
         super().__init__()
         self.setupUi(self)
 
-class DataViewer(QWidget, Ui_Form):
+class DataViewer(QWidget, data_viewer_ui.Ui_Form):
     """Data viewer widget."""
 
     def __init__(self, parent: QWidget | None = None) -> None:
