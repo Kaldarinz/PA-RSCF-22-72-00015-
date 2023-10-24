@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>973</width>
+    <width>1729</width>
     <height>857</height>
    </rect>
   </property>
@@ -265,11 +265,14 @@
    <widget class="QDockWidget" name="dock_log">
     <property name="geometry">
      <rect>
-      <x>9</x>
-      <y>424</y>
-      <width>955</width>
-      <height>93</height>
+      <x>0</x>
+      <y>55</y>
+      <width>256</width>
+      <height>782</height>
      </rect>
+    </property>
+    <property name="autoFillBackground">
+     <bool>true</bool>
     </property>
     <property name="floating">
      <bool>true</bool>
@@ -331,7 +334,7 @@
      </layout>
     </widget>
    </widget>
-   <widget class="QStackedWidget" name="stackedWidget">
+   <widget class="QStackedWidget" name="sw_central">
     <property name="geometry">
      <rect>
       <x>9</x>
@@ -1152,18 +1155,14 @@
    </widget>
    <zorder>dock_log</zorder>
    <zorder>dock_pm</zorder>
-   <zorder>stackedWidget</zorder>
-   <zorder>pb_curve</zorder>
-   <zorder>lbl_curve_progr</zorder>
-   <zorder>lbl_curve_cur_param</zorder>
-   <zorder>sb_curve_cur_param</zorder>
+   <zorder>sw_central</zorder>
   </widget>
   <widget class="QMenuBar" name="menubar">
    <property name="geometry">
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>973</width>
+     <width>1729</width>
      <height>21</height>
     </rect>
    </property>
@@ -1318,6 +1317,9 @@
    </property>
   </action>
   <action name="action_measure_PA">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
    <property name="icon">
     <iconset resource="qt_resources.qrc">
      <normaloff>:/icons/qt_resources/spectrum.png</normaloff>:/icons/qt_resources/spectrum.png</iconset>

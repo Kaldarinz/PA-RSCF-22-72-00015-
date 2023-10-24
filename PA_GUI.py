@@ -35,7 +35,8 @@ from PySide6.QtWidgets import (
     QComboBox,
     QSpinBox,
     QVBoxLayout,
-    QDialog
+    QDialog,
+    QSizeGrip
 )
 from PySide6.QtGui import (
     QColor,
@@ -45,6 +46,7 @@ import numpy as np
 
 from modules.PA_main_window_ui import Ui_MainWindow
 from modules.verify_measure_ui import Ui_Dialog
+from modules.data_viewer_ui import Ui_Form
 from modules import ureg, Q_
 import modules.validators as vd
 from modules.pa_data import PaData
@@ -120,6 +122,9 @@ class Window(QMainWindow, Ui_MainWindow):
 
         #Set additional windows
         self.pa_verifier = PAVerifierDialog()
+        self.data_viwer = DataViewer()
+        self.sw_central.addWidget(self.data_viwer)
+        self.data_viwer
 
         #Set visibility of some widgets
         self.dock_pm.hide()
@@ -129,14 +134,16 @@ class Window(QMainWindow, Ui_MainWindow):
         #Set mode selection combo box
         self.set_mode_selector()
 
+        #Set layout for central widget
         #By some reason it is not possible to set in designer
         self.clayout = QVBoxLayout()
-        self.clayout.addWidget(self.stackedWidget)
+        self.clayout.addWidget(self.sw_central)
         self.centralwidget.setLayout(self.clayout)
 
-        #Set initial SetPoints
+        #Set initial values
         self.plot_curve_adjust.sp = self.sb_curve_sample_sp.quantity
         self.upd_sp(self.sb_curve_sample_sp)
+        self.upd_mode(self.cb_mode_select.currentText())
 
         #Connect custom signals and slots
         self.connectSignalsSlots()
@@ -153,6 +160,12 @@ class Window(QMainWindow, Ui_MainWindow):
         self.btn_pm_stop.clicked.connect(self.stop_track_power)
         self.btn_curve_run.clicked.connect(self.run_curve)
         self.btn_curve_measure.clicked.connect(self.measure_curve)
+
+        #interface
+        self.cb_mode_select.currentTextChanged.connect(self.upd_mode)
+        self.btn_curve_run.toggled.connect(self.w_curve_measure.setVisible)
+        self.action_Data.toggled.connect(self.activate_data_viwer)
+        self.action_measure_PA.toggled.connect(self.activate_measure_widget)
         self.sb_curve_sample_sp.valueChanged.connect(
             lambda x: self.upd_sp(self.sb_curve_sample_sp)
         )
@@ -160,9 +173,22 @@ class Window(QMainWindow, Ui_MainWindow):
             lambda x: self.upd_sp(self.sb_curve_pm_sp)
         )
 
-        #interface
-        self.cb_mode_select.currentTextChanged.connect(self.upd_mode)
-        self.btn_curve_run.toggled.connect(self.w_curve_measure.setVisible)
+    def activate_data_viwer(self, activated: bool) -> None:
+        """Toogle data viewer."""
+
+        if activated:
+            self.sw_central.setCurrentWidget(self.data_viwer)
+            self.action_measure_PA.setChecked(False)
+        else:
+            self.upd_mode(self.cb_mode_select.currentText())
+
+    def activate_measure_widget(self, activated: bool) -> None:
+        """Toggle measre widget."""
+
+        if activated:
+            self.upd_mode(self.cb_mode_select.currentText())
+        else:
+            self.action_Data.setChecked(True)
 
     def measure_curve(self) -> None:
         """Measure a point for 1D PA measurement."""
@@ -276,7 +302,7 @@ class Window(QMainWindow, Ui_MainWindow):
         """Update Set Point data for currently active page"""
 
         #Curve
-        if self.stackedWidget.currentIndex() == 1:
+        if self.sw_central.currentIndex() == 1:
             if caller == self.sb_curve_sample_sp:
                 new_sp = pa_logic.glan_calc_reverse(caller.quantity).to('uJ')
                 if new_sp.m > self.sb_curve_pm_sp.maximum():
@@ -298,16 +324,19 @@ class Window(QMainWindow, Ui_MainWindow):
             self.plot_curve_adjust.sp = caller.quantity
                 
     def upd_mode(self, value: str) -> None:
-        """Change widget for current measuring mode."""
+        """Change sw_main for current measuring mode."""
 
         if value == 'Single point':
-            self.stackedWidget.setCurrentIndex(0)
+            self.sw_central.setCurrentIndex(0)
         elif value == 'Curve':
-            self.stackedWidget.setCurrentIndex(1)
+            self.sw_central.setCurrentIndex(1)
         elif value == 'Map':
-            self.stackedWidget.setCurrentIndex(2)
+            self.sw_central.setCurrentIndex(2)
         else:
             logger.warning(f'Unsupported mode selected: {value}')
+
+        self.action_measure_PA.setChecked(True)
+        self.action_Data.setChecked(False)
     
     def set_mode_selector(self):
         """Set mode selection view."""
@@ -317,7 +346,7 @@ class Window(QMainWindow, Ui_MainWindow):
             ('Single point', 'Curve', 'Map')
         )
         cb.setEditable(False)
-        cb.setCurrentIndex(self.stackedWidget.currentIndex())
+        cb.setCurrentIndex(self.sw_central.currentIndex())
         self.tb_mode.addWidget(cb)
         self.cb_mode_select = cb
 
@@ -482,9 +511,17 @@ class Window(QMainWindow, Ui_MainWindow):
         return result
 
 class PAVerifierDialog(QDialog, Ui_Dialog):
+    """Dialog window for verification of a PA measurement."""
 
     def __init__(self) -> None:
         super().__init__()
+        self.setupUi(self)
+
+class DataViewer(QWidget, Ui_Form):
+    """Data viewer widget."""
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
         self.setupUi(self)
 
 class LoggerThread(QThread):
