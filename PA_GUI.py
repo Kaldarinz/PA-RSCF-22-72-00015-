@@ -58,13 +58,15 @@ from modules.gui.widgets import (
     MplCanvas,
     QuantSpinBox,
 )
-from modules.gui.designer import (
-    PA_main_window_ui,
-    verify_measure_ui,
-    data_viewer_ui,
-    log_dock_widget_ui,
-    pm_dock_widget_ui
+from modules.gui.designer.PA_main_window_ui import Ui_MainWindow
+
+from modules.gui.designer.custom_widgets import (
+    PAVerifierDialog,
+    DataViewer,
+    LoggerWidget,
+    PowerMeterWidget
 )
+
 
 def init_logs() -> tuple[logging.Logger, QLogHandler]:
     """Initiate logging"""
@@ -107,7 +109,7 @@ def init_hardware() -> None:
     except HardwareError:
         logger.error('Hardware initialization failed')
 
-class Window(QMainWindow,PA_main_window_ui.Ui_MainWindow,):
+class Window(QMainWindow,Ui_MainWindow,):
     """Application MainWindow."""
 
     worker_pm: Worker|None = None
@@ -549,20 +551,6 @@ class Window(QMainWindow,PA_main_window_ui.Ui_MainWindow,):
         logger.debug(f'{message} = {result}')
         return result
 
-class PAVerifierDialog(QDialog, verify_measure_ui.Ui_Dialog):
-    """Dialog window for verification of a PA measurement."""
-
-    def __init__(self) -> None:
-        super().__init__()
-        self.setupUi(self)
-
-class DataViewer(QWidget, data_viewer_ui.Ui_Form):
-    """Data viewer widget."""
-
-    def __init__(self, parent: QWidget | None = None) -> None:
-        super().__init__(parent)
-        self.setupUi(self)
-
 class LoggerThread(QThread):
     """Thread for logging."""
 
@@ -601,20 +589,6 @@ class QLogHandler(logging.Handler):
     def emit(self, record):
         msg = self.format(record)
         self.thread.get_data(msg)
-
-class LoggerWidget(QDockWidget, log_dock_widget_ui.Ui_d_log):
-    """Logger dock widget."""
-
-    def __init__(self, parent: QWidget | None = None) -> None:
-        super().__init__(parent)
-        self.setupUi(self)
-
-class PowerMeterWidget(QDockWidget, pm_dock_widget_ui.Ui_d_pm):
-    """Power meter dock widget."""
-
-    def __init__(self, parent: QWidget | None = None) -> None:
-        super().__init__(parent)
-        self.setupUi(self)
 
 if __name__ == '__main__':
 
