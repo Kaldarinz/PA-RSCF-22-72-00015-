@@ -36,19 +36,13 @@ from PySide6.QtWidgets import (
     QSpinBox,
     QVBoxLayout,
     QDialog,
-    QSizeGrip
+    QDockWidget
 )
 from PySide6.QtGui import (
     QColor,
     QPalette
 )
 import numpy as np
-
-from modules.gui.designer import (
-    PA_main_window_ui,
-    verify_measure_ui,
-    data_viewer_ui
-)
 
 from modules import ureg, Q_
 import modules.validators as vd
@@ -62,10 +56,16 @@ from modules.data_classes import (
 )
 from modules.gui.widgets import (
     MplCanvas,
-    QuantSpinBox
+    QuantSpinBox,
+)
+from modules.gui.designer import (
+    PA_main_window_ui,
+    verify_measure_ui,
+    data_viewer_ui,
+    log_dock_widget_ui
 )
 
-def init_logs(q_log_handler: QLogHandler) -> logging.Logger:
+def init_logs() -> tuple[logging.Logger, QLogHandler]:
     """Initiate logging"""
 
     with open('rsc/log_config.yaml', 'r') as f:
@@ -89,12 +89,14 @@ def init_logs(q_log_handler: QLogHandler) -> logging.Logger:
             log_filename = f"{base}{today}{extension}"
             log_config["handlers"][i]["filename"] = log_filename
 
-    #adding textbox handler. I cannot handle it with file config.
+    #adding wdiget handler. I cannot handle it with file config.
+    q_log_handler = QLogHandler()
+    q_log_handler.thread.start()
     logging.config.dictConfig(log_config)
     logging.getLogger('root').addHandler(q_log_handler)
     logging.getLogger('modules').addHandler(q_log_handler)
 
-    return logging.getLogger('pa_cli')
+    return logging.getLogger('pa_cli'), q_log_handler
 
 def init_hardware() -> None:
     """CLI for hardware init"""
@@ -104,7 +106,7 @@ def init_hardware() -> None:
     except HardwareError:
         logger.error('Hardware initialization failed')
 
-class Window(QMainWindow, PA_main_window_ui.Ui_MainWindow):
+class Window(QMainWindow,PA_main_window_ui.Ui_MainWindow,):
     """Application MainWindow."""
 
     worker_pm: Worker|None = None
@@ -112,13 +114,15 @@ class Window(QMainWindow, PA_main_window_ui.Ui_MainWindow):
     worker_curve_adj: Worker|None = None
     "Thread for curve adjustments."
 
-    def __init__(self, parent:QMainWindow = None) -> None:
+    def __init__(
+            self,
+            parent:QMainWindow = None,
+        ) -> None:
         super().__init__(parent)
         self.setupUi(self)
         
         #Long-running threads
-        self.q_logger = QLogHandler()
-        self.q_logger.thread.start()
+        self.q_logger = q_log_handler
 
         #Threadpool
         self.pool = QThreadPool()
@@ -127,11 +131,15 @@ class Window(QMainWindow, PA_main_window_ui.Ui_MainWindow):
         self.pa_verifier = PAVerifierDialog()
         self.data_viwer = DataViewer()
         self.sw_central.addWidget(self.data_viwer)
-        self.data_viwer
+        self.d_log = LoggerWidget()
+        self.addDockWidget(
+            Qt.DockWidgetArea.BottomDockWidgetArea,
+            self.d_log)
+        self.d_log.hide()
 
         #Set visibility of some widgets
         self.dock_pm.hide()
-        self.dock_log.hide()
+        
         self.w_curve_measure.hide()
 
         #Set mode selection combo box
@@ -155,7 +163,7 @@ class Window(QMainWindow, PA_main_window_ui.Ui_MainWindow):
         """Connect signals and slots."""
 
         #logs
-        self.q_logger.thread.log.connect(self.te_log.appendPlainText)
+        self.q_logger.thread.log.connect(self.d_log.te_log.appendPlainText)
 
         #backend functions
         self.action_Init.triggered.connect(self.init_hardware)
@@ -175,6 +183,8 @@ class Window(QMainWindow, PA_main_window_ui.Ui_MainWindow):
         self.sb_curve_pm_sp.valueChanged.connect(
             lambda x: self.upd_sp(self.sb_curve_pm_sp)
         )
+        self.action_Logs.toggled.connect(self.d_log.setVisible)
+        self.d_log.visibilityChanged.connect(self.action_Logs.setChecked)
 
     def activate_data_viwer(self, activated: bool) -> None:
         """Toogle data viewer."""
@@ -566,11 +576,19 @@ class QLogHandler(logging.Handler):
         msg = self.format(record)
         self.thread.get_data(msg)
 
+class LoggerWidget(QDockWidget, log_dock_widget_ui.Ui_d_log):
+    """Logger dock widget."""
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setupUi(self)
+
 if __name__ == '__main__':
 
     app = QApplication(sys.argv)
+    logger, q_log_handler = init_logs()
     win = Window()
-    logger = init_logs(win.q_logger)
+    
     logger.info('Starting application')
 
     ureg = pint.UnitRegistry(auto_reduce_dimensions=True) # type: ignore
