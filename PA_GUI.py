@@ -62,7 +62,8 @@ from modules.gui.designer import (
     PA_main_window_ui,
     verify_measure_ui,
     data_viewer_ui,
-    log_dock_widget_ui
+    log_dock_widget_ui,
+    pm_dock_widget_ui
 )
 
 def init_logs() -> tuple[logging.Logger, QLogHandler]:
@@ -127,18 +128,7 @@ class Window(QMainWindow,PA_main_window_ui.Ui_MainWindow,):
         #Threadpool
         self.pool = QThreadPool()
 
-        #Set additional windows
-        self.pa_verifier = PAVerifierDialog()
-        self.data_viwer = DataViewer()
-        self.sw_central.addWidget(self.data_viwer)
-        self.d_log = LoggerWidget()
-        self.addDockWidget(
-            Qt.DockWidgetArea.BottomDockWidgetArea,
-            self.d_log)
-        self.d_log.hide()
-
-        #Set visibility of some widgets
-        self.dock_pm.hide()
+        self.set_custom_widgets()
         
         self.w_curve_measure.hide()
 
@@ -159,23 +149,48 @@ class Window(QMainWindow,PA_main_window_ui.Ui_MainWindow,):
         #Connect custom signals and slots
         self.connectSignalsSlots()
 
+    def set_custom_widgets(self):
+        """Add and configure custom widgets."""
+
+        #Measurement verifuer dialog
+        self.pa_verifier = PAVerifierDialog()
+
+        #Data viewer
+        self.data_viwer = DataViewer()
+        self.sw_central.addWidget(self.data_viwer)
+
+        #Log viewer
+        self.d_log = LoggerWidget()
+        self.addDockWidget(
+            Qt.DockWidgetArea.BottomDockWidgetArea,
+            self.d_log)
+        self.d_log.hide()
+
+        #Power Meter
+        #Parent in constructor makes it undocked by default
+        self.d_pm = PowerMeterWidget(self)
+        self.addDockWidget(
+            Qt.DockWidgetArea.RightDockWidgetArea,
+            self.d_pm
+        )
+        self.d_pm.hide()
+
     def connectSignalsSlots(self):
         """Connect signals and slots."""
 
         #logs
         self.q_logger.thread.log.connect(self.d_log.te_log.appendPlainText)
 
-        #backend functions
+        #Init
         self.action_Init.triggered.connect(self.init_hardware)
-        self.btn_pm_start.clicked.connect(self.track_power)
-        self.btn_pm_stop.clicked.connect(self.stop_track_power)
+
         self.btn_curve_run.clicked.connect(self.run_curve)
         self.btn_curve_measure.clicked.connect(self.measure_curve)
 
         #interface
         self.cb_mode_select.currentTextChanged.connect(self.upd_mode)
         self.btn_curve_run.toggled.connect(self.w_curve_measure.setVisible)
-        self.action_Data.toggled.connect(self.activate_data_viwer)
+        
         self.action_measure_PA.toggled.connect(self.activate_measure_widget)
         self.sb_curve_sample_sp.valueChanged.connect(
             lambda x: self.upd_sp(self.sb_curve_sample_sp)
@@ -183,8 +198,19 @@ class Window(QMainWindow,PA_main_window_ui.Ui_MainWindow,):
         self.sb_curve_pm_sp.valueChanged.connect(
             lambda x: self.upd_sp(self.sb_curve_pm_sp)
         )
+
+        #Data
+        self.action_Data.toggled.connect(self.activate_data_viwer)
+
+        #Logs
         self.action_Logs.toggled.connect(self.d_log.setVisible)
         self.d_log.visibilityChanged.connect(self.action_Logs.setChecked)
+
+        #PowerMeter
+        self.d_pm.btn_start.clicked.connect(self.track_power)
+        self.d_pm.btn_stop.clicked.connect(self.stop_track_power)
+        self.action_Power_Meter.toggled.connect(self.d_pm.setVisible)
+        self.d_pm.visibilityChanged.connect(self.action_Power_Meter.setChecked)
 
     def activate_data_viwer(self, activated: bool) -> None:
         """Toogle data viewer."""
@@ -416,11 +442,11 @@ class Window(QMainWindow,PA_main_window_ui.Ui_MainWindow,):
         ``std``: PlainQuantity - standart deviation of the measured data\n
         """
 
-        self.upd_plot(self.plot_pm_left, ydata=measurement['signal'])
-        self.upd_plot(self.plot_pm_right, ydata=measurement['data'])
-        self.le_cur_en.setText(self.form_quant(measurement['energy']))
-        self.le_aver_en.setText(self.form_quant(measurement['aver']))
-        self.le_std_en.setText(self.form_quant(measurement['std']))
+        self.upd_plot(self.d_pm.plot_left, ydata=measurement['signal'])
+        self.upd_plot(self.d_pm.plot_right, ydata=measurement['data'])
+        self.d_pm.le_cur_en.setText(self.form_quant(measurement['energy']))
+        self.d_pm.le_aver_en.setText(self.form_quant(measurement['aver']))
+        self.d_pm.le_std_en.setText(self.form_quant(measurement['std']))
     
     def form_quant(self, quant: PlainQuantity) -> str:
         """Format str representation of a quantity."""
@@ -578,6 +604,13 @@ class QLogHandler(logging.Handler):
 
 class LoggerWidget(QDockWidget, log_dock_widget_ui.Ui_d_log):
     """Logger dock widget."""
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setupUi(self)
+
+class PowerMeterWidget(QDockWidget, pm_dock_widget_ui.Ui_d_pm):
+    """Power meter dock widget."""
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)

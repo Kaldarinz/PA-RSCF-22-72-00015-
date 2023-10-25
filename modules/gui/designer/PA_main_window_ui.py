@@ -16,12 +16,11 @@ from PySide6.QtGui import (QAction, QBrush, QColor, QConicalGradient,
     QIcon, QImage, QKeySequence, QLinearGradient,
     QPainter, QPalette, QPixmap, QRadialGradient,
     QTransform)
-from PySide6.QtWidgets import (QAbstractSpinBox, QApplication, QComboBox, QDockWidget,
-    QFrame, QHBoxLayout, QLabel, QLineEdit,
-    QMainWindow, QMenu, QMenuBar, QProgressBar,
-    QPushButton, QSizePolicy, QSpacerItem, QSpinBox,
-    QStackedWidget, QStatusBar, QToolBar, QVBoxLayout,
-    QWidget)
+from PySide6.QtWidgets import (QAbstractSpinBox, QApplication, QComboBox, QFrame,
+    QHBoxLayout, QLabel, QMainWindow, QMenu,
+    QMenuBar, QProgressBar, QPushButton, QSizePolicy,
+    QSpacerItem, QSpinBox, QStackedWidget, QStatusBar,
+    QToolBar, QVBoxLayout, QWidget)
 
 from ..widgets import (MplCanvas, QuantSpinBox)
 from . import qt_resources_rc
@@ -30,7 +29,7 @@ class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
         if not MainWindow.objectName():
             MainWindow.setObjectName(u"MainWindow")
-        MainWindow.resize(1729, 857)
+        MainWindow.resize(1033, 570)
         sizePolicy = QSizePolicy(QSizePolicy.Expanding, QSizePolicy.Minimum)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
@@ -485,7 +484,7 @@ class Ui_MainWindow(object):
         MainWindow.setCentralWidget(self.centralwidget)
         self.menubar = QMenuBar(MainWindow)
         self.menubar.setObjectName(u"menubar")
-        self.menubar.setGeometry(QRect(0, 0, 1729, 21))
+        self.menubar.setGeometry(QRect(0, 0, 1033, 21))
         self.menu_Data = QMenu(self.menubar)
         self.menu_Data.setObjectName(u"menu_Data")
         self.menu_Hardware = QMenu(self.menubar)
@@ -509,115 +508,6 @@ class Ui_MainWindow(object):
         self.tb_tools = QToolBar(MainWindow)
         self.tb_tools.setObjectName(u"tb_tools")
         MainWindow.addToolBar(Qt.TopToolBarArea, self.tb_tools)
-        self.dock_pm = QDockWidget(MainWindow)
-        self.dock_pm.setObjectName(u"dock_pm")
-        self.dock_pm.setEnabled(True)
-        self.dock_pm.setMinimumSize(QSize(644, 250))
-        self.dock_pm.setAcceptDrops(True)
-        self.dock_pm.setFloating(True)
-        self.w_pm = QWidget()
-        self.w_pm.setObjectName(u"w_pm")
-        self.verticalLayout_2 = QVBoxLayout(self.w_pm)
-        self.verticalLayout_2.setSpacing(6)
-        self.verticalLayout_2.setObjectName(u"verticalLayout_2")
-        self.verticalLayout_2.setContentsMargins(0, 6, 0, 0)
-        self.horizontalLayout_9 = QHBoxLayout()
-        self.horizontalLayout_9.setObjectName(u"horizontalLayout_9")
-        self.lbl_cur_en = QLabel(self.w_pm)
-        self.lbl_cur_en.setObjectName(u"lbl_cur_en")
-
-        self.horizontalLayout_9.addWidget(self.lbl_cur_en)
-
-        self.le_cur_en = QLineEdit(self.w_pm)
-        self.le_cur_en.setObjectName(u"le_cur_en")
-        self.le_cur_en.setEnabled(True)
-        sizePolicy5 = QSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
-        sizePolicy5.setHorizontalStretch(0)
-        sizePolicy5.setVerticalStretch(0)
-        sizePolicy5.setHeightForWidth(self.le_cur_en.sizePolicy().hasHeightForWidth())
-        self.le_cur_en.setSizePolicy(sizePolicy5)
-        self.le_cur_en.setMinimumSize(QSize(70, 20))
-        self.le_cur_en.setMaximumSize(QSize(50, 16777215))
-        self.le_cur_en.setReadOnly(True)
-
-        self.horizontalLayout_9.addWidget(self.le_cur_en)
-
-        self.lbl_aver_en = QLabel(self.w_pm)
-        self.lbl_aver_en.setObjectName(u"lbl_aver_en")
-
-        self.horizontalLayout_9.addWidget(self.lbl_aver_en)
-
-        self.le_aver_en = QLineEdit(self.w_pm)
-        self.le_aver_en.setObjectName(u"le_aver_en")
-        self.le_aver_en.setEnabled(True)
-        sizePolicy5.setHeightForWidth(self.le_aver_en.sizePolicy().hasHeightForWidth())
-        self.le_aver_en.setSizePolicy(sizePolicy5)
-        self.le_aver_en.setMinimumSize(QSize(70, 20))
-        self.le_aver_en.setMaximumSize(QSize(50, 16777215))
-        self.le_aver_en.setReadOnly(True)
-
-        self.horizontalLayout_9.addWidget(self.le_aver_en)
-
-        self.lbl_std_en = QLabel(self.w_pm)
-        self.lbl_std_en.setObjectName(u"lbl_std_en")
-
-        self.horizontalLayout_9.addWidget(self.lbl_std_en)
-
-        self.le_std_en = QLineEdit(self.w_pm)
-        self.le_std_en.setObjectName(u"le_std_en")
-        self.le_std_en.setEnabled(True)
-        sizePolicy5.setHeightForWidth(self.le_std_en.sizePolicy().hasHeightForWidth())
-        self.le_std_en.setSizePolicy(sizePolicy5)
-        self.le_std_en.setMinimumSize(QSize(70, 20))
-        self.le_std_en.setMaximumSize(QSize(50, 16777215))
-        self.le_std_en.setReadOnly(True)
-
-        self.horizontalLayout_9.addWidget(self.le_std_en)
-
-        self.horizontalSpacer = QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum)
-
-        self.horizontalLayout_9.addItem(self.horizontalSpacer)
-
-        self.btn_pm_start = QPushButton(self.w_pm)
-        self.btn_pm_start.setObjectName(u"btn_pm_start")
-        self.btn_pm_start.setFont(font)
-
-        self.horizontalLayout_9.addWidget(self.btn_pm_start)
-
-        self.btn_pm_stop = QPushButton(self.w_pm)
-        self.btn_pm_stop.setObjectName(u"btn_pm_stop")
-        font1 = QFont()
-        font1.setBold(True)
-        font1.setUnderline(False)
-        font1.setStrikeOut(False)
-        self.btn_pm_stop.setFont(font1)
-
-        self.horizontalLayout_9.addWidget(self.btn_pm_stop)
-
-
-        self.verticalLayout_2.addLayout(self.horizontalLayout_9)
-
-        self.horizontalLayout_10 = QHBoxLayout()
-        self.horizontalLayout_10.setObjectName(u"horizontalLayout_10")
-        self.plot_pm_left = MplCanvas(self.w_pm)
-        self.plot_pm_left.setObjectName(u"plot_pm_left")
-        sizePolicy1.setHeightForWidth(self.plot_pm_left.sizePolicy().hasHeightForWidth())
-        self.plot_pm_left.setSizePolicy(sizePolicy1)
-
-        self.horizontalLayout_10.addWidget(self.plot_pm_left)
-
-        self.plot_pm_right = MplCanvas(self.w_pm)
-        self.plot_pm_right.setObjectName(u"plot_pm_right")
-        sizePolicy1.setHeightForWidth(self.plot_pm_right.sizePolicy().hasHeightForWidth())
-        self.plot_pm_right.setSizePolicy(sizePolicy1)
-
-        self.horizontalLayout_10.addWidget(self.plot_pm_right)
-
-
-        self.verticalLayout_2.addLayout(self.horizontalLayout_10)
-
-        self.dock_pm.setWidget(self.w_pm)
-        MainWindow.addDockWidget(Qt.LeftDockWidgetArea, self.dock_pm)
 
         self.menubar.addAction(self.menu_Data.menuAction())
         self.menubar.addAction(self.menu_Hardware.menuAction())
@@ -651,8 +541,6 @@ class Ui_MainWindow(object):
         self.tb_tools.addAction(self.action_Power_Meter)
 
         self.retranslateUi(MainWindow)
-        self.dock_pm.visibilityChanged.connect(self.action_Power_Meter.setChecked)
-        self.action_Power_Meter.toggled.connect(self.dock_pm.setVisible)
 
         self.sw_central.setCurrentIndex(1)
 
@@ -776,14 +664,5 @@ class Ui_MainWindow(object):
 #if QT_CONFIG(statustip)
         self.tb_tools.setStatusTip(QCoreApplication.translate("MainWindow", u"Tools", None))
 #endif // QT_CONFIG(statustip)
-#if QT_CONFIG(accessibility)
-        self.dock_pm.setAccessibleName("")
-#endif // QT_CONFIG(accessibility)
-        self.dock_pm.setWindowTitle(QCoreApplication.translate("MainWindow", u"Power Meter", None))
-        self.lbl_cur_en.setText(QCoreApplication.translate("MainWindow", u"Current Energy:", None))
-        self.lbl_aver_en.setText(QCoreApplication.translate("MainWindow", u"Average Energy:", None))
-        self.lbl_std_en.setText(QCoreApplication.translate("MainWindow", u"std Energy:", None))
-        self.btn_pm_start.setText(QCoreApplication.translate("MainWindow", u"START", None))
-        self.btn_pm_stop.setText(QCoreApplication.translate("MainWindow", u"STOP", None))
     # retranslateUi
 
