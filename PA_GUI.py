@@ -35,8 +35,8 @@ from PySide6.QtWidgets import (
     QComboBox,
     QSpinBox,
     QVBoxLayout,
-    QDialog,
-    QDockWidget
+    QTreeWidgetItem,
+    QFileDialog
 )
 from PySide6.QtGui import (
     QColor,
@@ -206,7 +206,7 @@ class Window(QMainWindow,Ui_MainWindow,):
         #logs
         self.q_logger.thread.log.connect(self.d_log.te_log.appendPlainText)
 
-        #Init
+        #Various actions
         self.action_Init.triggered.connect(self.init_hardware)
 
         #Mode selection
@@ -225,6 +225,7 @@ class Window(QMainWindow,Ui_MainWindow,):
 
         #Data
         self.action_Data.toggled.connect(self.activate_data_viwer)
+        self.action_Open.triggered.connect(self.open_file)
 
         #Logs
         self.action_Logs.toggled.connect(self.d_log.setVisible)
@@ -237,6 +238,45 @@ class Window(QMainWindow,Ui_MainWindow,):
         )
         self.action_Power_Meter.toggled.connect(self.d_pm.setVisible)
         self.d_pm.visibilityChanged.connect(self.action_Power_Meter.setChecked)
+
+    def open_file(self) -> None:
+        """Load data file."""
+
+        logger.debug('Start loading data...')
+        filename = self.get_filename()
+        self.data = PaData()
+        self.data.load(filename)
+        logger.info(f'Data with {len(self.data.raw_data)-1} PA '
+                    + 'measurements loaded!')
+        self.show_data(self.data)
+        
+
+    def show_data(self, data: PaData|None = None) -> None:
+        """Load data into data view widget."""
+
+        if data is None:
+            data = self.data
+
+        content = self.data_viwer.tv_content
+        content.clear()
+        param_name = data.attrs['parameter_name'][0]
+        version = data.attrs['version']
+        measurement = QTreeWidgetItem(content, (param_name))
+        version = QTreeWidgetItem(measurement,'Version', version)
+        
+
+    def get_filename(self) -> str:
+        """Launch a dialog to open a file."""
+
+        path = os.path.dirname(__file__)
+        initial_dir = os.path.join(path, 'measuring results')
+        filename = QFileDialog.getOpenFileName(
+            self,
+            caption='Choose a file',
+            dir=initial_dir,
+            filter='Hierarchical Data Format (*.hdf5)'
+        )[0]
+        return filename
 
     def activate_data_viwer(self, activated: bool) -> None:
         """Toogle data viewer."""

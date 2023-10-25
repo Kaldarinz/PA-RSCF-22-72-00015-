@@ -16,17 +16,14 @@ from PySide6.QtGui import (QBrush, QColor, QConicalGradient, QCursor,
     QImage, QKeySequence, QLinearGradient, QPainter,
     QPalette, QPixmap, QRadialGradient, QTransform)
 from PySide6.QtWidgets import (QApplication, QHBoxLayout, QHeaderView, QLabel,
-    QListWidget, QListWidgetItem, QSizePolicy, QSplitter,
-    QStackedWidget, QTreeWidget, QTreeWidgetItem, QVBoxLayout,
-    QWidget)
-
-from ..widgets import MplCanvas
+    QSizePolicy, QSplitter, QStackedWidget, QTreeWidget,
+    QTreeWidgetItem, QVBoxLayout, QWidget)
 
 class Ui_Form(object):
     def setupUi(self, Form):
         if not Form.objectName():
             Form.setObjectName(u"Form")
-        Form.resize(1152, 230)
+        Form.resize(1152, 866)
         self.horizontalLayout = QHBoxLayout(Form)
         self.horizontalLayout.setObjectName(u"horizontalLayout")
         self.horizontalLayout.setContentsMargins(0, 0, 0, 0)
@@ -45,99 +42,87 @@ class Ui_Form(object):
         self.verticalLayout_2 = QVBoxLayout(self.w_content)
         self.verticalLayout_2.setObjectName(u"verticalLayout_2")
         self.verticalLayout_2.setContentsMargins(0, 0, 0, 0)
-        self.label = QLabel(self.w_content)
-        self.label.setObjectName(u"label")
+        self.lbl_content_title = QLabel(self.w_content)
+        self.lbl_content_title.setObjectName(u"lbl_content_title")
         font = QFont()
         font.setBold(True)
-        self.label.setFont(font)
-        self.label.setAlignment(Qt.AlignCenter)
+        self.lbl_content_title.setFont(font)
+        self.lbl_content_title.setAlignment(Qt.AlignCenter)
 
-        self.verticalLayout_2.addWidget(self.label)
+        self.verticalLayout_2.addWidget(self.lbl_content_title)
 
-        self.listWidget = QListWidget(self.w_content)
-        QListWidgetItem(self.listWidget)
-        QListWidgetItem(self.listWidget)
-        QListWidgetItem(self.listWidget)
-        QListWidgetItem(self.listWidget)
-        QListWidgetItem(self.listWidget)
-        self.listWidget.setObjectName(u"listWidget")
+        self.tv_content = QTreeWidget(self.w_content)
+        self.tv_content.setObjectName(u"tv_content")
+        sizePolicy1 = QSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding)
+        sizePolicy1.setHorizontalStretch(0)
+        sizePolicy1.setVerticalStretch(0)
+        sizePolicy1.setHeightForWidth(self.tv_content.sizePolicy().hasHeightForWidth())
+        self.tv_content.setSizePolicy(sizePolicy1)
 
-        self.verticalLayout_2.addWidget(self.listWidget)
+        self.verticalLayout_2.addWidget(self.tv_content)
 
         self.splitter.addWidget(self.w_content)
         self.w_view = QWidget(self.splitter)
         self.w_view.setObjectName(u"w_view")
-        sizePolicy1 = QSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
-        sizePolicy1.setHorizontalStretch(65)
-        sizePolicy1.setVerticalStretch(0)
-        sizePolicy1.setHeightForWidth(self.w_view.sizePolicy().hasHeightForWidth())
-        self.w_view.setSizePolicy(sizePolicy1)
+        sizePolicy2 = QSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
+        sizePolicy2.setHorizontalStretch(65)
+        sizePolicy2.setVerticalStretch(0)
+        sizePolicy2.setHeightForWidth(self.w_view.sizePolicy().hasHeightForWidth())
+        self.w_view.setSizePolicy(sizePolicy2)
         self.verticalLayout_3 = QVBoxLayout(self.w_view)
         self.verticalLayout_3.setObjectName(u"verticalLayout_3")
         self.verticalLayout_3.setContentsMargins(0, 0, 0, 0)
-        self.label_3 = QLabel(self.w_view)
-        self.label_3.setObjectName(u"label_3")
-        self.label_3.setFont(font)
-        self.label_3.setAlignment(Qt.AlignCenter)
+        self.lbl_data_title = QLabel(self.w_view)
+        self.lbl_data_title.setObjectName(u"lbl_data_title")
+        self.lbl_data_title.setFont(font)
+        self.lbl_data_title.setAlignment(Qt.AlignCenter)
 
-        self.verticalLayout_3.addWidget(self.label_3)
+        self.verticalLayout_3.addWidget(self.lbl_data_title)
 
         self.sw_view = QStackedWidget(self.w_view)
         self.sw_view.setObjectName(u"sw_view")
-        sizePolicy2 = QSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
-        sizePolicy2.setHorizontalStretch(0)
-        sizePolicy2.setVerticalStretch(0)
-        sizePolicy2.setHeightForWidth(self.sw_view.sizePolicy().hasHeightForWidth())
-        self.sw_view.setSizePolicy(sizePolicy2)
-        self.p_0d = MplCanvas()
-        self.p_0d.setObjectName(u"p_0d")
-        sizePolicy2.setHeightForWidth(self.p_0d.sizePolicy().hasHeightForWidth())
-        self.p_0d.setSizePolicy(sizePolicy2)
-        self.p_0d.setMinimumSize(QSize(0, 0))
-        self.sw_view.addWidget(self.p_0d)
-        self.p_1d = QWidget()
-        self.p_1d.setObjectName(u"p_1d")
-        self.sw_view.addWidget(self.p_1d)
-        self.p_2d = QWidget()
-        self.p_2d.setObjectName(u"p_2d")
-        self.sw_view.addWidget(self.p_2d)
+        sizePolicy3 = QSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        sizePolicy3.setHorizontalStretch(0)
+        sizePolicy3.setVerticalStretch(0)
+        sizePolicy3.setHeightForWidth(self.sw_view.sizePolicy().hasHeightForWidth())
+        self.sw_view.setSizePolicy(sizePolicy3)
+        self.page = QWidget()
+        self.page.setObjectName(u"page")
+        self.sw_view.addWidget(self.page)
+        self.page_2 = QWidget()
+        self.page_2.setObjectName(u"page_2")
+        self.sw_view.addWidget(self.page_2)
 
         self.verticalLayout_3.addWidget(self.sw_view)
 
         self.splitter.addWidget(self.w_view)
         self.w_info = QWidget(self.splitter)
         self.w_info.setObjectName(u"w_info")
-        sizePolicy3 = QSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
-        sizePolicy3.setHorizontalStretch(20)
-        sizePolicy3.setVerticalStretch(0)
-        sizePolicy3.setHeightForWidth(self.w_info.sizePolicy().hasHeightForWidth())
-        self.w_info.setSizePolicy(sizePolicy3)
+        sizePolicy4 = QSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
+        sizePolicy4.setHorizontalStretch(20)
+        sizePolicy4.setVerticalStretch(0)
+        sizePolicy4.setHeightForWidth(self.w_info.sizePolicy().hasHeightForWidth())
+        self.w_info.setSizePolicy(sizePolicy4)
         self.verticalLayout = QVBoxLayout(self.w_info)
         self.verticalLayout.setObjectName(u"verticalLayout")
         self.verticalLayout.setContentsMargins(0, 0, 0, 0)
-        self.label_2 = QLabel(self.w_info)
-        self.label_2.setObjectName(u"label_2")
-        self.label_2.setFont(font)
-        self.label_2.setAlignment(Qt.AlignCenter)
+        self.lbl_info_title = QLabel(self.w_info)
+        self.lbl_info_title.setObjectName(u"lbl_info_title")
+        self.lbl_info_title.setFont(font)
+        self.lbl_info_title.setAlignment(Qt.AlignCenter)
 
-        self.verticalLayout.addWidget(self.label_2)
+        self.verticalLayout.addWidget(self.lbl_info_title)
 
-        self.treeWidget = QTreeWidget(self.w_info)
-        __qtreewidgetitem = QTreeWidgetItem(self.treeWidget)
+        self.tv_info = QTreeWidget(self.w_info)
+        __qtreewidgetitem = QTreeWidgetItem(self.tv_info)
         QTreeWidgetItem(__qtreewidgetitem)
-        QTreeWidgetItem(self.treeWidget)
-        __qtreewidgetitem1 = QTreeWidgetItem(self.treeWidget)
-        QTreeWidgetItem(__qtreewidgetitem1)
-        self.treeWidget.setObjectName(u"treeWidget")
-        sizePolicy4 = QSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding)
-        sizePolicy4.setHorizontalStretch(0)
-        sizePolicy4.setVerticalStretch(0)
-        sizePolicy4.setHeightForWidth(self.treeWidget.sizePolicy().hasHeightForWidth())
-        self.treeWidget.setSizePolicy(sizePolicy4)
-        self.treeWidget.setMinimumSize(QSize(200, 0))
-        self.treeWidget.setAnimated(True)
+        self.tv_info.setObjectName(u"tv_info")
+        sizePolicy1.setHeightForWidth(self.tv_info.sizePolicy().hasHeightForWidth())
+        self.tv_info.setSizePolicy(sizePolicy1)
+        self.tv_info.setMinimumSize(QSize(200, 0))
+        self.tv_info.setAnimated(True)
 
-        self.verticalLayout.addWidget(self.treeWidget)
+        self.verticalLayout.addWidget(self.tv_info)
 
         self.splitter.addWidget(self.w_info)
 
@@ -151,43 +136,23 @@ class Ui_Form(object):
 
     def retranslateUi(self, Form):
         Form.setWindowTitle(QCoreApplication.translate("Form", u"Form", None))
-        self.label.setText(QCoreApplication.translate("Form", u"Measurements", None))
+        self.lbl_content_title.setText(QCoreApplication.translate("Form", u"Measurements", None))
+        ___qtreewidgetitem = self.tv_content.headerItem()
+        ___qtreewidgetitem.setText(0, QCoreApplication.translate("Form", u"Caption", None));
+        self.lbl_data_title.setText(QCoreApplication.translate("Form", u"Data", None))
+        self.lbl_info_title.setText(QCoreApplication.translate("Form", u"Information", None))
+        ___qtreewidgetitem1 = self.tv_info.headerItem()
+        ___qtreewidgetitem1.setText(1, QCoreApplication.translate("Form", u"Value", None));
+        ___qtreewidgetitem1.setText(0, QCoreApplication.translate("Form", u"Parameter", None));
 
-        __sortingEnabled = self.listWidget.isSortingEnabled()
-        self.listWidget.setSortingEnabled(False)
-        ___qlistwidgetitem = self.listWidget.item(0)
-        ___qlistwidgetitem.setText(QCoreApplication.translate("Form", u"New Item", None));
-        ___qlistwidgetitem1 = self.listWidget.item(1)
-        ___qlistwidgetitem1.setText(QCoreApplication.translate("Form", u"New Item", None));
-        ___qlistwidgetitem2 = self.listWidget.item(2)
-        ___qlistwidgetitem2.setText(QCoreApplication.translate("Form", u"New Item", None));
-        ___qlistwidgetitem3 = self.listWidget.item(3)
-        ___qlistwidgetitem3.setText(QCoreApplication.translate("Form", u"New Item", None));
-        ___qlistwidgetitem4 = self.listWidget.item(4)
-        ___qlistwidgetitem4.setText(QCoreApplication.translate("Form", u"New Item", None));
-        self.listWidget.setSortingEnabled(__sortingEnabled)
-
-        self.label_3.setText(QCoreApplication.translate("Form", u"Data", None))
-        self.label_2.setText(QCoreApplication.translate("Form", u"Information", None))
-        ___qtreewidgetitem = self.treeWidget.headerItem()
-        ___qtreewidgetitem.setText(1, QCoreApplication.translate("Form", u"Value", None));
-        ___qtreewidgetitem.setText(0, QCoreApplication.translate("Form", u"Parameter", None));
-
-        __sortingEnabled1 = self.treeWidget.isSortingEnabled()
-        self.treeWidget.setSortingEnabled(False)
-        ___qtreewidgetitem1 = self.treeWidget.topLevelItem(0)
-        ___qtreewidgetitem1.setText(0, QCoreApplication.translate("Form", u"New Item", None));
-        ___qtreewidgetitem2 = ___qtreewidgetitem1.child(0)
-        ___qtreewidgetitem2.setText(1, QCoreApplication.translate("Form", u"wra", None));
-        ___qtreewidgetitem2.setText(0, QCoreApplication.translate("Form", u"New Item", None));
-        ___qtreewidgetitem3 = self.treeWidget.topLevelItem(1)
-        ___qtreewidgetitem3.setText(0, QCoreApplication.translate("Form", u"New Item", None));
-        ___qtreewidgetitem4 = self.treeWidget.topLevelItem(2)
-        ___qtreewidgetitem4.setText(0, QCoreApplication.translate("Form", u"New Item", None));
-        ___qtreewidgetitem5 = ___qtreewidgetitem4.child(0)
-        ___qtreewidgetitem5.setText(1, QCoreApplication.translate("Form", u"rewr", None));
-        ___qtreewidgetitem5.setText(0, QCoreApplication.translate("Form", u"New Subitem", None));
-        self.treeWidget.setSortingEnabled(__sortingEnabled1)
+        __sortingEnabled = self.tv_info.isSortingEnabled()
+        self.tv_info.setSortingEnabled(False)
+        ___qtreewidgetitem2 = self.tv_info.topLevelItem(0)
+        ___qtreewidgetitem2.setText(0, QCoreApplication.translate("Form", u"Group1", None));
+        ___qtreewidgetitem3 = ___qtreewidgetitem2.child(0)
+        ___qtreewidgetitem3.setText(1, QCoreApplication.translate("Form", u"value1", None));
+        ___qtreewidgetitem3.setText(0, QCoreApplication.translate("Form", u"Param1", None));
+        self.tv_info.setSortingEnabled(__sortingEnabled)
 
     # retranslateUi
 

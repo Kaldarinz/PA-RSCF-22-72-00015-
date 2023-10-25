@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>1152</width>
-    <height>230</height>
+    <height>866</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -58,7 +58,7 @@
         <number>0</number>
        </property>
        <item>
-        <widget class="QLabel" name="label">
+        <widget class="QLabel" name="lbl_content_title">
          <property name="font">
           <font>
            <weight>75</weight>
@@ -74,32 +74,18 @@
         </widget>
        </item>
        <item>
-        <widget class="QListWidget" name="listWidget">
-         <item>
+        <widget class="QTreeWidget" name="tv_content">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Preferred" vsizetype="Expanding">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+         <column>
           <property name="text">
-           <string>New Item</string>
+           <string>Caption</string>
           </property>
-         </item>
-         <item>
-          <property name="text">
-           <string>New Item</string>
-          </property>
-         </item>
-         <item>
-          <property name="text">
-           <string>New Item</string>
-          </property>
-         </item>
-         <item>
-          <property name="text">
-           <string>New Item</string>
-          </property>
-         </item>
-         <item>
-          <property name="text">
-           <string>New Item</string>
-          </property>
-         </item>
+         </column>
         </widget>
        </item>
       </layout>
@@ -125,7 +111,7 @@
         <number>0</number>
        </property>
        <item>
-        <widget class="QLabel" name="label_3">
+        <widget class="QLabel" name="lbl_data_title">
          <property name="font">
           <font>
            <weight>75</weight>
@@ -148,22 +134,8 @@
            <verstretch>0</verstretch>
           </sizepolicy>
          </property>
-         <widget class="MplCanvas" name="p_0d">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-          <property name="minimumSize">
-           <size>
-            <width>0</width>
-            <height>0</height>
-           </size>
-          </property>
-         </widget>
-         <widget class="QWidget" name="p_1d"/>
-         <widget class="QWidget" name="p_2d"/>
+         <widget class="QWidget" name="page"/>
+         <widget class="QWidget" name="page_2"/>
         </widget>
        </item>
       </layout>
@@ -189,7 +161,7 @@
         <number>0</number>
        </property>
        <item>
-        <widget class="QLabel" name="label_2">
+        <widget class="QLabel" name="lbl_info_title">
          <property name="font">
           <font>
            <weight>75</weight>
@@ -205,7 +177,7 @@
         </widget>
        </item>
        <item>
-        <widget class="QTreeWidget" name="treeWidget">
+        <widget class="QTreeWidget" name="tv_info">
          <property name="sizePolicy">
           <sizepolicy hsizetype="Preferred" vsizetype="Expanding">
            <horstretch>0</horstretch>
@@ -233,38 +205,17 @@
          </column>
          <item>
           <property name="text">
-           <string>New Item</string>
+           <string>Group1</string>
           </property>
           <property name="text">
            <string/>
           </property>
           <item>
            <property name="text">
-            <string>New Item</string>
+            <string>Param1</string>
            </property>
            <property name="text">
-            <string>wra</string>
-           </property>
-          </item>
-         </item>
-         <item>
-          <property name="text">
-           <string>New Item</string>
-          </property>
-          <property name="text">
-           <string/>
-          </property>
-         </item>
-         <item>
-          <property name="text">
-           <string>New Item</string>
-          </property>
-          <item>
-           <property name="text">
-            <string>New Subitem</string>
-           </property>
-           <property name="text">
-            <string>rewr</string>
+            <string>value1</string>
            </property>
           </item>
          </item>
@@ -276,14 +227,6 @@
    </item>
   </layout>
  </widget>
- <customwidgets>
-  <customwidget>
-   <class>MplCanvas</class>
-   <extends>QWidget</extends>
-   <header>..widgets</header>
-   <container>1</container>
-  </customwidget>
- </customwidgets>
  <resources/>
  <connections/>
 </ui>

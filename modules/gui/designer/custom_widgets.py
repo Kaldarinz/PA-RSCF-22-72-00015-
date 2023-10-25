@@ -17,7 +17,8 @@ from . import (
     point_measure_widget_ui,
     curve_measure_widget_ui,
     map_measure_widget_ui,
-    power_meter_monitor_ui
+    power_meter_monitor_ui,
+    curve_data_view_ui
 )
 
 
@@ -34,6 +35,9 @@ class DataViewer(QWidget, data_viewer_ui.Ui_Form):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setupUi(self)
+        self.p_1d = CurveView(self)
+        self.sw_view.addWidget(self.p_1d)
+        self.sw_view.setCurrentWidget(self.p_1d)
 
 class LoggerWidget(QDockWidget, log_dock_widget_ui.Ui_d_log):
     """Logger dock widget."""
@@ -81,7 +85,18 @@ class MapMeasureWidget(QWidget,map_measure_widget_ui.Ui_Form):
         self.setupUi(self)
 
 class PowerMeterMonitor(QWidget,power_meter_monitor_ui.Ui_pm_monitor):
-    """2D PhotoAcoustic measurements widget."""
+    """Power meter monitor.
+    
+    Contains to plot areas:\n
+    ``plot_left`` and ``plot_right``.
+    """
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setupUi(self)
+
+class CurveView(QWidget,curve_data_view_ui.Ui_Form):
+    """Plots for 1D data."""
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
