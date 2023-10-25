@@ -26,7 +26,7 @@ class Ui_Form(object):
     def setupUi(self, Form):
         if not Form.objectName():
             Form.setObjectName(u"Form")
-        Form.resize(1152, 804)
+        Form.resize(1152, 230)
         self.horizontalLayout = QHBoxLayout(Form)
         self.horizontalLayout.setObjectName(u"horizontalLayout")
         self.horizontalLayout.setContentsMargins(0, 0, 0, 0)
@@ -55,6 +55,11 @@ class Ui_Form(object):
         self.verticalLayout_2.addWidget(self.label)
 
         self.listWidget = QListWidget(self.w_content)
+        QListWidgetItem(self.listWidget)
+        QListWidgetItem(self.listWidget)
+        QListWidgetItem(self.listWidget)
+        QListWidgetItem(self.listWidget)
+        QListWidgetItem(self.listWidget)
         self.listWidget.setObjectName(u"listWidget")
 
         self.verticalLayout_2.addWidget(self.listWidget)
@@ -147,13 +152,28 @@ class Ui_Form(object):
     def retranslateUi(self, Form):
         Form.setWindowTitle(QCoreApplication.translate("Form", u"Form", None))
         self.label.setText(QCoreApplication.translate("Form", u"Measurements", None))
+
+        __sortingEnabled = self.listWidget.isSortingEnabled()
+        self.listWidget.setSortingEnabled(False)
+        ___qlistwidgetitem = self.listWidget.item(0)
+        ___qlistwidgetitem.setText(QCoreApplication.translate("Form", u"New Item", None));
+        ___qlistwidgetitem1 = self.listWidget.item(1)
+        ___qlistwidgetitem1.setText(QCoreApplication.translate("Form", u"New Item", None));
+        ___qlistwidgetitem2 = self.listWidget.item(2)
+        ___qlistwidgetitem2.setText(QCoreApplication.translate("Form", u"New Item", None));
+        ___qlistwidgetitem3 = self.listWidget.item(3)
+        ___qlistwidgetitem3.setText(QCoreApplication.translate("Form", u"New Item", None));
+        ___qlistwidgetitem4 = self.listWidget.item(4)
+        ___qlistwidgetitem4.setText(QCoreApplication.translate("Form", u"New Item", None));
+        self.listWidget.setSortingEnabled(__sortingEnabled)
+
         self.label_3.setText(QCoreApplication.translate("Form", u"Data", None))
         self.label_2.setText(QCoreApplication.translate("Form", u"Information", None))
         ___qtreewidgetitem = self.treeWidget.headerItem()
         ___qtreewidgetitem.setText(1, QCoreApplication.translate("Form", u"Value", None));
         ___qtreewidgetitem.setText(0, QCoreApplication.translate("Form", u"Parameter", None));
 
-        __sortingEnabled = self.treeWidget.isSortingEnabled()
+        __sortingEnabled1 = self.treeWidget.isSortingEnabled()
         self.treeWidget.setSortingEnabled(False)
         ___qtreewidgetitem1 = self.treeWidget.topLevelItem(0)
         ___qtreewidgetitem1.setText(0, QCoreApplication.translate("Form", u"New Item", None));
@@ -167,7 +187,7 @@ class Ui_Form(object):
         ___qtreewidgetitem5 = ___qtreewidgetitem4.child(0)
         ___qtreewidgetitem5.setText(1, QCoreApplication.translate("Form", u"rewr", None));
         ___qtreewidgetitem5.setText(0, QCoreApplication.translate("Form", u"New Subitem", None));
-        self.treeWidget.setSortingEnabled(__sortingEnabled)
+        self.treeWidget.setSortingEnabled(__sortingEnabled1)
 
     # retranslateUi
 

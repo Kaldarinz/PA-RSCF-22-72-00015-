@@ -64,7 +64,11 @@ from modules.gui.designer.custom_widgets import (
     PAVerifierDialog,
     DataViewer,
     LoggerWidget,
-    PowerMeterWidget
+    PowerMeterWidget,
+    PointMeasureWidget,
+    CurveMeasureWidget,
+    MapMeasureWidget,
+    PowerMeterMonitor
 )
 
 
@@ -130,28 +134,18 @@ class Window(QMainWindow,Ui_MainWindow,):
         #Threadpool
         self.pool = QThreadPool()
 
-        self.set_custom_widgets()
-        
-        self.w_curve_measure.hide()
-
-        #Set mode selection combo box
-        self.set_mode_selector()
+        self.set_widgets()
 
         #Set layout for central widget
         #By some reason it is not possible to set in designer
-        self.clayout = QVBoxLayout()
-        self.clayout.addWidget(self.sw_central)
-        self.centralwidget.setLayout(self.clayout)
-
-        #Set initial values
-        self.plot_curve_adjust.sp = self.sb_curve_sample_sp.quantity
-        self.upd_sp(self.sb_curve_sample_sp)
-        self.upd_mode(self.cb_mode_select.currentText())
+        # self.clayout = QVBoxLayout()
+        # self.clayout.addWidget(self.sw_central)
+        # self.centralwidget.setLayout(self.clayout)
 
         #Connect custom signals and slots
         self.connectSignalsSlots()
 
-    def set_custom_widgets(self):
+    def set_widgets(self):
         """Add and configure custom widgets."""
 
         #Measurement verifuer dialog
@@ -168,14 +162,43 @@ class Window(QMainWindow,Ui_MainWindow,):
             self.d_log)
         self.d_log.hide()
 
-        #Power Meter
-        #Parent in constructor makes it undocked by default
+        # Power Meter
+        # Set parent in constructor makes 
+        # dock widget undocked by default
         self.d_pm = PowerMeterWidget(self)
         self.addDockWidget(
             Qt.DockWidgetArea.RightDockWidgetArea,
             self.d_pm
         )
         self.d_pm.hide()
+
+        # 0D measurements
+        self.p_point = PointMeasureWidget(self.sw_central)
+        self.sw_central.addWidget(self.p_point)
+
+        # 1D measurements
+        self.p_curve = CurveMeasureWidget(self.sw_central)
+        self.sw_central.addWidget(self.p_curve)
+        self.p_curve.w_measure.hide()
+        setpoint = self.p_curve.sb_sample_sp.quantity
+        self.p_curve.pm_monitor.plot_right.sp = setpoint
+        self.upd_sp(self.p_curve.sb_sample_sp)
+
+        # 2D measurements
+        self.p_map = MapMeasureWidget(self.sw_central)
+        self.sw_central.addWidget(self.p_map)
+
+        # Scan mode selector
+        cb = QComboBox()
+        cb.addItems(
+            ('Single point', 'Curve', 'Map')
+        )
+        cb.setEditable(False)
+        cb.setCurrentIndex(self.sw_central.currentIndex())
+        self.upd_mode(cb.currentText())
+        self.tb_mode.addWidget(cb)
+        self.cb_mode_select = cb
+        self.upd_mode(self.cb_mode_select.currentText())
 
     def connectSignalsSlots(self):
         """Connect signals and slots."""
@@ -186,19 +209,18 @@ class Window(QMainWindow,Ui_MainWindow,):
         #Init
         self.action_Init.triggered.connect(self.init_hardware)
 
-        self.btn_curve_run.clicked.connect(self.run_curve)
-        self.btn_curve_measure.clicked.connect(self.measure_curve)
-
-        #interface
+        #Mode selection
         self.cb_mode_select.currentTextChanged.connect(self.upd_mode)
-        self.btn_curve_run.toggled.connect(self.w_curve_measure.setVisible)
-        
         self.action_measure_PA.toggled.connect(self.activate_measure_widget)
-        self.sb_curve_sample_sp.valueChanged.connect(
-            lambda x: self.upd_sp(self.sb_curve_sample_sp)
+
+        #1D measurements
+        self.p_curve.btn_run.toggled.connect(self.run_curve)
+        self.p_curve.btn_measure.clicked.connect(self.measure_curve)
+        self.p_curve.sb_sample_sp.valueChanged.connect(
+            lambda x: self.upd_sp(self.p_curve.sb_sample_sp)
         )
-        self.sb_curve_pm_sp.valueChanged.connect(
-            lambda x: self.upd_sp(self.sb_curve_pm_sp)
+        self.p_curve.sb_pm_sp.valueChanged.connect(
+            lambda x: self.upd_sp(self.p_curve.sb_pm_sp)
         )
 
         #Data
@@ -210,7 +232,9 @@ class Window(QMainWindow,Ui_MainWindow,):
 
         #PowerMeter
         self.d_pm.btn_start.clicked.connect(self.track_power)
-        self.d_pm.btn_stop.clicked.connect(self.stop_track_power)
+        self.d_pm.btn_stop.clicked.connect(
+            lambda x: self.stop_worker(self.worker_pm)
+        )
         self.action_Power_Meter.toggled.connect(self.d_pm.setVisible)
         self.d_pm.visibilityChanged.connect(self.action_Power_Meter.setChecked)
 
@@ -238,7 +262,7 @@ class Window(QMainWindow,Ui_MainWindow,):
         if self.worker_curve_adj is not None:
             self.worker_curve_adj.kwargs['flags']['is_running'] = False
 
-        wl = self.sb_curve_cur_param.quantity
+        wl = self.p_curve.sb_cur_param.quantity
         worker = Worker(pa_logic._measure_point, wl)
         worker.signals.result.connect(self.verify_measurement)
         self.pool.start(worker)
@@ -274,47 +298,62 @@ class Window(QMainWindow,Ui_MainWindow,):
         )
         print(self.pa_verifier.exec())
 
-    def run_curve(self) -> None:
+    def run_curve(self, activated: bool) -> None:
         """
         Start 1D measurement.
         
         Launch energy adjustment.\n
-        Set ``step`` and ``spectral_points`` attributes.
+        Set ``p_curve.step`` and ``p_curve.spectral_points`` attributes.
         Also set progress bar and realted widgets.
         """
 
+        self.p_curve.w_measure.setVisible(activated)
+
+        page = self.p_curve
         #launch energy adjustment
-        if self.worker_curve_adj is None:
-            self.worker_curve_adj = Worker(pa_logic.track_power)
-            self.worker_curve_adj.signals.progess.connect(self.upd_curve_adj)
-            self.pool.start(self.worker_curve_adj)
+        if activated:
+            print(self.worker_curve_adj)
+            if self.worker_curve_adj is None:
+                self.worker_curve_adj = Worker(pa_logic.track_power)
+                self.worker_curve_adj.signals.progess.connect(
+                    lambda measure: self.upd_measure_monitor(
+                        page,
+                        measure
+                    )
+                )
+                self.pool.start(self.worker_curve_adj)
 
-        #set progress bar and related widgets
-        param_start = self.sb_curve_from.quantity
-        param_end = self.sb_curve_to.quantity
-        step = self.sb_curve_step.quantity
-        delta = abs(param_end-param_start)
-        if delta%step:
-            spectral_points = int(delta/step) + 2
+            #set progress bar and related widgets
+            param_start = page.sb_from.quantity
+            param_end = page.sb_to.quantity
+            step = page.sb_step.quantity
+            delta = abs(param_end-param_start)
+            if delta%step:
+                spectral_points = int(delta/step) + 2
+            else:
+                spectral_points = int(delta/step) + 1
+            page.pb.setValue(0)
+            page.lbl_pb.setText(f'0/{spectral_points}')
+            page.spectral_points = spectral_points
+
+            if param_start < param_end:
+                page.sb_cur_param.setMinimum(param_start.m)
+                page.sb_cur_param.setMaximum(param_end.m)
+                page.step = step
+            else:
+                page.sb_cur_param.setMinimum(param_end.m)
+                page.sb_cur_param.setMaximum(param_start.m)
+                page.step = -step
+            page.sb_cur_param.quantity = page.sb_from.quantity
         else:
-            spectral_points = int(delta/step) + 1
-        self.pb_curve.setValue(0)
-        self.lbl_curve_progr.setText(f'0/{spectral_points}')
-        self.spectral_points = spectral_points
+            self.stop_worker(self.worker_curve_adj)
 
-        if param_start < param_end:
-            self.sb_curve_cur_param.setMinimum(param_start.m)
-            self.sb_curve_cur_param.setMaximum(param_end.m)
-            self.step = step
-        else:
-            self.sb_curve_cur_param.setMinimum(param_end.m)
-            self.sb_curve_cur_param.setMaximum(param_start.m)
-            self.step = -step
-        self.sb_curve_cur_param.quantity = self.sb_curve_from.quantity
-
-    def upd_curve_adj(self, measurement: dict) -> None:
+    def upd_measure_monitor(
+            self,
+            page: CurveMeasureWidget,
+            measurement: dict) -> None:
         """
-        Update information on measure widgets and adj plots.
+        Update ``monitor`` widget.
 
         Expect that ``measurement`` match return of 
         ``pa_logic.track_power``, i.e. it should contain:\n 
@@ -334,62 +373,58 @@ class Window(QMainWindow,Ui_MainWindow,):
         if sample_energy is None:
             logger.warning('Sample energy cannot be calculated')
             sample_energy = Q_(-1, 'uJ')
-        self.sb_curve_pm_energy.quantity = pm_energy
-        self.sb_curve_sample_energy.quantity = sample_energy
-        self.upd_plot(self.plot_curve_signal, ydata=measurement['signal'])
-        self.upd_plot(self.plot_curve_adjust, ydata=measurement['data'])
+        page.sb_pm_en.quantity = pm_energy
+        page.sb_sample_en.quantity = sample_energy
+        self.upd_plot(
+            page.pm_monitor.plot_left,
+            ydata=measurement['signal']
+        )
+        self.upd_plot(
+            page.pm_monitor.plot_right,
+            ydata=measurement['data']
+        )
 
     def upd_sp(self, caller: QuantSpinBox) -> None:
-        """Update Set Point data for currently active page"""
+        """Update Set Point data for currently active page."""
 
         #Curve
-        if self.sw_central.currentIndex() == 1:
-            if caller == self.sb_curve_sample_sp:
-                new_sp = pa_logic.glan_calc_reverse(caller.quantity).to('uJ')
-                if new_sp.m > self.sb_curve_pm_sp.maximum():
-                    new_sp.m = self.sb_curve_pm_sp.maximum()
-                #prevent infinite mutual update
-                self.sb_curve_pm_sp.blockSignals(True)
-                self.sb_curve_pm_sp.quantity = new_sp
-                self.sb_curve_pm_sp.blockSignals(False)
+        if self.sw_central.currentWidget() == self.p_curve:
+            page = self.p_curve
+            if caller == page.sb_sample_sp:
+                new_sp = pa_logic.glan_calc_reverse(caller.quantity)
+                self.set_spinbox_silent(page.sb_pm_sp, new_sp)
                    
-            elif caller == self.sb_curve_pm_sp:
-                new_sp = pa_logic.glan_calc(caller.quantity).to('uJ')
-                if new_sp.m > self.sb_curve_sample_sp.maximum():
-                    new_sp.m = self.sb_curve_sample_sp.maximum()
-                #prevent infinite mutual update
-                self.sb_curve_sample_sp.blockSignals(True)
-                self.sb_curve_sample_sp.quantity = new_sp
-                self.sb_curve_sample_sp.blockSignals(False)
+            elif caller == page.sb_pm_sp:
+                new_sp = pa_logic.glan_calc(caller.quantity)
+                self.set_spinbox_silent(page.sb_sample_sp, new_sp)
                     
-            self.plot_curve_adjust.sp = caller.quantity
+            page.plot_adjust.sp = caller.quantity
                 
+    def set_spinbox_silent(
+            self,
+            sb: QuantSpinBox,
+            value: PlainQuantity
+        ) -> None:
+        """Set ``value`` to ``sb`` without firing events."""
+
+        sb.blockSignals(True)
+        sb.quantity = value.to(sb.quantity.u)
+        sb.blockSignals(False)
+
     def upd_mode(self, value: str) -> None:
         """Change sw_main for current measuring mode."""
 
         if value == 'Single point':
-            self.sw_central.setCurrentIndex(0)
+            self.sw_central.setCurrentWidget(self.p_point)
         elif value == 'Curve':
-            self.sw_central.setCurrentIndex(1)
+            self.sw_central.setCurrentWidget(self.p_curve)
         elif value == 'Map':
-            self.sw_central.setCurrentIndex(2)
+            self.sw_central.setCurrentWidget(self.p_map)
         else:
             logger.warning(f'Unsupported mode selected: {value}')
 
         self.action_measure_PA.setChecked(True)
         self.action_Data.setChecked(False)
-    
-    def set_mode_selector(self):
-        """Set mode selection view."""
-
-        cb = QComboBox()
-        cb.addItems(
-            ('Single point', 'Curve', 'Map')
-        )
-        cb.setEditable(False)
-        cb.setCurrentIndex(self.sw_central.currentIndex())
-        self.tb_mode.addWidget(cb)
-        self.cb_mode_select = cb
 
     def closeEvent(self, event) -> None:
         """Exis routines."""
@@ -417,12 +452,13 @@ class Window(QMainWindow,Ui_MainWindow,):
             self.worker_pm.signals.progess.connect(self.update_pm)
             self.pool.start(self.worker_pm)
 
-    def stop_track_power(self) -> None:
+    def stop_worker(self, worker: Worker) -> None:
         
-        worker = self.worker_pm
         if worker is not None:
             worker.kwargs['flags']['is_running'] = False
-            self.worker_pm = None
+            for key, value in self.__dict__.items():
+                if value is worker:
+                    self.__dict__[key] = None
 
     def update_pm(
             self,
