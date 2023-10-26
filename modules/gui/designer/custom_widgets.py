@@ -6,7 +6,8 @@ from PySide6.QtWidgets import (
     QDialog,
     QWidget,
     QDockWidget,
-    QPushButton
+    QPushButton,
+    QHBoxLayout
 )
 
 from . import (
@@ -38,6 +39,13 @@ class DataViewer(QWidget, data_viewer_ui.Ui_Form):
         self.p_1d = CurveView(self)
         self.sw_view.addWidget(self.p_1d)
         self.sw_view.setCurrentWidget(self.p_1d)
+
+        # This is bullshit, but I cannot find other solution
+        # With default stretch factor central widget is too low 
+        # for no reason
+        self.splitter.setStretchFactor(0,1)
+        self.splitter.setStretchFactor(1,90)
+        self.splitter.setStretchFactor(2,1)
 
 class LoggerWidget(QDockWidget, log_dock_widget_ui.Ui_d_log):
     """Logger dock widget."""

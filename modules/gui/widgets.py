@@ -11,6 +11,10 @@ from PySide6.QtWidgets import (
     QSpinBox,
     QDoubleSpinBox
 )
+from PySide6.QtGui import (
+    QStandardItem,
+    QStandardItemModel
+)
 
 from modules import ureg, Q_
 
@@ -87,3 +91,11 @@ class QuantSpinBox(QDoubleSpinBox):
             val = val.to_compact()
         self.setSuffix(' ' + f'{val.u:~.2gP}')
         self.setValue(float(val.m))
+
+class StandartItem(QStandardItem):
+    """Element of TreeView."""
+
+    def __init__(self, text: str='') -> None:
+        super().__init__()
+
+        self.setText(text)

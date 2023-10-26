@@ -20,7 +20,6 @@ from PySide6.QtCore import (
     Qt,
     QObject,
     QThread,
-    QRunnable,
     QThreadPool,
     Slot,
     Signal
@@ -33,14 +32,14 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QLayout,
     QComboBox,
-    QSpinBox,
-    QVBoxLayout,
     QTreeWidgetItem,
     QFileDialog
 )
 from PySide6.QtGui import (
     QColor,
-    QPalette
+    QPalette,
+    QStandardItem,
+    QStandardItemModel
 )
 import numpy as np
 
@@ -258,11 +257,18 @@ class Window(QMainWindow,Ui_MainWindow,):
             data = self.data
 
         content = self.data_viwer.tv_content
-        content.clear()
-        param_name = data.attrs['parameter_name'][0]
+        #content.clear()
+        filename = data.attrs['filename']
         version = data.attrs['version']
-        measurement = QTreeWidgetItem(content, (param_name))
-        version = QTreeWidgetItem(measurement,'Version', version)
+
+        treemodel = QStandardItemModel()
+        rootnode = treemodel.invisibleRootItem()
+
+        name = QStandardItem(filename)
+        version = QStandardItem('Version')
+        name.appendRow(version)
+        rootnode.appendRow(name)
+        content.setModel(treemodel)
         
 
     def get_filename(self) -> str:
