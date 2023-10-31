@@ -2,6 +2,7 @@ from typing import Iterable
 
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
+from matplotlib.axes import Axes
 from matplotlib.lines import Line2D
 from pint.facets.plain.quantity import PlainQuantity
 from PySide6.QtCore import (
@@ -20,9 +21,10 @@ from modules import ureg, Q_
 
 class MplCanvas(FigureCanvasQTAgg):
     """Single plot MatPlotLib widget."""
+
     def __init__(self, parent = None):
-        fig = Figure()
-        self.axes = fig.add_subplot()
+        self.fig = Figure()
+        self.axes = self.fig.add_subplot()
         self._xdata: Iterable|None = None
         self._ydata: Iterable|None = None
         self.xlabel: str|None = None
@@ -30,7 +32,8 @@ class MplCanvas(FigureCanvasQTAgg):
         self._plot_ref: Line2D|None = None
         self._sp_ref: Line2D|None = None
         self._sp: float|None = None
-        super().__init__(fig)
+        self._marker_ref: Line2D|None = None
+        super().__init__(self.fig)
 
     @property
     def xdata(self) -> Iterable|None:
@@ -64,10 +67,11 @@ class MplCanvas(FigureCanvasQTAgg):
 
     @property
     def sp(self) -> float|None:
+        """SetPoint property."""
         return self._sp
     
     @sp.setter
-    def sp(self, value: float) -> None:
+    def sp(self, value: PlainQuantity) -> None:
         if self.ylabel is not None:
             value = value.to(self.ylabel)
         else:

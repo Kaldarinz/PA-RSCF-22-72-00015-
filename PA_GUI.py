@@ -249,6 +249,8 @@ class Window(QMainWindow,Ui_MainWindow,):
     def show_data(self, data: PaData|None = None) -> None:
         """Load data into data view widget."""
 
+
+        logger.debug('Starting plotting data...')
         if data is None:
             data = self.data
 
@@ -270,7 +272,13 @@ class Window(QMainWindow,Ui_MainWindow,):
         if data.attrs['measurement_dims'] == 1:
             view = self.data_viwer.p_1d
             main_data = data.plot_param()
-            self.upd_plot(view.plot_curve, *main_data)
+            self.upd_plot(view.plot_curve, *main_data, marker=0)
+            self.data_viwer.p_1d.plot_curve.fig.canvas.mpl_connect('button_press_event', self.click_event)
+        
+        logger.debug('Data plotting complete.')
+
+    def click_event(self, event):
+        logger.info(f'Event found {event.xdata=}')
         
     def get_filename(self) -> str:
         """Launch a dialog to open a file."""
@@ -544,7 +552,8 @@ class Window(QMainWindow,Ui_MainWindow,):
             ydata: Iterable|None,
             xdata: Iterable|None = None,
             ylabel: str|None = None,
-            xlabel: str|None = None
+            xlabel: str|None = None,
+            marker: int|None = None
         ) -> None:
         """
         Update a plot.
@@ -555,9 +564,12 @@ class Window(QMainWindow,Ui_MainWindow,):
          ``ydata`` will be used.\n
          ``ydata`` - Iterable containing data for Y axes.\n
          ``xlabel`` - Optional label for x data.\n
-         ``ylabel`` - Optional label for y data.
+         ``ylabel`` - Optional label for y data.\n
+         ``marker`` - Index of marker for data. If this option is
+         omitted, then marker is removed.
         """
 
+        # Update data
         if xdata is None:
             widget.xdata = np.array(range(len(ydata)))
         else:
@@ -567,6 +579,10 @@ class Window(QMainWindow,Ui_MainWindow,):
             widget.xlabel = xlabel
         if ylabel is not None:
             widget.ylabel = ylabel
+        # if marker is not None:
+        #     widget.marker = marker
+
+        # Plot data
         if widget._plot_ref is None:
             widget._plot_ref = widget.axes.plot(
                 widget.xdata, widget.ydata, 'r'
@@ -583,6 +599,26 @@ class Window(QMainWindow,Ui_MainWindow,):
             else:
                 widget._sp_ref.set_xdata(widget.xdata)
                 widget._sp_ref.set_ydata(spdata)
+        if marker is not None:
+            if widget._marker_ref is None:
+                marker_style = {
+                    'marker': 'o',
+                    'alpha': 0.4,
+                    'ms': 12,
+                    'color': 'yellow'
+                }
+                widget._marker_ref = widget.axes.plot(
+                    widget.xdata[marker],
+                    widget.ydata[marker],
+                    **marker_style
+                )
+            else:
+                widget._marker_ref.set_data(
+                    widget.xdata[marker],
+                    widget.ydata[marker]
+                )
+        else:
+            widget._marker_ref = None
         widget.axes.set_xlabel(widget.xlabel)
         widget.axes.set_ylabel(widget.ylabel)
         widget.axes.relim()

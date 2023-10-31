@@ -1005,6 +1005,7 @@ class PaData:
                 for ds_name, ds in self.freq_data.items():
                     if ds_name != 'attrs':
                         dep.append(ds[value])
+        # explicit units are required at least for 'nm'
         dep = pint.Quantity.from_list(dep, f'{dep[0].u:~}')
         return dep
 
