@@ -16,6 +16,7 @@ import pint
 import yaml
 from pylablib.devices.Thorlabs import KinesisMotor
 from pint.facets.plain.quantity import PlainQuantity
+from matplotlib.backend_bases import PickEvent
 from PySide6.QtCore import (
     Qt,
     QObject,
@@ -282,13 +283,20 @@ class Window(QMainWindow,Ui_MainWindow,):
             #     'button_press_event', self.click_event
             #     )
             view.plot_curve.fig.canvas.mpl_connect(
-                'pick_event', self.pick_event
+                'pick_event',
+                lambda event: self.pick_event(view.plot_curve, event)
             )
         
         logger.debug('Data plotting complete.')
 
-    def pick_event(self, event):
-        logger.info('Pick event')
+    def pick_event(self, widget:MplCanvas, event: PickEvent):
+        """Callback method for processing data picking on plot."""
+
+        widget._marker_ref.set_data(
+            widget.xdata[event.ind[0]],
+            widget.ydata[event.ind[0]]
+        )
+        widget.draw()
 
     def click_event(self, event):
         logger.info(f'Event found {event.xdata=}')
