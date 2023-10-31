@@ -272,10 +272,23 @@ class Window(QMainWindow,Ui_MainWindow,):
         if data.attrs['measurement_dims'] == 1:
             view = self.data_viwer.p_1d
             main_data = data.plot_param()
-            self.upd_plot(view.plot_curve, *main_data, marker=0)
-            self.data_viwer.p_1d.plot_curve.fig.canvas.mpl_connect('button_press_event', self.click_event)
+            self.upd_plot(
+                view.plot_curve,
+                *main_data,
+                marker=0,
+                enable_pick=True
+            )
+            # self.data_viwer.p_1d.plot_curve.fig.canvas.mpl_connect(
+            #     'button_press_event', self.click_event
+            #     )
+            view.plot_curve.fig.canvas.mpl_connect(
+                'pick_event', self.pick_event
+            )
         
         logger.debug('Data plotting complete.')
+
+    def pick_event(self, event):
+        logger.info('Pick event')
 
     def click_event(self, event):
         logger.info(f'Event found {event.xdata=}')
@@ -553,7 +566,8 @@ class Window(QMainWindow,Ui_MainWindow,):
             xdata: Iterable|None = None,
             ylabel: str|None = None,
             xlabel: str|None = None,
-            marker: int|None = None
+            marker: int|None = None,
+            enable_pick: bool = False
         ) -> None:
         """
         Update a plot.
@@ -566,7 +580,8 @@ class Window(QMainWindow,Ui_MainWindow,):
          ``xlabel`` - Optional label for x data.\n
          ``ylabel`` - Optional label for y data.\n
          ``marker`` - Index of marker for data. If this option is
-         omitted, then marker is removed.
+         omitted, then marker is removed.\n
+         ``picker`` - enabler picker for main data.
         """
 
         # Update data
@@ -585,7 +600,11 @@ class Window(QMainWindow,Ui_MainWindow,):
         # Plot data
         if widget._plot_ref is None:
             widget._plot_ref = widget.axes.plot(
-                widget.xdata, widget.ydata, 'r'
+                widget.xdata,
+                widget.ydata,
+                'r',
+                picker = enable_pick,
+                pickradius = 10
             )[0]
         else:
             widget._plot_ref.set_xdata(widget.xdata)
@@ -594,7 +613,9 @@ class Window(QMainWindow,Ui_MainWindow,):
             spdata = [widget.sp]*len(widget.xdata)
             if widget._sp_ref is None:
                 widget._sp_ref = widget.axes.plot(
-                    widget.xdata, spdata, 'b'
+                    widget.xdata,
+                    spdata,
+                    'b'
                 )[0]
             else:
                 widget._sp_ref.set_xdata(widget.xdata)
@@ -607,7 +628,7 @@ class Window(QMainWindow,Ui_MainWindow,):
                     'ms': 12,
                     'color': 'yellow'
                 }
-                widget._marker_ref = widget.axes.plot(
+                widget._marker_ref, = widget.axes.plot(
                     widget.xdata[marker],
                     widget.ydata[marker],
                     **marker_style
