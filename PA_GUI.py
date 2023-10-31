@@ -120,6 +120,9 @@ class Window(QMainWindow,Ui_MainWindow,):
     worker_curve_adj: Worker|None = None
     "Thread for curve adjustments."
 
+    data: PaData|None = None
+    "PA data."
+
     def __init__(
             self,
             parent:QMainWindow = None,
@@ -134,12 +137,6 @@ class Window(QMainWindow,Ui_MainWindow,):
         self.pool = QThreadPool()
 
         self.set_widgets()
-
-        #Set layout for central widget
-        #By some reason it is not possible to set in designer
-        # self.clayout = QVBoxLayout()
-        # self.clayout.addWidget(self.sw_central)
-        # self.centralwidget.setLayout(self.clayout)
 
         #Connect custom signals and slots
         self.connectSignalsSlots()
@@ -249,16 +246,15 @@ class Window(QMainWindow,Ui_MainWindow,):
                     + 'measurements loaded!')
         self.show_data(self.data)
         
-
     def show_data(self, data: PaData|None = None) -> None:
         """Load data into data view widget."""
 
         if data is None:
             data = self.data
 
+        # Update content representation
         content = self.data_viwer.tv_content
-        #content.clear()
-        filename = data.attrs['filename']
+        filename = os.path.basename(data.attrs['filename'])
         version = data.attrs['version']
 
         treemodel = QStandardItemModel()
@@ -269,8 +265,13 @@ class Window(QMainWindow,Ui_MainWindow,):
         name.appendRow(version)
         rootnode.appendRow(name)
         content.setModel(treemodel)
-        
 
+        # Data plotting
+        if data.attrs['measurement_dims'] == 1:
+            view = self.data_viwer.p_1d
+            main_data = data.plot_param()
+            self.upd_plot(view.plot_curve, *main_data)
+        
     def get_filename(self) -> str:
         """Launch a dialog to open a file."""
 
@@ -541,7 +542,9 @@ class Window(QMainWindow,Ui_MainWindow,):
             self,
             widget: MplCanvas,
             ydata: Iterable|None,
-            xdata: Iterable|None = None
+            xdata: Iterable|None = None,
+            ylabel: str|None = None,
+            xlabel: str|None = None
         ) -> None:
         """
         Update a plot.
@@ -550,7 +553,9 @@ class Window(QMainWindow,Ui_MainWindow,):
         ``xdata`` - Iterable containing data for X axes. Should not
          be shorter than ``ydata``. If None, then enumeration of 
          ``ydata`` will be used.\n
-         ``ydata`` - Iterable containing data for Y axes.
+         ``ydata`` - Iterable containing data for Y axes.\n
+         ``xlabel`` - Optional label for x data.\n
+         ``ylabel`` - Optional label for y data.
         """
 
         if xdata is None:
@@ -558,6 +563,10 @@ class Window(QMainWindow,Ui_MainWindow,):
         else:
             widget.xdata = xdata
         widget.ydata = ydata
+        if xlabel is not None:
+            widget.xlabel = xlabel
+        if ylabel is not None:
+            widget.ylabel = ylabel
         if widget._plot_ref is None:
             widget._plot_ref = widget.axes.plot(
                 widget.xdata, widget.ydata, 'r'

@@ -739,6 +739,41 @@ class PaData:
 
         self._plot_init_cur_param()
 
+    def plot_param(
+            self,
+            dtype: str = 'filt_data',
+            value: str = 'max_amp'
+        ) -> tuple[npt.NDArray, npt.NDArray, str, str]:
+        """Get main data for plotting.
+        
+        ``type`` - type of data to return can be 'filt_data' or 'raw_data'\n
+        ``value`` - property of the data to be represented.\n
+        Return a tuple, which contain [xdata, ydata, xlabel, ylabel].
+        """
+        
+        xdata = self.get_dependance(dtype,'param_val[0]')
+        if xdata is None:
+            err_msg = 'Cannot get param_val for all datapoints.'
+            logger.debug(err_msg)
+            raise PlotError(err_msg)
+
+        ydata = self.get_dependance(dtype, value)
+        if ydata is None:
+            err_msg = f'Cant get {value} of {dtype}.'
+            logger.debug(err_msg)
+            raise PlotError(err_msg)
+        
+        x_label = (self.attrs['parameter_name'][0] 
+                + ', ['
+                + f'{xdata.u:~.2gP}'
+                + ']')
+        y_label = (self.raw_data['attrs']['y_var_name']
+                + ', ['
+                + f'{ydata.u:~.2gP}'
+                + ']')
+
+        return (ydata.m, xdata.m, y_label, x_label)
+
     def _plot_init_cur_param(self) -> None:
         """Plot initial param value.
         
@@ -970,7 +1005,7 @@ class PaData:
                 for ds_name, ds in self.freq_data.items():
                     if ds_name != 'attrs':
                         dep.append(ds[value])
-        dep = pint.Quantity.from_list(dep)
+        dep = pint.Quantity.from_list(dep, f'{dep[0].u:~}')
         return dep
 
     def bp_filter(self,
