@@ -1,18 +1,20 @@
 from dataclasses import dataclass, field
+from typing import Iterable
+from pint import UnitRegistry
+import numpy as np
+
+ureg = UnitRegistry(auto_reduce_dimensions=True)
+Q_ = ureg.Quantity
+
 
 @dataclass
 class Test:
-    a: dict = field(default_factory=dict)
+    a: Iterable
 
-@dataclass
-class Test2:
-    a: dict = field(default_factory=dict)
+arr = np.array([1,2,3])
+quant = Q_(arr,'s')
 
-cls1 = Test()
-cls2 = Test2()
-
-cls1.a.update({'one': 2})
-cls2.a.update({'one': 1})
-
-print(cls1)
-print(cls2)
+cls = Test(quant)
+print(cls)
+quant = Q_(10,'s')
+print(cls)

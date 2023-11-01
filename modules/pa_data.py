@@ -4,86 +4,70 @@ Requires Python > 3.10
 
 Workflow with PaData:
 1. init class instance.
-2. Set 'measurement_dims' and 'parameter_name' in root metadata.
-3. Add data points.
+2. Create measuremnt.
+3. Add data points to measurement.
 
 Data structure of PaData class:
-    
-    PaData:
-    |--'attrs'
-    |  |--'version': float - version data structure
-    |  |--'measurement_dims': int - dimensionality of the stored measurement
-    |  |--'parameter_name': List[str] - independent parameter, changed between measured PA signals
-    |  |--'data_points': int - amount of stored PA measurements
-    |  |--'created': str - date and time of data measurement
-    |  |--'updated': str - date and time of last data update
-    |  |--'notes': str - description
-    |  |--'zoom_pre_time': Quantity - start time from the center of the PA data frame for zoom in data view
-    |  |--'zoom_post_time': Quantity - end time from the center of the PA data frame for zoom in data view
-    |
-    |--'raw_data'
-    |  |--'attrs'
-    |  |  |--'max_len': int - maximum amount of points in PA signal
-    |  |  |--'x_var_name': str - name of the X variable in PA signal
-    |  |  |--'y_var_name': str - name of the Y variable in PA signal
-    |  |
-    |  |--point001
-    |  |  |--'data': List[Quantity] - measured PA signal
-    |  |  |--'data_raw': ndarray[int8]
-    |  |  |--'param_val': List[Quantity] - value of independent parameter
-    |  |  |--'x_var_step': Quantity
-    |  |  |--'x_var_start': Quantity
-    |  |  |--'x_var_stop': Quantity
-    |  |  |--'pm_en': Quantity - laser energy measured by power meter in glass reflection
-    |  |  |--'sample_en': Quantity - laser energy at sample in [uJ]
-    |  |  |--'max_amp': Quantity - (y_max - y_min)
-    |  |
-    |  |--point002
-    |  |  |--'data': List[Quantity] - measured PA signal
-    |  |  ...
-    |  ...
-    |
-    |--'filt_data'
-    |  |--'attrs'
-    |  |  |--'x var name': str - name of the X variable in PA signal
-    |  |  |--'y var name': str - name of the Y variable in PA signal
-    |  |
-    |  |--point001
-    |  |  |--'data': List[Quantity] - measured PA signal
-    |  |  |--'data_raw': ndarray[int8]
-    |  |  |--'a': float
-    |  |  |--'b': float - <data> = a*<data_raw> + b
-    |  |  |--'param_val': List[Quantity] - value of independent parameter
-    |  |  |--'x_var_step': Quantity
-    |  |  |--'x_var_start': Quantity
-    |  |  |--'x_var_stop': Quantity
-    |  |  |--'pm_en': Quantity - laser energy measured by power meter in glass reflection
-    |  |  |--'sample_energy': Quantity - laser energy at sample in [uJ]
-    |  |  |--'max_amp': Quantity - (y_max - y_min)
-    |  |
-    |  |--point002
-    |  |  |--'data': List[Quantity] - measured PA signal
-    |  |  ...
-    |  ...
-    |
-    |--'freq_data'
-       |--'attrs'
-       |  |--'max_len': int - maximum amount of points in PA signal
-       |  |--'x_var_name': str - name of the X variable in PA signal
-       |  |--'y_var_name': str - name of the Y variable in PA signal
-       |
-       |--point001
-       |  |--'data': List[Quantity] - frequncies present in filt_data
-       |  |--'x var step': float
-       |  |--'x var start': float
-       |  |--'x var stop': float
-       |  |--'max amp': float - (y_max - y_min)
-       |
-       |--point002
-       |  |--'data': List[Quantity] - frequncies present in filt_data
-       |  ...
-       ...
-"""
+PaData:
+|--attrs: FileMetadata
+|  |--version: float - version of data structure
+|  |--measurements_count: int - amount of measurements in the file
+|  |--created: str - date and time of file creation
+|  |--updated: str - date and time of last file update
+|  |--notes: str - description of the file
+|  |--zoom_pre_time: Quantity - start time from the center of the PA data frame for zoom in data view
+|  |--zoom_post_time: Quantity - end time from the center of the PA data frame for zoom in data view
+|--measurements: dict[str, Measurement]
+|  |--measurement001: Measurement  
+|  |  |--attrs: MeasurementMetadata
+|  |  |  |--data_points: int - amount of datapoints in the measurement
+|  |  |  |--parameter_name: List[str] - independent parameter, changed between measured PA signals
+|  |  |  |--measurement_dims: int - dimensionality of the measurement
+|  |  |  |--max_len: int - maximum amount of samples in a single datapoint in this measurement
+|  |  |  |--created: str - date and time of file creation
+|  |  |  |--updated: str - date and time of last file update
+|  |  |  |--notes: str - description of the measurement
+|  |  |--data: dict[str,DataPoint]
+|  |  |  |--point001
+|  |  |  |  |--attrs: PointMetadata
+|  |  |  |  |  |--pm_en: Quantity - laser energy measured by power meter in glass reflection
+|  |  |  |  |  |--sample_en: Quantity - laser energy at sample
+|  |  |  |  |  |--param_val: List[Quantity] - value of independent parameters
+|  |  |  |  |--raw_data: BaseData
+|  |  |  |  |  |--data: Quantity - measured PA signal
+|  |  |  |  |  |--data_raw: NDArray[int8] - measured PA signal in raw format
+|  |  |  |  |  |--a: float - coef for coversion ``data_raw`` to ``data``: <data> = a*<data_raw> + b 
+|  |  |  |  |  |--b: float - coef for coversion ``data_raw`` to ``data``: <data> = a*<data_raw> + b
+|  |  |  |  |  |--x_var_step: Quantity - single step for x data
+|  |  |  |  |  |--x_var_start: Quantity - start value for x data
+|  |  |  |  |  |--x_var_stop: Quantity - stop value for x data
+|  |  |  |  |  |--x var name: str - name of the x variable
+|  |  |  |  |  |--y var name: str - name of the Y variable
+|  |  |  |  |  |--max_amp: Quantity - max(data) - min(data)
+|  |  |  |  |--filt_data: ProcessedData
+|  |  |  |  |  |--data: Quantity - filtered PA signal
+|  |  |  |  |  |--x_var_step: Quantity - single step for x data
+|  |  |  |  |  |--x_var_start: Quantity - start value for x data
+|  |  |  |  |  |--x_var_stop: Quantity - stop value for x data
+|  |  |  |  |  |--x var name: str - name of the x variable
+|  |  |  |  |  |--y var name: str - name of the Y variable
+|  |  |  |  |  |--max_amp: Quantity - max(data) - min(data)
+|  |  |  |  |--freq_data: ProcessedData
+|  |  |  |  |  |--data: Quantity - Fourier transform of PA signal
+|  |  |  |  |  |--x_var_step: Quantity - single step for x data
+|  |  |  |  |  |--x_var_start: Quantity - start value for x data
+|  |  |  |  |  |--x_var_stop: Quantity - stop value for x data
+|  |  |  |  |  |--x var name: str - name of the x variable
+|  |  |  |  |  |--y var name: str - name of the Y variable
+|  |  |  |  |  |--max_amp: Quantity - max(data) - min(data)
+|  |  |  |--point002
+|  |  |  |  |--attrs: PointMetadata
+|  |  |  |  ...
+|  |--measurement001: Measurement  
+|  |  |--attrs: MeasurementMetadata
+|  ...
+
+    """
 
 import warnings
 from typing import Iterable, Any, Tuple, TypedDict, List
@@ -104,13 +88,13 @@ import texteditor
 from . import Q_
 from .data_classes import (
     FileMetadata,
+    BaseData,
+    ProcessedData,
+    PointMetadata,
+    DataPoint,
     MeasurementMetadata,
-    RawMetadata,
-    FiltMetadata,
-    MeasuredPoint,
-    RawData,
-    FreqData,
-    Measurement
+    Measurement,
+    MeasuredPoint
 )
 from .utils import confirm_action
 from modules.exceptions import (
@@ -132,73 +116,92 @@ class PaData:
             created=self._get_cur_time(),
             updated=self._get_cur_time(),
         )
-        self.measurements: dict[str, Measurement]
-        raw_attrs: RawMetadata = {
-            'max_len': 0,
-            'x_var_name': 'Time',
-            'y_var_name': 'PhotoAcoustic signal'
-        }
-        self.raw_data = {}
-        self.raw_data.update({'attrs': raw_attrs})
-        
-        filt_attrs: FiltMetadata = {
-            'x_var_name': 'Time',
-            'y_var_name': 'Filtered photoAcoustic signal'
-        }
-
-        self.filt_data = {}
-        self.filt_data.update({'attrs': filt_attrs})
-        
-        freq_attrs: RawMetadata = {
-            'max_len': 0,
-            'x_var_name': 'Frequency',
-            'y_var_name': 'FFT amplitude'
-        }
-        self.freq_data = {}
-        self.freq_data.update({'attrs': freq_attrs})
-        
+        self.measurements: dict[str, Measurement] = {}
         logger.debug('PaData instance created')
 
-    def create_measurement(self) -> None:
-        """Create a measurement, where data points will be stored."""
+    def create_measurement(
+            self,
+            dims: int,
+            params: list[str]
+        ) -> Measurement|None:
+        """
+        Create a measurement, where data points will be stored.
+        
+        ``dims`` - dimensionality of the measurements.\n
+        ``params`` - Variable title for each dimension.\n
+        Created measurement is added to ``measurements`` attribute
+        and returned.
+        """
 
-        pass
+        if len(params) != dims:
+            logger.warning('Attempt to create a measurements with '
+                           + f'wrong arguments. {dims=}; {params=}')
+            return None
+        metadata = MeasurementMetadata(
+            measurement_dims = dims,
+            parameter_name = params.copy(),
+            created = self._get_cur_time(),
+            updated = self._get_cur_time(),
+        )
+        measurement = Measurement(metadata)
+        title = self._build_name(
+            self.attrs.measurements_count + 1,
+            'measurement'
+        )
+        self.measurements.update({title, measurement})
+        self.attrs.updated = self._get_cur_time()
+        self.attrs.measurements_count += 1
+        logger.debug(f'{title} created.')
+        return measurement
 
     def add_point(
-            self, 
+            self,
+            measurement: Measurement,
             data: MeasuredPoint,
-            param_val: List[PlainQuantity] = []
+            param_val: List[PlainQuantity]
         ) -> None:
-        """Add a single data point.
+        """
+        Add a single data point to a measuremt.
         
-        Add a datapoint to raw_data, filt_data and freq_data.
+        ``measurement`` - Measurement instance, to which data point should be added.
+        ``data`` - Measured PA data.
         """
 
         logger.debug('Starting datapoint addition to file...')
-        if data.pa_signal is None or not len(data.pa_signal):
+        if not len(data.pa_signal):
             logger.debug('...Terminating datapoint addition. PA signal is missing.')
             return None
-        if data.pa_signal_raw is None or not len(data.pa_signal_raw):
+        if not len(data.pa_signal_raw):
             logger.debug('...Terminating datapoint addition. PA signal_raw is missing.')
             return None
-        ds_name = self._build_ds_name(self.attrs['data_points']+1)
-        if not ds_name:
+        title = self._build_name(measurement.attrs.data_points + 1)
+        if not title:
             logger.error('Max data_points reached! Data cannot be added!')
             return None
-        logger.debug(f'{ds_name=}')
+        logger.debug(f'{title=}')
         # ensure that units of parameter and data for new point
         # is the same as units of already present points
-        if self.attrs['data_points']:
-            params = self.raw_data['point001']['param_val']
-            #should be changed for 0D case, when there is no parameter
-            logger.debug(f'Param values changed from {param_val}...')
-            param_val = [x.to(y.u) for x,y in zip(param_val,params)]
-            logger.debug(f'... to {param_val}')
-            data_u = self.raw_data['point001']['data'].u
-            if data_u != data.pa_signal.u:
+        if measurement.attrs.data_points:
+            exist_params = measurement.data[0].attrs.param_val
+            if exist_params:
+                param_val = [x.to(y.u) for x,y in zip(param_val,exist_params)]
+            exist_data = measurement.data[0].raw_data.data
+            if exist_data.u != data.pa_signal.u:
                 logger.debug(f'Changing units of data from {data.pa_signal.u} '
-                             +f'to {data_u}')
-                data.pa_signal = data.pa_signal.to(data_u)
+                             +f'to {exist_data.u}')
+                data.pa_signal = data.pa_signal.to(exist_data.u)
+        
+        metadata = PointMetadata(
+            pm_en = data.pm_energy,
+            sample_en = data.sample_energy,
+            param_val = param_val.copy()
+        )
+        #### Stopped here
+        rawdata = BaseData(
+            data = data.pa_signal.copy(),
+            data_raw = data.pa_signal_raw.copy(),
+
+        )
         ds: RawData = {
             'data': data.pa_signal,
             'data_raw': data.pa_signal_raw,
@@ -210,6 +213,18 @@ class PaData:
             'sample_en': data.sample_energy,
             'max_amp': data.max_amp
         }
+
+                filt_attrs: FiltMetadata = {
+            'x_var_name': 'Time',
+            'y_var_name': 'Filtered photoAcoustic signal'
+        }
+        
+        freq_attrs: RawMetadata = {
+            'max_len': 0,
+            'x_var_name': 'Frequency',
+            'y_var_name': 'FFT amplitude'
+        }
+
         cur_data_len = len(ds['data'])
         old_data_len = self.raw_data['attrs']['max_len']
         if cur_data_len > old_data_len:
@@ -548,8 +563,13 @@ class PaData:
                     }
                 )
 
-    def _build_ds_name(self, n: int) -> str:
-        """Build and return name for dataset."""
+    def _build_name(self, n: int, name: str = 'point') -> str:
+        """
+        Build and return name.
+        
+        ``n`` - index.\n
+        ``name`` - base name.
+        """
         
         if n <10:
             n_str = '00' + str(n)
@@ -559,7 +579,7 @@ class PaData:
             n_str = str(n)
         else:
             return ''
-        return 'point' + n_str
+        return name + n_str
     
     def _get_ds_index(self, ds_name: str) -> int:
         """Return index from dataset name."""

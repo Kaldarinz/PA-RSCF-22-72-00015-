@@ -8,7 +8,6 @@ from dataclasses import dataclass, field
 import traceback
 import logging
 
-import pint
 from pint.facets.plain.quantity import PlainQuantity
 import numpy.typing as npt
 import numpy as np
@@ -21,7 +20,7 @@ from PySide6.QtCore import (
 )
 
 from .osc_devices import Oscilloscope, PowerMeter, PhotoAcousticSensOlymp
-from . import ureg, Q_
+from . import Q_
 
 logger = logging.getLogger(__name__)
 
@@ -30,46 +29,64 @@ class FileMetadata:
     """General attributes of a file."""
 
     version: float = 0.0
+    'version of data structure'
+    measurements_count: int = 0
+    'amount of measurements in the file'
     created: str = ''
+    'date and time of file creation'
     updated: str = ''
+    'date and time of last file update'
     notes: str = ''
+    'description of the file'
     zoom_pre_time: PlainQuantity = Q_(2, 'us')
-    zoom_post_time: pint.Quantity = Q_(13, 'us')
+    'start time from the center of the PA data frame for zoom in data view'
+    zoom_post_time: PlainQuantity = Q_(13, 'us')
+    'end time from the center of the PA data frame for zoom in data view'
 
 @dataclass
 class BaseData:
     """Single raw PA data."""
 
     data: PlainQuantity
+    'measured PA signal'
     data_raw: npt.NDArray[np.uint8|np.int16]
+    'measured PA signal in raw format'
     a: float
+    'coef for coversion ``data_raw`` to ``data``: <data> = a*<data_raw> + b '
     b: float
-    x_var_step: pint.Quantity
-    x_var_start: pint.Quantity
-    x_var_stop: pint.Quantity
-    x_var_name: str
-    y_var_name: str
-    max_amp: pint.Quantity
+    'coef for coversion ``data_raw`` to ``data``: <data> = a*<data_raw> + b '
+    x_var_step: PlainQuantity
+    x_var_start: PlainQuantity
+    x_var_stop: PlainQuantity
+    x_var_name: str = 'Time'
+    y_var_name: str = 'PhotoAcoustic Signal'
+    max_amp: PlainQuantity
+    'max(data) - min(data)'
 
 @dataclass
 class ProcessedData:
     """Single processed PA data."""
 
     data: PlainQuantity
-    x_var_step: pint.Quantity
-    x_var_start: pint.Quantity
-    x_var_stop: pint.Quantity
+    'processed PA signal'
+    x_var_step: PlainQuantity
+    x_var_start: PlainQuantity
+    x_var_stop: PlainQuantity
     x_var_name: str
     y_var_name: str
-    max_amp: pint.Quantity
+    max_amp: PlainQuantity
+    'max(data) - min(data)'
 
 @dataclass
 class PointMetadata:
     """General attributes of a single PA measurement."""
 
-    pm_en: pint.Quantity
-    sample_en: pint.Quantity
-    param_val: List[PlainQuantity]
+    pm_en: PlainQuantity
+    'laser energy measured by power meter in glass reflection'
+    sample_en: PlainQuantity
+    'laser energy at sample'
+    param_val: List[PlainQuantity] = field(default_factory=list)
+    'value of independent parameters'
 
 @dataclass
 class DataPoint:
@@ -85,20 +102,27 @@ class MeasurementMetadata:
     """General attributes of a measurement."""
 
     measurement_dims: int
+    'dimensionality of the measurement'
     parameter_name: List[str]
-    data_points: int = ''
+    'independent parameter, changed between measured PA signals'
+    data_points: int = 0
+    'amount of datapoints in the measurement'
     created: str = ''
+    'date and time of file creation'
     updated: str = ''
+    'date and time of last file update'
     notes: str = ''
+    'description of the measurement'
     max_len: int = 0
+    'maximum amount of samples in a single datapoint in this measurement'
 
 @dataclass
 class Measurement:
     """A Photoacoustic measurement with metadata."""
 
-    attrs: dict[str, MeasurementMetadata]  = field(default_factory=dict)
+    attrs: MeasurementMetadata
     "MetaData of the measurement."
-    data: dict[str, DataPoint]
+    data: dict[str, DataPoint] = field(default_factory=dict)
 
 def empty_ndarray():
     return np.empty(0, dtype=np.int8)
