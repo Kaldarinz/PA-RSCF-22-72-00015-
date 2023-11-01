@@ -32,14 +32,22 @@ class Ui_Form(object):
         Form.setSizePolicy(sizePolicy)
         self.gridLayout = QGridLayout(Form)
         self.gridLayout.setObjectName(u"gridLayout")
+        self.plot_curve = MplCanvas(Form)
+        self.plot_curve.setObjectName(u"plot_curve")
+        sizePolicy.setHeightForWidth(self.plot_curve.sizePolicy().hasHeightForWidth())
+        self.plot_curve.setSizePolicy(sizePolicy)
+
+        self.gridLayout.addWidget(self.plot_curve, 1, 0, 1, 1)
+
         self.horizontalLayout = QHBoxLayout()
         self.horizontalLayout.setObjectName(u"horizontalLayout")
         self.cb_curve_select = QComboBox(Form)
         self.cb_curve_select.setObjectName(u"cb_curve_select")
+        self.cb_curve_select.setMinimumSize(QSize(140, 0))
 
         self.horizontalLayout.addWidget(self.cb_curve_select)
 
-        self.horizontalSpacer = QSpacerItem(500, 20, QSizePolicy.Expanding, QSizePolicy.Minimum)
+        self.horizontalSpacer = QSpacerItem(373, 17, QSizePolicy.Expanding, QSizePolicy.Minimum)
 
         self.horizontalLayout.addItem(self.horizontalSpacer)
 
@@ -50,22 +58,16 @@ class Ui_Form(object):
         self.horizontalLayout_2.setObjectName(u"horizontalLayout_2")
         self.cb_detail_select = QComboBox(Form)
         self.cb_detail_select.setObjectName(u"cb_detail_select")
+        self.cb_detail_select.setMinimumSize(QSize(140, 0))
 
         self.horizontalLayout_2.addWidget(self.cb_detail_select)
 
-        self.horizontalSpacer_2 = QSpacerItem(500, 20, QSizePolicy.Expanding, QSizePolicy.Minimum)
+        self.horizontalSpacer_2 = QSpacerItem(373, 17, QSizePolicy.Expanding, QSizePolicy.Minimum)
 
         self.horizontalLayout_2.addItem(self.horizontalSpacer_2)
 
 
         self.gridLayout.addLayout(self.horizontalLayout_2, 0, 1, 1, 1)
-
-        self.plot_curve = MplCanvas(Form)
-        self.plot_curve.setObjectName(u"plot_curve")
-        sizePolicy.setHeightForWidth(self.plot_curve.sizePolicy().hasHeightForWidth())
-        self.plot_curve.setSizePolicy(sizePolicy)
-
-        self.gridLayout.addWidget(self.plot_curve, 1, 0, 1, 1)
 
         self.plot_detail = MplCanvas(Form)
         self.plot_detail.setObjectName(u"plot_detail")

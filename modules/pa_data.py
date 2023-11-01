@@ -119,19 +119,6 @@ class PaData:
 
     VERSION = 1.1
 
-    _ax_sp: plt.Axes
-    "Axes for plotting dependence of max_amp on parameter."
-    _ax_raw: plt.Axes
-    "Axes for plotting raw signal."
-    _ax_freq: plt.Axes
-    "Axes for plotting signal in frequnecy domain."
-    _ax_filt: plt.Axes
-    "Axes for plotting filtered data."
-    _ax_raw_zoom: plt.Axes
-    "Axes for plotting a region containing actual RAW signal."
-    _ax_filt_zoom: plt.Axes
-    "Axes for plotting a region containing actual FILTERED signal."
-
     def __init__(self, dims: int=-1, params: List[str]=[]) -> None:
         """Class init.
         
@@ -213,7 +200,7 @@ class PaData:
                              +f'to {data_u}')
                 data.pa_signal = data.pa_signal.to(data_u)
         ds: dc.RawData = {
-            'data': data.pa_signal, #type: ignore
+            'data': data.pa_signal,
             'data_raw': data.pa_signal_raw,
             'param_val': param_val,
             'x_var_step': data.dt.to('us'),
@@ -739,7 +726,7 @@ class PaData:
 
         self._plot_init_cur_param()
 
-    def plot_param(
+    def param_data_plot(
             self,
             dtype: str = 'filt_data',
             value: str = 'max_amp'
@@ -748,7 +735,7 @@ class PaData:
         
         ``type`` - type of data to return can be 'filt_data' or 'raw_data'\n
         ``value`` - property of the data to be represented.\n
-        Return a tuple, which contain [xdata, ydata, xlabel, ylabel].
+        Return a tuple, which contain [ydata, xdata, xlabel, ylabel].
         """
         
         xdata = self.get_dependance(dtype,'param_val[0]')
@@ -774,81 +761,42 @@ class PaData:
 
         return (ydata.m, xdata.m, y_label, x_label)
 
-    def _plot_init_cur_param(self) -> None:
-        """Plot initial param value.
+    def point_data_plot(
+            self,
+            index: int,
+            dtype: str
+        ) -> tuple[npt.NDArray, npt.NDArray, str, str]:
+        """Get point data for plotting.
         
-        This method should be called after _plot_param.
+        ``index`` - index of data to get the data point.\n
+        ``dtype`` - type of data to be returned. Accept: ``Raw``,
+        ``Filtered``, ``Zoomed Raw``, ``Zoomed filtered`` and ``FFT``.\n
+        Return a tuple, which contain [ydata, xdata, xlabel, ylabel].
         """
 
-        if (not len(self._param_values) 
-            or not len(self._raw_vals)
-            or not len(self._filt_vals)):
-            err_msg = 'No data for displaying current param value.'
-            logger.debug(err_msg)
-            raise PlotError(err_msg)
-
-        self._plot_selected_raw, = self._ax_sp.plot(
-            self._param_values[self._param_ind].m, #type:ignore
-            self._raw_vals[self._param_ind].m, #type:ignore
-            **self._marker_style)
-        
-        self._plot_selected_filt, = self._ax_sp.plot(
-            self._param_values[self._param_ind].m, #type:ignore
-            self._filt_vals[self._param_ind].m, #type:ignore
-            **self._marker_style)
-
-    def _on_key_press(self, event) -> None:
-        """Callback function for changing active data on plot."""
-
-        if event.key == 'left':
-            if self._param_ind == 0:
-                pass
-            else:
-                self._param_ind -= 1
-                self._plot_update()
-        elif event.key == 'right':
-            if self._param_ind == (self.attrs['data_points'] - 1):
-                pass
-            else:
-                self._param_ind += 1
-                self._plot_update()
-
-    def _plot_update(self) -> None:
-        """Update plotted data."""
-
-        ds_name = self._build_ds_name(self._param_ind+1)
+        empty_data = (np.array([]),np.array([]),'','')
+        result = empty_data
+        ds_name = self._build_ds_name(index+1)
         #check if datapoint is empty
         if self.filt_data[ds_name].get('data') is None:
-            return None
-        #update parameter plot
-        self._plot_update_cur_param()
-        #update filt plot withh filt_zoom
-        self._plot_update_signal(
-            self.filt_data[ds_name],
-            self.filt_data['attrs'],
-            'Filtered data',
-            self._ax_filt,
-            self._ax_filt_zoom,
-        )
-        #update raw plot with raw_zoom
-        self._plot_update_signal( 
-            self.raw_data[ds_name],
-            self.raw_data['attrs'],
-            'Raw data',
-            self._ax_raw,
-            self._ax_raw_zoom,
-        )
-        #update freq plot
-        self._plot_update_signal(
-            self.freq_data[ds_name],
-            self.freq_data['attrs'],
-            'FFT data',
-            self._ax_freq
-        )
-        
-        #general update
-        self._fig.align_labels()
-        self._fig.canvas.draw()
+            return empty_data
+
+        if dtype == 'Filtered':
+             result = self._point_data(
+                self.filt_data[ds_name],
+                self.filt_data['attrs']
+            )
+        elif dtype == 'Raw':
+             result = self._point_data( 
+                self.raw_data[ds_name],
+                self.raw_data['attrs']
+            )
+        elif dtype == 'FFT':
+            result = self._point_data(
+                self.freq_data[ds_name],
+                self.freq_data['attrs']
+            )
+        return result
 
     def _plot_update_cur_param(self) -> None:
         """Update current position in parameter subplot."""
@@ -863,20 +811,17 @@ class PaData:
             self._param_values[self._param_ind].m, #type:ignore
             self._filt_vals[self._param_ind].m) #type:ignore
 
-    def _plot_update_signal(
+    def _point_data(
             self,
             ds: dict,
-            attrs: dict,
-            title: str,
-            ax: plt.Axes,
-            zoom_ax: plt.Axes|None=None,
-        ) -> None:
-        """Update plot on <ax> and <zoom_ax> with signal from <ds>.
+            attrs: dict
+        ) -> tuple[npt.NDArray, npt.NDArray, str, str]:
+        """
+        Get point data for plotting.
         
-        <ds> is datasets for plotting.
-        <attrs> is dict with attributes of group containing <ds>.
-        If <zoom_ax> is not set, then zoom version of plot is
-        not updated AND markers for max and min values are not plotted.
+        ``ds`` - dataset for plotting.\n
+        ``attrs`` - dict with attributes of group containing ``ds``.\n
+        Return a tuple, which contain [ydata, ydata, xlabel, ylabel].
         """
         
         start = ds['x_var_start']
@@ -893,11 +838,7 @@ class PaData:
                    + ', ['
                    + str(ds['data'].u)
                    + ']')
-        ax.clear()
-        ax.plot(time_data.m, ds['data'].m)
-        ax.set_xlabel(x_label)
-        ax.set_ylabel(y_label)
-        ax.set_title(title)
+        return (ds['data'].m, time_data.m, x_label, y_label)
 
         if zoom_ax is not None:
             #marker for max value

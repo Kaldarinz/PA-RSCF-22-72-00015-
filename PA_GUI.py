@@ -157,7 +157,6 @@ class Window(QMainWindow,Ui_MainWindow,):
         self.addDockWidget(
             Qt.DockWidgetArea.BottomDockWidgetArea,
             self.d_log)
-        self.d_log.hide()
 
         # Power Meter
         # Set parent in constructor makes 
@@ -248,7 +247,7 @@ class Window(QMainWindow,Ui_MainWindow,):
         self.show_data(self.data)
         
     def show_data(self, data: PaData|None = None) -> None:
-        """Load data into data view widget."""
+        """Load data into DataView widget."""
 
 
         logger.debug('Starting plotting data...')
@@ -272,35 +271,63 @@ class Window(QMainWindow,Ui_MainWindow,):
         # Data plotting
         if data.attrs['measurement_dims'] == 1:
             view = self.data_viwer.p_1d
-            main_data = data.plot_param()
+            main_data = data.param_data_plot()
             self.upd_plot(
                 view.plot_curve,
                 *main_data,
-                marker=0,
+                marker=view.marker_ind,
                 enable_pick=True
             )
-            # self.data_viwer.p_1d.plot_curve.fig.canvas.mpl_connect(
-            #     'button_press_event', self.click_event
-            #     )
+            detail_data = data.point_data_plot(view.marker_ind, 'Filtered')
+            self.upd_plot(view.plot_detail, *detail_data)
             view.plot_curve.fig.canvas.mpl_connect(
                 'pick_event',
                 lambda event: self.pick_event(view.plot_curve, event)
             )
-        
+            view.cb_detail_select.addItems(self.get_point_signals())
+            view.cb_detail_select.currentTextChanged.connect(
+                lambda signal: self.upd_plot(
+                    view.plot_detail,
+                    *data.point_data_plot(
+                        view.marker_ind,
+                        signal
+                    )
+                )
+            )
         logger.debug('Data plotting complete.')
 
     def pick_event(self, widget:MplCanvas, event: PickEvent):
         """Callback method for processing data picking on plot."""
 
+        # Update datamarker on plot
         widget._marker_ref.set_data(
             widget.xdata[event.ind[0]],
             widget.ydata[event.ind[0]]
         )
         widget.draw()
+        # Update marker_ind
+        try:
+            widget.parentWidget().marker_ind = event.ind[0]
+        except:
+            logger.debug(f'Picker failed to set marker_ind')
 
-    def click_event(self, event):
-        logger.info(f'Event found {event.xdata=}')
-        
+    def upd_datail_plot(self, widget: MplCanvas, signal: str) -> None:
+        """Plot single point data in curve view."""
+
+        pass
+
+    def get_point_signals(self) -> list[str]:
+        """Get a list of signals, which can be shown for single point."""
+
+        signals = [
+            'Raw',
+            'Filtered',
+            'Zoomed Raw',
+            'Zoomed Filtered',
+            'FFT'
+        ]
+        return signals
+
     def get_filename(self) -> str:
         """Launch a dialog to open a file."""
 

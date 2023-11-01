@@ -109,3 +109,5 @@ class CurveView(QWidget,curve_data_view_ui.Ui_Form):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setupUi(self)
+        self.marker_ind = 0
+        "Index of selected point marker."
