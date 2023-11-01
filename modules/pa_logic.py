@@ -424,7 +424,7 @@ def spectrum(
 
     measurement, proceed = _ameasure_point(averaging, wl)
     if measurement:
-        data.add_measurement(measurement, [current_wl])
+        data.add_point(measurement, [current_wl])
         data.save_tmp()
     if not proceed:
         logger.debug('...Terminating.')
@@ -452,7 +452,7 @@ def single_measure(
         return None
     measurement, _ = _ameasure_point(averaging, wl)
     if measurement is not None:
-        data.add_measurement(measurement, [wl])
+        data.add_point(measurement, [wl])
         data.save_tmp()
         data.bp_filter()
     logger.info('...Finishing single point measurement!')

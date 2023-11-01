@@ -94,9 +94,6 @@ import os, os.path
 import logging
 from itertools import zip_longest
 
-import matplotlib.pyplot as plt
-import matplotlib.gridspec as gridspec
-from matplotlib import MatplotlibDeprecationWarning # type: ignore
 from scipy.fftpack import rfft, irfft, fftfreq
 import pint
 from pint.facets.plain.quantity import PlainQuantity
@@ -106,7 +103,14 @@ import numpy.typing as npt
 import texteditor
 
 from . import Q_
-from . import data_classes as dc
+from .data_classes import (
+    BaseMetadata,
+    RawMetadata,
+    FiltMetadata,
+    DataPoint,
+    RawData,
+    FreqData
+)
 from .utils import confirm_action
 from modules.exceptions import (
     PlotError
@@ -126,7 +130,7 @@ class PaData:
         <params> contain names of the dimensions."""
 
         #general metadata
-        self.attrs: dc.BaseMetadata = {
+        self.attrs: BaseMetadata = {
             'version': self.VERSION,
             'measurement_dims': dims,
             'parameter_name': params,
@@ -138,7 +142,7 @@ class PaData:
             'zoom_pre_time': Q_(2, 'us'),
             'zoom_post_time': Q_(13, 'us')
         }
-        raw_attrs: dc.RawMetadata = {
+        raw_attrs: RawMetadata = {
             'max_len': 0,
             'x_var_name': 'Time',
             'y_var_name': 'PhotoAcoustic signal'
@@ -146,7 +150,7 @@ class PaData:
         self.raw_data = {}
         self.raw_data.update({'attrs': raw_attrs})
         
-        filt_attrs: dc.FiltMetadata = {
+        filt_attrs: FiltMetadata = {
             'x_var_name': 'Time',
             'y_var_name': 'Filtered photoAcoustic signal'
         }
@@ -154,7 +158,7 @@ class PaData:
         self.filt_data = {}
         self.filt_data.update({'attrs': filt_attrs})
         
-        freq_attrs: dc.RawMetadata = {
+        freq_attrs: RawMetadata = {
             'max_len': 0,
             'x_var_name': 'Frequency',
             'y_var_name': 'FFT amplitude'
@@ -164,9 +168,14 @@ class PaData:
         
         logger.debug('PaData instance created')
 
-    def add_measurement(
+    def create_measurement(self) -> None:
+        """Create a measurement, where data points will be stored."""
+
+        pass
+
+    def add_point(
             self, 
-            data: dc.DataPoint,
+            data: DataPoint,
             param_val: List[PlainQuantity] = []
         ) -> None:
         """Add a single data point.
@@ -199,7 +208,7 @@ class PaData:
                 logger.debug(f'Changing units of data from {data.pa_signal.u} '
                              +f'to {data_u}')
                 data.pa_signal = data.pa_signal.to(data_u)
-        ds: dc.RawData = {
+        ds: RawData = {
             'data': data.pa_signal,
             'data_raw': data.pa_signal_raw,
             'param_val': param_val,
@@ -802,7 +811,7 @@ class PaData:
                     low: PlainQuantity,
                     high: PlainQuantity,
                     ds_name: str,
-                    ds: dc.RawData) -> None:
+                    ds: RawData) -> None:
         """Internal bandpass filtration method.
         
         Actually do the filtration."""
@@ -827,7 +836,7 @@ class PaData:
         #pass frequencies
         filtered_freq = W[(W>low)*(W<high)]
         filtered_data = f_signal[(W>low)*(W<high)]
-        freq_ds: dc.FreqData = {
+        freq_ds: FreqData = {
             'data': Q_(filtered_data, ds['data'].u), #type: ignore
             'x_var_step': Q_((filtered_freq[1]-filtered_freq[0]), 'Hz'),
             'x_var_start': Q_(filtered_freq.min(), 'Hz'),
