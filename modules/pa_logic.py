@@ -780,7 +780,7 @@ def glan_calc(
 def _ameasure_point(
     averaging: int,
     current_wl: PlainQuantity
-    ) -> Tuple[dc.DataPoint|None, bool]:
+    ) -> Tuple[dc.MeasuredPoint|None, bool]:
     """Measure single PA data point with averaging.
     
     second value in the returned tuple (bool) is a flag to 
@@ -789,7 +789,7 @@ def _ameasure_point(
 
     logger.debug('Starting measuring PA data point with averaging...')
     counter = 0
-    msmnts: List[dc.DataPoint]=[]
+    msmnts: List[dc.MeasuredPoint]=[]
     while counter < averaging:
         logger.info(f'Signal at {current_wl} should be measured '
                 + f'{averaging-counter} more times.')
@@ -821,16 +821,16 @@ def _ameasure_point(
     
     logger.warning('Unexpectedly passed after main measure sycle!')
     logger.debug('...Terminating with empty data point.')
-    return dc.DataPoint(), True
+    return dc.MeasuredPoint(), True
 
 def _measure_point(
         wavelength: PlainQuantity,
         **kwargs
-    ) -> dc.DataPoint:
+    ) -> dc.MeasuredPoint:
     """Measure single PA data point."""
 
     logger.debug('Starting PA point measurement...')
-    measurement = dc.DataPoint()
+    measurement = dc.MeasuredPoint()
     osc = dc.hardware.osc
     pm = dc.hardware.power_meter
     config = dc.hardware.config
@@ -932,14 +932,14 @@ def _measure_point(
     logger.debug('...Finishing PA point measurement.')
     return measurement
 
-def aver_measurements(measurements: List[dc.DataPoint]) -> dc.DataPoint:
+def aver_measurements(measurements: List[dc.MeasuredPoint]) -> dc.MeasuredPoint:
     """Calculate average measurement from a given list of measurements.
     
     Actually only amplitude values are averaged, in other cases data
     from the last measurement from the <measurements> is used."""
 
     logger.debug('Starting measurement averaging...')
-    result = dc.DataPoint()
+    result = dc.MeasuredPoint()
     total = len(measurements)
     for measurement in measurements:
         result.dt = measurement.dt
@@ -971,7 +971,7 @@ def aver_measurements(measurements: List[dc.DataPoint]) -> dc.DataPoint:
     return result
 
 def verify_measurement(
-        measurement: dc.DataPoint
+        measurement: dc.MeasuredPoint
     ) -> bool:
     """Verify a PA measurement."""
 

@@ -25,63 +25,86 @@ from . import ureg, Q_
 
 logger = logging.getLogger(__name__)
 
-class BaseMetadata(TypedDict):
-    """Typed dict for general metadata."""
+@dataclass
+class FileMetadata:
+    """General attributes of a file."""
 
-    version: float
-    measurement_dims: int
-    parameter_name: List[str]
-    data_points: int
-    created: str
-    updated: str
-    filename: str
-    notes: str
-    zoom_pre_time: pint.Quantity
-    zoom_post_time: pint.Quantity
+    version: float = 0.0
+    created: str = ''
+    updated: str = ''
+    notes: str = ''
+    zoom_pre_time: PlainQuantity = Q_(2, 'us')
+    zoom_post_time: pint.Quantity = Q_(13, 'us')
 
-class RawMetadata(TypedDict):
-    """Typed dict for raw_data metadata."""
+@dataclass
+class BaseData:
+    """Single raw PA data."""
 
-    max_len: int
-    x_var_name: str
-    y_var_name: str
-
-class FiltMetadata(TypedDict):
-    """Typed dict for filt_data metadata."""
-
-    x_var_name: str
-    y_var_name: str
-
-class RawData(TypedDict):
-    """Typed dict for a data point."""
-
-    data: pint.Quantity
+    data: PlainQuantity
     data_raw: npt.NDArray[np.uint8|np.int16]
     a: float
     b: float
-    param_val: List[pint.Quantity]
     x_var_step: pint.Quantity
     x_var_start: pint.Quantity
     x_var_stop: pint.Quantity
+    x_var_name: str
+    y_var_name: str
+    max_amp: pint.Quantity
+
+@dataclass
+class ProcessedData:
+    """Single processed PA data."""
+
+    data: PlainQuantity
+    x_var_step: pint.Quantity
+    x_var_start: pint.Quantity
+    x_var_stop: pint.Quantity
+    x_var_name: str
+    y_var_name: str
+    max_amp: pint.Quantity
+
+@dataclass
+class PointMetadata:
+    """General attributes of a single PA measurement."""
+
     pm_en: pint.Quantity
     sample_en: pint.Quantity
-    max_amp: pint.Quantity
-
-class FreqData(TypedDict):
-    """Typed dict for a frequency data."""
-
-    data: pint.Quantity
-    x_var_step: pint.Quantity
-    x_var_start: pint.Quantity
-    x_var_stop: pint.Quantity
-    max_amp: pint.Quantity
-
-def empty_ndarray():
-
-    return np.empty(0, dtype=np.int8)
+    param_val: List[PlainQuantity]
 
 @dataclass
 class DataPoint:
+    """Single PA measurement."""
+
+    attrs: PointMetadata
+    raw_data: BaseData
+    filt_data: ProcessedData
+    freq_data: ProcessedData
+
+@dataclass
+class MeasurementMetadata:
+    """General attributes of a measurement."""
+
+    measurement_dims: int
+    parameter_name: List[str]
+    data_points: int = ''
+    created: str = ''
+    updated: str = ''
+    notes: str = ''
+    max_len: int = 0
+
+@dataclass
+class Measurement:
+    """A Photoacoustic measurement with metadata."""
+
+    attrs: dict[str, MeasurementMetadata]  = field(default_factory=dict)
+    "MetaData of the measurement."
+    data: dict[str, DataPoint]
+
+def empty_ndarray():
+    return np.empty(0, dtype=np.int8)
+
+@dataclass
+class MeasuredPoint:
     """Single PA measurement."""
 
     pa_signal_raw: npt.NDArray[np.uint8|np.int16] = field(default_factory=empty_ndarray)

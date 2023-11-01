@@ -52,7 +52,7 @@ from modules.exceptions import StageError, HardwareError
 import modules.data_classes as dc
 from modules.data_classes import (
     Worker,
-    DataPoint
+    MeasuredPoint
 )
 from modules.gui.widgets import (
     MplCanvas,
@@ -381,7 +381,7 @@ class Window(QMainWindow,Ui_MainWindow,):
         worker.signals.result.connect(self.verify_measurement)
         self.pool.start(worker)
 
-    def verify_measurement(self, data: DataPoint) -> DataPoint|None:
+    def verify_measurement(self, data: MeasuredPoint) -> MeasuredPoint|None:
         """Verifies a measurement."""
 
         plot_pa = self.pa_verifier.plot_pa

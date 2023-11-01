@@ -13,11 +13,10 @@ Data structure of PaData class:
     |--'attrs'
     |  |--'version': float - version data structure
     |  |--'measurement_dims': int - dimensionality of the stored measurement
-    |  |--'parameter_name': str - independent parameter, changed between measured PA signals
+    |  |--'parameter_name': List[str] - independent parameter, changed between measured PA signals
     |  |--'data_points': int - amount of stored PA measurements
     |  |--'created': str - date and time of data measurement
     |  |--'updated': str - date and time of last data update
-    |  |--'filename': str - full path to the data file
     |  |--'notes': str - description
     |  |--'zoom_pre_time': Quantity - start time from the center of the PA data frame for zoom in data view
     |  |--'zoom_post_time': Quantity - end time from the center of the PA data frame for zoom in data view
@@ -104,12 +103,14 @@ import texteditor
 
 from . import Q_
 from .data_classes import (
-    BaseMetadata,
+    FileMetadata,
+    MeasurementMetadata,
     RawMetadata,
     FiltMetadata,
-    DataPoint,
+    MeasuredPoint,
     RawData,
-    FreqData
+    FreqData,
+    Measurement
 )
 from .utils import confirm_action
 from modules.exceptions import (
@@ -121,27 +122,17 @@ logger = logging.getLogger(__name__)
 class PaData:
     """Class for PA data storage and manipulations"""
 
-    VERSION = 1.1
+    VERSION = 1.2
 
-    def __init__(self, dims: int=-1, params: List[str]=[]) -> None:
-        """Class init.
-        
-        <dims> dimensionality of the stored measurement.
-        <params> contain names of the dimensions."""
+    def __init__(self) -> None:
 
         #general metadata
-        self.attrs: BaseMetadata = {
-            'version': self.VERSION,
-            'measurement_dims': dims,
-            'parameter_name': params,
-            'data_points': 0,
-            'created': self._get_cur_time(),
-            'updated': self._get_cur_time(),
-            'filename': '',
-            'notes': '',
-            'zoom_pre_time': Q_(2, 'us'),
-            'zoom_post_time': Q_(13, 'us')
-        }
+        self.attrs = FileMetadata(
+            version=self.VERSION,
+            created=self._get_cur_time(),
+            updated=self._get_cur_time(),
+        )
+        self.measurements: dict[str, Measurement]
         raw_attrs: RawMetadata = {
             'max_len': 0,
             'x_var_name': 'Time',
@@ -175,7 +166,7 @@ class PaData:
 
     def add_point(
             self, 
-            data: DataPoint,
+            data: MeasuredPoint,
             param_val: List[PlainQuantity] = []
         ) -> None:
         """Add a single data point.
