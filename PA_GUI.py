@@ -68,7 +68,8 @@ from modules.gui.designer.custom_widgets import (
     PointMeasureWidget,
     CurveMeasureWidget,
     MapMeasureWidget,
-    PowerMeterMonitor
+    PowerMeterMonitor,
+    CurveView
 )
 
 
@@ -271,6 +272,7 @@ class Window(QMainWindow,Ui_MainWindow,):
         # Data plotting
         if data.attrs['measurement_dims'] == 1:
             view = self.data_viwer.p_1d
+            view.data = data
             main_data = data.param_data_plot()
             self.upd_plot(
                 view.plot_curve,
@@ -282,8 +284,14 @@ class Window(QMainWindow,Ui_MainWindow,):
             self.upd_plot(view.plot_detail, *detail_data)
             view.plot_curve.fig.canvas.mpl_connect(
                 'pick_event',
-                lambda event: self.pick_event(view.plot_curve, event)
+                lambda event: self.pick_event(
+                    view.plot_curve,
+                    event,
+                    view
+                )
             )
+            # Set combobox 
+            #view.cb_detail_select.currentTextChanged.disconnect()
             view.cb_detail_select.addItems(self.get_point_signals())
             view.cb_detail_select.currentTextChanged.connect(
                 lambda signal: self.upd_plot(
@@ -296,7 +304,11 @@ class Window(QMainWindow,Ui_MainWindow,):
             )
         logger.debug('Data plotting complete.')
 
-    def pick_event(self, widget:MplCanvas, event: PickEvent):
+    def pick_event(
+            self,
+            widget:MplCanvas,
+            event: PickEvent,
+            parent: CurveView|None = None):
         """Callback method for processing data picking on plot."""
 
         # Update datamarker on plot
@@ -305,16 +317,15 @@ class Window(QMainWindow,Ui_MainWindow,):
             widget.ydata[event.ind[0]]
         )
         widget.draw()
-        # Update marker_ind
-        try:
-            widget.parentWidget().marker_ind = event.ind[0]
-        except:
-            logger.debug(f'Picker failed to set marker_ind')
-
-    def upd_datail_plot(self, widget: MplCanvas, signal: str) -> None:
-        """Plot single point data in curve view."""
-
-        pass
+        # Update index of currently selected data on CurveView
+        if parent is not None:
+            parent.marker_ind = event.ind[0]
+            if parent.data is not None:
+                detailed_data = parent.data.point_data_plot(
+                    event.ind[0],
+                    parent.cb_detail_select.currentText()
+                )
+                self.upd_plot(parent.plot_detail,*detailed_data)
 
     def get_point_signals(self) -> list[str]:
         """Get a list of signals, which can be shown for single point."""

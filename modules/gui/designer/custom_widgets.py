@@ -22,6 +22,8 @@ from . import (
     curve_data_view_ui
 )
 
+from ...pa_data import PaData
+
 
 class PAVerifierDialog(QDialog, verify_measure_ui.Ui_Dialog):
     """Dialog window for verification of a PA measurement."""
@@ -111,3 +113,5 @@ class CurveView(QWidget,curve_data_view_ui.Ui_Form):
         self.setupUi(self)
         self.marker_ind = 0
         "Index of selected point marker."
+        self.data: PaData|None = None
+        "Currently displayed data."

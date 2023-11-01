@@ -568,164 +568,6 @@ class PaData:
         n = int(n_str)
         return n
 
-    def plot(self) -> None:
-        """Plot data."""
-
-        if not self.attrs['data_points']:
-            logger.warning('No data to plot!')
-            return
-
-        #plot initialization
-        warnings.filterwarnings('ignore',
-                                category=MatplotlibDeprecationWarning)
-        self._fig = plt.figure(tight_layout=True)
-        d_dscr = 'Filename: ' + os.path.basename(self.attrs['filename'])
-        d_dscr += '\nDescription: ' + self.attrs['notes']
-        self._fig.suptitle(d_dscr)
-        gs = gridspec.GridSpec(2,3)
-        self._ax_sp = self._fig.add_subplot(gs[0,0])
-        self._ax_raw = self._fig.add_subplot(gs[0,1])
-        self._ax_freq = self._fig.add_subplot(gs[1,0])
-        self._ax_filt = self._fig.add_subplot(gs[1,1])
-        self._ax_raw_zoom = self._fig.add_subplot(gs[0,2])
-        self._ax_filt_zoom = self._fig.add_subplot(gs[1,2])
-
-        self._marker_style = {
-            'marker': 'o',
-            'alpha': 0.4,
-            'ms': 12,
-            'color': 'yellow'
-        }
-        self._fill_style = {
-            'alpha': 0.3,
-            'color': 'g'
-        }
-
-        dims = self.attrs['measurement_dims']
-        try:
-            if dims == 0:
-                self._plot_0d()
-            elif dims == 1:
-                self._plot_1d()
-            elif dims == 2:
-                self._plot_2d()
-            elif dims == 3:
-                self._plot_3d()
-            else:
-                logger.warning(f'Unsupported dimensionality: ({dims})')
-        except PlotError as err:
-            logger.warning(f'Plot attempt failed. {err.value}')
-
-    def _plot_0d(self) -> None:
-        """Plot 0D data."""
-
-        logger.debug('Starting 0D plotting...')
-        for ds_name, ds in self.filt_data.items():
-            if ds_name != 'attrs':
-                break
-        #update filt plot withh filt_zoom
-        self._plot_update_signal(
-            self.filt_data[ds_name],
-            self.filt_data['attrs'],
-            'Filtered data',
-            self._ax_filt,
-            self._ax_filt_zoom,
-        )
-        #update raw plot with raw_zoom
-        self._plot_update_signal( 
-            self.raw_data[ds_name],
-            self.raw_data['attrs'],
-            'Raw data',
-            self._ax_raw,
-            self._ax_raw_zoom,
-        )
-        #update freq plot
-        self._plot_update_signal(
-            self.freq_data[ds_name],
-            self.freq_data['attrs'],
-            'FFT data',
-            self._ax_freq
-        )
-        plt.show()
-
-    def _plot_1d(self) -> None:
-        """Plot 1D data."""
-
-        logger.debug('Starting 1D plotting...')
-        self._param_ind = 0 #index of active data on plot
-        self._plot_param()
-        self._fig.canvas.mpl_connect('key_press_event', self._on_key_press)
-        self._plot_update()
-        plt.show()
-
-    def _plot_2d(self) -> None:
-        """Plot 2D data."""
-
-        logger.warning('Plotting 2D data is not implemented!')
-
-    def _plot_3d(self) -> None:
-        """Plot 3D data."""
-
-        logger.warning('Plotting 3D data is not implemented!')
-
-    def _plot_param(
-            self,
-            value: str = 'max_amp'
-        ) -> None:
-        """Plot parameter data.
-        
-        <value> define which quantity will be plotted.
-        """
-
-        param_values = self.get_dependance('raw_data','param_val[0]')
-        if param_values is None:
-            err_msg = 'Cannot get param_val for all datapoints.'
-            logger.debug(err_msg)
-            raise PlotError(err_msg)
-        else:
-            self._param_values = param_values
-
-        raw_vals = self.get_dependance('raw_data', value)
-        if raw_vals is None:
-            err_msg = f'Cant get {value} of raw_data.'
-            logger.debug(err_msg)
-            raise PlotError(err_msg)
-        else:
-            self._raw_vals = raw_vals
-
-        filt_vals = self.get_dependance('filt_data', value)
-        if filt_vals is None:
-            err_msg = f'Cant get {value} of raw_data.'
-            logger.debug(err_msg)
-            raise PlotError(err_msg)
-        else:
-            units = self._raw_vals.u
-            self._filt_vals = filt_vals.to(units)
-        
-        self._ax_sp.plot(
-            self._param_values.m,
-            self._raw_vals.m,
-            label=f'{value} of raw data')
-        self._ax_sp.plot(
-            self._param_values.m,
-            self._filt_vals.m,
-            label=f'{value} of filtered data'
-        )
-        self._ax_sp.legend(loc='upper right')
-        self._ax_sp.set_ylim(bottom=0)
-        x_label = (self.attrs['parameter_name'][0] 
-                   + ', ['
-                   + f'{self._param_values.u}'
-                   + ']')
-        self._ax_sp.set_xlabel(x_label)
-        y_label = (self.raw_data['attrs']['y_var_name']
-                   + ', ['
-                   + f'{self._raw_vals.u}'
-                   + ']')
-        self._ax_sp.set_ylabel(y_label)
-
-        self._plot_init_cur_param()
-
     def param_data_plot(
             self,
             dtype: str = 'filt_data',
@@ -735,7 +577,7 @@ class PaData:
         
         ``type`` - type of data to return can be 'filt_data' or 'raw_data'\n
         ``value`` - property of the data to be represented.\n
-        Return a tuple, which contain [ydata, xdata, xlabel, ylabel].
+        Return a tuple, which contain [ydata, xdata, ylabel, xlabel].
         """
         
         xdata = self.get_dependance(dtype,'param_val[0]')
@@ -771,7 +613,7 @@ class PaData:
         ``index`` - index of data to get the data point.\n
         ``dtype`` - type of data to be returned. Accept: ``Raw``,
         ``Filtered``, ``Zoomed Raw``, ``Zoomed filtered`` and ``FFT``.\n
-        Return a tuple, which contain [ydata, xdata, xlabel, ylabel].
+        Return a tuple, which contain [ydata, xdata, ylabel, xlabel].
         """
 
         empty_data = (np.array([]),np.array([]),'','')
@@ -798,19 +640,6 @@ class PaData:
             )
         return result
 
-    def _plot_update_cur_param(self) -> None:
-        """Update current position in parameter subplot."""
-
-        title = (self.attrs['parameter_name'][0] + ': '
-                  + str(self._param_values[self._param_ind])) #type:ignore
-        self._ax_sp.set_title(title)
-        self._plot_selected_raw.set_data(
-            self._param_values[self._param_ind].m, #type:ignore
-            self._raw_vals[self._param_ind].m) #type:ignore
-        self._plot_selected_filt.set_data(
-            self._param_values[self._param_ind].m, #type:ignore
-            self._filt_vals[self._param_ind].m) #type:ignore
-
     def _point_data(
             self,
             ds: dict,
@@ -821,7 +650,7 @@ class PaData:
         
         ``ds`` - dataset for plotting.\n
         ``attrs`` - dict with attributes of group containing ``ds``.\n
-        Return a tuple, which contain [ydata, ydata, xlabel, ylabel].
+        Return a tuple, which contain [ydata, ydata, ylabel, xlabel].
         """
         
         start = ds['x_var_start']
@@ -838,7 +667,7 @@ class PaData:
                    + ', ['
                    + str(ds['data'].u)
                    + ']')
-        return (ds['data'].m, time_data.m, x_label, y_label)
+        return (ds['data'].m, time_data.m, y_label, x_label)
 
         if zoom_ax is not None:
             #marker for max value
