@@ -49,20 +49,20 @@ class BaseData:
 
     data: PlainQuantity
     'measured PA signal'
-    data_raw: npt.NDArray[np.uint8|np.int16]
+    data_raw: npt.NDArray[np.uint8]
     'measured PA signal in raw format'
     a: float
     'coef for coversion ``data_raw`` to ``data``: <data> = a*<data_raw> + b '
     b: float
     'coef for coversion ``data_raw`` to ``data``: <data> = a*<data_raw> + b '
+    max_amp: PlainQuantity
+    'max(data) - min(data)'
     x_var_step: PlainQuantity
     x_var_start: PlainQuantity
     x_var_stop: PlainQuantity
     x_var_name: str = 'Time'
     y_var_name: str = 'PhotoAcoustic Signal'
-    max_amp: PlainQuantity
-    'max(data) - min(data)'
-
+    
 @dataclass
 class ProcessedData:
     """Single processed PA data."""
@@ -131,7 +131,7 @@ def empty_ndarray():
 class MeasuredPoint:
     """Single PA measurement."""
 
-    pa_signal_raw: npt.NDArray[np.uint8|np.int16] = field(default_factory=empty_ndarray)
+    pa_signal_raw: npt.NDArray[np.uint8] = field(default_factory=empty_ndarray) # type: ignore
     "Sampled PA signal in int8 format"
     dt: PlainQuantity = Q_(0,'s')
     "Sampling interval for PA data"
