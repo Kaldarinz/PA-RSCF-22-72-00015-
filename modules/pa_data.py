@@ -70,7 +70,7 @@ PaData:
     """
 
 import warnings
-from typing import Iterable, Any, Tuple, TypedDict, List
+from typing import Iterable, Any, Tuple, TypedDict, List, TypeVar
 from datetime import datetime
 import time
 import os, os.path
@@ -397,6 +397,7 @@ class PaData:
         result = {}
         for key, val in obj.__dict__.items():
             if key not in ('data','data_raw'):
+                # each quantity is saved as magnitude and unit
                 if isinstance(val, PlainQuantity):
                     result.update(
                         {
@@ -404,9 +405,50 @@ class PaData:
                             key + '_u': str(val.u)
                         }
                     )
+                # lists must be unpacked, as they can contain quantities
+                elif (isinstance(val,list)
+                      and len(val)
+                      and isinstance(val[0], PlainQuantity)
+                    ):
+                    mags = [x.m for x in val]
+                    units = [str(x.u) for x in val]
+                    result.update(
+                        {
+                            key: mags,
+                            key + '_u': units
+                        }
+                    )
                 else:
                     result.update({key: val})
         return result
+
+    def _from_dict(self, dtype, source: dict):
+        """
+        Generate dataclass from a dictionary.
+        
+        Intended for use in loading data from file.\n
+        ``dtype`` - dataclass, in which data should be converted.
+        ``source`` - dictionary with the data to load.
+        Poorly written, mutable attributes can be: 
+        lists[PlainQuantity|int|str|float|bool],
+        NDArray[np.uint8].
+        NOT generic NRArray or just list!!!
+        dicts are not suppoerted also.
+        """
+
+        init_vals = {}
+        for key, val in dtype.__annotations__.items():
+            # this condition check is different from others
+            if val == list[PlainQuantity]:
+                mags = source[key]
+                units = source[key + '_u']
+                item = [Q_(m, u) for m, u in zip(mags, units)]
+            elif val is PlainQuantity:
+                item = Q_(source[key], source[key + '_u'])
+            else:
+                item = val
+            init_vals.update({key: item})
+            return dtype(**init_vals)
 
     def _calc_data_fit(self,
                        data: PlainQuantity,
@@ -439,19 +481,24 @@ class PaData:
         return coef # type: ignore
 
     def load(self, filename: str) -> None:
-        """Loads data from file"""
+        """Load data from file."""
 
         logger.debug('load procedure is starting...')
-        self.attrs['filename'] = filename
-        logger.debug(f'"filename" set to {filename}')
-
         with h5py.File(filename, 'r') as file:
             
-            #load general metadata
+            #load file metadata
+            
             general = file.attrs
             if 'version' not in general:
                 logger.warning('File has old structure and cannot be loaded.')
                 return
+            # add backward compatibility here
+            if (general.get('version', 0)) < 1.2:
+                pass
+
+            self.attrs = self._from_dict(FileMetadata, dict(file.attrs.items()))
+            ####Stopped here
+            file.vi
             time_unit = general['zoom_u']
             self.attrs.update(
                 {
