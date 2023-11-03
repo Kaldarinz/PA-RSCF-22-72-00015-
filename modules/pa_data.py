@@ -345,7 +345,11 @@ class PaData:
                 file.write(';'.join(map(str,row)) + '\n')
     
     def _flush(self, filename: str) -> None:
-        """Write data to disk."""
+        """
+        Write data to disk.
+        
+        Processed data (filt and freq) is not saved.
+        """
 
         logger.debug(f'Start writing data to {filename}')
         with h5py.File(filename, 'w') as file:
@@ -365,27 +369,11 @@ class PaData:
                     s_rawdata = s_datapoint.create_group('raw_data')
                     s_rawdata.attrs.update(self._to_dict(ds.raw_data))
                     s_rawdata.create_dataset(
-                        'data',
-                        data = ds.raw_data.data.m
-                    )
-                    s_rawdata.create_dataset(
                         'data_raw',
                         data = ds.raw_data.data_raw
                     )
-                    # set filtered data
-                    s_filtdata = s_datapoint.create_group('filt_data')
-                    s_filtdata.attrs.update(self._to_dict(ds.filt_data))
-                    s_filtdata.create_dataset(
-                        'data',
-                        data = ds.filt_data.data.m
-                    )
-                    # set frequency data
-                    s_freqdata = s_datapoint.create_group('freq_data')
-                    s_freqdata.attrs.update(self._to_dict(ds.freq_data))
-                    s_freqdata.create_dataset(
-                        'data',
-                        data = ds.freq_data.data.m
-                    )
+                    # additionaly save units of data
+                    s_rawdata.attrs.update({'y_var_units': str(ds.raw_data.data.u)})
 
     def _to_dict(self, obj: object) -> dict:
         """"
@@ -429,11 +417,6 @@ class PaData:
         Intended for use in loading data from file.\n
         ``dtype`` - dataclass, in which data should be converted.
         ``source`` - dictionary with the data to load.
-        Poorly written, mutable attributes can be: 
-        lists[PlainQuantity|int|str|float|bool],
-        NDArray[np.uint8].
-        NOT generic NRArray or just list!!!
-        dicts are not suppoerted also.
         """
 
         init_vals = {}
@@ -448,7 +431,32 @@ class PaData:
             else:
                 item = val
             init_vals.update({key: item})
-            return dtype(**init_vals)
+        return dtype(**init_vals)
+
+    def _load_basedata(
+            self,
+            data: PlainQuantity,
+            data_raw: npt.NDArray[np.uint8],
+            source: dict
+        ) -> BaseData:
+        """"Load BaseData."""
+
+        init_vals = {
+            'data': data,
+            'data_raw': data_raw
+        }
+        for key, val in BaseData.__annotations__.items():
+            # this condition check is different from others
+            if val == list[PlainQuantity]:
+                mags = source[key]
+                units = source[key + '_u']
+                item = [Q_(m, u) for m, u in zip(mags, units)]
+            elif val is PlainQuantity:
+                item = Q_(source[key], source[key + '_u'])
+            else:
+                item = val
+            init_vals.update({key: item})
+        return BaseData(**init_vals)
 
     def _calc_data_fit(self,
                        data: PlainQuantity,
@@ -469,13 +477,14 @@ class PaData:
         max_ind = np.flatnonzero(data==data.max())[0] # type: ignore
         x = data_raw[max_ind:max_ind+points]
         if len(np.unique(x))< DIFF_VALS:
+            i = 0
             for i in range(len(data_raw)):
                 stop_ind = max_ind+points+i
                 x = data_raw[max_ind:stop_ind].copy()
                 if len(np.unique(x)) == DIFF_VALS:
                     break
-        logger.debug(f'{i} additional points added to find '
-                     + f'{DIFF_VALS} unique values.')
+            logger.debug(f'{i} additional points added to find '
+                        + f'{DIFF_VALS} unique values.')
         y = [quantity.m for quantity, _ in zip(data[max_ind:], x)] # type: ignore
         coef = np.polyfit(x, y, 1)
         return coef # type: ignore
@@ -497,95 +506,82 @@ class PaData:
                 pass
 
             self.attrs = self._from_dict(FileMetadata, dict(file.attrs.items()))
-            ####Stopped here
-            file.vi
-            time_unit = general['zoom_u']
-            self.attrs.update(
-                {
-                'version': general['version'],
-                'measurement_dims': general['measurement_dims'],
-                'parameter_name': general['parameter_name'],
-                'data_points': general['data_points'],
-                'created': general['created'],
-                'updated': general['updated'],
-                'zoom_pre_time': Q_(general['zoom_pre_time'], time_unit), # type: ignore
-                'zoom_post_time': Q_(general['zoom_post_time'], time_unit) # type: ignore
-                }
-            )
+            # load all measurements from the file
+            self.measurements = {}
+            for msmnt_title, msmnt in file.items():
+                msm_attrs = self._from_dict(MeasurementMetadata, dict(msmnt.attrs.items()))
+                measurement = Measurement(attrs = msm_attrs, data = {})
+                # load all datapoints from the measurement
+                for datapoint_title, datapoint in msmnt.items():
+                    point_attrs = self._from_dict(PointMetadata, dict(datapoint.attrs.items()))
+                    ds = datapoint['raw_data']['data_raw']
+                    data_raw = ds[...]
+                    y_var_units = ds['y_var_units']
+                    # restore data
+                    p = np.poly1d([ds.attrs['a'], ds.attrs['b']])
+                    data = Q_(p(data_raw), y_var_units)
+                    basedata = self._load_basedata(data, data_raw, dict(ds.attrs.items()))
+                    filtdata, freqdata = self.bp_filter(basedata)
+                    dp = DataPoint(
+                        point_attrs,
+                        basedata,
+                        filtdata,
+                        freqdata
+                    )
+                    measurement.data.update({datapoint_title: dp})
+                self.measurements.update({msmnt_title: measurement})
 
-            if (general.get('version', 0)) >= 1.1:
-                self.attrs.update(
-                    {'notes': general['notes']}
-                )
-            #in old version of 0D data save parameter name was missed
-            #but it was wavelength in all cases. Fix it on load old data.
-            if not len(self.attrs['parameter_name']):
-                self.attrs['parameter_name'] = ['Wavelength']
-            logger.debug(f'General metadata with {len(general)}'
-                         + ' records loaded.')
+    def _load_old(self, file: h5py.File) -> None:
+        """Load file with version < 1.2."""
+
+        self.attrs = FileMetadata(
+            version = file.attrs['version'], # type: ignore
+            measurements_count = 1,
+            created = file.attrs['created'], # type: ignore
+            updated = file.attrs['updated'], # type: ignore
+            notes = ''
+        )
+        self.measurements = {}
+
+        raw_data = file['raw_data']
+        msmnt_md = MeasurementMetadata(
+            measurement_dims = file.attrs['measurement_dims'], # type: ignore
+            parameter_name = file.attrs['parameter_name'], # type: ignore
+            data_points = file.attrs['data_points'], # type: ignore
+            max_len = raw_data.attrs['max_len'] # type: ignore
+        )
+        msmnt = Measurement(msmnt_md)
+        self.measurements.update({'measurement001': msmnt})
+        for ds_name, ds in raw_data.items(): # type: ignore
+            data_raw = ds[...]
+            y_var_units = raw_data.attrs['y_var_u']
+            p = np.poly1d([ds.attrs['a']], ds.attrs['b'])
+            data = Q_(p(data_raw), y_var_units) # type: ignore
+            basedata = BaseData(
+                data = data,
+                data_raw = data_raw,
+                a = ds.attrs['a'],
+                b = ds.attrs['b'],
+                max_amp = Q_(ds.attrs['max_amp'], ds.attrs['max_amp_u']),
+                x_var_step = Q_(ds.attrs['x_var_step'], raw_data.attrs['x_var_u']), # type: ignore
+                x_var_start = Q_(ds.attrs['x_var_start'], raw_data.attrs['x_var_u']), # type: ignore
+                x_var_stop = Q_(ds.attrs['x_var_stop'], raw_data.attrs['x_var_u']) # type: ignore
+            )
+            fildata, freqdata = self.bp_filter(basedata)
+            p_md = PointMetadata(
+                pm_en = Q_(ds.attrs['pm_en'], ds.attrs['pm_en_u']),
+                sample_en = Q_(ds.attrs['sample_en'], ds.attrs['sample_en_u']),
+                param_val= [Q_(x,y) for x,y in zip(
+                    ds.attrs['paramv_val'], file.attrs['parameter_u'])] # type: ignore
+            )
+            dp = DataPoint(
+                p_md,
+                basedata,
+                fildata,
+                freqdata
+            )
+            msmnt.data.update({ds_name:dp})
         
-            raw_data = file['raw_data']
-            #metadata of raw_data
-            self.raw_data['attrs'].update(
-                {
-                    'max_len': raw_data.attrs['max_len'],
-                    'x_var_name': raw_data.attrs['x_var_name'],
-                    'y_var_name': raw_data.attrs['y_var_name']
-                }
-            )
-            logger.debug(f'raw_data metadata with {len(raw_data.attrs)}'
-                         + ' records loaded.')
-
-            for ds_name in raw_data: # type: ignore
-                self._load_ds(
-                    ds_name,
-                    raw_data[ds_name], # type: ignore
-                    raw_data.attrs['y_var_u'], # type: ignore
-                    raw_data.attrs['x_var_u'], # type: ignore
-                    general['parameter_u']
-                )
-            self.bp_filter()
-            logger.debug('...Data loaded!')
-
-    def _load_ds(self,
-                 ds_name: str,
-                 ds: h5py.Dataset,
-                 y_var_unit: str,
-                 x_var_unit: str,
-                 param_units: List[str]
-                 ) -> None:
-        """Load <ds_name> dataset from <ds>."""
-
-        p = np.poly1d([ds.attrs['a'], ds.attrs['b']]) # type: ignore
-        data_raw = ds[...]
-        data = Q_(p(data_raw), y_var_unit)
-        p_vals = ds.attrs['param_val']
-        param_val = [Q_(x, y) for x, y in zip(p_vals,param_units)] # type: ignore
-        x_var_step = Q_(ds.attrs['x_var_step'], x_var_unit)
-        x_var_start = Q_(ds.attrs['x_var_start'], x_var_unit)
-        x_var_stop = Q_(ds.attrs['x_var_stop'], x_var_unit)
-        pm_en = Q_(ds.attrs['pm_en'], ds.attrs['pm_en_u']) # type: ignore
-        sample_en = Q_(ds.attrs['sample_en'], ds.attrs['sample_en_u']) # type: ignore
-        max_amp = Q_(ds.attrs['max_amp'], ds.attrs['max_amp_u']) # type: ignore
-
-        self.raw_data.update(
-                    {
-                        ds_name:{
-                            'data': data,
-                            'data_raw': data_raw,
-                            'a': ds.attrs['a'],
-                            'b': ds.attrs['b'],
-                            'param_val': param_val,
-                            'x_var_step': x_var_step,
-                            'x_var_start': x_var_start,
-                            'x_var_stop': x_var_stop,
-                            'pm_en': pm_en,
-                            'sample_en': sample_en,
-                            'max_amp': max_amp
-                        }
-                    }
-                )
-
     def _build_name(self, n: int, name: str = 'point') -> str:
         """
         Build and return name.
@@ -604,42 +600,43 @@ class PaData:
             return ''
         return name + n_str
     
-    def _get_ds_index(self, ds_name: str) -> int:
-        """Return index from dataset name."""
-
-        n_str = ds_name.split('point')[-1]
-        n = int(n_str)
-        return n
-
     def param_data_plot(
             self,
+            msmnt: Measurement,
             dtype: str = 'filt_data',
             value: str = 'max_amp'
         ) -> tuple[npt.NDArray, npt.NDArray, str, str]:
         """Get main data for plotting.
         
+        ``msmnt`` - measurement, from which to plot data.\n
         ``type`` - type of data to return can be 'filt_data' or 'raw_data'\n
         ``value`` - property of the data to be represented.\n
         Return a tuple, which contain [ydata, xdata, ylabel, xlabel].
         """
         
-        xdata = self.get_dependance(dtype,'param_val[0]')
+        xdata = self.get_dependance(
+            msmnt=msmnt,
+            data_type=dtype,
+            value = 'param_val')
         if xdata is None:
             err_msg = 'Cannot get param_val for all datapoints.'
             logger.debug(err_msg)
             raise PlotError(err_msg)
 
-        ydata = self.get_dependance(dtype, value)
+        ydata = self.get_dependance(
+            msmnt=msmnt,
+            data_type=dtype,
+            value = value)
         if ydata is None:
             err_msg = f'Cant get {value} of {dtype}.'
             logger.debug(err_msg)
             raise PlotError(err_msg)
         
-        x_label = (self.attrs['parameter_name'][0] 
+        x_label = (msmnt.attrs.parameter_name[0] 
                 + ', ['
                 + f'{xdata.u:~.2gP}'
                 + ']')
-        y_label = (self.raw_data['attrs']['y_var_name']
+        y_label = (msmnt.data['point001'].raw_data.y_var_name
                 + ', ['
                 + f'{ydata.u:~.2gP}'
                 + ']')
@@ -648,10 +645,12 @@ class PaData:
 
     def point_data_plot(
             self,
+            msmnt: Measurement,
             index: int,
             dtype: str
         ) -> tuple[npt.NDArray, npt.NDArray, str, str]:
-        """Get point data for plotting.
+        """
+        Get point data for plotting.
         
         ``index`` - index of data to get the data point.\n
         ``dtype`` - type of data to be returned. Accept: ``Raw``,
@@ -661,32 +660,19 @@ class PaData:
 
         empty_data = (np.array([]),np.array([]),'','')
         result = empty_data
-        ds_name = self._build_ds_name(index+1)
-        #check if datapoint is empty
-        if self.filt_data[ds_name].get('data') is None:
-            return empty_data
+        ds_name = self._build_name(index+1)
 
         if dtype == 'Filtered':
-             result = self._point_data(
-                self.filt_data[ds_name],
-                self.filt_data['attrs']
-            )
+             result = self._point_data(msmnt.data[ds_name].filt_data)
         elif dtype == 'Raw':
-             result = self._point_data( 
-                self.raw_data[ds_name],
-                self.raw_data['attrs']
-            )
+             result = self._point_data(msmnt.data[ds_name].raw_data)
         elif dtype == 'FFT':
-            result = self._point_data(
-                self.freq_data[ds_name],
-                self.freq_data['attrs']
-            )
+            result = self._point_data(msmnt.data[ds_name].freq_data)
         return result
 
     def _point_data(
             self,
-            ds: dict,
-            attrs: dict
+            ds: BaseData|ProcessedData
         ) -> tuple[npt.NDArray, npt.NDArray, str, str]:
         """
         Get point data for plotting.
@@ -696,21 +682,21 @@ class PaData:
         Return a tuple, which contain [ydata, ydata, ylabel, xlabel].
         """
         
-        start = ds['x_var_start']
-        stop = ds['x_var_stop']
-        step = ds['x_var_step']
-        num = len(ds['data'])
+        start = ds.x_var_start
+        stop = ds.x_var_stop
+        step = ds.x_var_step
+        num = len(ds.data) # type: ignore
         time_data = Q_(np.linspace(start.m,stop.m,num), start.u)
 
-        x_label = (attrs['x_var_name']
+        x_label = (ds.x_var_name
                    + ', ['
                    + str(start.u)
                    + ']')
-        y_label = (attrs['y_var_name']
+        y_label = (ds.y_var_name
                    + ', ['
                    + str(ds['data'].u)
                    + ']')
-        return (ds['data'].m, time_data.m, y_label, x_label)
+        return (ds.data.m, time_data.m, y_label, x_label)
 
         if zoom_ax is not None:
             #marker for max value
@@ -759,68 +745,39 @@ class PaData:
             zoom_ax.set_ylabel(y_label)
             zoom_ax.set_title('Zoom of ' + title)
 
-    def get_dependance(self, 
-                       data_group: str, 
-                       value: str) -> PlainQuantity|None:
-        """Return array with value from each dataset in the data_group.
+    def get_dependance(
+            self, 
+            msmnt: Measurement,
+            data_type: str, 
+            value: str
+        ) -> PlainQuantity|None:
+        """
+        Return ``value`` for each dataPoint in a given measurement.
         
-        data_group: 'raw_data'|'filt_data|'freq_data'.
+        ``msmnt`` - measurement, from which to read the data.\n
+        ``data_type`` - type of data, can have 3 values 
+        'raw_data'|'filt_data|'freq_data'.\n
+        ``value`` - name of the attribute.
         """
 
-        logger.debug(f'Start building array of {value} from {data_group}.')
+        logger.debug(f'Start building array of {value} from {msmnt}.')
         dep = [] #array for return values
-        if not self.attrs['data_points']:
-            logger.error(f'PaData instance contains no data points.')
+        if not msmnt.attrs.data_points:
+            logger.error(f'Measurement contains no data points.')
             return None
         
-        if value.startswith('param_val'):
-            ind = int(value.split('[')[-1].split(']')[0])
-            value = 'param_val'
-            check_st = ('self.'
-                        + data_group
-                        + '[self._build_ds_name(1)].get(value)'
-                        + f'[{ind}]'
-            )
+        if value in PointMetadata.__annotations__.keys():
+            if getattr(PointMetadata, value) == list[PlainQuantity]:
+                # temporary solution, fix later
+                dep = [getattr(x, value)[0] for x in msmnt.data]
+            else:
+                dep = [getattr(x, value) for x in msmnt.data]
         else:
-            ind = None
-            check_st = ('self.'
-                        + data_group
-                        + '[self._build_ds_name(1)].get(value)'
-            )
-        if eval(check_st) is None:
-            logger.error(f'Attempt to read unknown attribute: {value} '
-                         + f'from {data_group}.')
-            return None
-        
-        if ind is not None:
-            if data_group == 'raw_data':
-                for ds_name, ds in self.raw_data.items():
-                    if ds_name != 'attrs':
-                        dep.append(ds[value][ind])
-            elif data_group == 'filt_data':
-                for ds_name, ds in self.filt_data.items():
-                    if ds_name != 'attrs':
-                        dep.append(ds[value][ind])
-            elif data_group == 'freq_data':
-                for ds_name, ds in self.freq_data.items():
-                    if ds_name != 'attrs':
-                        dep.append(ds[value][ind])
-        else:
-            if data_group == 'raw_data':
-                for ds_name, ds in self.raw_data.items():
-                    if ds_name != 'attrs':
-                        dep.append(ds[value])
-            elif data_group == 'filt_data':
-                for ds_name, ds in self.filt_data.items():
-                    if ds_name != 'attrs':
-                        dep.append(ds[value])
-            elif data_group == 'freq_data':
-                for ds_name, ds in self.freq_data.items():
-                    if ds_name != 'attrs':
-                        dep.append(ds[value])
+            for dp in msmnt.data:
+                groupd = getattr(dp, data_type)
+                dep.append(getattr(groupd, value))
         # explicit units are required at least for 'nm'
-        dep = pint.Quantity.from_list(dep, f'{dep[0].u:~}')
-        return dep
+        return pint.Quantity.from_list(dep, f'{dep[0].u:~}')
 
     def bp_filter(
             self,

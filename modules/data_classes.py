@@ -3,7 +3,7 @@ Module with data classes.
 """
 
 import sys
-from typing import TypedDict, List, Callable
+from typing import Callable
 from dataclasses import dataclass, field
 import traceback
 import logging
@@ -85,7 +85,7 @@ class PointMetadata:
     'laser energy measured by power meter in glass reflection'
     sample_en: PlainQuantity
     'laser energy at sample'
-    param_val: List[PlainQuantity] = field(default_factory=list)
+    param_val: list[PlainQuantity] = field(default_factory=list)
     'value of independent parameters'
 
 @dataclass
@@ -103,7 +103,7 @@ class MeasurementMetadata:
 
     measurement_dims: int
     'dimensionality of the measurement'
-    parameter_name: List[str]
+    parameter_name: list[str]
     'independent parameter, changed between measured PA signals'
     data_points: int = 0
     'amount of datapoints in the measurement'
