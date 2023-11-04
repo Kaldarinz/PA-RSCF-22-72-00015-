@@ -160,7 +160,7 @@ class Hardware():
     def __init__(self):
         self.power_meter: PowerMeter | None = None
         self.pa_sens: PhotoAcousticSensOlymp | None = None
-        self.stages: List[KinesisMotor] = []
+        self.stages: list[KinesisMotor] = []
         self.motor_axes: int = -1
         self.axes_titles = ('X','Y','Z')
         self.osc: Oscilloscope = Oscilloscope()

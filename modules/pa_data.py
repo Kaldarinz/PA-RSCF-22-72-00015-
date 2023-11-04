@@ -503,7 +503,8 @@ class PaData:
                 return
             # add backward compatibility here
             if (general.get('version', 0)) < 1.2:
-                pass
+                self._load_old(file)
+                return
 
             self.attrs = self._from_dict(FileMetadata, dict(file.attrs.items()))
             # load all measurements from the file
@@ -572,7 +573,7 @@ class PaData:
                 pm_en = Q_(ds.attrs['pm_en'], ds.attrs['pm_en_u']),
                 sample_en = Q_(ds.attrs['sample_en'], ds.attrs['sample_en_u']),
                 param_val= [Q_(x,y) for x,y in zip(
-                    ds.attrs['paramv_val'], file.attrs['parameter_u'])] # type: ignore
+                    ds.attrs['param_val'], file.attrs['parameter_u'])] # type: ignore
             )
             dp = DataPoint(
                 p_md,
@@ -582,7 +583,8 @@ class PaData:
             )
             msmnt.data.update({ds_name:dp})
         
-    def _build_name(self, n: int, name: str = 'point') -> str:
+    @staticmethod
+    def _build_name(n: int, name: str = 'point') -> str:
         """
         Build and return name.
         
@@ -643,8 +645,8 @@ class PaData:
 
         return (ydata.m, xdata.m, y_label, x_label)
 
+    @staticmethod
     def point_data_plot(
-            self,
             msmnt: Measurement,
             index: int,
             dtype: str
@@ -660,18 +662,18 @@ class PaData:
 
         empty_data = (np.array([]),np.array([]),'','')
         result = empty_data
-        ds_name = self._build_name(index+1)
+        ds_name = PaData._build_name(index+1)
 
         if dtype == 'Filtered':
-             result = self._point_data(msmnt.data[ds_name].filt_data)
+             result = PaData._point_data(msmnt.data[ds_name].filt_data)
         elif dtype == 'Raw':
-             result = self._point_data(msmnt.data[ds_name].raw_data)
+             result = PaData._point_data(msmnt.data[ds_name].raw_data)
         elif dtype == 'FFT':
-            result = self._point_data(msmnt.data[ds_name].freq_data)
+            result = PaData._point_data(msmnt.data[ds_name].freq_data)
         return result
 
+    @staticmethod
     def _point_data(
-            self,
             ds: BaseData|ProcessedData
         ) -> tuple[npt.NDArray, npt.NDArray, str, str]:
         """
@@ -694,7 +696,7 @@ class PaData:
                    + ']')
         y_label = (ds.y_var_name
                    + ', ['
-                   + str(ds['data'].u)
+                   + str(ds.data.u)
                    + ']')
         return (ds.data.m, time_data.m, y_label, x_label)
 
@@ -766,14 +768,20 @@ class PaData:
             logger.error(f'Measurement contains no data points.')
             return None
         
-        if value in PointMetadata.__annotations__.keys():
-            if getattr(PointMetadata, value) == list[PlainQuantity]:
-                # temporary solution, fix later
-                dep = [getattr(x, value)[0] for x in msmnt.data]
+        for i in range(msmnt.attrs.data_points):
+            # explicitly call datapoint by names to preserve order
+            dp_name = PaData._build_name(i+1)
+            dp = msmnt.data.get(dp_name)
+            if dp is None:
+                logger.error(f'Datapoint {dp_name} is missing')
+                return
+            if value in PointMetadata.__annotations__.keys():
+                if PointMetadata.__annotations__[value] == list[PlainQuantity]:
+                    # temporary solution, fix later
+                    dep.append(getattr(dp.attrs, value)[0])
+                else:
+                    dep.append(getattr(dp.attrs, value))
             else:
-                dep = [getattr(x, value) for x in msmnt.data]
-        else:
-            for dp in msmnt.data:
                 groupd = getattr(dp, data_type)
                 dep.append(getattr(groupd, value))
         # explicit units are required at least for 'nm'

@@ -52,7 +52,8 @@ from modules.exceptions import StageError, HardwareError
 import modules.data_classes as dc
 from modules.data_classes import (
     Worker,
-    MeasuredPoint
+    MeasuredPoint,
+    Measurement
 )
 from modules.gui.widgets import (
     MplCanvas,
@@ -127,7 +128,7 @@ class Window(QMainWindow,Ui_MainWindow,):
 
     def __init__(
             self,
-            parent:QMainWindow = None,
+            parent: QMainWindow|None = None,
         ) -> None:
         super().__init__(parent)
         self.setupUi(self)
@@ -243,7 +244,7 @@ class Window(QMainWindow,Ui_MainWindow,):
         filename = self.get_filename()
         self.data = PaData()
         self.data.load(filename)
-        logger.info(f'Data with {len(self.data.raw_data)-1} PA '
+        logger.info(f'Data with {self.data.attrs.measurements_count} PA '
                     + 'measurements loaded!')
         self.show_data(self.data)
         
@@ -253,34 +254,38 @@ class Window(QMainWindow,Ui_MainWindow,):
 
         logger.debug('Starting plotting data...')
         if data is None:
+            if self.data is None:
+                logger.error('No data to show!')
+                return
             data = self.data
+
+        # choose a measurement to show data from
+        msmnt_title, msmnt = next(iter(data.measurements.items()))
 
         # Update content representation
         content = self.data_viwer.tv_content
-        filename = os.path.basename(data.attrs['filename'])
-        version = data.attrs['version']
 
         treemodel = QStandardItemModel()
         rootnode = treemodel.invisibleRootItem()
 
-        name = QStandardItem(filename)
-        version = QStandardItem('Version')
+        name = QStandardItem(msmnt_title)
+        version = QStandardItem(str(data.attrs.version))
         name.appendRow(version)
         rootnode.appendRow(name)
         content.setModel(treemodel)
 
         # Data plotting
-        if data.attrs['measurement_dims'] == 1:
+        if msmnt.attrs.measurement_dims == 1:
             view = self.data_viwer.p_1d
-            view.data = data
-            main_data = data.param_data_plot()
+            view.measurement = msmnt
+            main_data = data.param_data_plot(msmnt)
             self.upd_plot(
                 view.plot_curve,
                 *main_data,
                 marker=view.marker_ind,
                 enable_pick=True
             )
-            detail_data = data.point_data_plot(view.marker_ind, 'Filtered')
+            detail_data = data.point_data_plot(msmnt,view.marker_ind, 'Filtered')
             self.upd_plot(view.plot_detail, *detail_data)
             view.plot_curve.fig.canvas.mpl_connect(
                 'pick_event',
@@ -297,6 +302,7 @@ class Window(QMainWindow,Ui_MainWindow,):
                 lambda signal: self.upd_plot(
                     view.plot_detail,
                     *data.point_data_plot(
+                        msmnt,
                         view.marker_ind,
                         signal
                     )
@@ -312,17 +318,21 @@ class Window(QMainWindow,Ui_MainWindow,):
         """Callback method for processing data picking on plot."""
 
         # Update datamarker on plot
+        if widget._marker_ref is None:
+            logger.warning('Marker is None')
+            return
         widget._marker_ref.set_data(
-            widget.xdata[event.ind[0]],
-            widget.ydata[event.ind[0]]
+            widget.xdata[event.ind[0]], # type: ignore
+            widget.ydata[event.ind[0]] # type: ignore
         )
         widget.draw()
         # Update index of currently selected data on CurveView
         if parent is not None:
-            parent.marker_ind = event.ind[0]
-            if parent.data is not None:
-                detailed_data = parent.data.point_data_plot(
-                    event.ind[0],
+            parent.marker_ind = event.ind[0] # type: ignore
+            if parent.measurement is not None:
+                detailed_data = PaData.point_data_plot(
+                    parent.measurement,
+                    event.ind[0], # type: ignore
                     parent.cb_detail_select.currentText()
                 )
                 self.upd_plot(parent.plot_detail,*detailed_data)
@@ -566,7 +576,7 @@ class Window(QMainWindow,Ui_MainWindow,):
             self.worker_pm.signals.progess.connect(self.update_pm)
             self.pool.start(self.worker_pm)
 
-    def stop_worker(self, worker: Worker) -> None:
+    def stop_worker(self, worker: Worker|None) -> None:
         
         if worker is not None:
             worker.kwargs['flags']['is_running'] = False
@@ -692,7 +702,7 @@ class Window(QMainWindow,Ui_MainWindow,):
         widget.axes.autoscale_view(True,True,True)
         widget.draw()
 
-    def get_layout(self, widget: QWidget) -> QLayout:
+    def get_layout(self, widget: QWidget) -> QLayout|None:
         """Return parent layout for a widget."""
 
         parent = widget.parent()

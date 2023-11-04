@@ -9,21 +9,9 @@ ureg = UnitRegistry(auto_reduce_dimensions=True)
 Q_ = ureg.Quantity
 
 
-t1 = ('cba', 5)
-t2 = ('acb', 4)
-t3 = ('bac_u', 3)
-t4 = ('bac', 2)
+dct = {'one': 1, 'two': 2}
 
-lst = [Q_(1,'s'),Q_(2,'s')]
-
-if isinstance(lst,list):
-    print('hm')
-
-# print(lst)
-# lst.sort()
-# print(lst)
-
-# print(t3[0].replace('ac', ''))
+print(next(iter(dct.items())))
 
 
 
@@ -33,10 +21,16 @@ class Test:
     atr: int = 0
     atr2: PlainQuantity = Q_(1,'s')
     data: int = 2
-    #dct: dict[str, int] = {'one': 2}
+    # dct: dict[str, int] = {'one': 2}
+
+def search(cls, val):
+    if cls.__annotations__[val] == list[str]:
+        print('It')
+
+search(Test, 'lst')
 
 # cls = Test()
-print(Test.__annotations__.keys())
+#print(Test.__annotations__.keys())
 # init_dict = {}
 # for key, val in Test.__annotations__.items():
 #     print(type(val))
