@@ -11,6 +11,7 @@ import logging, logging.config
 from datetime import datetime
 import traceback
 from typing import Iterable, Optional, cast, Callable
+from dataclasses import field, fields
 
 import pint
 import yaml
@@ -53,7 +54,9 @@ import modules.data_classes as dc
 from modules.data_classes import (
     Worker,
     MeasuredPoint,
-    Measurement
+    Measurement,
+    DataPoint,
+    DetailedSignals
 )
 from modules.gui.widgets import (
     MplCanvas,
@@ -72,6 +75,7 @@ from modules.gui.designer.custom_widgets import (
     PowerMeterMonitor,
     CurveView
 )
+
 
 
 def init_logs() -> tuple[logging.Logger, QLogHandler]:
@@ -244,8 +248,8 @@ class Window(QMainWindow,Ui_MainWindow,):
         filename = self.get_filename()
         self.data = PaData()
         self.data.load(filename)
-        logger.info(f'Data with {self.data.attrs.measurements_count} PA '
-                    + 'measurements loaded!')
+        logger.info(f'Data with {self.data.attrs.measurements_count} '
+                    + 'PA measurements loaded!')
         self.show_data(self.data)
         
     def show_data(self, data: PaData|None = None) -> None:
@@ -263,41 +267,20 @@ class Window(QMainWindow,Ui_MainWindow,):
         msmnt_title, msmnt = next(iter(data.measurements.items()))
 
         # Update content representation
-        content = self.data_viwer.tv_content
-
-        treemodel = QStandardItemModel()
-        rootnode = treemodel.invisibleRootItem()
-
-        name = QStandardItem(msmnt_title)
-        version = QStandardItem(str(data.attrs.version))
-        name.appendRow(version)
-        rootnode.appendRow(name)
-        content.setModel(treemodel)
+        self.set_data_content_view(data)
 
         # Data plotting
+        # Set measurement and datapoint to be plotted as attributed 
+        # to the data_view widget
+        self.data_viwer.measurement = msmnt
+        dp_name = PaData._build_name(self.data_viwer.p_1d.marker_ind + 1)
+        self.data_viwer.datapoint = msmnt.data[dp_name]
         if msmnt.attrs.measurement_dims == 1:
             view = self.data_viwer.p_1d
-            view.measurement = msmnt
-            main_data = data.param_data_plot(msmnt)
-            self.upd_plot(
-                view.plot_curve,
-                *main_data,
-                marker=view.marker_ind,
-                enable_pick=True
+            # Set comboboxes
+            view.cb_detail_select.addItems(
+                [val.name for val in DetailedSignals]
             )
-            detail_data = data.point_data_plot(msmnt,view.marker_ind, 'Filtered')
-            self.upd_plot(view.plot_detail, *detail_data)
-            view.plot_curve.fig.canvas.mpl_connect(
-                'pick_event',
-                lambda event: self.pick_event(
-                    view.plot_curve,
-                    event,
-                    view
-                )
-            )
-            # Set combobox 
-            #view.cb_detail_select.currentTextChanged.disconnect()
-            view.cb_detail_select.addItems(self.get_point_signals())
             view.cb_detail_select.currentTextChanged.connect(
                 lambda signal: self.upd_plot(
                     view.plot_detail,
@@ -308,13 +291,118 @@ class Window(QMainWindow,Ui_MainWindow,):
                     )
                 )
             )
+            # Set main plot
+            main_data = data.param_data_plot(msmnt)
+            self.upd_plot(
+                view.plot_curve,
+                *main_data,
+                marker = view.marker_ind,
+                enable_pick = True
+            )
+            # Set additional plot
+            detail_data = data.point_data_plot(
+                msmnt = msmnt,
+                index = view.marker_ind,
+                dtype = view.cb_detail_select.currentText()
+            )
+            self.upd_plot(view.plot_detail, *detail_data)
+            view.plot_curve.fig.canvas.mpl_connect(
+                'pick_event',
+                lambda event: self.pick_event(
+                    view.plot_curve,
+                    event,
+                    view,
+                    measurement = msmnt
+                )
+            )
+            
+        # Update description
+        self.set_data_description_view(data)
         logger.debug('Data plotting complete.')
+
+    def set_data_content_view(self, data: PaData) -> None:
+        """"Set tv_content."""
+
+        content = self.data_viwer.tv_content
+
+        treemodel = QStandardItemModel()
+        rootnode = treemodel.invisibleRootItem()
+
+        for msmnt_title, msmnt in data.measurements.items():
+            name = QStandardItem(msmnt_title)
+            rootnode.appendRow(name)
+        content.setModel(treemodel)
+
+    def set_data_description_view(self, data: PaData) -> None:
+        """Set data description tv_info."""
+
+        tv = self.data_viwer.tv_info
+        if self.data_viwer.measurement is None:
+            logger.error('Describption cannot be build. Measurement is not set.')
+            return
+        measurement = self.data_viwer.measurement
+        dp = self.data_viwer.datapoint
+
+        # file attributes
+        tv.fmd = QTreeWidgetItem(tv, ['File attributes'])
+        for field in fields(data.attrs):
+            QTreeWidgetItem(
+                tv.fmd,
+                [field.name, str(getattr(data.attrs, field.name))]
+            )
+        tv.mmd = QTreeWidgetItem(tv, ['Measurement attributes'])
+        msmnt_title = ''
+        for key, val in data.measurements.items():
+            if val == measurement:
+                msmnt_title = key
+                break
+        QTreeWidgetItem(tv.mmd, ['Title', msmnt_title])
+        for field in fields(measurement.attrs):
+            QTreeWidgetItem(
+                tv.mmd,
+                [field.name, str(getattr(
+                    measurement.attrs,
+                    field.name
+                    ))]
+            )
+        self.upd_point_info()
+        
+    def upd_point_info(self) -> None:
+        """Update text information about current datapoint."""
+
+        tv = self.data_viwer.tv_info
+        if tv.pmd is not None:
+            tv.removeItemWidget(tv.pmd, 0)
+        tv.pmd = QTreeWidgetItem(tv, ['Point attributes'])
+        dp_title = PaData._build_name(self.data_viwer.p_1d.marker_ind + 1)
+        dp = self.data_viwer.measurement.data[dp_title] #type: ignore
+        QTreeWidgetItem(tv.pmd, ['Title', dp_title])
+        for field in fields(dp.attrs):
+            QTreeWidgetItem(
+                tv.pmd,
+                [field.name, str(getattr(
+                    dp.attrs,
+                    field.name
+                    ))]
+            )
+            #### тут надо енам, чтобы из комбобокса доставать нужно значение
+        point_signal = self.data_viwer.p_1d.cb_detail_select.currentText()
+        dtype_name = getattr(DetailedSignals, point_signal).value
+        dtype = getattr(dp, dtype_name)
+        for field in fields(dtype):
+            if field.name in ['data', 'data_raw']:
+                continue
+            QTreeWidgetItem(
+                tv.pmd,
+                [field.name, str(getattr(dtype, field.name))]
+            )
 
     def pick_event(
             self,
             widget:MplCanvas,
             event: PickEvent,
-            parent: CurveView|None = None):
+            parent: CurveView|None = None,
+            measurement: Measurement|None = None):
         """Callback method for processing data picking on plot."""
 
         # Update datamarker on plot
@@ -329,25 +417,17 @@ class Window(QMainWindow,Ui_MainWindow,):
         # Update index of currently selected data on CurveView
         if parent is not None:
             parent.marker_ind = event.ind[0] # type: ignore
-            if parent.measurement is not None:
+            if measurement is not None:
+                dp_name = PaData._build_name(event.ind[0] + 1) # type: ignore
+                self.data_viwer.datapoint = measurement.data[dp_name]
                 detailed_data = PaData.point_data_plot(
-                    parent.measurement,
+                    measurement,
                     event.ind[0], # type: ignore
                     parent.cb_detail_select.currentText()
                 )
                 self.upd_plot(parent.plot_detail,*detailed_data)
-
-    def get_point_signals(self) -> list[str]:
-        """Get a list of signals, which can be shown for single point."""
-
-        signals = [
-            'Raw',
-            'Filtered',
-            'Zoomed Raw',
-            'Zoomed Filtered',
-            'FFT'
-        ]
-        return signals
+        # update text info
+        self.upd_point_info()
 
     def get_filename(self) -> str:
         """Launch a dialog to open a file."""
@@ -618,7 +698,7 @@ class Window(QMainWindow,Ui_MainWindow,):
     def upd_plot(
             self,
             widget: MplCanvas,
-            ydata: Iterable|None,
+            ydata: Iterable,
             xdata: Iterable|None = None,
             ylabel: str|None = None,
             xlabel: str|None = None,
@@ -642,7 +722,7 @@ class Window(QMainWindow,Ui_MainWindow,):
 
         # Update data
         if xdata is None:
-            widget.xdata = np.array(range(len(ydata)))
+            widget.xdata = np.array(range(len(ydata))) # type: ignore
         else:
             widget.xdata = xdata
         widget.ydata = ydata
@@ -663,10 +743,10 @@ class Window(QMainWindow,Ui_MainWindow,):
                 pickradius = 10
             )[0]
         else:
-            widget._plot_ref.set_xdata(widget.xdata)
-            widget._plot_ref.set_ydata(widget.ydata)
+            widget._plot_ref.set_xdata(widget.xdata) # type: ignore
+            widget._plot_ref.set_ydata(widget.ydata) # type: ignore
         if widget.sp is not None:
-            spdata = [widget.sp]*len(widget.xdata)
+            spdata = [widget.sp]*len(widget.xdata) # type: ignore
             if widget._sp_ref is None:
                 widget._sp_ref = widget.axes.plot(
                     widget.xdata,
@@ -674,7 +754,7 @@ class Window(QMainWindow,Ui_MainWindow,):
                     'b'
                 )[0]
             else:
-                widget._sp_ref.set_xdata(widget.xdata)
+                widget._sp_ref.set_xdata(widget.xdata) # type: ignore
                 widget._sp_ref.set_ydata(spdata)
         if marker is not None:
             if widget._marker_ref is None:
@@ -685,19 +765,19 @@ class Window(QMainWindow,Ui_MainWindow,):
                     'color': 'yellow'
                 }
                 widget._marker_ref, = widget.axes.plot(
-                    widget.xdata[marker],
-                    widget.ydata[marker],
+                    widget.xdata[marker], # type: ignore
+                    widget.ydata[marker], # type: ignore
                     **marker_style
                 )
             else:
                 widget._marker_ref.set_data(
-                    widget.xdata[marker],
-                    widget.ydata[marker]
+                    widget.xdata[marker], # type: ignore
+                    widget.ydata[marker] # type: ignore
                 )
         else:
             widget._marker_ref = None
-        widget.axes.set_xlabel(widget.xlabel)
-        widget.axes.set_ylabel(widget.ylabel)
+        widget.axes.set_xlabel(widget.xlabel) # type: ignore
+        widget.axes.set_ylabel(widget.ylabel) # type: ignore
         widget.axes.relim()
         widget.axes.autoscale_view(True,True,True)
         widget.draw()

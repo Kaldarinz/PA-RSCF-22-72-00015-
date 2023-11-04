@@ -16,8 +16,10 @@ from PySide6.QtGui import (QBrush, QColor, QConicalGradient, QCursor,
     QImage, QKeySequence, QLinearGradient, QPainter,
     QPalette, QPixmap, QRadialGradient, QTransform)
 from PySide6.QtWidgets import (QApplication, QHeaderView, QLabel, QSizePolicy,
-    QSplitter, QStackedWidget, QTreeView, QTreeWidget,
-    QTreeWidgetItem, QVBoxLayout, QWidget)
+    QSplitter, QStackedWidget, QTreeView, QTreeWidgetItem,
+    QVBoxLayout, QWidget)
+
+from ..widgets import TreeInfoWidget
 
 class Ui_Form(object):
     def setupUi(self, Form):
@@ -134,9 +136,7 @@ class Ui_Form(object):
 
         self.verticalLayout.addWidget(self.lbl_info_title)
 
-        self.tv_info = QTreeWidget(self.w_info)
-        __qtreewidgetitem = QTreeWidgetItem(self.tv_info)
-        QTreeWidgetItem(__qtreewidgetitem)
+        self.tv_info = TreeInfoWidget(self.w_info)
         self.tv_info.setObjectName(u"tv_info")
         sizePolicy2.setHeightForWidth(self.tv_info.sizePolicy().hasHeightForWidth())
         self.tv_info.setSizePolicy(sizePolicy2)
@@ -163,15 +163,5 @@ class Ui_Form(object):
         ___qtreewidgetitem = self.tv_info.headerItem()
         ___qtreewidgetitem.setText(1, QCoreApplication.translate("Form", u"Value", None));
         ___qtreewidgetitem.setText(0, QCoreApplication.translate("Form", u"Parameter", None));
-
-        __sortingEnabled = self.tv_info.isSortingEnabled()
-        self.tv_info.setSortingEnabled(False)
-        ___qtreewidgetitem1 = self.tv_info.topLevelItem(0)
-        ___qtreewidgetitem1.setText(0, QCoreApplication.translate("Form", u"Group1", None));
-        ___qtreewidgetitem2 = ___qtreewidgetitem1.child(0)
-        ___qtreewidgetitem2.setText(1, QCoreApplication.translate("Form", u"value1", None));
-        ___qtreewidgetitem2.setText(0, QCoreApplication.translate("Form", u"Param1", None));
-        self.tv_info.setSortingEnabled(__sortingEnabled)
-
     # retranslateUi
 

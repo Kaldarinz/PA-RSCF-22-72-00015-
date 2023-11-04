@@ -10,7 +10,9 @@ from PySide6.QtCore import (
 )
 from PySide6.QtWidgets import (
     QSpinBox,
-    QDoubleSpinBox
+    QDoubleSpinBox,
+    QTreeWidget,
+    QTreeWidgetItem
 )
 from PySide6.QtGui import (
     QStandardItem,
@@ -103,3 +105,16 @@ class StandartItem(QStandardItem):
         super().__init__()
 
         self.setText(text)
+
+class TreeInfoWidget(QTreeWidget):
+    """Have additional attributes to store metadata."""
+
+    def __init__(self, parent = None) -> None:
+        super().__init__(parent)
+
+        self.fmd: QTreeWidgetItem
+        "File MetaData"
+        self.mmd: QTreeWidgetItem
+        "Measurement MetaData"
+        self.pmd: QTreeWidgetItem|None = None
+        "PointMetaData"

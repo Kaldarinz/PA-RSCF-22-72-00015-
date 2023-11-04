@@ -7,6 +7,7 @@ from typing import Callable
 from dataclasses import dataclass, field
 import traceback
 import logging
+from enum import Enum
 
 from pint.facets.plain.quantity import PlainQuantity
 import numpy.typing as npt
@@ -221,3 +222,12 @@ class Worker(QRunnable):
             self.signals.result.emit(self.result)
         finally:
             self.signals.finished.emit()
+
+#### Constants ####
+
+class DetailedSignals(Enum):
+    Raw = 'raw_data'
+    Filtered = 'filt_data'
+    Zoomed_Raw = 'raw_data'
+    Zoomed_Filtered = 'filt_data'
+    FFT = 'freq_data'
