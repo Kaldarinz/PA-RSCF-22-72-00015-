@@ -506,22 +506,35 @@ class PaData:
                 self._load_old(file)
                 return
 
-            self.attrs = self._from_dict(FileMetadata, dict(file.attrs.items()))
+            self.attrs = self._from_dict(
+                FileMetadata,
+                dict(file.attrs.items())
+            )
             # load all measurements from the file
             self.measurements = {}
             for msmnt_title, msmnt in file.items():
-                msm_attrs = self._from_dict(MeasurementMetadata, dict(msmnt.attrs.items()))
+                msm_attrs = self._from_dict(
+                    MeasurementMetadata,
+                    dict(msmnt.attrs.items())
+                )
                 measurement = Measurement(attrs = msm_attrs, data = {})
                 # load all datapoints from the measurement
                 for datapoint_title, datapoint in msmnt.items():
-                    point_attrs = self._from_dict(PointMetadata, dict(datapoint.attrs.items()))
+                    point_attrs = self._from_dict(
+                        PointMetadata,
+                        dict(datapoint.attrs.items())
+                    )
                     ds = datapoint['raw_data']['data_raw']
                     data_raw = ds[...]
                     y_var_units = ds['y_var_units']
                     # restore data
                     p = np.poly1d([ds.attrs['a'], ds.attrs['b']])
                     data = Q_(p(data_raw), y_var_units)
-                    basedata = self._load_basedata(data, data_raw, dict(ds.attrs.items()))
+                    basedata = self._load_basedata(
+                        data,
+                        data_raw,
+                        dict(ds.attrs.items())
+                    )
                     filtdata, freqdata = self.bp_filter(basedata)
                     dp = DataPoint(
                         point_attrs,
@@ -563,15 +576,30 @@ class PaData:
                 data_raw = data_raw,
                 a = ds.attrs['a'],
                 b = ds.attrs['b'],
-                max_amp = Q_(ds.attrs['max_amp'], ds.attrs['max_amp_u']),
-                x_var_step = Q_(ds.attrs['x_var_step'], raw_data.attrs['x_var_u']), # type: ignore
-                x_var_start = Q_(ds.attrs['x_var_start'], raw_data.attrs['x_var_u']), # type: ignore
-                x_var_stop = Q_(ds.attrs['x_var_stop'], raw_data.attrs['x_var_u']) # type: ignore
+                max_amp = Q_(
+                    ds.attrs['max_amp'],
+                    ds.attrs['max_amp_u']
+                ),
+                x_var_step = Q_(
+                    ds.attrs['x_var_step'],
+                    raw_data.attrs['x_var_u'] # type: ignore
+                ), # type: ignore
+                x_var_start = Q_(
+                    ds.attrs['x_var_start'],
+                    raw_data.attrs['x_var_u'] # type: ignore
+                ), # type: ignore
+                x_var_stop = Q_(
+                    ds.attrs['x_var_stop'],
+                    raw_data.attrs['x_var_u'] # type: ignore
+                ) # type: ignore
             )
             fildata, freqdata = self.bp_filter(basedata)
             p_md = PointMetadata(
                 pm_en = Q_(ds.attrs['pm_en'], ds.attrs['pm_en_u']),
-                sample_en = Q_(ds.attrs['sample_en'], ds.attrs['sample_en_u']),
+                sample_en = Q_(
+                    ds.attrs['sample_en'],
+                    ds.attrs['sample_en_u']
+                ),
                 param_val= [Q_(x,y) for x,y in zip(
                     ds.attrs['param_val'], file.attrs['parameter_u'])] # type: ignore
             )

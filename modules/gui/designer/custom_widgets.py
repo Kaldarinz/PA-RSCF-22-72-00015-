@@ -22,7 +22,8 @@ from . import (
     curve_data_view_ui
 )
 
-from ...pa_data import PaData
+from ...pa_data import Measurement
+from ...data_classes import DataPoint
 
 
 class PAVerifierDialog(QDialog, verify_measure_ui.Ui_Dialog):
@@ -41,6 +42,10 @@ class DataViewer(QWidget, data_viewer_ui.Ui_Form):
         self.p_1d = CurveView(self)
         self.sw_view.addWidget(self.p_1d)
         self.sw_view.setCurrentWidget(self.p_1d)
+        self.measurement: Measurement|None = None
+        "Currently displayed data."
+        self.datapoint: DataPoint
+        "Selected datapoint."
 
         # This is bullshit, but I cannot find other solution.
         # With default stretch factor central widget is too narrow 
@@ -113,5 +118,3 @@ class CurveView(QWidget,curve_data_view_ui.Ui_Form):
         self.setupUi(self)
         self.marker_ind = 0
         "Index of selected point marker."
-        self.data: PaData|None = None
-        "Currently displayed data."

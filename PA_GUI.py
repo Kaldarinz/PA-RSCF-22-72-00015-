@@ -291,6 +291,7 @@ class Window(QMainWindow,Ui_MainWindow,):
                     )
                 )
             )
+            view.cb_detail_select.currentTextChanged.connect(self.upd_point_info)
             # Set main plot
             main_data = data.param_data_plot(msmnt)
             self.upd_plot(
@@ -371,9 +372,13 @@ class Window(QMainWindow,Ui_MainWindow,):
         """Update text information about current datapoint."""
 
         tv = self.data_viwer.tv_info
+        exp_state = False
         if tv.pmd is not None:
-            tv.removeItemWidget(tv.pmd, 0)
+            exp_state = tv.pmd.isExpanded()
+            index = tv.indexOfTopLevelItem(tv.pmd)
+            tv.takeTopLevelItem(index)
         tv.pmd = QTreeWidgetItem(tv, ['Point attributes'])
+        tv.pmd.setExpanded(exp_state)
         dp_title = PaData._build_name(self.data_viwer.p_1d.marker_ind + 1)
         dp = self.data_viwer.measurement.data[dp_title] #type: ignore
         QTreeWidgetItem(tv.pmd, ['Title', dp_title])
