@@ -5,6 +5,7 @@ from pint.facets.plain.quantity import PlainQuantity
 import numpy as np
 import numpy.typing as npt
 from enum import Enum
+from modules.data_classes import DetailedSignals
 
 ureg = UnitRegistry(auto_reduce_dimensions=True)
 Q_ = ureg.Quantity
@@ -42,8 +43,3 @@ Q_ = ureg.Quantity
 #     if val == npt.NDArray[np.uint16]:
 #         print('It!')
 #         init_dict.update({key:[Q_(3,'s')]})
-
-class DataGroupd(Enum):
-    Raw = 'raw_data'
-
-print(DataGroupd.)

@@ -683,8 +683,7 @@ class PaData:
         Get point data for plotting.
         
         ``index`` - index of data to get the data point.\n
-        ``dtype`` - type of data to be returned. Accept: ``Raw``,
-        ``Filtered``, ``Zoomed Raw``, ``Zoomed filtered`` and ``FFT``.\n
+        ``dtype`` - type of data to be returned..\n
         Return a tuple, which contain [ydata, xdata, ylabel, xlabel].
         """
 
@@ -692,12 +691,8 @@ class PaData:
         result = empty_data
         ds_name = PaData._build_name(index+1)
 
-        if dtype == 'Filtered':
-             result = PaData._point_data(msmnt.data[ds_name].filt_data)
-        elif dtype == 'Raw':
-             result = PaData._point_data(msmnt.data[ds_name].raw_data)
-        elif dtype == 'FFT':
-            result = PaData._point_data(msmnt.data[ds_name].freq_data)
+        ds = getattr(msmnt.data[ds_name], dtype)
+        result = PaData._point_data(ds)
         return result
 
     @staticmethod
@@ -790,7 +785,7 @@ class PaData:
         ``value`` - name of the attribute.
         """
 
-        logger.debug(f'Start building array of {value} from {msmnt}.')
+        logger.debug(f'Start building array of {value}.')
         dep = [] #array for return values
         if not msmnt.attrs.data_points:
             logger.error(f'Measurement contains no data points.')

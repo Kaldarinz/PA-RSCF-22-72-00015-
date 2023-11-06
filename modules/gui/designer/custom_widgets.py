@@ -9,6 +9,7 @@ from PySide6.QtWidgets import (
     QPushButton,
     QHBoxLayout
 )
+from pint.facets.plain.quantity import PlainQuantity
 
 from . import (
     verify_measure_ui,
@@ -42,10 +43,14 @@ class DataViewer(QWidget, data_viewer_ui.Ui_Form):
         self.p_1d = CurveView(self)
         self.sw_view.addWidget(self.p_1d)
         self.sw_view.setCurrentWidget(self.p_1d)
-        self.measurement: Measurement|None = None
+        self.measurement: Measurement
         "Currently displayed data."
         self.datapoint: DataPoint
         "Selected datapoint."
+        self.data_index: int = 0
+        "Index of the selceted datapoint."
+        self.dtype_point: str
+        "Data type of the currently displayed datapoint."
 
         # This is bullshit, but I cannot find other solution.
         # With default stretch factor central widget is too narrow 
@@ -80,6 +85,8 @@ class CurveMeasureWidget(QWidget,curve_measure_widget_ui.Ui_Form):
             self.placeholder_pm_monitor,
             self.pm_monitor
         )
+        self.spectral_points: int
+        self.step: PlainQuantity
         # self.lo_run.replaceWidget(
         #     self.btn_run,
         #     QPushButton('WTF')
@@ -102,7 +109,7 @@ class MapMeasureWidget(QWidget,map_measure_widget_ui.Ui_Form):
 class PowerMeterMonitor(QWidget,power_meter_monitor_ui.Ui_pm_monitor):
     """Power meter monitor.
     
-    Contains to plot areas:\n
+    Contains two plot areas:\n
     ``plot_left`` and ``plot_right``.
     """
 
@@ -116,5 +123,3 @@ class CurveView(QWidget,curve_data_view_ui.Ui_Form):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setupUi(self)
-        self.marker_ind = 0
-        "Index of selected point marker."

@@ -225,9 +225,15 @@ class Worker(QRunnable):
 
 #### Constants ####
 
-class DetailedSignals(Enum):
-    Raw = 'raw_data'
-    Filtered = 'filt_data'
-    Zoomed_Raw = 'raw_data'
-    Zoomed_Filtered = 'filt_data'
-    FFT = 'freq_data'
+DetailedSignals = {
+    'Raw': 'raw_data',
+    'Filtered': 'filt_data',
+    'Zoomed Raw': 'raw_data',
+    'Zoomed_Filtered': 'filt_data',
+    'FFT': 'freq_data'
+}
+
+ParamSignals = {
+    'Raw': 'raw_data',
+    'Filtered': 'filt_data'
+}

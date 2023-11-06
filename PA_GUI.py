@@ -56,7 +56,8 @@ from modules.data_classes import (
     MeasuredPoint,
     Measurement,
     DataPoint,
-    DetailedSignals
+    DetailedSignals,
+    ParamSignals
 )
 from modules.gui.widgets import (
     MplCanvas,
@@ -270,50 +271,63 @@ class Window(QMainWindow,Ui_MainWindow,):
         self.set_data_content_view(data)
 
         # Data plotting
-        # Set measurement and datapoint to be plotted as attributed 
+        # Set measurement and datapoint to be plotted as attributes
         # to the data_view widget
         self.data_viwer.measurement = msmnt
-        dp_name = PaData._build_name(self.data_viwer.p_1d.marker_ind + 1)
+        dp_name = PaData._build_name(self.data_viwer.data_index + 1)
         self.data_viwer.datapoint = msmnt.data[dp_name]
+
+        # 1D data
         if msmnt.attrs.measurement_dims == 1:
             view = self.data_viwer.p_1d
-            # Set comboboxes
+            ## Set comboboxes ##
+            # Detail combobox
             view.cb_detail_select.addItems(
-                [val.name for val in DetailedSignals]
+                [key for key in DetailedSignals.keys()]
             )
-            view.cb_detail_select.currentTextChanged.connect(
-                lambda signal: self.upd_plot(
-                    view.plot_detail,
-                    *data.point_data_plot(
-                        msmnt,
-                        view.marker_ind,
-                        signal
-                    )
+            self.data_viwer.dtype_point = DetailedSignals[
+                self.data_viwer.p_1d.cb_detail_select.currentText()
+            ]
+            view.cb_detail_select.currentTextChanged.connect(self.upd_point_info)
+            # Curve combobox
+            view.cb_curve_select.addItems(
+                [key for key in ParamSignals.keys()]
+            )
+            view.cb_curve_select.currentTextChanged.connect(
+                lambda new_val: self.upd_plot(
+                    view.plot_curve,
+                    *data.param_data_plot(
+                        self.data_viwer.measurement,
+                        ParamSignals[new_val]
+                    ),
+                    marker = self.data_viwer.data_index,
+                    enable_pick = True 
                 )
             )
-            view.cb_detail_select.currentTextChanged.connect(self.upd_point_info)
             # Set main plot
-            main_data = data.param_data_plot(msmnt)
+            main_data = data.param_data_plot(
+                msmnt = msmnt,
+                dtype = ParamSignals[view.cb_curve_select.currentText()]
+            )
             self.upd_plot(
                 view.plot_curve,
                 *main_data,
-                marker = view.marker_ind,
+                marker = self.data_viwer.data_index,
                 enable_pick = True
             )
             # Set additional plot
             detail_data = data.point_data_plot(
                 msmnt = msmnt,
-                index = view.marker_ind,
-                dtype = view.cb_detail_select.currentText()
+                index = self.data_viwer.data_index,
+                dtype = self.data_viwer.dtype_point
             )
             self.upd_plot(view.plot_detail, *detail_data)
+            # Picker event
             view.plot_curve.fig.canvas.mpl_connect(
                 'pick_event',
                 lambda event: self.pick_event(
                     view.plot_curve,
-                    event,
-                    view,
-                    measurement = msmnt
+                    event
                 )
             )
             
@@ -368,9 +382,23 @@ class Window(QMainWindow,Ui_MainWindow,):
             )
         self.upd_point_info()
         
-    def upd_point_info(self) -> None:
-        """Update text information about current datapoint."""
+    def upd_point_info(self, new_text: str|None = None) -> None:
+        """Update plot and text information about current datapoint."""
 
+        if new_text is not None:
+            self.data_viwer.dtype_point = DetailedSignals[new_text]
+        # update plot
+        active_dview = self.data_viwer.sw_view.currentWidget()
+        self.upd_plot(
+            active_dview.plot_detail, # type: ignore
+            *data.point_data_plot(
+                msmnt = self.data_viwer.measurement,
+                index = self.data_viwer.data_index,
+                dtype = self.data_viwer.dtype_point
+            ),
+            marker = self.data_viwer.data_index,
+        )
+        # Update description
         tv = self.data_viwer.tv_info
         exp_state = False
         if tv.pmd is not None:
@@ -379,7 +407,7 @@ class Window(QMainWindow,Ui_MainWindow,):
             tv.takeTopLevelItem(index)
         tv.pmd = QTreeWidgetItem(tv, ['Point attributes'])
         tv.pmd.setExpanded(exp_state)
-        dp_title = PaData._build_name(self.data_viwer.p_1d.marker_ind + 1)
+        dp_title = PaData._build_name(self.data_viwer.data_index + 1)
         dp = self.data_viwer.measurement.data[dp_title] #type: ignore
         QTreeWidgetItem(tv.pmd, ['Title', dp_title])
         for field in fields(dp.attrs):
@@ -390,10 +418,7 @@ class Window(QMainWindow,Ui_MainWindow,):
                     field.name
                     ))]
             )
-            #### тут надо енам, чтобы из комбобокса доставать нужно значение
-        point_signal = self.data_viwer.p_1d.cb_detail_select.currentText()
-        dtype_name = getattr(DetailedSignals, point_signal).value
-        dtype = getattr(dp, dtype_name)
+        dtype = getattr(dp, self.data_viwer.dtype_point)
         for field in fields(dtype):
             if field.name in ['data', 'data_raw']:
                 continue
@@ -419,18 +444,10 @@ class Window(QMainWindow,Ui_MainWindow,):
             widget.ydata[event.ind[0]] # type: ignore
         )
         widget.draw()
-        # Update index of currently selected data on CurveView
-        if parent is not None:
-            parent.marker_ind = event.ind[0] # type: ignore
-            if measurement is not None:
-                dp_name = PaData._build_name(event.ind[0] + 1) # type: ignore
-                self.data_viwer.datapoint = measurement.data[dp_name]
-                detailed_data = PaData.point_data_plot(
-                    measurement,
-                    event.ind[0], # type: ignore
-                    parent.cb_detail_select.currentText()
-                )
-                self.upd_plot(parent.plot_detail,*detailed_data)
+        # Update index of currently selected data
+        self.data_viwer.data_index = event.ind[0] # type: ignore
+        dp_name = PaData._build_name(event.ind[0] + 1) # type: ignore
+        self.data_viwer.datapoint = self.data_viwer.measurement.data[dp_name]
         # update text info
         self.upd_point_info()
 
@@ -484,10 +501,10 @@ class Window(QMainWindow,Ui_MainWindow,):
 
         ydata=data.pm_signal,
         xdata=Q_(
-            np.arange(len(data.pm_signal)*data.dt_pm.m),
+            np.arange(len(data.pm_signal)*data.dt_pm.m), # type: ignore
             data.dt_pm.u
         )
-        print(f'{len(xdata)=}')
+        print(f'{len(xdata)=}') # type: ignore
         print(f'{len(ydata)=}')
         self.upd_plot(
             plot_pm,
@@ -601,13 +618,19 @@ class Window(QMainWindow,Ui_MainWindow,):
             page = self.p_curve
             if caller == page.sb_sample_sp:
                 new_sp = pa_logic.glan_calc_reverse(caller.quantity)
+                if new_sp is None:
+                    logger.error('New set point cannot be calculated')
+                    return
                 self.set_spinbox_silent(page.sb_pm_sp, new_sp)
                    
             elif caller == page.sb_pm_sp:
                 new_sp = pa_logic.glan_calc(caller.quantity)
+                if new_sp is None:
+                    logger.error('New set point cannot be calculated')
+                    return
                 self.set_spinbox_silent(page.sb_sample_sp, new_sp)
-                    
-            page.plot_adjust.sp = caller.quantity
+
+            page.pm_monitor.plot_right.sp = caller.quantity
                 
     def set_spinbox_silent(
             self,
