@@ -128,8 +128,26 @@ class Window(QMainWindow,Ui_MainWindow,):
     worker_curve_adj: Worker|None = None
     "Thread for curve adjustments."
 
-    data: PaData|None = None
-    "PA data."
+    _data: PaData|None = None
+
+    data_changed = Signal(bool)
+
+    @property
+    def data(self) -> PaData|None:
+        "PA data."
+        return self._data
+    
+    @data.setter
+    def data(self, value: PaData|None) -> None:
+        if isinstance(value, PaData) or value is None:
+            self._data = value
+        else:
+            logger.warning('Attempt to set wrong object to data.')
+            return
+        if value is None:
+            self.data_changed.emit(False)
+        else:
+            self.data_changed.emit(True)
 
     def __init__(
             self,
@@ -211,6 +229,10 @@ class Window(QMainWindow,Ui_MainWindow,):
 
         #Various actions
         self.action_Init.triggered.connect(self.init_hardware)
+        self.data_changed.connect(self.action_Save.setEnabled)
+        self.data_changed.connect(self.actionSave_As.setEnabled)
+        self.action_Close.triggered.connect(self.close_file)
+        self.actionSave_As.triggered.connect(self.save_as_file)
 
         #Mode selection
         self.cb_mode_select.currentTextChanged.connect(self.upd_mode)
@@ -247,15 +269,56 @@ class Window(QMainWindow,Ui_MainWindow,):
 
         logger.debug('Start loading data...')
         filename = self.get_filename()
-        self.data = PaData()
-        self.data.load(filename)
-        logger.info(f'Data with {self.data.attrs.measurements_count} '
-                    + 'PA measurements loaded!')
-        self.show_data(self.data)
-        
+        if filename:
+            self.close_file()
+            self.data = PaData()
+            self.data.load(filename)
+            logger.info(f'Data with {self.data.attrs.measurements_count} '
+                        + 'PA measurements loaded!')
+            basename = os.path.basename(filename)
+            self.data_viwer.lbl_data_title.setText(basename)
+            self.show_data(self.data)
+
+    def save_as_file(self) -> None:
+        """Save data to file."""
+
+        path = os.path.dirname(__file__)
+        initial_dir = os.path.join(path, 'measuring results')
+        filename = QFileDialog.getSaveFileName(
+            self,
+            caption='Choose a file',
+            dir=initial_dir,
+            filter='Hierarchical Data Format (*.hdf5)'
+        )[0]
+        if self.data is not None:
+            if self.data.attrs.version < 1.2:
+                self.data.attrs.version = PaData.VERSION
+            self.data.save(filename)
+
+    def close_file(self) -> None:
+        """Close current file."""
+
+        if self.data is not None and self.data.changed:
+            if self.confirm_action('Data was changed.'
+                                + ' Do you really want to close the file?'):
+                self._file_close_proc()
+        else:
+            self._file_close_proc()
+
+    def _file_close_proc(self) -> None:
+        """Actual file close."""
+
+        self.data = None
+        self.data_viwer.measurement = None
+        self.data_viwer.datapoint = None
+        self.data_viwer.tv_content.setModel(QStandardItemModel())
+        tv_detail = self.data_viwer.tv_info
+        while tv_detail.topLevelItemCount():
+            tv_detail.takeTopLevelItem(0)
+        self.data_viwer.sw_view.setCurrentWidget(self.data_viwer.p_empty)
+
     def show_data(self, data: PaData|None = None) -> None:
         """Load data into DataView widget."""
-
 
         logger.debug('Starting plotting data...')
         if data is None:
@@ -277,63 +340,109 @@ class Window(QMainWindow,Ui_MainWindow,):
         dp_name = PaData._build_name(self.data_viwer.data_index + 1)
         self.data_viwer.datapoint = msmnt.data[dp_name]
 
-        # 1D data
+        # Set plots
         if msmnt.attrs.measurement_dims == 1:
-            view = self.data_viwer.p_1d
-            ## Set comboboxes ##
-            # Detail combobox
-            view.cb_detail_select.addItems(
-                [key for key in DetailedSignals.keys()]
-            )
-            self.data_viwer.dtype_point = DetailedSignals[
-                self.data_viwer.p_1d.cb_detail_select.currentText()
-            ]
-            view.cb_detail_select.currentTextChanged.connect(self.upd_point_info)
-            # Curve combobox
-            view.cb_curve_select.addItems(
-                [key for key in ParamSignals.keys()]
-            )
-            view.cb_curve_select.currentTextChanged.connect(
-                lambda new_val: self.upd_plot(
-                    view.plot_curve,
-                    *data.param_data_plot(
-                        self.data_viwer.measurement,
-                        ParamSignals[new_val]
-                    ),
-                    marker = self.data_viwer.data_index,
-                    enable_pick = True 
-                )
-            )
-            # Set main plot
-            main_data = data.param_data_plot(
-                msmnt = msmnt,
-                dtype = ParamSignals[view.cb_curve_select.currentText()]
-            )
-            self.upd_plot(
-                view.plot_curve,
-                *main_data,
-                marker = self.data_viwer.data_index,
-                enable_pick = True
-            )
-            # Set additional plot
-            detail_data = data.point_data_plot(
-                msmnt = msmnt,
-                index = self.data_viwer.data_index,
-                dtype = self.data_viwer.dtype_point
-            )
-            self.upd_plot(view.plot_detail, *detail_data)
-            # Picker event
-            view.plot_curve.fig.canvas.mpl_connect(
-                'pick_event',
-                lambda event: self.pick_event(
-                    view.plot_curve,
-                    event
-                )
-            )
+            self.set_curve_view()
+        elif msmnt.attrs.measurement_dims == 0:
+            self.set_point_view()
+        else:
+            logger.error(f'Data dimension = {msmnt.attrs.measurement_dims}'
+                         + ' is not supported.')
             
         # Update description
         self.set_data_description_view(data)
         logger.debug('Data plotting complete.')
+
+    def set_point_view(self) -> None:
+        """Set central part of data_viewer for point view."""
+
+        self.data_viwer.sw_view.setCurrentWidget(self.data_viwer.p_0d)
+        # Set combobox
+        view = self.data_viwer.p_0d
+        self.set_cb_detail_view(view)
+        # Set plot
+        detail_data = data.point_data_plot(
+            msmnt = self.data_viwer.measurement,
+            index = self.data_viwer.data_index,
+            dtype = self.data_viwer.dtype_point
+        )
+        self.upd_plot(view.plot_detail, *detail_data)
+
+    def set_curve_view(self) -> None:
+        """Set central part of data_viewer for curve view."""
+
+        self.data_viwer.sw_view.setCurrentWidget(self.data_viwer.p_1d)
+        view = self.data_viwer.p_1d
+        ## Set comboboxes ##
+        # Detail combobox
+        self.set_cb_detail_view(view)
+        # Curve combobox
+        view.cb_curve_select.blockSignals(True)
+        view.cb_curve_select.clear()
+        view.cb_curve_select.blockSignals(False)
+        view.cb_curve_select.addItems(
+            [key for key in ParamSignals.keys()]
+        )
+        view.cb_curve_select.currentTextChanged.connect(
+            lambda new_val: self.upd_plot(
+                view.plot_curve,
+                *data.param_data_plot(
+                    self.data_viwer.measurement,
+                    ParamSignals[new_val]
+                ),
+                marker = self.data_viwer.data_index,
+                enable_pick = True 
+            )
+        )
+        # Set main plot
+        main_data = data.param_data_plot(
+            msmnt = self.data_viwer.measurement,
+            dtype = ParamSignals[view.cb_curve_select.currentText()]
+        )
+        self.upd_plot(
+            view.plot_curve,
+            *main_data,
+            marker = self.data_viwer.data_index,
+            enable_pick = True
+        )
+        # Set additional plot
+        detail_data = data.point_data_plot(
+            msmnt = self.data_viwer.measurement,
+            index = self.data_viwer.data_index,
+            dtype = self.data_viwer.dtype_point
+        )
+        self.upd_plot(view.plot_detail, *detail_data)
+        # Picker event
+        view.plot_curve.fig.canvas.mpl_connect(
+            'pick_event',
+            lambda event: self.pick_event(
+                view.plot_curve,
+                event
+            )
+        )
+
+    def set_cb_detail_view(self, parent: QWidget) -> None:
+        """
+        Set combobox with signals for detail view.
+        
+        Implies that combobox is ``cb_detail_select``.
+        ``parent`` should have attribute with this name.
+        """
+        parent.cb_detail_select.blockSignals(True) # type: ignore
+        parent.cb_detail_select.clear() # type: ignore
+        parent.cb_detail_select.blockSignals(False) # type: ignore
+        parent.cb_detail_select.addItems( # type: ignore
+            [key for key in DetailedSignals.keys()]
+        )
+        self.data_viwer.dtype_point = DetailedSignals[
+            self.data_viwer.p_1d.cb_detail_select.currentText()
+        ]
+        #Disconnect old slots
+        try:
+            parent.cb_detail_select.currentTextChanged.disconnect() # type: ignore
+        except:
+            logger.debug('No slots were connected to cb_detail_select.')
+        parent.cb_detail_select.currentTextChanged.connect(self.upd_point_info) # type: ignore
 
     def set_data_content_view(self, data: PaData) -> None:
         """"Set tv_content."""
@@ -387,6 +496,7 @@ class Window(QMainWindow,Ui_MainWindow,):
 
         if new_text is not None:
             self.data_viwer.dtype_point = DetailedSignals[new_text]
+
         # update plot
         active_dview = self.data_viwer.sw_view.currentWidget()
         self.upd_plot(
@@ -395,9 +505,9 @@ class Window(QMainWindow,Ui_MainWindow,):
                 msmnt = self.data_viwer.measurement,
                 index = self.data_viwer.data_index,
                 dtype = self.data_viwer.dtype_point
-            ),
-            marker = self.data_viwer.data_index,
+            )
         )
+        active_dview.nav_detail.update()
         # Update description
         tv = self.data_viwer.tv_info
         exp_state = False

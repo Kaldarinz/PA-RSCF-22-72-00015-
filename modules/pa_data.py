@@ -117,6 +117,8 @@ class PaData:
             updated=self._get_cur_time(),
         )
         self.measurements: dict[str, Measurement] = {}
+        self.changed = False
+        "Data changed flag"
         logger.debug('PaData instance created')
 
     def create_measurement(
@@ -151,6 +153,7 @@ class PaData:
         self.measurements.update({title: measurement})
         self.attrs.updated = self._get_cur_time()
         self.attrs.measurements_count += 1
+        self.changed = True
         logger.debug(f'{title} created.')
         return measurement
 
@@ -228,6 +231,7 @@ class PaData:
         measurement.attrs.data_points += 1
         measurement.attrs.updated = self._get_cur_time()
         self.attrs.updated = self._get_cur_time()
+        self.changed = True
         logger.debug('...Finishing data point addition to file.')
 
     def _get_cur_time (self) -> str:
@@ -366,14 +370,16 @@ class PaData:
                     # set point metadata
                     s_datapoint.attrs.update(self._to_dict(ds.attrs))
                     # set raw data
-                    s_rawdata = s_datapoint.create_group('raw_data')
-                    s_rawdata.attrs.update(self._to_dict(ds.raw_data))
-                    s_rawdata.create_dataset(
+                    new_dataset = s_datapoint.create_dataset(
                         'data_raw',
                         data = ds.raw_data.data_raw
                     )
+                    new_dataset.attrs.update(self._to_dict(ds.raw_data))
+                    
                     # additionaly save units of data
-                    s_rawdata.attrs.update({'y_var_units': str(ds.raw_data.data.u)})
+                    new_dataset.attrs.update({'y_var_units': str(ds.raw_data.data.u)})
+        self.changed = False
+        logger.debug('Data saved to disk')
 
     def _to_dict(self, obj: object) -> dict:
         """"
@@ -429,7 +435,7 @@ class PaData:
             elif val is PlainQuantity:
                 item = Q_(source[key], source[key + '_u'])
             else:
-                item = val
+                item = source[key]
             init_vals.update({key: item})
         return dtype(**init_vals)
 
@@ -447,15 +453,16 @@ class PaData:
         }
         for key, val in BaseData.__annotations__.items():
             # this condition check is different from others
-            if val == list[PlainQuantity]:
-                mags = source[key]
-                units = source[key + '_u']
-                item = [Q_(m, u) for m, u in zip(mags, units)]
-            elif val is PlainQuantity:
-                item = Q_(source[key], source[key + '_u'])
-            else:
-                item = val
-            init_vals.update({key: item})
+            if key not in ['data', 'data_raw']:
+                if val == list[PlainQuantity]:
+                    mags = source[key]
+                    units = source[key + '_u']
+                    item = [Q_(m, u) for m, u in zip(mags, units)]
+                elif val is PlainQuantity:
+                    item = Q_(source[key], source[key + '_u'])
+                else:
+                    item = source[key]
+                init_vals.update({key: item})
         return BaseData(**init_vals)
 
     def _calc_data_fit(self,
@@ -524,9 +531,9 @@ class PaData:
                         PointMetadata,
                         dict(datapoint.attrs.items())
                     )
-                    ds = datapoint['raw_data']['data_raw']
+                    ds = datapoint['data_raw']
                     data_raw = ds[...]
-                    y_var_units = ds['y_var_units']
+                    y_var_units = ds.attrs['y_var_units']
                     # restore data
                     p = np.poly1d([ds.attrs['a'], ds.attrs['b']])
                     data = Q_(p(data_raw), y_var_units)
