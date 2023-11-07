@@ -1,5 +1,8 @@
 from typing import Iterable
+import os
 
+import numpy as np
+import numpy.typing as npt
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
 from matplotlib.axes import Axes
@@ -12,11 +15,15 @@ from PySide6.QtWidgets import (
     QSpinBox,
     QDoubleSpinBox,
     QTreeWidget,
-    QTreeWidgetItem
+    QTreeWidgetItem,
+    QMenu,
+    QFileDialog
 )
 from PySide6.QtGui import (
     QStandardItem,
-    QStandardItemModel
+    QStandardItemModel,
+    QAction,
+    QContextMenuEvent
 )
 
 from modules import ureg, Q_
@@ -37,9 +44,43 @@ class MplCanvas(FigureCanvasQTAgg):
         self._marker_ref: Line2D|None = None
         super().__init__(self.fig)
 
+    def contextMenuEvent(self, event: QContextMenuEvent) -> None:
+        """Context menu."""
+
+        context = QMenu(self)
+        save_data = QAction('Export data to *.txt', self)
+        context.addAction(save_data)
+        save_data.triggered.connect(self._save_data)
+        context.exec(event.globalPos())
+
+    def _save_data(self) -> None:
+        """Save data from current plot."""
+
+        path = os.getcwd()
+        initial_dir = os.path.join(path, 'measuring results')
+        filename = QFileDialog.getSaveFileName(
+            self,
+            caption='Choose a file',
+            dir=initial_dir,
+            filter='text file (*.txt)'
+        )[0]
+        if filename:
+            data = np.column_stack((self.xdata,self.ydata))
+            header = ''
+            if self.xlabel is not None:
+                header = self.xlabel
+            if self.ylabel is not None:
+                header = header + '\n' + self.ylabel
+            np.savetxt(
+                fname = filename,
+                X = data,
+                header = header
+            )
+
+
     @property
-    def xdata(self) -> Iterable|None:
-        return self._xdata
+    def xdata(self) -> npt.NDArray:
+        return np.array(self._xdata)
     
     @xdata.setter
     def xdata(self, data: Iterable) -> None:
@@ -53,8 +94,8 @@ class MplCanvas(FigureCanvasQTAgg):
             self._xdata = data
 
     @property
-    def ydata(self) -> Iterable|None:
-        return self._ydata
+    def ydata(self) -> npt.NDArray:
+        return np.array(self._ydata)
     
     @ydata.setter
     def ydata(self, data: Iterable) -> None:
