@@ -10,7 +10,6 @@ from collections import deque
 import math
 from threading import Thread
 from dataclasses import replace
-import time
 
 import yaml
 import pint
@@ -34,15 +33,11 @@ from modules.exceptions import (
     )
 from .pa_data import PaData
 from . import data_classes as dc
-from .data_classes import (
-    WorkerSignals,
-    Worker
-)
 from . import ureg, Q_
 
 logger = logging.getLogger(__name__)
 
-def init_hardware(**kwargs) -> bool:
+def init_hardware() -> bool:
     """Initialize all hardware.
     
     Load hardware config from rsc/config.yaml if it was not done.
@@ -323,29 +318,10 @@ def home() -> None:
             raise StageError(msg)
     wait_stages_stop()
 
-def track_power(
-        signals: WorkerSignals,
-        flags: dict,
-        tune_width: int = 50,
-        **kwargs
-    ) -> dict:
-    """Measure laser energy.
+def track_power(tune_width: int) -> PlainQuantity:
+    """Build energy graph.
 
-    Run infinite loop and measure energy from power meter.\n
-    To stop the measurements ``flags['is_running']`` should be set
-    to FALSE, which can be done from outside.\n
-    After each measurement fire ``signals.progress``, which return
-    a dict, containing:\n
-    ``data``: list[PlainQuantity] - a list with data\n
-    ``signal``: PlainQuantity - measured PM signal(full data)\n
-    ``sbx``: int - Signal Begining X
-    ``sby``: PlainQuantity - Signal Begining Y
-    ``sex``: int - Signal End X
-    ``sey``: PlainQuantity - Signal End Y
-    ``energy``: PlainQuantity - just measured energy value\n
-    ``aver``: PlainQuantity - average energy\n
-    ``std``: PlainQuantity - standart deviation of the measured data\n
-    """
+    Return averaged mean energy"""
 
     ### config parameters
     #Averaging for mean and std calculations
@@ -356,32 +332,52 @@ def track_power(
     measure_delay = ureg('10ms')
     ###
 
-    results = {}
-
+    logger.debug('Starting tracking power with params: '
+                 + f'{aver=}, {threshold=}, {measure_delay=}...')
     pm = dc.hardware.power_meter
     if pm is None:
         logger.warning('Power meter is off in config')
-        raise OscIOError
+        return Q_(-1,'J')
     
     #tune_width cannot be smaller than averaging
     if tune_width < aver:
         logger.warning(f'{tune_width=} is smaller than averaging='
                        + f'{aver}. tune_width set to {aver}.')
         tune_width = aver
-    data = deque(maxlen=tune_width)   
+    data = deque(maxlen=tune_width)
+
+    logger.info('Hold "q" button to stop power measurements')
+    
+    logger.debug('Initializing plt')
+    fig = plt.figure(tight_layout=True)
+    gs = gridspec.GridSpec(1,2)
+    #axis for signal from osc
+    ax_pm = fig.add_subplot(gs[0,0])
+    #axis for energy graph
+    ax_pa = fig.add_subplot(gs[0,1])
+    fig.canvas.draw()
+    
     mean = 0*ureg('J')
     logger.debug('Entering measuring loop')
     while True:
-        if not flags['is_running']:
-            return results
         try:
             laser_amp = pm.get_energy_scr()
         except (OscValueError, OscIOError):
             logger.debug('Measurement failed. Trying again.')
             continue
-        if len(data) and laser_amp < data[-1]*threshold:
-            logger.debug('Measurement failed. Trying again.')
-            continue
+        except OscConnectError:
+            logger.warning('Oscilloscope disconnected!')
+            if confirm_action('Do you want to reconnect to osc?'):
+                if init_osc():
+                    logger.debug('Oscilloscope reconnected. '
+                                 + 'Continue measurements.')
+                    continue
+                else:
+                    logger.debug(f'...Terminating, energy = {mean}')
+                    return mean
+            else:
+                logger.debug(f'...Terminating, energy = {mean}')
+                return mean
         data.append(laser_amp)
         
         #ndarray for up to last <aver> values
@@ -389,24 +385,49 @@ def track_power(
             [x for i,x in enumerate(reversed(data)) if i<aver])
         mean = tmp_data.mean() # type: ignore
         std = tmp_data.std() # type: ignore
+        title = (f'Energy={laser_amp}, '
+                + f'Mean (last {aver}) = {mean:~.3P}, '
+                + f'Std (last {aver}) = {std:~.3P}')
         logger.debug(f'{laser_amp=}, {mean=}, {std=}')
-        results = {
-            'data': pint.Quantity.from_list(
-                [x for x in data]),
-            'signal': pm.data,
-            'sbx': pm.start_ind,
-            'sby': pm.data[pm.start_ind],
-            'sex': pm.stop_ind,
-            'sey': pm.data[pm.stop_ind],
-            'energy': laser_amp,
-            'aver': mean,
-            'std': std
-        }
-        signals.progess.emit(results)
-        time.sleep(measure_delay.to('s').m)
+        
+        #plotting data
+        ax_pm.clear()
+        ax_pa.clear()
+        ax_pm.plot(pm.data)
+        fig.suptitle(title)
+        
+        #add markers for data start and stop
+        ax_pm.plot(
+            pm.start_ind,
+            pm.data[pm.start_ind], # type: ignore
+            'o',
+            alpha=0.4,
+            ms=12,
+            color='green')
+        ax_pm.plot(
+            pm.stop_ind,
+            pm.data[pm.stop_ind], # type: ignore
+            'o',
+            alpha=0.4,
+            ms=12,
+            color='red')
+        ax_pa.plot([x.m for x in data])
+        ax_pa.set_ylim(bottom=0)
+        fig.canvas.draw()
+        plt.pause(measure_delay.to('s').m)
+            
+        if keyboard.is_pressed('q'):
+            break
+        if not plt.get_fignums():
+            break
+
+    logger.debug(f'...Finishing. Energy = {mean}')
+    return mean
 
 def spectrum(
-        wl: PlainQuantity,
+        start_wl: PlainQuantity,
+        end_wl: PlainQuantity,
+        step: PlainQuantity,
         target_energy: PlainQuantity,
         averaging: int
     ) -> Optional[PaData]:
@@ -421,14 +442,39 @@ def spectrum(
 
     logger.info('Starting measuring spectra...')
     data = PaData(dims=1, params=['Wavelength'])
+    #make steps negative if going from long WLs to short
+    if start_wl > end_wl:
+        step = -step # type: ignore
+    #calculate amount of data points
+    d_wl = end_wl-start_wl
+    if d_wl%step:
+        spectral_points = int(d_wl/step) + 2
+    else:
+        spectral_points = int(d_wl/step) + 1
 
-    measurement, proceed = _ameasure_point(averaging, wl)
-    if measurement:
-        data.add_point(measurement, [current_wl])
-        data.save_tmp()
-    if not proceed:
-        logger.debug('...Terminating.')
-        return data
+    #main measurement cycle
+    for i in range(spectral_points):
+        if abs(step*i) < abs(d_wl):
+            current_wl = start_wl + step*i
+            current_wl = cast(PlainQuantity, current_wl)
+        else:
+            current_wl = end_wl
+
+        logger.info(f'Start measuring point {(i+1)}')
+        logger.info(f'Current wavelength is {current_wl}.'
+                    +'Please set it!')
+
+        if not i:
+            if not set_energy(current_wl, target_energy):
+                logger.debug('...Terminating.')
+                return
+        measurement, proceed = _ameasure_point(averaging, current_wl)
+        if measurement:
+            data.add_measurement(measurement, [current_wl])
+            data.save_tmp()
+        if not proceed:
+            logger.debug('...Terminating.')
+            return data
     data.bp_filter()
     logger.info('...Finishing. Spectral scanning complete!')
     return data
@@ -452,7 +498,7 @@ def single_measure(
         return None
     measurement, _ = _ameasure_point(averaging, wl)
     if measurement is not None:
-        data.add_point(measurement, [wl])
+        data.add_measurement(measurement, [wl])
         data.save_tmp()
         data.bp_filter()
     logger.info('...Finishing single point measurement!')
@@ -780,7 +826,7 @@ def glan_calc(
 def _ameasure_point(
     averaging: int,
     current_wl: PlainQuantity
-    ) -> Tuple[dc.MeasuredPoint|None, bool]:
+    ) -> Tuple[dc.DataPoint|None, bool]:
     """Measure single PA data point with averaging.
     
     second value in the returned tuple (bool) is a flag to 
@@ -789,7 +835,7 @@ def _ameasure_point(
 
     logger.debug('Starting measuring PA data point with averaging...')
     counter = 0
-    msmnts: List[dc.MeasuredPoint]=[]
+    msmnts: List[dc.DataPoint]=[]
     while counter < averaging:
         logger.info(f'Signal at {current_wl} should be measured '
                 + f'{averaging-counter} more times.')
@@ -821,16 +867,15 @@ def _ameasure_point(
     
     logger.warning('Unexpectedly passed after main measure sycle!')
     logger.debug('...Terminating with empty data point.')
-    return dc.MeasuredPoint(), True
+    return dc.DataPoint(), True
 
 def _measure_point(
-        wavelength: PlainQuantity,
-        **kwargs
-    ) -> dc.MeasuredPoint:
+        wavelength: PlainQuantity
+    ) -> dc.DataPoint:
     """Measure single PA data point."""
 
     logger.debug('Starting PA point measurement...')
-    measurement = dc.MeasuredPoint()
+    measurement = dc.DataPoint()
     osc = dc.hardware.osc
     pm = dc.hardware.power_meter
     config = dc.hardware.config
@@ -932,14 +977,14 @@ def _measure_point(
     logger.debug('...Finishing PA point measurement.')
     return measurement
 
-def aver_measurements(measurements: List[dc.MeasuredPoint]) -> dc.MeasuredPoint:
+def aver_measurements(measurements: List[dc.DataPoint]) -> dc.DataPoint:
     """Calculate average measurement from a given list of measurements.
     
     Actually only amplitude values are averaged, in other cases data
     from the last measurement from the <measurements> is used."""
 
     logger.debug('Starting measurement averaging...')
-    result = dc.MeasuredPoint()
+    result = dc.DataPoint()
     total = len(measurements)
     for measurement in measurements:
         result.dt = measurement.dt
@@ -971,7 +1016,7 @@ def aver_measurements(measurements: List[dc.MeasuredPoint]) -> dc.MeasuredPoint:
     return result
 
 def verify_measurement(
-        measurement: dc.MeasuredPoint
+        measurement: dc.DataPoint
     ) -> bool:
     """Verify a PA measurement."""
 

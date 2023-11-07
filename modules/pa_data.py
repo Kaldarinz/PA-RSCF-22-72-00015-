@@ -4,79 +4,99 @@ Requires Python > 3.10
 
 Workflow with PaData:
 1. init class instance.
-2. Create measuremnt.
-3. Add data points to measurement.
+2. Set 'measurement_dims' and 'parameter_name' in root metadata.
+3. Add data points.
 
 Data structure of PaData class:
-PaData:
-|--attrs: FileMetadata
-|  |--version: float - version of data structure
-|  |--measurements_count: int - amount of measurements in the file
-|  |--created: str - date and time of file creation
-|  |--updated: str - date and time of last file update
-|  |--notes: str - description of the file
-|  |--zoom_pre_time: Quantity - start time from the center of the PA data frame for zoom in data view
-|  |--zoom_post_time: Quantity - end time from the center of the PA data frame for zoom in data view
-|--measurements: dict[str, Measurement]
-|  |--measurement001: Measurement  
-|  |  |--attrs: MeasurementMetadata
-|  |  |  |--data_points: int - amount of datapoints in the measurement
-|  |  |  |--parameter_name: List[str] - independent parameter, changed between measured PA signals
-|  |  |  |--measurement_dims: int - dimensionality of the measurement
-|  |  |  |--max_len: int - maximum amount of samples in a single datapoint in this measurement
-|  |  |  |--created: str - date and time of file creation
-|  |  |  |--updated: str - date and time of last file update
-|  |  |  |--notes: str - description of the measurement
-|  |  |--data: dict[str,DataPoint]
-|  |  |  |--point001
-|  |  |  |  |--attrs: PointMetadata
-|  |  |  |  |  |--pm_en: Quantity - laser energy measured by power meter in glass reflection
-|  |  |  |  |  |--sample_en: Quantity - laser energy at sample
-|  |  |  |  |  |--param_val: List[Quantity] - value of independent parameters
-|  |  |  |  |--raw_data: BaseData
-|  |  |  |  |  |--data: Quantity - measured PA signal
-|  |  |  |  |  |--data_raw: NDArray[int8] - measured PA signal in raw format
-|  |  |  |  |  |--a: float - coef for coversion ``data_raw`` to ``data``: <data> = a*<data_raw> + b 
-|  |  |  |  |  |--b: float - coef for coversion ``data_raw`` to ``data``: <data> = a*<data_raw> + b
-|  |  |  |  |  |--x_var_step: Quantity - single step for x data
-|  |  |  |  |  |--x_var_start: Quantity - start value for x data
-|  |  |  |  |  |--x_var_stop: Quantity - stop value for x data
-|  |  |  |  |  |--x var name: str - name of the x variable
-|  |  |  |  |  |--y var name: str - name of the Y variable
-|  |  |  |  |  |--max_amp: Quantity - max(data) - min(data)
-|  |  |  |  |--filt_data: ProcessedData
-|  |  |  |  |  |--data: Quantity - filtered PA signal
-|  |  |  |  |  |--x_var_step: Quantity - single step for x data
-|  |  |  |  |  |--x_var_start: Quantity - start value for x data
-|  |  |  |  |  |--x_var_stop: Quantity - stop value for x data
-|  |  |  |  |  |--x var name: str - name of the x variable
-|  |  |  |  |  |--y var name: str - name of the Y variable
-|  |  |  |  |  |--max_amp: Quantity - max(data) - min(data)
-|  |  |  |  |--freq_data: ProcessedData
-|  |  |  |  |  |--data: Quantity - Fourier transform of PA signal
-|  |  |  |  |  |--x_var_step: Quantity - single step for x data
-|  |  |  |  |  |--x_var_start: Quantity - start value for x data
-|  |  |  |  |  |--x_var_stop: Quantity - stop value for x data
-|  |  |  |  |  |--x var name: str - name of the x variable
-|  |  |  |  |  |--y var name: str - name of the Y variable
-|  |  |  |  |  |--max_amp: Quantity - max(data) - min(data)
-|  |  |  |--point002
-|  |  |  |  |--attrs: PointMetadata
-|  |  |  |  ...
-|  |--measurement001: Measurement  
-|  |  |--attrs: MeasurementMetadata
-|  ...
-
-    """
+    
+    PaData:
+    |--'attrs'
+    |  |--'version': float - version data structure
+    |  |--'measurement_dims': int - dimensionality of the stored measurement
+    |  |--'parameter_name': str - independent parameter, changed between measured PA signals
+    |  |--'data_points': int - amount of stored PA measurements
+    |  |--'created': str - date and time of data measurement
+    |  |--'updated': str - date and time of last data update
+    |  |--'filename': str - full path to the data file
+    |  |--'notes': str - description
+    |  |--'zoom_pre_time': Quantity - start time from the center of the PA data frame for zoom in data view
+    |  |--'zoom_post_time': Quantity - end time from the center of the PA data frame for zoom in data view
+    |
+    |--'raw_data'
+    |  |--'attrs'
+    |  |  |--'max_len': int - maximum amount of points in PA signal
+    |  |  |--'x_var_name': str - name of the X variable in PA signal
+    |  |  |--'y_var_name': str - name of the Y variable in PA signal
+    |  |
+    |  |--point001
+    |  |  |--'data': List[Quantity] - measured PA signal
+    |  |  |--'data_raw': ndarray[int8]
+    |  |  |--'param_val': List[Quantity] - value of independent parameter
+    |  |  |--'x_var_step': Quantity
+    |  |  |--'x_var_start': Quantity
+    |  |  |--'x_var_stop': Quantity
+    |  |  |--'pm_en': Quantity - laser energy measured by power meter in glass reflection
+    |  |  |--'sample_en': Quantity - laser energy at sample in [uJ]
+    |  |  |--'max_amp': Quantity - (y_max - y_min)
+    |  |
+    |  |--point002
+    |  |  |--'data': List[Quantity] - measured PA signal
+    |  |  ...
+    |  ...
+    |
+    |--'filt_data'
+    |  |--'attrs'
+    |  |  |--'x var name': str - name of the X variable in PA signal
+    |  |  |--'y var name': str - name of the Y variable in PA signal
+    |  |
+    |  |--point001
+    |  |  |--'data': List[Quantity] - measured PA signal
+    |  |  |--'data_raw': ndarray[int8]
+    |  |  |--'a': float
+    |  |  |--'b': float - <data> = a*<data_raw> + b
+    |  |  |--'param_val': List[Quantity] - value of independent parameter
+    |  |  |--'x_var_step': Quantity
+    |  |  |--'x_var_start': Quantity
+    |  |  |--'x_var_stop': Quantity
+    |  |  |--'pm_en': Quantity - laser energy measured by power meter in glass reflection
+    |  |  |--'sample_energy': Quantity - laser energy at sample in [uJ]
+    |  |  |--'max_amp': Quantity - (y_max - y_min)
+    |  |
+    |  |--point002
+    |  |  |--'data': List[Quantity] - measured PA signal
+    |  |  ...
+    |  ...
+    |
+    |--'freq_data'
+       |--'attrs'
+       |  |--'max_len': int - maximum amount of points in PA signal
+       |  |--'x_var_name': str - name of the X variable in PA signal
+       |  |--'y_var_name': str - name of the Y variable in PA signal
+       |
+       |--point001
+       |  |--'data': List[Quantity] - frequncies present in filt_data
+       |  |--'x var step': float
+       |  |--'x var start': float
+       |  |--'x var stop': float
+       |  |--'max amp': float - (y_max - y_min)
+       |
+       |--point002
+       |  |--'data': List[Quantity] - frequncies present in filt_data
+       |  ...
+       ...
+"""
 
 import warnings
-from typing import Iterable, Any, Tuple, TypedDict, List, TypeVar
+from typing import Iterable, Any, Tuple, TypedDict, List
 from datetime import datetime
 import time
 import os, os.path
 import logging
 from itertools import zip_longest
 
+import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
+from matplotlib import MatplotlibDeprecationWarning # type: ignore
 from scipy.fftpack import rfft, irfft, fftfreq
 import pint
 from pint.facets.plain.quantity import PlainQuantity
@@ -86,16 +106,7 @@ import numpy.typing as npt
 import texteditor
 
 from . import Q_
-from .data_classes import (
-    FileMetadata,
-    BaseData,
-    ProcessedData,
-    PointMetadata,
-    DataPoint,
-    MeasurementMetadata,
-    Measurement,
-    MeasuredPoint
-)
+from . import data_classes as dc
 from .utils import confirm_action
 from modules.exceptions import (
     PlotError
@@ -106,132 +117,126 @@ logger = logging.getLogger(__name__)
 class PaData:
     """Class for PA data storage and manipulations"""
 
-    VERSION = 1.2
+    VERSION = 1.1
 
-    def __init__(self) -> None:
+    _ax_sp: plt.Axes
+    "Axes for plotting dependence of max_amp on parameter."
+    _ax_raw: plt.Axes
+    "Axes for plotting raw signal."
+    _ax_freq: plt.Axes
+    "Axes for plotting signal in frequnecy domain."
+    _ax_filt: plt.Axes
+    "Axes for plotting filtered data."
+    _ax_raw_zoom: plt.Axes
+    "Axes for plotting a region containing actual RAW signal."
+    _ax_filt_zoom: plt.Axes
+    "Axes for plotting a region containing actual FILTERED signal."
+
+    def __init__(self, dims: int=-1, params: List[str]=[]) -> None:
+        """Class init.
+        
+        <dims> dimensionality of the stored measurement.
+        <params> contain names of the dimensions."""
 
         #general metadata
-        self.attrs = FileMetadata(
-            version=self.VERSION,
-            created=self._get_cur_time(),
-            updated=self._get_cur_time(),
-        )
-        self.measurements: dict[str, Measurement] = {}
-        self.changed = False
-        "Data changed flag"
+        self.attrs: dc.BaseMetadata = {
+            'version': self.VERSION,
+            'measurement_dims': dims,
+            'parameter_name': params,
+            'data_points': 0,
+            'created': self._get_cur_time(),
+            'updated': self._get_cur_time(),
+            'filename': '',
+            'notes': '',
+            'zoom_pre_time': Q_(2, 'us'),
+            'zoom_post_time': Q_(13, 'us')
+        }
+        raw_attrs: dc.RawMetadata = {
+            'max_len': 0,
+            'x_var_name': 'Time',
+            'y_var_name': 'PhotoAcoustic signal'
+        }
+        self.raw_data = {}
+        self.raw_data.update({'attrs': raw_attrs})
+        
+        filt_attrs: dc.FiltMetadata = {
+            'x_var_name': 'Time',
+            'y_var_name': 'Filtered photoAcoustic signal'
+        }
+
+        self.filt_data = {}
+        self.filt_data.update({'attrs': filt_attrs})
+        
+        freq_attrs: dc.RawMetadata = {
+            'max_len': 0,
+            'x_var_name': 'Frequency',
+            'y_var_name': 'FFT amplitude'
+        }
+        self.freq_data = {}
+        self.freq_data.update({'attrs': freq_attrs})
+        
         logger.debug('PaData instance created')
 
-    def create_measurement(
-            self,
-            dims: int,
-            params: list[str]
-        ) -> Measurement|None:
-        """
-        Create a measurement, where data points will be stored.
-        
-        ``dims`` - dimensionality of the measurements.\n
-        ``params`` - Variable title for each dimension.\n
-        Created measurement is added to ``measurements`` attribute
-        and returned.
-        """
-
-        if len(params) != dims:
-            logger.warning('Attempt to create a measurements with '
-                           + f'wrong arguments. {dims=}; {params=}')
-            return None
-        metadata = MeasurementMetadata(
-            measurement_dims = dims,
-            parameter_name = params.copy(),
-            created = self._get_cur_time(),
-            updated = self._get_cur_time(),
-        )
-        measurement = Measurement(metadata)
-        title = self._build_name(
-            self.attrs.measurements_count + 1,
-            'measurement'
-        )
-        self.measurements.update({title: measurement})
-        self.attrs.updated = self._get_cur_time()
-        self.attrs.measurements_count += 1
-        self.changed = True
-        logger.debug(f'{title} created.')
-        return measurement
-
-    def add_point(
-            self,
-            measurement: Measurement,
-            data: MeasuredPoint,
-            param_val: List[PlainQuantity]
+    def add_measurement(
+            self, 
+            data: dc.DataPoint,
+            param_val: List[PlainQuantity] = []
         ) -> None:
-        """
-        Add a single data point to a measuremt.
+        """Add a single data point.
         
-        ``measurement`` - Measurement instance, to which data point should be added.
-        ``data`` - Measured PA data.
+        Add a datapoint to raw_data, filt_data and freq_data.
         """
 
         logger.debug('Starting datapoint addition to file...')
-        if not data.pa_signal.ndim:
+        if data.pa_signal is None or not len(data.pa_signal):
             logger.debug('...Terminating datapoint addition. PA signal is missing.')
             return None
-        if not data.pa_signal_raw.ndim:
+        if data.pa_signal_raw is None or not len(data.pa_signal_raw):
             logger.debug('...Terminating datapoint addition. PA signal_raw is missing.')
             return None
-        title = self._build_name(measurement.attrs.data_points + 1)
-        if not title:
+        ds_name = self._build_ds_name(self.attrs['data_points']+1)
+        if not ds_name:
             logger.error('Max data_points reached! Data cannot be added!')
             return None
-        logger.debug(f'{title=}')
+        logger.debug(f'{ds_name=}')
         # ensure that units of parameter and data for new point
         # is the same as units of already present points
-        if measurement.attrs.data_points:
-            # get paramater value from any existing datapoint
-            exist_params = next(iter((measurement.data.values()))).attrs.param_val
-            # in 0D case param value can be missing
-            if exist_params:
-                param_val = [x.to(y.u) for x,y in zip(param_val,exist_params)]
-            # get data from any axisting datapoint
-            exist_data = next(iter(measurement.data.values())).raw_data.data
-            if exist_data.u != data.pa_signal.u:
+        if self.attrs['data_points']:
+            params = self.raw_data['point001']['param_val']
+            #should be changed for 0D case, when there is no parameter
+            logger.debug(f'Param values changed from {param_val}...')
+            param_val = [x.to(y.u) for x,y in zip(param_val,params)]
+            logger.debug(f'... to {param_val}')
+            data_u = self.raw_data['point001']['data'].u
+            if data_u != data.pa_signal.u:
                 logger.debug(f'Changing units of data from {data.pa_signal.u} '
-                             +f'to {exist_data.u}')
-                data.pa_signal = data.pa_signal.to(exist_data.u)
+                             +f'to {data_u}')
+                data.pa_signal = data.pa_signal.to(data_u)
+        ds: dc.RawData = {
+            'data': data.pa_signal, #type: ignore
+            'data_raw': data.pa_signal_raw,
+            'param_val': param_val,
+            'x_var_step': data.dt.to('us'),
+            'x_var_start': data.start_time.to('us'),
+            'x_var_stop': data.stop_time.to('us'),
+            'pm_en': data.pm_energy,
+            'sample_en': data.sample_energy,
+            'max_amp': data.max_amp
+        }
+        cur_data_len = len(ds['data'])
+        old_data_len = self.raw_data['attrs']['max_len']
+        if cur_data_len > old_data_len:
+            self.raw_data['attrs']['max_len'] = cur_data_len
+            logger.debug(f'max_len updated from {old_data_len} '
+                         + f'to {cur_data_len}')
+        self.raw_data.update({ds_name: ds})
+        a, b = self._calc_data_fit(ds_name)
+        self.raw_data[ds_name]['a'] = a
+        self.raw_data[ds_name]['b'] = b
+        self.bp_filter(ds_name=ds_name)
         
-        metadata = PointMetadata(
-            pm_en = data.pm_energy,
-            sample_en = data.sample_energy,
-            param_val = param_val.copy()
-        )
-        
-        a,b = self._calc_data_fit(
-            data = data.pa_signal,
-            data_raw = data.pa_signal_raw
-        )
-        rawdata = BaseData(
-            data = data.pa_signal.copy(), # type: ignore
-            data_raw = data.pa_signal_raw.copy(),
-            a = a,
-            b = b,
-            max_amp = data.pa_signal.ptp(), # type: ignore
-            x_var_step = data.dt,
-            x_var_start = data.start_time,
-            x_var_stop = data.stop_time,
-        )
-        filtdata, freqdata = self.bp_filter(rawdata)
-        datapoint = DataPoint(
-            attrs = metadata,
-            raw_data = rawdata,
-            filt_data = filtdata,
-            freq_data = freqdata
-        )
-        measurement.data.update({title: datapoint})
-        # update some technical attributes
-        if len(rawdata.data) > measurement.attrs.max_len: # type: ignore
-            measurement.attrs.max_len = len(rawdata.data) # type: ignore
-        measurement.attrs.data_points += 1
-        measurement.attrs.updated = self._get_cur_time()
-        self.attrs.updated = self._get_cur_time()
-        self.changed = True
+        self.attrs['data_points'] += 1
+        self.attrs['updated'] = self._get_cur_time()
         logger.debug('...Finishing data point addition to file.')
 
     def _get_cur_time (self) -> str:
@@ -243,9 +248,19 @@ class PaData:
 
         return date_time
 
-    def save(self, filename: str) -> None:
+    def save(self, filename: str='') -> None:
         """Save data to file."""
 
+        if filename:
+            self.attrs['filename'] = filename
+        elif self.attrs['filename']:
+            filename = self.attrs['filename']
+        else:
+            logger.warning('Filename is not set. Data cannot be saved!')
+            return
+        if confirm_action('Do you want to add notes to the file?'):
+            self.attrs['notes'] = texteditor.open(
+                'Add description preferably in one line.')
         self._flush(filename)
 
     def save_tmp(self) -> None:
@@ -349,283 +364,205 @@ class PaData:
                 file.write(';'.join(map(str,row)) + '\n')
     
     def _flush(self, filename: str) -> None:
-        """
-        Write data to disk.
-        
-        Processed data (filt and freq) is not saved.
-        """
+        """Write data to disk."""
 
-        logger.debug(f'Start writing data to {filename}')
+        logger.debug(f'Start friting data to {filename}')
         with h5py.File(filename, 'w') as file:
-            # set file metada
-            file.attrs.update(self._to_dict(self.attrs))
-            # set all measurements
-            for msmnt_title, msmnt in self.measurements.items():
-                s_msmnt = file.create_group(msmnt_title)
-                # set measurement metadata
-                s_msmnt.attrs.update(self._to_dict(msmnt.attrs))
-                # save datapoints in each measurement
-                for ds_name, ds in msmnt.data.items():
-                    s_datapoint = s_msmnt.create_group(ds_name)
-                    # set point metadata
-                    s_datapoint.attrs.update(self._to_dict(ds.attrs))
-                    # set raw data
-                    new_dataset = s_datapoint.create_dataset(
-                        'data_raw',
-                        data = ds.raw_data.data_raw
-                    )
-                    new_dataset.attrs.update(self._to_dict(ds.raw_data))
-                    
-                    # additionaly save units of data
-                    new_dataset.attrs.update({'y_var_units': str(ds.raw_data.data.u)})
-        self.changed = False
-        logger.debug('Data saved to disk')
+            file.attrs.update(self._root_attrs())
+            raw_data = file.create_group('raw_data')
+            raw_data.attrs.update(self._raw_attrs())
+            for ds_name, ds in self.raw_data.items():
+                if ds_name !='attrs':
+                    ds_raw = raw_data.create_dataset(
+                        ds_name,
+                        data = ds['data_raw'])
+                    ds_raw.attrs.update(self._ds_attrs(ds_name))
 
-    def _to_dict(self, obj: object) -> dict:
-        """"
-        Convert datastructure to dict.
-        
-        ``data`` and ``data_raw`` attributes are excluded.
-        """
+    def _root_attrs(self) -> dict:
+        """"Build dict with root attributes."""
 
-        result = {}
-        for key, val in obj.__dict__.items():
-            if key not in ('data','data_raw'):
-                # each quantity is saved as magnitude and unit
-                if isinstance(val, PlainQuantity):
-                    result.update(
-                        {
-                            key:val.m,
-                            key + '_u': str(val.u)
-                        }
-                    )
-                # lists must be unpacked, as they can contain quantities
-                elif (isinstance(val,list)
-                      and len(val)
-                      and isinstance(val[0], PlainQuantity)
-                    ):
-                    mags = [x.m for x in val]
-                    units = [str(x.u) for x in val]
-                    result.update(
-                        {
-                            key: mags,
-                            key + '_u': units
-                        }
-                    )
-                else:
-                    result.update({key: val})
-        return result
-
-    def _from_dict(self, dtype, source: dict):
-        """
-        Generate dataclass from a dictionary.
-        
-        Intended for use in loading data from file.\n
-        ``dtype`` - dataclass, in which data should be converted.
-        ``source`` - dictionary with the data to load.
-        """
-
-        init_vals = {}
-        for key, val in dtype.__annotations__.items():
-            # this condition check is different from others
-            if val == list[PlainQuantity]:
-                mags = source[key]
-                units = source[key + '_u']
-                item = [Q_(m, u) for m, u in zip(mags, units)]
-            elif val is PlainQuantity:
-                item = Q_(source[key], source[key + '_u'])
-            else:
-                item = source[key]
-            init_vals.update({key: item})
-        return dtype(**init_vals)
-
-    def _load_basedata(
-            self,
-            data: PlainQuantity,
-            data_raw: npt.NDArray[np.uint8],
-            source: dict
-        ) -> BaseData:
-        """"Load BaseData."""
-
-        init_vals = {
-            'data': data,
-            'data_raw': data_raw
+        param_vals = self.raw_data['point001']['param_val']
+        attrs = {
+            'version': self.attrs['version'],
+            'notes': self.attrs['notes'],
+            'measurement_dims': self.attrs['measurement_dims'],
+            'parameter_name': self.attrs['parameter_name'],
+            'parameter_u': [str(param.u) for param in param_vals],
+            'data_points': self.attrs['data_points'],
+            'created': self.attrs['created'],
+            'updated': self.attrs['updated'],
+            'filename': self.attrs['filename'],
+            'zoom_pre_time': self.attrs['zoom_pre_time'].m,
+            'zoom_post_time': self.attrs['zoom_post_time'].m,
+            'zoom_u': str(self.attrs['zoom_pre_time'].u)
         }
-        for key, val in BaseData.__annotations__.items():
-            # this condition check is different from others
-            if key not in ['data', 'data_raw']:
-                if val == list[PlainQuantity]:
-                    mags = source[key]
-                    units = source[key + '_u']
-                    item = [Q_(m, u) for m, u in zip(mags, units)]
-                elif val is PlainQuantity:
-                    item = Q_(source[key], source[key + '_u'])
-                else:
-                    item = source[key]
-                init_vals.update({key: item})
-        return BaseData(**init_vals)
+        return attrs
+
+    def _raw_attrs(self) -> dict:
+        """"Build dict with raw_data attributes."""
+
+        attrs = {
+            'max_len': self.raw_data['attrs']['max_len'],
+            'x_var_name': self.raw_data['attrs']['x_var_name'],
+            'x_var_u': str(self.raw_data['point001']['x_var_step'].u),
+            'y_var_name': self.raw_data['attrs']['y_var_name'],
+            'y_var_u': str(self.raw_data['point001']['data'][0].u)
+        }
+        return attrs
+
+    def _ds_attrs(self, ds_name: str) -> dict:
+        """Build dict with attributes for <ds_name>"""
+        
+        ds_attrs = self.raw_data[ds_name]
+        attrs = {
+            'param_val': [param.m for param in ds_attrs['param_val']],
+            'a': ds_attrs['a'],
+            'b': ds_attrs['b'],
+            'x_var_step': ds_attrs['x_var_step'].m,
+            'x_var_start': ds_attrs['x_var_start'].m,
+            'x_var_stop': ds_attrs['x_var_stop'].m,
+            'pm_en': ds_attrs['pm_en'].m,
+            'pm_en_u': str(ds_attrs['pm_en'].u),
+            'sample_en': ds_attrs['sample_en'].m,
+            'sample_en_u': str(ds_attrs['sample_en'].u),
+            'max_amp': ds_attrs['max_amp'].m,
+            'max_amp_u': str(ds_attrs['max_amp'].u)
+        }
+        return attrs
 
     def _calc_data_fit(self,
-                       data: PlainQuantity,
-                       data_raw: npt.NDArray[np.uint8],
+                       ds_name: str,
                        points: int=20
         ) -> Tuple[float,float]:
-        """
-        Calculate coefs to convert ``data_raw`` to ``data``.
+        """Calculate coefs to convert data_raw to data.
         
-        Return (a,b), where ``data`` = a*``data_raw`` + b.\n
-        ``points`` - amount of points used for fitting.
+        Return (a,b), where <data> = a*<data_raw> + b.
+        <points> is amount of points used for fitting.
         """
 
         DIFF_VALS = 5
 
+        data = self.raw_data[ds_name]['data']
+        data_raw = self.raw_data[ds_name]['data_raw']
         #in the begining of data there could be long baseline
         #therefore start searching for meaningfull data from maximum
-        max_ind = np.flatnonzero(data==data.max())[0] # type: ignore
+        max_ind = np.flatnonzero(data==data.max())[0]
         x = data_raw[max_ind:max_ind+points]
         if len(np.unique(x))< DIFF_VALS:
-            i = 0
-            for i in range(len(data_raw)):
+            for i in range(len(self.raw_data[ds_name]['data_raw'])):
                 stop_ind = max_ind+points+i
                 x = data_raw[max_ind:stop_ind].copy()
                 if len(np.unique(x)) == DIFF_VALS:
                     break
-            logger.debug(f'{i} additional points added to find '
-                        + f'{DIFF_VALS} unique values.')
-        y = [quantity.m for quantity, _ in zip(data[max_ind:], x)] # type: ignore
+        logger.debug(f'{i} additional points added to find '
+                     + f'{DIFF_VALS} unique values.')
+        y = [quantity.m for quantity, _ in zip(data[max_ind:], x)]
         coef = np.polyfit(x, y, 1)
-        return coef # type: ignore
+        return coef
 
     def load(self, filename: str) -> None:
-        """Load data from file."""
+        """Loads data from file"""
 
         logger.debug('load procedure is starting...')
+        self.attrs['filename'] = filename
+        logger.debug(f'"filename" set to {filename}')
+
         with h5py.File(filename, 'r') as file:
             
-            #load file metadata
-            
+            #load general metadata
             general = file.attrs
             if 'version' not in general:
                 logger.warning('File has old structure and cannot be loaded.')
                 return
-            # add backward compatibility here
-            if (general.get('version', 0)) < 1.2:
-                self._load_old(file)
-                return
-
-            self.attrs = self._from_dict(
-                FileMetadata,
-                dict(file.attrs.items())
+            time_unit = general['zoom_u']
+            self.attrs.update(
+                {
+                'version': general['version'],
+                'measurement_dims': general['measurement_dims'],
+                'parameter_name': general['parameter_name'],
+                'data_points': general['data_points'],
+                'created': general['created'],
+                'updated': general['updated'],
+                'zoom_pre_time': Q_(general['zoom_pre_time'], time_unit), # type: ignore
+                'zoom_post_time': Q_(general['zoom_post_time'], time_unit) # type: ignore
+                }
             )
-            # load all measurements from the file
-            self.measurements = {}
-            for msmnt_title, msmnt in file.items():
-                msm_attrs = self._from_dict(
-                    MeasurementMetadata,
-                    dict(msmnt.attrs.items())
+
+            if (general.get('version', 0)) >= 1.1:
+                self.attrs.update(
+                    {'notes': general['notes']}
                 )
-                measurement = Measurement(attrs = msm_attrs, data = {})
-                # load all datapoints from the measurement
-                for datapoint_title, datapoint in msmnt.items():
-                    point_attrs = self._from_dict(
-                        PointMetadata,
-                        dict(datapoint.attrs.items())
-                    )
-                    ds = datapoint['data_raw']
-                    data_raw = ds[...]
-                    y_var_units = ds.attrs['y_var_units']
-                    # restore data
-                    p = np.poly1d([ds.attrs['a'], ds.attrs['b']])
-                    data = Q_(p(data_raw), y_var_units)
-                    basedata = self._load_basedata(
-                        data,
-                        data_raw,
-                        dict(ds.attrs.items())
-                    )
-                    filtdata, freqdata = self.bp_filter(basedata)
-                    dp = DataPoint(
-                        point_attrs,
-                        basedata,
-                        filtdata,
-                        freqdata
-                    )
-                    measurement.data.update({datapoint_title: dp})
-                self.measurements.update({msmnt_title: measurement})
-
-    def _load_old(self, file: h5py.File) -> None:
-        """Load file with version < 1.2."""
-
-        self.attrs = FileMetadata(
-            version = file.attrs['version'], # type: ignore
-            measurements_count = 1,
-            created = file.attrs['created'], # type: ignore
-            updated = file.attrs['updated'], # type: ignore
-            notes = ''
-        )
-        self.measurements = {}
-
-        raw_data = file['raw_data']
-        msmnt_md = MeasurementMetadata(
-            measurement_dims = file.attrs['measurement_dims'], # type: ignore
-            parameter_name = file.attrs['parameter_name'], # type: ignore
-            data_points = file.attrs['data_points'], # type: ignore
-            max_len = raw_data.attrs['max_len'] # type: ignore
-        )
-        msmnt = Measurement(msmnt_md)
-        self.measurements.update({'measurement001': msmnt})
-        for ds_name, ds in raw_data.items(): # type: ignore
-            data_raw = ds[...]
-            y_var_units = raw_data.attrs['y_var_u']
-            p = np.poly1d([ds.attrs['a']], ds.attrs['b'])
-            data = Q_(p(data_raw), y_var_units) # type: ignore
-            basedata = BaseData(
-                data = data,
-                data_raw = data_raw,
-                a = ds.attrs['a'],
-                b = ds.attrs['b'],
-                max_amp = Q_(
-                    ds.attrs['max_amp'],
-                    ds.attrs['max_amp_u']
-                ),
-                x_var_step = Q_(
-                    ds.attrs['x_var_step'],
-                    raw_data.attrs['x_var_u'] # type: ignore
-                ), # type: ignore
-                x_var_start = Q_(
-                    ds.attrs['x_var_start'],
-                    raw_data.attrs['x_var_u'] # type: ignore
-                ), # type: ignore
-                x_var_stop = Q_(
-                    ds.attrs['x_var_stop'],
-                    raw_data.attrs['x_var_u'] # type: ignore
-                ) # type: ignore
-            )
-            fildata, freqdata = self.bp_filter(basedata)
-            p_md = PointMetadata(
-                pm_en = Q_(ds.attrs['pm_en'], ds.attrs['pm_en_u']),
-                sample_en = Q_(
-                    ds.attrs['sample_en'],
-                    ds.attrs['sample_en_u']
-                ),
-                param_val= [Q_(x,y) for x,y in zip(
-                    ds.attrs['param_val'], file.attrs['parameter_u'])] # type: ignore
-            )
-            dp = DataPoint(
-                p_md,
-                basedata,
-                fildata,
-                freqdata
-            )
-            msmnt.data.update({ds_name:dp})
+            #in old version of 0D data save parameter name was missed
+            #but it was wavelength in all cases. Fix it on load old data.
+            if not len(self.attrs['parameter_name']):
+                self.attrs['parameter_name'] = ['Wavelength']
+            logger.debug(f'General metadata with {len(general)}'
+                         + ' records loaded.')
         
-    @staticmethod
-    def _build_name(n: int, name: str = 'point') -> str:
-        """
-        Build and return name.
-        
-        ``n`` - index.\n
-        ``name`` - base name.
-        """
+            raw_data = file['raw_data']
+            #metadata of raw_data
+            self.raw_data['attrs'].update(
+                {
+                    'max_len': raw_data.attrs['max_len'],
+                    'x_var_name': raw_data.attrs['x_var_name'],
+                    'y_var_name': raw_data.attrs['y_var_name']
+                }
+            )
+            logger.debug(f'raw_data metadata with {len(raw_data.attrs)}'
+                         + ' records loaded.')
+
+            for ds_name in raw_data: # type: ignore
+                self._load_ds(
+                    ds_name,
+                    raw_data[ds_name], # type: ignore
+                    raw_data.attrs['y_var_u'], # type: ignore
+                    raw_data.attrs['x_var_u'], # type: ignore
+                    general['parameter_u']
+                )
+            self.bp_filter()
+            logger.debug('...Data loaded!')
+
+    def _load_ds(self,
+                 ds_name: str,
+                 ds: h5py.Dataset,
+                 y_var_unit: str,
+                 x_var_unit: str,
+                 param_units: List[str]
+                 ) -> None:
+        """Load <ds_name> dataset from <ds>."""
+
+        p = np.poly1d([ds.attrs['a'], ds.attrs['b']]) # type: ignore
+        data_raw = ds[...]
+        data = Q_(p(data_raw), y_var_unit)
+        p_vals = ds.attrs['param_val']
+        param_val = [Q_(x, y) for x, y in zip(p_vals,param_units)] # type: ignore
+        x_var_step = Q_(ds.attrs['x_var_step'], x_var_unit)
+        x_var_start = Q_(ds.attrs['x_var_start'], x_var_unit)
+        x_var_stop = Q_(ds.attrs['x_var_stop'], x_var_unit)
+        pm_en = Q_(ds.attrs['pm_en'], ds.attrs['pm_en_u']) # type: ignore
+        sample_en = Q_(ds.attrs['sample_en'], ds.attrs['sample_en_u']) # type: ignore
+        max_amp = Q_(ds.attrs['max_amp'], ds.attrs['max_amp_u']) # type: ignore
+
+        self.raw_data.update(
+                    {
+                        ds_name:{
+                            'data': data,
+                            'data_raw': data_raw,
+                            'a': ds.attrs['a'],
+                            'b': ds.attrs['b'],
+                            'param_val': param_val,
+                            'x_var_step': x_var_step,
+                            'x_var_start': x_var_start,
+                            'x_var_stop': x_var_stop,
+                            'pm_en': pm_en,
+                            'sample_en': sample_en,
+                            'max_amp': max_amp
+                        }
+                    }
+                )
+
+    def _build_ds_name(self, n: int) -> str:
+        """Build and return name for dataset."""
         
         if n <10:
             n_str = '00' + str(n)
@@ -635,100 +572,297 @@ class PaData:
             n_str = str(n)
         else:
             return ''
-        return name + n_str
+        return 'point' + n_str
     
-    def param_data_plot(
+    def _get_ds_index(self, ds_name: str) -> int:
+        """Return index from dataset name."""
+
+        n_str = ds_name.split('point')[-1]
+        n = int(n_str)
+        return n
+
+    def plot(self) -> None:
+        """Plot data."""
+
+        if not self.attrs['data_points']:
+            logger.warning('No data to plot!')
+            return
+
+        #plot initialization
+        warnings.filterwarnings('ignore',
+                                category=MatplotlibDeprecationWarning)
+        self._fig = plt.figure(tight_layout=True)
+        d_dscr = 'Filename: ' + os.path.basename(self.attrs['filename'])
+        d_dscr += '\nDescription: ' + self.attrs['notes']
+        self._fig.suptitle(d_dscr)
+        gs = gridspec.GridSpec(2,3)
+        self._ax_sp = self._fig.add_subplot(gs[0,0])
+        self._ax_raw = self._fig.add_subplot(gs[0,1])
+        self._ax_freq = self._fig.add_subplot(gs[1,0])
+        self._ax_filt = self._fig.add_subplot(gs[1,1])
+        self._ax_raw_zoom = self._fig.add_subplot(gs[0,2])
+        self._ax_filt_zoom = self._fig.add_subplot(gs[1,2])
+
+        self._marker_style = {
+            'marker': 'o',
+            'alpha': 0.4,
+            'ms': 12,
+            'color': 'yellow'
+        }
+        self._fill_style = {
+            'alpha': 0.3,
+            'color': 'g'
+        }
+
+        dims = self.attrs['measurement_dims']
+        try:
+            if dims == 0:
+                self._plot_0d()
+            elif dims == 1:
+                self._plot_1d()
+            elif dims == 2:
+                self._plot_2d()
+            elif dims == 3:
+                self._plot_3d()
+            else:
+                logger.warning(f'Unsupported dimensionality: ({dims})')
+        except PlotError as err:
+            logger.warning(f'Plot attempt failed. {err.value}')
+
+    def _plot_0d(self) -> None:
+        """Plot 0D data."""
+
+        logger.debug('Starting 0D plotting...')
+        for ds_name, ds in self.filt_data.items():
+            if ds_name != 'attrs':
+                break
+        #update filt plot withh filt_zoom
+        self._plot_update_signal(
+            self.filt_data[ds_name],
+            self.filt_data['attrs'],
+            'Filtered data',
+            self._ax_filt,
+            self._ax_filt_zoom,
+        )
+        #update raw plot with raw_zoom
+        self._plot_update_signal( 
+            self.raw_data[ds_name],
+            self.raw_data['attrs'],
+            'Raw data',
+            self._ax_raw,
+            self._ax_raw_zoom,
+        )
+        #update freq plot
+        self._plot_update_signal(
+            self.freq_data[ds_name],
+            self.freq_data['attrs'],
+            'FFT data',
+            self._ax_freq
+        )
+        plt.show()
+
+    def _plot_1d(self) -> None:
+        """Plot 1D data."""
+
+        logger.debug('Starting 1D plotting...')
+        self._param_ind = 0 #index of active data on plot
+        self._plot_param()
+        self._fig.canvas.mpl_connect('key_press_event', self._on_key_press)
+        self._plot_update()
+        plt.show()
+
+    def _plot_2d(self) -> None:
+        """Plot 2D data."""
+
+        logger.warning('Plotting 2D data is not implemented!')
+
+    def _plot_3d(self) -> None:
+        """Plot 3D data."""
+
+        logger.warning('Plotting 3D data is not implemented!')
+
+    def _plot_param(
             self,
-            msmnt: Measurement,
-            dtype: str = 'filt_data',
             value: str = 'max_amp'
-        ) -> tuple[npt.NDArray, npt.NDArray, str, str]:
-        """Get main data for plotting.
+        ) -> None:
+        """Plot parameter data.
         
-        ``msmnt`` - measurement, from which to plot data.\n
-        ``type`` - type of data to return can be 'filt_data' or 'raw_data'\n
-        ``value`` - property of the data to be represented.\n
-        Return a tuple, which contain [ydata, xdata, ylabel, xlabel].
+        <value> define which quantity will be plotted.
         """
-        
-        xdata = self.get_dependance(
-            msmnt=msmnt,
-            data_type=dtype,
-            value = 'param_val')
-        if xdata is None:
+
+        param_values = self.get_dependance('raw_data','param_val[0]')
+        if param_values is None:
             err_msg = 'Cannot get param_val for all datapoints.'
             logger.debug(err_msg)
             raise PlotError(err_msg)
+        else:
+            self._param_values = param_values
 
-        ydata = self.get_dependance(
-            msmnt=msmnt,
-            data_type=dtype,
-            value = value)
-        if ydata is None:
-            err_msg = f'Cant get {value} of {dtype}.'
+        raw_vals = self.get_dependance('raw_data', value)
+        if raw_vals is None:
+            err_msg = f'Cant get {value} of raw_data.'
             logger.debug(err_msg)
             raise PlotError(err_msg)
+        else:
+            self._raw_vals = raw_vals
+
+        filt_vals = self.get_dependance('filt_data', value)
+        if filt_vals is None:
+            err_msg = f'Cant get {value} of raw_data.'
+            logger.debug(err_msg)
+            raise PlotError(err_msg)
+        else:
+            units = self._raw_vals.u
+            self._filt_vals = filt_vals.to(units)
         
-        x_label = (msmnt.attrs.parameter_name[0] 
-                + ', ['
-                + f'{xdata.u:~.2gP}'
-                + ']')
-        y_label = (msmnt.data['point001'].raw_data.y_var_name
-                + ', ['
-                + f'{ydata.u:~.2gP}'
-                + ']')
+        self._ax_sp.plot(
+            self._param_values.m,
+            self._raw_vals.m,
+            label=f'{value} of raw data')
+        self._ax_sp.plot(
+            self._param_values.m,
+            self._filt_vals.m,
+            label=f'{value} of filtered data'
+        )
+        self._ax_sp.legend(loc='upper right')
+        self._ax_sp.set_ylim(bottom=0)
+        x_label = (self.attrs['parameter_name'][0] 
+                   + ', ['
+                   + f'{self._param_values.u}'
+                   + ']')
+        self._ax_sp.set_xlabel(x_label)
+        y_label = (self.raw_data['attrs']['y_var_name']
+                   + ', ['
+                   + f'{self._raw_vals.u}'
+                   + ']')
+        self._ax_sp.set_ylabel(y_label)
 
-        return (ydata.m, xdata.m, y_label, x_label)
+        self._plot_init_cur_param()
 
-    @staticmethod
-    def point_data_plot(
-            msmnt: Measurement,
-            index: int,
-            dtype: str
-        ) -> tuple[npt.NDArray, npt.NDArray, str, str]:
-        """
-        Get point data for plotting.
+    def _plot_init_cur_param(self) -> None:
+        """Plot initial param value.
         
-        ``index`` - index of data to get the data point.\n
-        ``dtype`` - type of data to be returned..\n
-        Return a tuple, which contain [ydata, xdata, ylabel, xlabel].
+        This method should be called after _plot_param.
         """
 
-        empty_data = (np.array([]),np.array([]),'','')
-        result = empty_data
-        ds_name = PaData._build_name(index+1)
+        if (not len(self._param_values) 
+            or not len(self._raw_vals)
+            or not len(self._filt_vals)):
+            err_msg = 'No data for displaying current param value.'
+            logger.debug(err_msg)
+            raise PlotError(err_msg)
 
-        ds = getattr(msmnt.data[ds_name], dtype)
-        result = PaData._point_data(ds)
-        return result
-
-    @staticmethod
-    def _point_data(
-            ds: BaseData|ProcessedData
-        ) -> tuple[npt.NDArray, npt.NDArray, str, str]:
-        """
-        Get point data for plotting.
+        self._plot_selected_raw, = self._ax_sp.plot(
+            self._param_values[self._param_ind].m, #type:ignore
+            self._raw_vals[self._param_ind].m, #type:ignore
+            **self._marker_style)
         
-        ``ds`` - dataset for plotting.\n
-        ``attrs`` - dict with attributes of group containing ``ds``.\n
-        Return a tuple, which contain [ydata, ydata, ylabel, xlabel].
+        self._plot_selected_filt, = self._ax_sp.plot(
+            self._param_values[self._param_ind].m, #type:ignore
+            self._filt_vals[self._param_ind].m, #type:ignore
+            **self._marker_style)
+
+    def _on_key_press(self, event) -> None:
+        """Callback function for changing active data on plot."""
+
+        if event.key == 'left':
+            if self._param_ind == 0:
+                pass
+            else:
+                self._param_ind -= 1
+                self._plot_update()
+        elif event.key == 'right':
+            if self._param_ind == (self.attrs['data_points'] - 1):
+                pass
+            else:
+                self._param_ind += 1
+                self._plot_update()
+
+    def _plot_update(self) -> None:
+        """Update plotted data."""
+
+        ds_name = self._build_ds_name(self._param_ind+1)
+        #check if datapoint is empty
+        if self.filt_data[ds_name].get('data') is None:
+            return None
+        #update parameter plot
+        self._plot_update_cur_param()
+        #update filt plot withh filt_zoom
+        self._plot_update_signal(
+            self.filt_data[ds_name],
+            self.filt_data['attrs'],
+            'Filtered data',
+            self._ax_filt,
+            self._ax_filt_zoom,
+        )
+        #update raw plot with raw_zoom
+        self._plot_update_signal( 
+            self.raw_data[ds_name],
+            self.raw_data['attrs'],
+            'Raw data',
+            self._ax_raw,
+            self._ax_raw_zoom,
+        )
+        #update freq plot
+        self._plot_update_signal(
+            self.freq_data[ds_name],
+            self.freq_data['attrs'],
+            'FFT data',
+            self._ax_freq
+        )
+        
+        #general update
+        self._fig.align_labels()
+        self._fig.canvas.draw()
+
+    def _plot_update_cur_param(self) -> None:
+        """Update current position in parameter subplot."""
+
+        title = (self.attrs['parameter_name'][0] + ': '
+                  + str(self._param_values[self._param_ind])) #type:ignore
+        self._ax_sp.set_title(title)
+        self._plot_selected_raw.set_data(
+            self._param_values[self._param_ind].m, #type:ignore
+            self._raw_vals[self._param_ind].m) #type:ignore
+        self._plot_selected_filt.set_data(
+            self._param_values[self._param_ind].m, #type:ignore
+            self._filt_vals[self._param_ind].m) #type:ignore
+
+    def _plot_update_signal(
+            self,
+            ds: dict,
+            attrs: dict,
+            title: str,
+            ax: plt.Axes,
+            zoom_ax: plt.Axes|None=None,
+        ) -> None:
+        """Update plot on <ax> and <zoom_ax> with signal from <ds>.
+        
+        <ds> is datasets for plotting.
+        <attrs> is dict with attributes of group containing <ds>.
+        If <zoom_ax> is not set, then zoom version of plot is
+        not updated AND markers for max and min values are not plotted.
         """
         
-        start = ds.x_var_start
-        stop = ds.x_var_stop
-        step = ds.x_var_step
-        num = len(ds.data) # type: ignore
+        start = ds['x_var_start']
+        stop = ds['x_var_stop']
+        step = ds['x_var_step']
+        num = len(ds['data'])
         time_data = Q_(np.linspace(start.m,stop.m,num), start.u)
 
-        x_label = (ds.x_var_name
+        x_label = (attrs['x_var_name']
                    + ', ['
                    + str(start.u)
                    + ']')
-        y_label = (ds.y_var_name
+        y_label = (attrs['y_var_name']
                    + ', ['
-                   + str(ds.data.u)
+                   + str(ds['data'].u)
                    + ']')
-        return (ds.data.m, time_data.m, y_label, x_label)
+        ax.clear()
+        ax.plot(time_data.m, ds['data'].m)
+        ax.set_xlabel(x_label)
+        ax.set_ylabel(y_label)
+        ax.set_title(title)
 
         if zoom_ax is not None:
             #marker for max value
@@ -777,74 +911,107 @@ class PaData:
             zoom_ax.set_ylabel(y_label)
             zoom_ax.set_title('Zoom of ' + title)
 
-    def get_dependance(
-            self, 
-            msmnt: Measurement,
-            data_type: str, 
-            value: str
-        ) -> PlainQuantity|None:
-        """
-        Return ``value`` for each dataPoint in a given measurement.
+    def get_dependance(self, 
+                       data_group: str, 
+                       value: str) -> PlainQuantity|None:
+        """Return array with value from each dataset in the data_group.
         
-        ``msmnt`` - measurement, from which to read the data.\n
-        ``data_type`` - type of data, can have 3 values 
-        'raw_data'|'filt_data|'freq_data'.\n
-        ``value`` - name of the attribute.
+        data_group: 'raw_data'|'filt_data|'freq_data'.
         """
 
-        logger.debug(f'Start building array of {value}.')
+        logger.debug(f'Start building array of {value} from {data_group}.')
         dep = [] #array for return values
-        if not msmnt.attrs.data_points:
-            logger.error(f'Measurement contains no data points.')
+        if not self.attrs['data_points']:
+            logger.error(f'PaData instance contains no data points.')
             return None
         
-        for i in range(msmnt.attrs.data_points):
-            # explicitly call datapoint by names to preserve order
-            dp_name = PaData._build_name(i+1)
-            dp = msmnt.data.get(dp_name)
-            if dp is None:
-                logger.error(f'Datapoint {dp_name} is missing')
-                return
-            if value in PointMetadata.__annotations__.keys():
-                if PointMetadata.__annotations__[value] == list[PlainQuantity]:
-                    # temporary solution, fix later
-                    dep.append(getattr(dp.attrs, value)[0])
-                else:
-                    dep.append(getattr(dp.attrs, value))
-            else:
-                groupd = getattr(dp, data_type)
-                dep.append(getattr(groupd, value))
-        # explicit units are required at least for 'nm'
-        return pint.Quantity.from_list(dep, f'{dep[0].u:~}')
-
-    def bp_filter(
-            self,
-            data: BaseData,
-            low: PlainQuantity=Q_(1, 'MHz'),
-            high: PlainQuantity=Q_(10, 'MHz')
-        ) -> tuple[ProcessedData,ProcessedData]:
-        """
-        Perform bandpass filtration.
+        if value.startswith('param_val'):
+            ind = int(value.split('[')[-1].split(']')[0])
+            value = 'param_val'
+            check_st = ('self.'
+                        + data_group
+                        + '[self._build_ds_name(1)].get(value)'
+                        + f'[{ind}]'
+            )
+        else:
+            ind = None
+            check_st = ('self.'
+                        + data_group
+                        + '[self._build_ds_name(1)].get(value)'
+            )
+        if eval(check_st) is None:
+            logger.error(f'Attempt to read unknown attribute: {value} '
+                         + f'from {data_group}.')
+            return None
         
-        ``data`` - structure, containing data to filter along with metadata.\n
-        ``low`` and ``high`` - frequency ranges for the bandpass filtration.\n
-        Return tuple, containing (filt_data, freq_data).
+        if ind is not None:
+            if data_group == 'raw_data':
+                for ds_name, ds in self.raw_data.items():
+                    if ds_name != 'attrs':
+                        dep.append(ds[value][ind])
+            elif data_group == 'filt_data':
+                for ds_name, ds in self.filt_data.items():
+                    if ds_name != 'attrs':
+                        dep.append(ds[value][ind])
+            elif data_group == 'freq_data':
+                for ds_name, ds in self.freq_data.items():
+                    if ds_name != 'attrs':
+                        dep.append(ds[value][ind])
+        else:
+            if data_group == 'raw_data':
+                for ds_name, ds in self.raw_data.items():
+                    if ds_name != 'attrs':
+                        dep.append(ds[value])
+            elif data_group == 'filt_data':
+                for ds_name, ds in self.filt_data.items():
+                    if ds_name != 'attrs':
+                        dep.append(ds[value])
+            elif data_group == 'freq_data':
+                for ds_name, ds in self.freq_data.items():
+                    if ds_name != 'attrs':
+                        dep.append(ds[value])
+        dep = pint.Quantity.from_list(dep)
+        return dep
+
+    def bp_filter(self,
+                  low: PlainQuantity=Q_(1, 'MHz'),
+                  high: PlainQuantity=Q_(10, 'MHz'),
+                  ds_name: str='') -> None:
+        """Perform bandpass filtration on data.
+        
+        if <ds_name> is empty, then perform filtration for all data,
+        otherwise perform filtration only for specified <ds_name>.
+        Create necessary datasets in self.filt_data and self.freq_data.
         """
 
-        logger.debug(f'Starting FFT ' 
+        if ds_name:
+            ds = self.raw_data[ds_name]
+            self._bp_filter_single(low, high, ds_name, ds)
+        else:
+            for ds_name, ds in self.raw_data.items():
+                if ds_name != 'attrs':
+                    self._bp_filter_single(low, high, ds_name, ds)
+
+    def _bp_filter_single(self,
+                    low: PlainQuantity,
+                    high: PlainQuantity,
+                    ds_name: str,
+                    ds: dc.RawData) -> None:
+        """Internal bandpass filtration method.
+        
+        Actually do the filtration."""
+
+        logger.debug(f'Starting FFT for {ds_name} '
                      + f'with bp filter ({low}:{high})...')
-        dt = data.x_var_step.to('s').m
+        dt = ds['x_var_step'].to('s').m
         low = low.to('Hz').m
         high = high.to('Hz').m
         logger.debug(f'{dt=}')
-        # array with freqs
-        W = fftfreq(len(data.data.m), dt)
-        # signal in f-space
-        f_signal = rfft(data.data.m)
+        W = fftfreq(len(ds['data'].m), dt) # array with freqs
+        f_signal = rfft(ds['data'].m) # signal in f-space
 
         filtered_f_signal = f_signal.copy()
-        # kind of bad high pass filtering
-        filtered_f_signal[(W<low)] = 0
+        filtered_f_signal[(W<low)] = 0 # high pass filtering
 
         if high > 1/(2.5*dt): # Nyquist frequency check
             filtered_f_signal[(W>1/(2.5*dt))] = 0 
@@ -854,27 +1021,28 @@ class PaData:
         #pass frequencies
         filtered_freq = W[(W>low)*(W<high)]
         filtered_data = f_signal[(W>low)*(W<high)]
-        freq_data = ProcessedData(
-            data = Q_(filtered_data, data.data.u),
-            x_var_step = Q_((filtered_freq[1]-filtered_freq[0]), 'Hz'),
-            x_var_start = Q_(filtered_freq.min(), 'Hz'),
-            x_var_stop = Q_(filtered_freq.max(), 'Hz'),
-            x_var_name= 'Frequency',
-            y_var_name= 'FFT amplitude',
-            max_amp = filtered_data.ptp()
-        )
-        logger.debug(f'freq step: {freq_data.x_var_step}')
-        logger.debug(f'FFT amplitude: {freq_data.max_amp}')
+        freq_ds: dc.FreqData = {
+            'data': Q_(filtered_data, ds['data'].u), #type: ignore
+            'x_var_step': Q_((filtered_freq[1]-filtered_freq[0]), 'Hz'),
+            'x_var_start': Q_(filtered_freq.min(), 'Hz'),
+            'x_var_stop': Q_(filtered_freq.max(), 'Hz'),
+            'max_amp': filtered_data.ptp()
+        }
+        logger.debug(f'freq step: {freq_ds["x_var_step"]}')
+        logger.debug(f'FFT amplitude: {freq_ds["max_amp"]}')
+        self.freq_data.update({ds_name: freq_ds})
+        freq_points = len(self.freq_data[ds_name]['data'])
 
-        filt_signal = Q_(irfft(filtered_f_signal), data.data.u)
-        filt_data = ProcessedData(
-            data = filt_signal,
-            x_var_step = data.x_var_step,
-            x_var_start = data.x_var_start,
-            x_var_stop = data.x_var_stop,
-            x_var_name= data.x_var_name,
-            y_var_name= 'Filtered photoAcoustic signal',
-            max_amp = filt_signal.ptp() # type: ignore
-        )
-        logger.debug(f'Filtered signal amplitude = {filt_data.max_amp}')
-        return (filt_data,freq_data)
+        if self.freq_data['attrs']['max_len'] < freq_points:
+            self.freq_data['attrs']['max_len'] = freq_points
+
+        self.filt_data.update(
+            {ds_name: self.raw_data[ds_name].copy()})
+        final_filt_data = Q_(irfft(filtered_f_signal), ds['data'].u)
+        
+        filt_max_amp = final_filt_data.ptp() #type: ignore
+        self.filt_data[ds_name].update(
+            {'data':final_filt_data})
+        self.filt_data[ds_name].update({'max_amp': filt_max_amp})
+
+        self.attrs['updated'] = self._get_cur_time()

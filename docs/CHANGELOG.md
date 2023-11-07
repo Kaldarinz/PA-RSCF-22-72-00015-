@@ -8,9 +8,7 @@
 
 ### Changed
 
-#### Data storage and representation
-
-* 
+* To be changed...
 
 ### Depricated
 

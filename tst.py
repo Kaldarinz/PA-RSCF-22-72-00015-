@@ -1,45 +1,52 @@
-from dataclasses import dataclass, field
-from typing import Iterable, Sized, List, Any, TypeVar
-from pint import UnitRegistry
-from pint.facets.plain.quantity import PlainQuantity
-import numpy as np
-import numpy.typing as npt
-from enum import Enum
-from modules.data_classes import DetailedSignals
+import sys
+from PyQt5 import QtWidgets
+import logging
 
-ureg = UnitRegistry(auto_reduce_dimensions=True)
-Q_ = ureg.Quantity
+# Uncomment below for terminal log messages
+# logging.basicConfig(level=logging.DEBUG, format=' %(asctime)s - %(name)s - %(levelname)s - %(message)s')
+
+class QTextEditLogger(logging.Handler):
+    def __init__(self, parent):
+        super().__init__()
+        self.widget = QtWidgets.QPlainTextEdit(parent)
+        self.widget.setReadOnly(True)
+
+    def emit(self, record):
+        msg = self.format(record)
+        self.widget.appendPlainText(msg)
 
 
-# dct = {'one': 1, 'two': 2}
+class MyDialog(QtWidgets.QDialog, QtWidgets.QPlainTextEdit):
+    def __init__(self, parent=None):
+        super().__init__(parent)
 
-# print(next(iter(dct.items())))
+        logTextBox = QTextEditLogger(self)
+        # You can format what is printed to text box
+        logTextBox.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
+        logging.getLogger().addHandler(logTextBox)
+        # You can control the logging level
+        logging.getLogger().setLevel(logging.DEBUG)
 
+        self._button = QtWidgets.QPushButton(self)
+        self._button.setText('Test Me')
 
+        layout = QtWidgets.QVBoxLayout()
+        # Add the new logging box widget to the layout
+        layout.addWidget(logTextBox.widget)
+        layout.addWidget(self._button)
+        self.setLayout(layout)
 
-# @dataclass
-# class Test:
-#     lst: list[str]
-#     atr: int = 0
-#     atr2: PlainQuantity = Q_(1,'s')
-#     data: int = 2
-#     # dct: dict[str, int] = {'one': 2}
+        # Connect signal to slot
+        self._button.clicked.connect(self.test)
 
-# def search(cls, val):
-#     if cls.__annotations__[val] == list[str]:
-#         print('It')
+    def test(self):
+        logging.debug('damn, a bug')
+        logging.info('something to remember')
+        logging.warning('that\'s not right')
+        logging.error('foobar')
 
-# search(Test, 'lst')
-
-# cls = Test()
-#print(Test.__annotations__.keys())
-# init_dict = {}
-# for key, val in Test.__annotations__.items():
-#     print(type(val))
-#     if val is int:
-#         init_dict.update({key: 5})
-#     if val is PlainQuantity:
-#         init_dict.update({key: Q_(1,'s')})
-#     if val == npt.NDArray[np.uint16]:
-#         print('It!')
-#         init_dict.update({key:[Q_(3,'s')]})
+app = QtWidgets.QApplication(sys.argv)
+dlg = MyDialog()
+dlg.show()
+dlg.raise_()
+sys.exit(app.exec_())
