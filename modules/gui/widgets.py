@@ -1,5 +1,6 @@
 from typing import Iterable
 import os
+import logging
 
 import numpy as np
 import numpy.typing as npt
@@ -27,6 +28,8 @@ from PySide6.QtGui import (
 )
 
 from modules import ureg, Q_
+
+logger = logging.getLogger(__name__)
 
 class MplCanvas(FigureCanvasQTAgg):
     """Single plot MatPlotLib widget."""
@@ -65,17 +68,20 @@ class MplCanvas(FigureCanvasQTAgg):
             filter='text file (*.txt)'
         )[0]
         if filename:
-            data = np.column_stack((self.xdata,self.ydata))
-            header = ''
-            if self.xlabel is not None:
-                header = self.xlabel
-            if self.ylabel is not None:
-                header = header + '\n' + self.ylabel
-            np.savetxt(
-                fname = filename,
-                X = data,
-                header = header
-            )
+            if self.xdata is not None and self.ydata is not None:
+                data = np.column_stack((self.xdata,self.ydata))
+                header = ''
+                if self.xlabel is not None:
+                    header = self.xlabel
+                if self.ylabel is not None:
+                    header = header + '\n' + self.ylabel
+                np.savetxt(
+                    fname = filename,
+                    X = data,
+                    header = header
+                )
+            else:
+                logger.warning('Attempt to export empty data!')
 
 
     @property

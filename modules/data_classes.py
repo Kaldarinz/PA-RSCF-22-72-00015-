@@ -203,7 +203,8 @@ class Worker(QRunnable):
 
         #for sending data to running func
         self.kwargs['flags'] = {
-            'is_running': True
+            'is_running': True,
+            'pause': False
         }
 
     @Slot()

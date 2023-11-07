@@ -164,7 +164,7 @@ class Ui_Form(object):
         icon1 = QIcon()
         icon1.addFile(u":/icons/qt_resources/control-stop.png", QSize(), QIcon.Normal, QIcon.Off)
         self.btn_measure.setIcon(icon1)
-        self.btn_measure.setCheckable(True)
+        self.btn_measure.setCheckable(False)
 
         self.verticalLayout.addWidget(self.btn_measure)
 
@@ -264,7 +264,7 @@ class Ui_Form(object):
         self.sb_sample_sp.setMinimumSize(QSize(71, 0))
         self.sb_sample_sp.setMaximumSize(QSize(71, 16777215))
         self.sb_sample_sp.setDecimals(1)
-        self.sb_sample_sp.setMinimum(1.000000000000000)
+        self.sb_sample_sp.setMinimum(0.000000000000000)
         self.sb_sample_sp.setMaximum(5000.000000000000000)
         self.sb_sample_sp.setSingleStep(50.000000000000000)
         self.sb_sample_sp.setValue(500.000000000000000)

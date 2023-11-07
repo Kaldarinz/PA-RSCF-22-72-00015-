@@ -164,6 +164,22 @@
        </widget>
       </item>
       <item>
+       <widget class="QPushButton" name="btn_pause">
+        <property name="font">
+         <font>
+          <weight>75</weight>
+          <bold>true</bold>
+         </font>
+        </property>
+        <property name="text">
+         <string>PAUSE</string>
+        </property>
+        <property name="checkable">
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+      <item>
        <widget class="QPushButton" name="btn_stop">
         <property name="font">
          <font>

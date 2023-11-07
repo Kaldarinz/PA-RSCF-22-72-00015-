@@ -104,7 +104,11 @@ class CurveMeasureWidget(QWidget,curve_measure_widget_ui.Ui_Form):
             self.pm_monitor
         )
         self.spectral_points: int
+        "Amount of parameter points in measurement."
         self.step: PlainQuantity
+        "Parameter step value."
+        self.current_point: int
+        "Index of current parameter value."
         # self.lo_run.replaceWidget(
         #     self.btn_run,
         #     QPushButton('WTF')
@@ -146,11 +150,12 @@ class CurveView(QWidget,curve_data_view_ui.Ui_Form):
         self.nav_detail = NavigationToolbar2QT(self.plot_detail, self)
         self.lo_detail.addWidget(self.nav_detail)
         
-
 class PointView(QWidget, point_data_view_ui.Ui_Form):
     """Plots for 1D data."""
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setupUi(self)
+        self.nav_detail = NavigationToolbar2QT(self.plot_detail, self)
+        self.layout().addWidget(self.nav_detail)
     

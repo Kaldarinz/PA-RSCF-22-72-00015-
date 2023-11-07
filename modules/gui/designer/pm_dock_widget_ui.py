@@ -97,6 +97,13 @@ class Ui_d_pm(object):
 
         self.horizontalLayout_9.addWidget(self.btn_start)
 
+        self.btn_pause = QPushButton(self.w_pm)
+        self.btn_pause.setObjectName(u"btn_pause")
+        self.btn_pause.setFont(font)
+        self.btn_pause.setCheckable(True)
+
+        self.horizontalLayout_9.addWidget(self.btn_pause)
+
         self.btn_stop = QPushButton(self.w_pm)
         self.btn_stop.setObjectName(u"btn_stop")
         font1 = QFont()
@@ -145,6 +152,7 @@ class Ui_d_pm(object):
         self.lbl_aver_en.setText(QCoreApplication.translate("d_pm", u"Average Energy:", None))
         self.lbl_std_en.setText(QCoreApplication.translate("d_pm", u"std Energy:", None))
         self.btn_start.setText(QCoreApplication.translate("d_pm", u"START", None))
+        self.btn_pause.setText(QCoreApplication.translate("d_pm", u"PAUSE", None))
         self.btn_stop.setText(QCoreApplication.translate("d_pm", u"STOP", None))
     # retranslateUi
 

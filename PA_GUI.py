@@ -261,6 +261,8 @@ class Window(QMainWindow,Ui_MainWindow,):
         self.d_pm.btn_stop.clicked.connect(
             lambda x: self.stop_worker(self.worker_pm)
         )
+        #### Stopped here
+        self.d_pm.btn_pause.clicked
         self.action_Power_Meter.toggled.connect(self.d_pm.setVisible)
         self.d_pm.visibilityChanged.connect(self.action_Power_Meter.setChecked)
 
@@ -435,7 +437,7 @@ class Window(QMainWindow,Ui_MainWindow,):
             [key for key in DetailedSignals.keys()]
         )
         self.data_viwer.dtype_point = DetailedSignals[
-            self.data_viwer.p_1d.cb_detail_select.currentText()
+            parent.cb_detail_select.currentText() # type: ignore
         ]
         #Disconnect old slots
         try:
@@ -596,14 +598,17 @@ class Window(QMainWindow,Ui_MainWindow,):
 
         #Stop adjustment measurements
         if self.worker_curve_adj is not None:
-            self.worker_curve_adj.kwargs['flags']['is_running'] = False
+            self.worker_curve_adj.kwargs['flags']['pause'] = True
 
         wl = self.p_curve.sb_cur_param.quantity
         worker = Worker(pa_logic._measure_point, wl)
         worker.signals.result.connect(self.verify_measurement)
         self.pool.start(worker)
 
-    def verify_measurement(self, data: MeasuredPoint) -> MeasuredPoint|None:
+    def verify_measurement(
+            self,
+            data: MeasuredPoint
+        ) -> MeasuredPoint|None:
         """Verifies a measurement."""
 
         plot_pa = self.pa_verifier.plot_pa
@@ -634,12 +639,16 @@ class Window(QMainWindow,Ui_MainWindow,):
         )
         print(self.pa_verifier.exec())
 
+        # Resume energy adjustment
+        if self.worker_curve_adj is not None:
+            self.worker_curve_adj.kwargs['flags']['pause'] = False
+
     def run_curve(self, activated: bool) -> None:
         """
         Start 1D measurement.
         
         Launch energy adjustment.\n
-        Set ``p_curve.step`` and ``p_curve.spectral_points`` attributes.
+        Set ``p_curve.step``, ``p_curve.spectral_points`` attributes.
         Also set progress bar and realted widgets.
         """
 
@@ -648,7 +657,6 @@ class Window(QMainWindow,Ui_MainWindow,):
         page = self.p_curve
         #launch energy adjustment
         if activated:
-            print(self.worker_curve_adj)
             if self.worker_curve_adj is None:
                 self.worker_curve_adj = Worker(pa_logic.track_power)
                 self.worker_curve_adj.signals.progess.connect(
@@ -668,8 +676,9 @@ class Window(QMainWindow,Ui_MainWindow,):
                 spectral_points = int(delta/step) + 2
             else:
                 spectral_points = int(delta/step) + 1
-            page.pb.setValue(0)
-            page.lbl_pb.setText(f'0/{spectral_points}')
+            page.current_point = 0
+            page.pb.setValue(page.current_point)
+            page.lbl_pb.setText(f'{page.current_point}/{spectral_points}')
             page.spectral_points = spectral_points
 
             if param_start < param_end:
