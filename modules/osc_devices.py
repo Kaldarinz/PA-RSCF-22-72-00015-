@@ -121,6 +121,7 @@ class Oscilloscope:
                 self.__osc.close()
             except:
                 pass
+            logger.debug('Trying to open resource')
             self.__osc: pv.resources.USBInstrument
             self.__osc = rm.open_resource(self.OSC_ID) # type: ignore
             self.not_found = False

@@ -36,6 +36,7 @@ class MplCanvas(FigureCanvasQTAgg):
 
     def __init__(self, parent = None):
         self.fig = Figure()
+        self.fig.set_tight_layout(True)
         self.axes = self.fig.add_subplot()
         self._xdata: Iterable|None = None
         self._ydata: Iterable|None = None

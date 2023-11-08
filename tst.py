@@ -11,6 +11,8 @@ ureg = UnitRegistry(auto_reduce_dimensions=True)
 Q_ = ureg.Quantity
 
 
+print(np.arange(5)*2)
+
 # dct = {'one': 1, 'two': 2}
 
 # print(next(iter(dct.items())))

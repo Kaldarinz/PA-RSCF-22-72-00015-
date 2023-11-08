@@ -262,9 +262,13 @@ class Window(QMainWindow,Ui_MainWindow,):
             lambda x: self.stop_worker(self.worker_pm)
         )
         #### Stopped here
-        self.d_pm.btn_pause.clicked
+        self.d_pm.btn_pause.toggled.connect(
+            lambda state: self.pause_worker(state, self.worker_pm)
+        )
         self.action_Power_Meter.toggled.connect(self.d_pm.setVisible)
-        self.d_pm.visibilityChanged.connect(self.action_Power_Meter.setChecked)
+        self.d_pm.visibilityChanged.connect(
+            self.action_Power_Meter.setChecked
+        )
 
     def open_file(self) -> None:
         """Load data file."""
@@ -598,7 +602,10 @@ class Window(QMainWindow,Ui_MainWindow,):
 
         #Stop adjustment measurements
         if self.worker_curve_adj is not None:
+            adj_flag = self.worker_curve_adj.kwargs['flags']['pause']
             self.worker_curve_adj.kwargs['flags']['pause'] = True
+        if self.worker_pm is not None:
+            self.worker_pm.kwargs['flags']['pause'] = True
 
         wl = self.p_curve.sb_cur_param.quantity
         worker = Worker(pa_logic._measure_point, wl)
@@ -614,9 +621,9 @@ class Window(QMainWindow,Ui_MainWindow,):
         plot_pa = self.pa_verifier.plot_pa
         plot_pm = self.pa_verifier.plot_pm
 
-        ydata=data.pm_signal,
+        ydata=data.pm_signal
         xdata=Q_(
-            np.arange(len(data.pm_signal)*data.dt_pm.m), # type: ignore
+            np.arange(len(data.pm_signal))*data.dt_pm.m, # type: ignore
             data.dt_pm.u
         )
         print(f'{len(xdata)=}') # type: ignore
@@ -633,9 +640,13 @@ class Window(QMainWindow,Ui_MainWindow,):
             plot_pa,
             ydata=data.pa_signal,
             xdata=Q_(
-                np.arange(start.m, stop.m, step.m),
+                np.linspace(
+                    start.m,
+                    stop.m,
+                    len(data.pa_signal), # type: ignore
+                    endpoint=True), # type: ignore
                 start.u
-            )
+            ) # type: ignore
         )
         print(self.pa_verifier.exec())
 
@@ -810,6 +821,16 @@ class Window(QMainWindow,Ui_MainWindow,):
             for key, value in self.__dict__.items():
                 if value is worker:
                     self.__dict__[key] = None
+
+    def pause_worker(
+            self,
+            is_paused: bool,
+            worker: Worker|None
+        ) -> None:
+        """Pause or resume worker."""
+
+        if worker is not None:
+            worker.kwargs['flags']['pause'] = is_paused
 
     def update_pm(
             self,

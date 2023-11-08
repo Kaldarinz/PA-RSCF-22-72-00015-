@@ -496,10 +496,11 @@ class PaData:
         coef = np.polyfit(x, y, 1)
         return coef # type: ignore
 
-    def load(self, filename: str) -> None:
+    def load(self, filename: str, *args, **kwargs) -> None:
         """Load data from file."""
 
         logger.debug('load procedure is starting...')
+        logger.debug(f'{filename=}')
         with h5py.File(filename, 'r') as file:
             
             #load file metadata

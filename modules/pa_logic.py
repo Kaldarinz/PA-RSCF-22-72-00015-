@@ -825,10 +825,11 @@ def _ameasure_point(
     
     logger.warning('Unexpectedly passed after main measure sycle!')
     logger.debug('...Terminating with empty data point.')
-    return dc.MeasuredPoint(), True
+    return MeasuredPoint(), True
 
 def _measure_point(
         wavelength: PlainQuantity,
+        signals: WorkerSignals,
         **kwargs
     ) -> MeasuredPoint:
     """Measure single PA data point."""
@@ -849,19 +850,9 @@ def _measure_point(
             Tuple[List[PlainQuantity],List[npt.NDArray[np.int8]]],
             data
             )
-    except OscConnectError:
+    except OscConnectError as err:
         logger.warning('Oscilloscope disconnected!')
-        if confirm_action('Do you want to reconnect to osc?'):
-            if init_osc():
-                logger.info('Oscilloscope reconnected. '
-                                + 'Measure point again.')
-                return _measure_point(wavelength)
-            else:
-                logger.debug(f'...Terminating PA measurement.')
-                return measurement
-        else:
-            logger.debug(f'...Terminating PA measurement.')
-            return measurement
+        return measurement
     except OscIOError as err:
         logger.warning(f'Error during PA measurement: {err.value}')
         return measurement
@@ -879,11 +870,8 @@ def _measure_point(
         pm_offset = pm.pulse_offset(pm_signal, dt_pm)
     except OscValueError:
         logger.warning('Power meter energy cannot be measured!')
-        if confirm_action('Do you want to repeat measurement?'):
-            return _measure_point(wavelength)
-        else:
-            pm_energy = Q_(0, 'uJ')
-            logger.warning(f'Power meter energy set to {pm_energy}')
+        pm_energy = Q_(0, 'uJ')
+        logger.warning(f'Power meter energy set to {pm_energy}')
     start_time = (pm_start - pm_offset) - pa_start
     stop_time = dt*(len(pa_signal_v.m)-1) + start_time
     measurement = replace(
