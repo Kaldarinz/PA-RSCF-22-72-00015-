@@ -2,6 +2,7 @@ from dataclasses import dataclass, field
 from typing import Iterable, Sized, List, Any, TypeVar
 from pint import UnitRegistry
 from pint.facets.plain.quantity import PlainQuantity
+import pint
 import numpy as np
 import numpy.typing as npt
 from enum import Enum
@@ -11,7 +12,11 @@ ureg = UnitRegistry(auto_reduce_dimensions=True)
 Q_ = ureg.Quantity
 
 
-print(np.arange(5)*2)
+v1 = Q_(1,'s')
+v2 = Q_(2,'s')
+lst = [v1,v2]
+v3 = Q_.from_list(lst)
+print(v3)
 
 # dct = {'one': 1, 'two': 2}
 

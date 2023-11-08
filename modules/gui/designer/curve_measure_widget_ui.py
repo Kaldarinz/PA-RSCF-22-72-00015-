@@ -170,6 +170,11 @@ class Ui_Form(object):
 
         self.horizontalLayout_11 = QHBoxLayout()
         self.horizontalLayout_11.setObjectName(u"horizontalLayout_11")
+        self.lbl_measured_p = QLabel(self.w_measure)
+        self.lbl_measured_p.setObjectName(u"lbl_measured_p")
+
+        self.horizontalLayout_11.addWidget(self.lbl_measured_p)
+
         self.pb = QProgressBar(self.w_measure)
         self.pb.setObjectName(u"pb")
         sizePolicy.setHeightForWidth(self.pb.sizePolicy().hasHeightForWidth())
@@ -323,7 +328,7 @@ class Ui_Form(object):
         self.sb_pm_sp.setDecimals(1)
         self.sb_pm_sp.setMinimum(0.000000000000000)
         self.sb_pm_sp.setMaximum(600.000000000000000)
-        self.sb_pm_sp.setSingleStep(50.000000000000000)
+        self.sb_pm_sp.setSingleStep(1.000000000000000)
         self.sb_pm_sp.setValue(500.000000000000000)
 
         self.horizontalLayout_6.addWidget(self.sb_pm_sp)
@@ -439,6 +444,7 @@ class Ui_Form(object):
         self.btn_measure.setStatusTip(QCoreApplication.translate("Form", u"Start PhotoAcoustic measurement", None))
 #endif // QT_CONFIG(statustip)
         self.btn_measure.setText(QCoreApplication.translate("Form", u"MEASURE", None))
+        self.lbl_measured_p.setText(QCoreApplication.translate("Form", u"Measured points", None))
         self.lbl_pb.setText(QCoreApplication.translate("Form", u"5/10", None))
         self.lbl_cur_param.setText(QCoreApplication.translate("Form", u"Set Wavelength", None))
         self.lbl_sample_en.setText(QCoreApplication.translate("Form", u"Sample Energy", None))

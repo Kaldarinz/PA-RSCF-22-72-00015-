@@ -176,6 +176,11 @@ def init_stages() -> bool:
     logger.debug(f'...Finishing. Stages {connected=}')
     return connected
 
+def osc_open() -> bool:
+    """Check connection to oscilloscope."""
+
+    return hardware.osc.connection_check()
+
 def init_osc() -> bool:
     """Initialize oscilloscope.
 

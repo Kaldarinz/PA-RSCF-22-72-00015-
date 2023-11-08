@@ -107,16 +107,16 @@ class CurveMeasureWidget(QWidget,curve_measure_widget_ui.Ui_Form):
         )
         self.parameter: list[str]
         "List of parameter names."
-        self.spectral_points: int = 1
+        self.max_steps: int = 1
         "Amount of parameter points in measurement."
         self.step: PlainQuantity
         "Parameter step value."
+        self.param_points: PlainQuantity
+        "Array with all param values."
         self._current_point: int = 0
 
         # Auto update widgets when current_point is changed
-        self.cur_p_changed.connect(self.upd_pb)
-        self.cur_p_changed.connect(self.upd_pb_lbl)
-        self.cur_p_changed.connect(self.upd_cur_param)
+        self.cur_p_changed.connect(self.upd_widgets)
 
     @property
     def current_point(self) -> int:
@@ -133,23 +133,27 @@ class CurveMeasureWidget(QWidget,curve_measure_widget_ui.Ui_Form):
         self._current_point = val
         self.cur_p_changed.emit()
 
-    def upd_pb(self) -> None:
-        "Update progress bar."
+    def upd_widgets(self) -> None:
+        """Update widgets, related to corrent scan point.
+        
+        Updates progress bar, its label and current param."""
 
-        pb = int(self.current_point/self.spectral_points*100)
+        # progress bar
+        pb = int(self.current_point/self.max_steps*100)
         self.pb.setValue(pb)
 
-    def upd_pb_lbl(self) -> None:
-        """"Update progressbar label."""
-
-        text = f'{self.current_point}/{self.spectral_points}'
+        # progress bar label
+        text = f'{self.current_point}/{self.max_steps}'
         self.lbl_pb.setText(text)
 
-    def upd_cur_param(self) -> None:
-        """Update current param value."""
-
-        new_param = self.sb_cur_param.quantity + self.step
-        self.sb_cur_param.quantity = new_param # type: ignore
+        
+        if self.current_point < self.max_steps:
+            # current param value
+            new_param = self.param_points[self.current_point] # type: ignore
+            self.sb_cur_param.quantity = new_param
+        else:
+            # disable measure if last point
+            self.btn_measure.setEnabled(False)
 
 class PointMeasureWidget(QWidget,point_measure_widget_ui.Ui_Form):
     """0D PhotoAcoustic measurements widget."""

@@ -666,7 +666,6 @@ class Window(QMainWindow,Ui_MainWindow,):
         # PA signal plot
         start = data.start_time
         stop = data.stop_time.to(start.u)
-        step = data.dt.to(start.u)
         self.upd_plot(
             plot_pa,
             ydata=data.pa_signal,
@@ -711,7 +710,7 @@ class Window(QMainWindow,Ui_MainWindow,):
             self.data.add_point(
                 measurement = msmnt,
                 data = data,
-                param_val = cur_param
+                param_val = cur_param.copy()
             )
             # update parent attributes
             parent.current_point += 1
@@ -735,7 +734,7 @@ class Window(QMainWindow,Ui_MainWindow,):
 
         page = self.p_curve
         #launch energy adjustment
-        if activated:
+        if activated and pa_logic.osc_open():
             if self.worker_curve_adj is None:
                 self.worker_curve_adj = Worker(pa_logic.track_power)
                 self.worker_curve_adj.signals.progess.connect(
@@ -746,30 +745,41 @@ class Window(QMainWindow,Ui_MainWindow,):
                 )
                 self.pool.start(self.worker_curve_adj)
 
-            #set progress bar and related widgets
+            # calculate amount of paramter values
             param_start = page.sb_from.quantity
             param_end = page.sb_to.quantity
             step = page.sb_step.quantity
             delta = abs(param_end-param_start)
             if delta%step:
-                spectral_points = int(delta/step) + 2
+                max_steps = int(delta/step) + 2
             else:
-                spectral_points = int(delta/step) + 1
-            page.current_point = 0
-            page.pb.setValue(page.current_point)
-            page.lbl_pb.setText(f'{page.current_point}/{spectral_points}')
-            page.spectral_points = spectral_points
+                max_steps = int(delta/step) + 1
+            page.max_steps = max_steps
+
+            # set paramter name attribute
             page.parameter = [page.cb_mode.currentText()]
 
+            # create array with all parameter values
+            # and set it as attribute along with step
+            spectral_points = []
             if param_start < param_end:
                 page.sb_cur_param.setMinimum(param_start.m)
                 page.sb_cur_param.setMaximum(param_end.m)
                 page.step = step
+                for i in range(max_steps-1):
+                    spectral_points.append(param_start+i*step)
+                spectral_points.append(param_end)
             else:
                 page.sb_cur_param.setMinimum(param_end.m)
                 page.sb_cur_param.setMaximum(param_start.m)
                 page.step = -step
-            page.sb_cur_param.quantity = page.sb_from.quantity
+                for i in range(max_steps-1):
+                    spectral_points.append(param_end+i*step)
+                spectral_points.append(param_start)
+            page.param_points = Q_.from_list(spectral_points)
+            page.current_point = 0
+        elif not pa_logic.osc_open():
+            logger.warning('Oscilloscope is not initialized.')
         else:
             self.stop_worker(self.worker_curve_adj)
 
@@ -812,24 +822,24 @@ class Window(QMainWindow,Ui_MainWindow,):
     def upd_sp(self, caller: QuantSpinBox) -> None:
         """Update Set Point data for currently active page."""
 
-        #Curve
-        if self.sw_central.currentWidget() == self.p_curve:
-            page = self.p_curve
-            if caller == page.sb_sample_sp:
-                new_sp = pa_logic.glan_calc_reverse(caller.quantity)
-                if new_sp is None:
-                    logger.error('New set point cannot be calculated')
-                    return
-                self.set_spinbox_silent(page.sb_pm_sp, new_sp)
-                   
-            elif caller == page.sb_pm_sp:
-                new_sp = pa_logic.glan_calc(caller.quantity)
-                if new_sp is None:
-                    logger.error('New set point cannot be calculated')
-                    return
-                self.set_spinbox_silent(page.sb_sample_sp, new_sp)
+        # only for curve widget?
 
-            page.pm_monitor.plot_right.sp = caller.quantity
+        page = self.p_curve
+        if caller == page.sb_sample_sp:
+            new_sp = pa_logic.glan_calc_reverse(caller.quantity)
+            if new_sp is None:
+                logger.error('New set point cannot be calculated')
+                return
+            self.set_spinbox_silent(page.sb_pm_sp, new_sp)
+                
+        elif caller == page.sb_pm_sp:
+            new_sp = pa_logic.glan_calc(caller.quantity)
+            if new_sp is None:
+                logger.error('New set point cannot be calculated')
+                return
+            self.set_spinbox_silent(page.sb_sample_sp, new_sp)
+
+        page.pm_monitor.plot_right.sp = page.sb_pm_sp.quantity
                 
     def set_spinbox_silent(
             self,
