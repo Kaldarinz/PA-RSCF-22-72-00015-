@@ -24,7 +24,10 @@ from PySide6.QtCore import (
     QThread,
     QThreadPool,
     Slot,
-    Signal
+    Signal,
+    QItemSelection,
+    QRect,
+    QItemSelectionModel
 )
 from PySide6.QtWidgets import (
     QApplication,
@@ -278,7 +281,7 @@ class Window(QMainWindow,Ui_MainWindow,):
         self.actionSave_As.setEnabled(is_exist)
 
         # Update data viewer
-        self.show_data(self.data)
+        self.load_data_view(self.data)
 
     def open_file(self) -> None:
         """Load data file."""
@@ -293,7 +296,7 @@ class Window(QMainWindow,Ui_MainWindow,):
                         + 'PA measurements loaded!')
             basename = os.path.basename(filename)
             self.data_viwer.lbl_data_title.setText(basename)
-            self.show_data(self.data)
+            self.load_data_view(self.data)
 
     def save_as_file(self) -> None:
         """Save data to file."""
@@ -338,7 +341,23 @@ class Window(QMainWindow,Ui_MainWindow,):
             tv_detail.takeTopLevelItem(0)
         self.data_viwer.sw_view.setCurrentWidget(self.data_viwer.p_empty)
 
-    def show_data(self, data: PaData|None = None) -> None:
+    def new_sel_msmnt(
+            self,
+            selected: QItemSelection,
+            desecled: QItemSelection
+        ) -> None:
+        """Load new selected measurement."""
+
+        # Selected index
+        ind = selected.indexes()[0]
+
+        model = self.data_viwer.tv_content.model()
+        msmnt_title = next(iter(model.itemData(ind).values()))
+        msmnt = self.data.measurements[msmnt_title] # type: ignore
+        data_index = self.data_viwer.data_index
+        self.show_data(msmnt, data_index)
+
+    def load_data_view(self, data: PaData|None = None) -> None:
         """Load data into DataView widget."""
 
         logger.debug('Starting plotting data...')
@@ -348,36 +367,70 @@ class Window(QMainWindow,Ui_MainWindow,):
                 return
             data = self.data
 
+        # clear old data view
         self._clear_data_view()
+
+        # Update content representation
+        self.set_data_content_view(data)
+
         # choose a measurement to show data from
         try:
             msmnt_title, msmnt = next(iter(data.measurements.items()))
         except StopIteration:
             logger.debug('Data is empty.')
             return
+        self.data_viwer.tv_content.setSelection(
+            QRect(0,0,1,1), QItemSelectionModel.SelectionFlag.Select)
+        self.data_viwer.tv_content.selectionModel().selectionChanged.connect(
+            self.new_sel_msmnt
+        )
 
-        # Update content representation
-        self.set_data_content_view(data)
+        self.show_data(
+            measurement = msmnt,
+            data_index = 0
+        )
+        logger.debug('Data plotting complete.')
 
-        # Data plotting
-        # Set measurement and datapoint to be plotted as attributes
-        # to the data_view widget
-        self.data_viwer.measurement = msmnt
-        dp_name = PaData._build_name(self.data_viwer.data_index + 1)
-        self.data_viwer.datapoint = msmnt.data[dp_name]
+    def show_data(
+            self,
+            measurement: Measurement,
+            data_index: int
+    ) -> None:
+        """
+        Show data, which was already loaded.
+        
+        Set 3 attributes of ``data_viwer``:
+        ``measurement``, ``data_index``, ``datapoint``.\n
+        ``data_index`` - index of datapoint to be displayed.
+        """
 
-        # Set plots
-        if msmnt.attrs.measurement_dims == 1:
+        self.data_viwer.measurement = measurement
+        self.data_viwer.data_index = data_index
+        dp_name = PaData._build_name(data_index + 1)
+        self.data_viwer.datapoint = measurement.data[dp_name]
+
+        if measurement.attrs.measurement_dims == 1:
             self.set_curve_view()
-        elif msmnt.attrs.measurement_dims == 0:
+        elif measurement.attrs.measurement_dims == 0:
             self.set_point_view()
         else:
-            logger.error(f'Data dimension = {msmnt.attrs.measurement_dims}'
-                         + ' is not supported.')
+            logger.error(f'Data dimension is not supported.')
             
         # Update description
-        self.set_data_description_view(data)
-        logger.debug('Data plotting complete.')
+        self.set_data_description_view(self.data) # type: ignore
+
+    def set_data_content_view(self, data: PaData) -> None:
+        """"Set tv_content."""
+
+        content = self.data_viwer.tv_content
+
+        treemodel = QStandardItemModel()
+        rootnode = treemodel.invisibleRootItem()
+
+        for msmnt_title, msmnt in data.measurements.items():
+            name = QStandardItem(msmnt_title)
+            rootnode.appendRow(name)
+        content.setModel(treemodel)
 
     def set_point_view(self) -> None:
         """Set central part of data_viewer for point view."""
@@ -470,19 +523,6 @@ class Window(QMainWindow,Ui_MainWindow,):
             logger.debug('No slots were connected to cb_detail_select.')
         parent.cb_detail_select.currentTextChanged.connect(self.upd_point_info) # type: ignore
 
-    def set_data_content_view(self, data: PaData) -> None:
-        """"Set tv_content."""
-
-        content = self.data_viwer.tv_content
-
-        treemodel = QStandardItemModel()
-        rootnode = treemodel.invisibleRootItem()
-
-        for msmnt_title, msmnt in data.measurements.items():
-            name = QStandardItem(msmnt_title)
-            rootnode.appendRow(name)
-        content.setModel(treemodel)
-
     def set_data_description_view(self, data: PaData) -> None:
         """Set data description tv_info."""
 
@@ -491,16 +531,27 @@ class Window(QMainWindow,Ui_MainWindow,):
             logger.error('Describption cannot be build. Measurement is not set.')
             return
         measurement = self.data_viwer.measurement
-        dp = self.data_viwer.datapoint
 
         # file attributes
+        # clear if existed
+        if getattr(tv, 'fmd', None) is not None:
+            index = tv.indexOfTopLevelItem(tv.fmd)
+            tv.takeTopLevelItem(index)
         tv.fmd = QTreeWidgetItem(tv, ['File attributes'])
+        tv.fmd.setExpanded(True)
         for field in fields(data.attrs):
             QTreeWidgetItem(
                 tv.fmd,
                 [field.name, str(getattr(data.attrs, field.name))]
             )
+
+        # measurement attributes
+        # clear if existed
+        if getattr(tv, 'mmd', None) is not None:
+            index = tv.indexOfTopLevelItem(tv.mmd)
+            tv.takeTopLevelItem(index)
         tv.mmd = QTreeWidgetItem(tv, ['Measurement attributes'])
+        tv.mmd.setExpanded(True)
         msmnt_title = ''
         for key, val in data.measurements.items():
             if val == measurement:
@@ -515,8 +566,10 @@ class Window(QMainWindow,Ui_MainWindow,):
                     field.name
                     ))]
             )
-        self.upd_point_info()
         
+        # point attributes
+        self.upd_point_info()
+
     def upd_point_info(self, new_text: str|None = None) -> None:
         """Update plot and text information about current datapoint."""
 
@@ -533,16 +586,16 @@ class Window(QMainWindow,Ui_MainWindow,):
                 dtype = self.data_viwer.dtype_point
             )
         )
-        active_dview.nav_detail.update()
         # Update description
         tv = self.data_viwer.tv_info
         exp_state = False
+        # clear existing description 
+        # but save expanded state
         if tv.pmd is not None:
-            exp_state = tv.pmd.isExpanded()
             index = tv.indexOfTopLevelItem(tv.pmd)
             tv.takeTopLevelItem(index)
         tv.pmd = QTreeWidgetItem(tv, ['Point attributes'])
-        tv.pmd.setExpanded(exp_state)
+        tv.pmd.setExpanded(True)
         dp_title = PaData._build_name(self.data_viwer.data_index + 1)
         dp = self.data_viwer.measurement.data[dp_title] #type: ignore
         QTreeWidgetItem(tv.pmd, ['Title', dp_title])
@@ -616,6 +669,68 @@ class Window(QMainWindow,Ui_MainWindow,):
             self.upd_mode(self.cb_mode_select.currentText())
         else:
             self.action_Data.setChecked(True)
+
+    def run_curve(self, activated: bool) -> None:
+        """
+        Start 1D measurement.
+        
+        Launch energy adjustment.\n
+        Set ``p_curve.step``, ``p_curve.spectral_points`` attributes.
+        Also set progress bar and realted widgets.
+        """
+
+        self.p_curve.w_measure.setVisible(activated)
+
+        page = self.p_curve
+        #launch energy adjustment
+        if activated and pa_logic.osc_open():
+            if self.worker_curve_adj is None:
+                self.worker_curve_adj = Worker(pa_logic.track_power)
+                self.worker_curve_adj.signals.progess.connect(
+                    lambda measure: self.upd_measure_monitor(
+                        page,
+                        measure
+                    )
+                )
+                self.pool.start(self.worker_curve_adj)
+
+            # calculate amount of paramter values
+            param_start = page.sb_from.quantity
+            param_end = page.sb_to.quantity
+            step = page.sb_step.quantity
+            delta = abs(param_end-param_start)
+            if delta%step:
+                max_steps = int(delta/step) + 2
+            else:
+                max_steps = int(delta/step) + 1
+            page.max_steps = max_steps
+
+            # set paramter name attribute
+            page.parameter = [page.cb_mode.currentText()]
+
+            # create array with all parameter values
+            # and set it as attribute along with step
+            spectral_points = []
+            if param_start < param_end:
+                page.sb_cur_param.setMinimum(param_start.m)
+                page.sb_cur_param.setMaximum(param_end.m)
+                page.step = step
+                for i in range(max_steps-1):
+                    spectral_points.append(param_start+i*step)
+                spectral_points.append(param_end)
+            else:
+                page.sb_cur_param.setMinimum(param_end.m)
+                page.sb_cur_param.setMaximum(param_start.m)
+                page.step = -step
+                for i in range(max_steps-1):
+                    spectral_points.append(param_end+i*step)
+                spectral_points.append(param_start)
+            page.param_points = Q_.from_list(spectral_points)
+            page.current_point = 0
+        elif not pa_logic.osc_open():
+            logger.warning('Oscilloscope is not initialized.')
+        else:
+            self.stop_worker(self.worker_curve_adj)
 
     def measure_curve(self) -> None:
         """Measure a point for 1D PA measurement."""
@@ -720,68 +835,6 @@ class Window(QMainWindow,Ui_MainWindow,):
         # Resume energy adjustment
         if self.worker_curve_adj is not None:
             self.worker_curve_adj.kwargs['flags']['pause'] = False
-
-    def run_curve(self, activated: bool) -> None:
-        """
-        Start 1D measurement.
-        
-        Launch energy adjustment.\n
-        Set ``p_curve.step``, ``p_curve.spectral_points`` attributes.
-        Also set progress bar and realted widgets.
-        """
-
-        self.p_curve.w_measure.setVisible(activated)
-
-        page = self.p_curve
-        #launch energy adjustment
-        if activated and pa_logic.osc_open():
-            if self.worker_curve_adj is None:
-                self.worker_curve_adj = Worker(pa_logic.track_power)
-                self.worker_curve_adj.signals.progess.connect(
-                    lambda measure: self.upd_measure_monitor(
-                        page,
-                        measure
-                    )
-                )
-                self.pool.start(self.worker_curve_adj)
-
-            # calculate amount of paramter values
-            param_start = page.sb_from.quantity
-            param_end = page.sb_to.quantity
-            step = page.sb_step.quantity
-            delta = abs(param_end-param_start)
-            if delta%step:
-                max_steps = int(delta/step) + 2
-            else:
-                max_steps = int(delta/step) + 1
-            page.max_steps = max_steps
-
-            # set paramter name attribute
-            page.parameter = [page.cb_mode.currentText()]
-
-            # create array with all parameter values
-            # and set it as attribute along with step
-            spectral_points = []
-            if param_start < param_end:
-                page.sb_cur_param.setMinimum(param_start.m)
-                page.sb_cur_param.setMaximum(param_end.m)
-                page.step = step
-                for i in range(max_steps-1):
-                    spectral_points.append(param_start+i*step)
-                spectral_points.append(param_end)
-            else:
-                page.sb_cur_param.setMinimum(param_end.m)
-                page.sb_cur_param.setMaximum(param_start.m)
-                page.step = -step
-                for i in range(max_steps-1):
-                    spectral_points.append(param_end+i*step)
-                spectral_points.append(param_start)
-            page.param_points = Q_.from_list(spectral_points)
-            page.current_point = 0
-        elif not pa_logic.osc_open():
-            logger.warning('Oscilloscope is not initialized.')
-        else:
-            self.stop_worker(self.worker_curve_adj)
 
     def upd_measure_monitor(
             self,
