@@ -130,7 +130,7 @@ class Window(QMainWindow,Ui_MainWindow,):
 
     _data: PaData|None = None
 
-    data_changed = Signal(bool)
+    data_changed = Signal()
 
     @property
     def data(self) -> PaData|None:
@@ -144,10 +144,7 @@ class Window(QMainWindow,Ui_MainWindow,):
         else:
             logger.warning('Attempt to set wrong object to data.')
             return
-        if value is None:
-            self.data_changed.emit(False)
-        else:
-            self.data_changed.emit(True)
+        self.data_changed.emit()
 
     def __init__(
             self,
@@ -229,8 +226,7 @@ class Window(QMainWindow,Ui_MainWindow,):
 
         #Various actions
         self.action_Init.triggered.connect(self.init_hardware)
-        self.data_changed.connect(self.action_Save.setEnabled)
-        self.data_changed.connect(self.actionSave_As.setEnabled)
+        self.data_changed.connect(self.data_updated)
         self.action_Close.triggered.connect(self.close_file)
         self.actionSave_As.triggered.connect(self.save_as_file)
 
@@ -269,6 +265,20 @@ class Window(QMainWindow,Ui_MainWindow,):
         self.d_pm.visibilityChanged.connect(
             self.action_Power_Meter.setChecked
         )
+
+    def data_updated(self) -> None:
+        """Slot, which triggers when data is changed."""
+
+        # Set Save enabled
+        if self.data is None:
+            is_exist = False
+        else:
+            is_exist = True
+        self.action_Save.setEnabled(is_exist)
+        self.actionSave_As.setEnabled(is_exist)
+
+        # Update data viewer
+        self.show_data(self.data)
 
     def open_file(self) -> None:
         """Load data file."""
@@ -315,6 +325,11 @@ class Window(QMainWindow,Ui_MainWindow,):
         """Actual file close."""
 
         self.data = None
+        self._clear_data_view()
+
+    def _clear_data_view(self) -> None:
+        """Clear data viewer."""
+
         self.data_viwer.measurement = None
         self.data_viwer.datapoint = None
         self.data_viwer.tv_content.setModel(QStandardItemModel())
@@ -333,8 +348,13 @@ class Window(QMainWindow,Ui_MainWindow,):
                 return
             data = self.data
 
+        self._clear_data_view()
         # choose a measurement to show data from
-        msmnt_title, msmnt = next(iter(data.measurements.items()))
+        try:
+            msmnt_title, msmnt = next(iter(data.measurements.items()))
+        except StopIteration:
+            logger.debug('Data is empty.')
+            return
 
         # Update content representation
         self.set_data_content_view(data)
@@ -609,30 +629,41 @@ class Window(QMainWindow,Ui_MainWindow,):
 
         wl = self.p_curve.sb_cur_param.quantity
         worker = Worker(pa_logic._measure_point, wl)
-        worker.signals.result.connect(self.verify_measurement)
+        worker.signals.result.connect(
+            lambda data: self.verify_measurement(
+                self.p_curve,
+                data
+            )
+        )
         self.pool.start(worker)
 
     def verify_measurement(
             self,
+            parent: CurveMeasureWidget,
             data: MeasuredPoint
-        ) -> MeasuredPoint|None:
-        """Verifies a measurement."""
+        ) -> None:
+        """
+        Verify a measurement.
+        
+        ``parent`` is widget, which stores current point index.
+        """
 
         plot_pa = self.pa_verifier.plot_pa
         plot_pm = self.pa_verifier.plot_pm
 
+        # Power meter plot
         ydata=data.pm_signal
         xdata=Q_(
             np.arange(len(data.pm_signal))*data.dt_pm.m, # type: ignore
             data.dt_pm.u
         )
-        print(f'{len(xdata)=}') # type: ignore
-        print(f'{len(ydata)=}')
         self.upd_plot(
             plot_pm,
             ydata=ydata,
             xdata=xdata
         )
+
+        # PA signal plot
         start = data.start_time
         stop = data.stop_time.to(start.u)
         step = data.dt.to(start.u)
@@ -648,7 +679,44 @@ class Window(QMainWindow,Ui_MainWindow,):
                 start.u
             ) # type: ignore
         )
-        print(self.pa_verifier.exec())
+
+        # pa_verifier.exec return 1 if data is ok and 0 otherwise
+        if self.pa_verifier.exec():
+            # create new measurement if it is the first point
+            if parent.current_point == 0:
+                if self.data is None:
+                    self.data = PaData()
+                dims = 0
+                if isinstance(parent, CurveMeasureWidget):
+                    dims = 1
+                msmnt_title = self.data.add_measurement(
+                    dims = dims,
+                    parameters = parent.parameter
+                )
+            else:
+                if self.data is None:
+                    logger.error('Trying to add not starting point '
+                                 + 'while data is None.')
+                    return
+                msmnt_title = PaData._build_name(
+                    self.data.attrs.measurements_count,
+                    'measurement'
+                )
+            
+            # add datapoint to the measurement
+            msmnt = self.data.measurements[msmnt_title]
+            cur_param = []
+            if isinstance(parent,CurveMeasureWidget):
+                cur_param.append(parent.sb_cur_param.quantity)
+            self.data.add_point(
+                measurement = msmnt,
+                data = data,
+                param_val = cur_param
+            )
+            # update parent attributes
+            parent.current_point += 1
+            # Update data_viewer
+            self.data_changed.emit()
 
         # Resume energy adjustment
         if self.worker_curve_adj is not None:
@@ -691,6 +759,7 @@ class Window(QMainWindow,Ui_MainWindow,):
             page.pb.setValue(page.current_point)
             page.lbl_pb.setText(f'{page.current_point}/{spectral_points}')
             page.spectral_points = spectral_points
+            page.parameter = [page.cb_mode.currentText()]
 
             if param_start < param_end:
                 page.sb_cur_param.setMinimum(param_start.m)

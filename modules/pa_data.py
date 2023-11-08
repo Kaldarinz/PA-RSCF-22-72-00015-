@@ -157,6 +157,27 @@ class PaData:
         logger.debug(f'{title} created.')
         return measurement
 
+    def add_measurement(
+            self,
+            dims: int,
+            parameters: list[str]) -> str:
+        """Add measurement and return its title."""
+
+        n = self.attrs.measurements_count
+        title = self._build_name(n + 1, 'measurement')
+        md = MeasurementMetadata(
+            measurement_dims = dims,
+            parameter_name = parameters,
+            created = self._get_cur_time(),
+            updated = self._get_cur_time()
+        )
+        msmnt = Measurement(md)
+        self.measurements.update({title: msmnt})
+        self.attrs.updated = self._get_cur_time()
+        self.attrs.measurements_count += 1
+        self.changed = True
+        return title
+
     def add_point(
             self,
             measurement: Measurement,
@@ -478,6 +499,12 @@ class PaData:
         """
 
         DIFF_VALS = 5
+
+        #check if data_raw contain at least DIFF_VALS values
+        if len(np.unique(data_raw)) < DIFF_VALS:
+            logger.warning(f'Datapoint has less than {DIFF_VALS}'
+                           + 'different values!')
+            return (0,0)
 
         #in the begining of data there could be long baseline
         #therefore start searching for meaningfull data from maximum

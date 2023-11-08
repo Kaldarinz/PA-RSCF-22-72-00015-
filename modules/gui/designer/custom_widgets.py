@@ -94,6 +94,8 @@ class PowerMeterWidget(QDockWidget, pm_dock_widget_ui.Ui_d_pm):
 class CurveMeasureWidget(QWidget,curve_measure_widget_ui.Ui_Form):
     """1D PhotoAcoustic measurements widget."""
 
+    cur_p_changed = Signal()
+
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setupUi(self)
@@ -103,16 +105,51 @@ class CurveMeasureWidget(QWidget,curve_measure_widget_ui.Ui_Form):
             self.placeholder_pm_monitor,
             self.pm_monitor
         )
-        self.spectral_points: int
+        self.parameter: list[str]
+        "List of parameter names."
+        self.spectral_points: int = 1
         "Amount of parameter points in measurement."
         self.step: PlainQuantity
         "Parameter step value."
-        self.current_point: int
-        "Index of current parameter value."
-        # self.lo_run.replaceWidget(
-        #     self.btn_run,
-        #     QPushButton('WTF')
-        # )
+        self._current_point: int = 0
+
+        # Auto update widgets when current_point is changed
+        self.cur_p_changed.connect(self.upd_pb)
+        self.cur_p_changed.connect(self.upd_pb_lbl)
+        self.cur_p_changed.connect(self.upd_cur_param)
+
+    @property
+    def current_point(self) -> int:
+        """
+        Index of current parameter value.
+        
+        Automatically updates related widgets."""
+
+        return self._current_point
+    
+    @current_point.setter
+    def current_point(self, val: int) -> None:
+
+        self._current_point = val
+        self.cur_p_changed.emit()
+
+    def upd_pb(self) -> None:
+        "Update progress bar."
+
+        pb = int(self.current_point/self.spectral_points*100)
+        self.pb.setValue(pb)
+
+    def upd_pb_lbl(self) -> None:
+        """"Update progressbar label."""
+
+        text = f'{self.current_point}/{self.spectral_points}'
+        self.lbl_pb.setText(text)
+
+    def upd_cur_param(self) -> None:
+        """Update current param value."""
+
+        new_param = self.sb_cur_param.quantity + self.step
+        self.sb_cur_param.quantity = new_param # type: ignore
 
 class PointMeasureWidget(QWidget,point_measure_widget_ui.Ui_Form):
     """0D PhotoAcoustic measurements widget."""
