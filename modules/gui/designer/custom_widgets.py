@@ -25,7 +25,7 @@ from . import (
     point_measure_widget_ui,
     curve_measure_widget_ui,
     map_measure_widget_ui,
-    power_meter_monitor_ui,
+    pm_monitor_ui,
     curve_data_view_ui,
     point_data_view_ui
 )
@@ -95,6 +95,7 @@ class CurveMeasureWidget(QWidget,curve_measure_widget_ui.Ui_Form):
     """1D PhotoAcoustic measurements widget."""
 
     cur_p_changed = Signal()
+    "Signal change of current data point."
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -162,6 +163,12 @@ class PointMeasureWidget(QWidget,point_measure_widget_ui.Ui_Form):
         super().__init__(parent)
         self.setupUi(self)
 
+        self.pm_monitor = PowerMeterMonitor(self)
+        self.lo_measure.replaceWidget(
+            self.placeholder_pm_monitor,
+            self.pm_monitor
+        )
+
 class MapMeasureWidget(QWidget,map_measure_widget_ui.Ui_Form):
     """2D PhotoAcoustic measurements widget."""
 
@@ -169,7 +176,7 @@ class MapMeasureWidget(QWidget,map_measure_widget_ui.Ui_Form):
         super().__init__(parent)
         self.setupUi(self)
 
-class PowerMeterMonitor(QWidget,power_meter_monitor_ui.Ui_pm_monitor):
+class PowerMeterMonitor(QWidget,pm_monitor_ui.Ui_Form):
     """Power meter monitor.
     
     Contains two plot areas:\n

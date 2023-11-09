@@ -12,6 +12,7 @@ from datetime import datetime
 import traceback
 from typing import Iterable, Optional, cast, Callable
 from dataclasses import field, fields
+from functools import partial
 
 import pint
 import yaml
@@ -135,6 +136,8 @@ class Window(QMainWindow,Ui_MainWindow,):
 
     data_changed = Signal()
 
+    pm_monitors: dict[PowerMeterMonitor, Callable] = {}
+
     @property
     def data(self) -> PaData|None:
         "PA data."
@@ -246,6 +249,12 @@ class Window(QMainWindow,Ui_MainWindow,):
         self.p_curve.sb_pm_sp.valueChanged.connect(
             lambda x: self.upd_sp(self.p_curve.sb_pm_sp)
         )
+        self.p_curve.pm_monitor.btn_start.toggled.connect(
+            lambda enable: self.start_pm_monitor(
+                self.p_curve.pm_monitor,
+                enable
+            )
+        )
 
         #Data
         self.action_Data.toggled.connect(self.activate_data_viwer)
@@ -256,10 +265,8 @@ class Window(QMainWindow,Ui_MainWindow,):
         self.d_log.visibilityChanged.connect(self.action_Logs.setChecked)
 
         #PowerMeter
-        self.d_pm.btn_start.clicked.connect(self.track_power)
-        self.d_pm.btn_stop.clicked.connect(
-            lambda x: self.stop_worker(self.worker_pm)
-        )
+        
+
         #### Stopped here
         self.d_pm.btn_pause.toggled.connect(
             lambda state: self.pause_worker(state, self.worker_pm)
@@ -679,6 +686,7 @@ class Window(QMainWindow,Ui_MainWindow,):
         Also set progress bar and realted widgets.
         """
 
+        # Activate curve measure widget
         self.p_curve.w_measure.setVisible(activated)
 
         page = self.p_curve
@@ -796,8 +804,9 @@ class Window(QMainWindow,Ui_MainWindow,):
 
         # pa_verifier.exec return 1 if data is ok and 0 otherwise
         if self.pa_verifier.exec():
-            # create new measurement if it is the first point
+            # create new measurement if it is the first measured point
             if parent.current_point == 0:
+                # create new data structure if necessary
                 if self.data is None:
                     self.data = PaData()
                 dims = 0
@@ -807,6 +816,7 @@ class Window(QMainWindow,Ui_MainWindow,):
                     dims = dims,
                     parameters = parent.parameter
                 )
+            # otherwise take title of the last measurement
             else:
                 if self.data is None:
                     logger.error('Trying to add not starting point '
@@ -827,8 +837,15 @@ class Window(QMainWindow,Ui_MainWindow,):
                 data = data,
                 param_val = cur_param.copy()
             )
-            # update parent attributes
-            parent.current_point += 1
+
+            if msmnt.attrs.measurement_dims != 0:
+                # update current point, which will trigger update of widgets on parent
+                parent.current_point += 1
+                # update measurement plot
+                self.upd_plot(
+                    parent.plot_measurement,
+                    *self.data.param_data_plot(msmnt = msmnt)
+                )
             # Update data_viewer
             self.data_changed.emit()
 
@@ -934,17 +951,47 @@ class Window(QMainWindow,Ui_MainWindow,):
             event.ignore()
 
     def init_hardware(self) -> None:
-        """Hardware initiation."""
+        """
+        Hardware initiation.
+        
+        Additionally launch energy measurement worker
+        if oscilloscope was initiated.
+        """
         worker = Worker(pa_logic.init_hardware)
         self.pool.start(worker)
+        worker.signals.finished.connect(self.track_power)
 
     def track_power(self) -> None:
-        """Start energy measurements."""
+        """Start energy measurements cycle."""
 
-        if self.worker_pm is None:
-            self.worker_pm = Worker(pa_logic.track_power)
-            self.worker_pm.signals.progess.connect(self.update_pm)
-            self.pool.start(self.worker_pm)
+        if pa_logic.osc_open():
+            if self.worker_pm is None:
+                self.worker_pm = Worker(pa_logic.track_power)
+                self.pool.start(self.worker_pm)
+                logger.info('Energy measurement cycle started!')
+        else:
+            logger.info('Failed to start energy mesurement cycle!')
+
+    def start_pm_monitor(
+            self,
+            monitor: PowerMeterMonitor,
+            enable: bool
+        ) -> None:
+        """Subscribe power meter monitor to data."""
+
+        if self.worker_pm is not None:
+            if enable:
+                self.pm_monitors.update(
+                    {monitor: partial(self.update_pm, monitor = monitor)}
+                )
+                self.worker_pm.signals.progess.connect(
+                    self.pm_monitors[monitor]
+                )
+            else:
+                self.worker_pm.signals.progess.disconnect(
+                    self.pm_monitors[monitor]
+                )
+
 
     def stop_worker(self, worker: Worker|None) -> None:
         
@@ -966,7 +1013,8 @@ class Window(QMainWindow,Ui_MainWindow,):
 
     def update_pm(
             self,
-            measurement: dict
+            measurement: dict,
+            monitor: PowerMeterMonitor
         ) -> None:
         """
         Update power meter widget.
@@ -984,11 +1032,11 @@ class Window(QMainWindow,Ui_MainWindow,):
         ``std``: PlainQuantity - standart deviation of the measured data\n
         """
 
-        self.upd_plot(self.d_pm.plot_left, ydata=measurement['signal'])
-        self.upd_plot(self.d_pm.plot_right, ydata=measurement['data'])
-        self.d_pm.le_cur_en.setText(self.form_quant(measurement['energy']))
-        self.d_pm.le_aver_en.setText(self.form_quant(measurement['aver']))
-        self.d_pm.le_std_en.setText(self.form_quant(measurement['std']))
+        self.upd_plot(monitor.plot_left, ydata=measurement['signal'])
+        self.upd_plot(monitor.plot_right, ydata=measurement['data'])
+        monitor.le_cur_en.setText(self.form_quant(measurement['energy']))
+        monitor.le_aver_en.setText(self.form_quant(measurement['aver']))
+        monitor.le_std_en.setText(self.form_quant(measurement['std']))
     
     def form_quant(self, quant: PlainQuantity) -> str:
         """Format str representation of a quantity."""

@@ -17,8 +17,8 @@ from PySide6.QtGui import (QBrush, QColor, QConicalGradient, QCursor,
     QPalette, QPixmap, QRadialGradient, QTransform)
 from PySide6.QtWidgets import (QAbstractSpinBox, QApplication, QComboBox, QFrame,
     QHBoxLayout, QLabel, QProgressBar, QPushButton,
-    QSizePolicy, QSpacerItem, QSpinBox, QVBoxLayout,
-    QWidget)
+    QSizePolicy, QSpacerItem, QSpinBox, QSplitter,
+    QVBoxLayout, QWidget)
 
 from ..widgets import (MplCanvas, QuantSpinBox)
 from . import qt_resources_rc
@@ -32,10 +32,6 @@ class Ui_Form(object):
         self.verticalLayout_2.setObjectName(u"verticalLayout_2")
         self.horizontalLayout = QHBoxLayout()
         self.horizontalLayout.setObjectName(u"horizontalLayout")
-        self.horizontalSpacer = QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum)
-
-        self.horizontalLayout.addItem(self.horizontalSpacer)
-
         self.btn_run = QPushButton(Form)
         self.btn_run.setObjectName(u"btn_run")
         sizePolicy = QSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
@@ -144,9 +140,15 @@ class Ui_Form(object):
 
         self.verticalLayout_2.addLayout(self.horizontalLayout)
 
-        self.lo_measure = QHBoxLayout()
+        self.splitter = QSplitter(Form)
+        self.splitter.setObjectName(u"splitter")
+        self.splitter.setOrientation(Qt.Vertical)
+        self.widget = QWidget(self.splitter)
+        self.widget.setObjectName(u"widget")
+        self.lo_measure = QHBoxLayout(self.widget)
         self.lo_measure.setObjectName(u"lo_measure")
-        self.w_measure = QWidget(Form)
+        self.lo_measure.setContentsMargins(0, 0, 0, 0)
+        self.w_measure = QWidget(self.widget)
         self.w_measure.setObjectName(u"w_measure")
         sizePolicy1 = QSizePolicy(QSizePolicy.Minimum, QSizePolicy.Preferred)
         sizePolicy1.setHorizontalStretch(0)
@@ -156,6 +158,8 @@ class Ui_Form(object):
         self.verticalLayout = QVBoxLayout(self.w_measure)
         self.verticalLayout.setObjectName(u"verticalLayout")
         self.verticalLayout.setContentsMargins(0, 0, 0, 0)
+        self.horizontalLayout_2 = QHBoxLayout()
+        self.horizontalLayout_2.setObjectName(u"horizontalLayout_2")
         self.btn_measure = QPushButton(self.w_measure)
         self.btn_measure.setObjectName(u"btn_measure")
         sizePolicy.setHeightForWidth(self.btn_measure.sizePolicy().hasHeightForWidth())
@@ -166,7 +170,35 @@ class Ui_Form(object):
         self.btn_measure.setIcon(icon1)
         self.btn_measure.setCheckable(False)
 
-        self.verticalLayout.addWidget(self.btn_measure)
+        self.horizontalLayout_2.addWidget(self.btn_measure)
+
+        self.btn_restart = QPushButton(self.w_measure)
+        self.btn_restart.setObjectName(u"btn_restart")
+        sizePolicy2 = QSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        sizePolicy2.setHorizontalStretch(0)
+        sizePolicy2.setVerticalStretch(0)
+        sizePolicy2.setHeightForWidth(self.btn_restart.sizePolicy().hasHeightForWidth())
+        self.btn_restart.setSizePolicy(sizePolicy2)
+        self.btn_restart.setMinimumSize(QSize(30, 0))
+        icon2 = QIcon()
+        icon2.addFile(u":/icons/qt_resources/arrow-circle-225-left.png", QSize(), QIcon.Normal, QIcon.Off)
+        self.btn_restart.setIcon(icon2)
+
+        self.horizontalLayout_2.addWidget(self.btn_restart)
+
+        self.btn_stop = QPushButton(self.w_measure)
+        self.btn_stop.setObjectName(u"btn_stop")
+        sizePolicy2.setHeightForWidth(self.btn_stop.sizePolicy().hasHeightForWidth())
+        self.btn_stop.setSizePolicy(sizePolicy2)
+        self.btn_stop.setMinimumSize(QSize(30, 0))
+        icon3 = QIcon()
+        icon3.addFile(u":/icons/qt_resources/control-stop-square.png", QSize(), QIcon.Normal, QIcon.Off)
+        self.btn_stop.setIcon(icon3)
+
+        self.horizontalLayout_2.addWidget(self.btn_stop)
+
+
+        self.verticalLayout.addLayout(self.horizontalLayout_2)
 
         self.horizontalLayout_11 = QHBoxLayout()
         self.horizontalLayout_11.setObjectName(u"horizontalLayout_11")
@@ -179,8 +211,8 @@ class Ui_Form(object):
         self.pb.setObjectName(u"pb")
         sizePolicy.setHeightForWidth(self.pb.sizePolicy().hasHeightForWidth())
         self.pb.setSizePolicy(sizePolicy)
-        self.pb.setMinimumSize(QSize(145, 0))
-        self.pb.setValue(24)
+        self.pb.setMinimumSize(QSize(10, 0))
+        self.pb.setValue(0)
         self.pb.setTextVisible(False)
 
         self.horizontalLayout_11.addWidget(self.pb)
@@ -195,6 +227,13 @@ class Ui_Form(object):
 
         self.verticalLayout.addLayout(self.horizontalLayout_11)
 
+        self.line_4 = QFrame(self.w_measure)
+        self.line_4.setObjectName(u"line_4")
+        self.line_4.setFrameShape(QFrame.HLine)
+        self.line_4.setFrameShadow(QFrame.Sunken)
+
+        self.verticalLayout.addWidget(self.line_4)
+
         self.horizontalLayout_12 = QHBoxLayout()
         self.horizontalLayout_12.setObjectName(u"horizontalLayout_12")
         self.lbl_cur_param = QLabel(self.w_measure)
@@ -205,11 +244,11 @@ class Ui_Form(object):
 
         self.sb_cur_param = QuantSpinBox(self.w_measure)
         self.sb_cur_param.setObjectName(u"sb_cur_param")
-        sizePolicy2 = QSizePolicy(QSizePolicy.Minimum, QSizePolicy.Fixed)
-        sizePolicy2.setHorizontalStretch(0)
-        sizePolicy2.setVerticalStretch(0)
-        sizePolicy2.setHeightForWidth(self.sb_cur_param.sizePolicy().hasHeightForWidth())
-        self.sb_cur_param.setSizePolicy(sizePolicy2)
+        sizePolicy3 = QSizePolicy(QSizePolicy.Minimum, QSizePolicy.Fixed)
+        sizePolicy3.setHorizontalStretch(0)
+        sizePolicy3.setVerticalStretch(0)
+        sizePolicy3.setHeightForWidth(self.sb_cur_param.sizePolicy().hasHeightForWidth())
+        self.sb_cur_param.setSizePolicy(sizePolicy3)
         self.sb_cur_param.setMinimumSize(QSize(71, 0))
         self.sb_cur_param.setMaximumSize(QSize(71, 16777215))
         self.sb_cur_param.setBaseSize(QSize(0, 0))
@@ -238,8 +277,8 @@ class Ui_Form(object):
 
         self.sb_sample_en = QuantSpinBox(self.w_measure)
         self.sb_sample_en.setObjectName(u"sb_sample_en")
-        sizePolicy2.setHeightForWidth(self.sb_sample_en.sizePolicy().hasHeightForWidth())
-        self.sb_sample_en.setSizePolicy(sizePolicy2)
+        sizePolicy3.setHeightForWidth(self.sb_sample_en.sizePolicy().hasHeightForWidth())
+        self.sb_sample_en.setSizePolicy(sizePolicy3)
         self.sb_sample_en.setMinimumSize(QSize(71, 0))
         self.sb_sample_en.setMaximumSize(QSize(71, 16777215))
         self.sb_sample_en.setReadOnly(True)
@@ -264,8 +303,8 @@ class Ui_Form(object):
 
         self.sb_sample_sp = QuantSpinBox(self.w_measure)
         self.sb_sample_sp.setObjectName(u"sb_sample_sp")
-        sizePolicy2.setHeightForWidth(self.sb_sample_sp.sizePolicy().hasHeightForWidth())
-        self.sb_sample_sp.setSizePolicy(sizePolicy2)
+        sizePolicy3.setHeightForWidth(self.sb_sample_sp.sizePolicy().hasHeightForWidth())
+        self.sb_sample_sp.setSizePolicy(sizePolicy3)
         self.sb_sample_sp.setMinimumSize(QSize(71, 0))
         self.sb_sample_sp.setMaximumSize(QSize(71, 16777215))
         self.sb_sample_sp.setDecimals(1)
@@ -295,8 +334,8 @@ class Ui_Form(object):
 
         self.sb_pm_en = QuantSpinBox(self.w_measure)
         self.sb_pm_en.setObjectName(u"sb_pm_en")
-        sizePolicy2.setHeightForWidth(self.sb_pm_en.sizePolicy().hasHeightForWidth())
-        self.sb_pm_en.setSizePolicy(sizePolicy2)
+        sizePolicy3.setHeightForWidth(self.sb_pm_en.sizePolicy().hasHeightForWidth())
+        self.sb_pm_en.setSizePolicy(sizePolicy3)
         self.sb_pm_en.setMinimumSize(QSize(71, 0))
         self.sb_pm_en.setMaximumSize(QSize(71, 16777215))
         self.sb_pm_en.setReadOnly(True)
@@ -320,8 +359,8 @@ class Ui_Form(object):
 
         self.sb_pm_sp = QuantSpinBox(self.w_measure)
         self.sb_pm_sp.setObjectName(u"sb_pm_sp")
-        sizePolicy2.setHeightForWidth(self.sb_pm_sp.sizePolicy().hasHeightForWidth())
-        self.sb_pm_sp.setSizePolicy(sizePolicy2)
+        sizePolicy3.setHeightForWidth(self.sb_pm_sp.sizePolicy().hasHeightForWidth())
+        self.sb_pm_sp.setSizePolicy(sizePolicy3)
         self.sb_pm_sp.setMinimumSize(QSize(71, 0))
         self.sb_pm_sp.setMaximumSize(QSize(71, 16777215))
         self.sb_pm_sp.setButtonSymbols(QAbstractSpinBox.UpDownArrows)
@@ -352,8 +391,8 @@ class Ui_Form(object):
 
         self.sb_aver = QSpinBox(self.w_measure)
         self.sb_aver.setObjectName(u"sb_aver")
-        sizePolicy2.setHeightForWidth(self.sb_aver.sizePolicy().hasHeightForWidth())
-        self.sb_aver.setSizePolicy(sizePolicy2)
+        sizePolicy3.setHeightForWidth(self.sb_aver.sizePolicy().hasHeightForWidth())
+        self.sb_aver.setSizePolicy(sizePolicy3)
         self.sb_aver.setMinimumSize(QSize(71, 0))
         self.sb_aver.setMaximumSize(QSize(43, 16777215))
         self.sb_aver.setButtonSymbols(QAbstractSpinBox.NoButtons)
@@ -374,24 +413,28 @@ class Ui_Form(object):
 
         self.lo_measure.addWidget(self.w_measure)
 
-        self.placeholder_pm_monitor = QWidget(Form)
+        self.placeholder_pm_monitor = QWidget(self.widget)
         self.placeholder_pm_monitor.setObjectName(u"placeholder_pm_monitor")
+        sizePolicy4 = QSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        sizePolicy4.setHorizontalStretch(0)
+        sizePolicy4.setVerticalStretch(0)
+        sizePolicy4.setHeightForWidth(self.placeholder_pm_monitor.sizePolicy().hasHeightForWidth())
+        self.placeholder_pm_monitor.setSizePolicy(sizePolicy4)
 
         self.lo_measure.addWidget(self.placeholder_pm_monitor)
 
-
-        self.verticalLayout_2.addLayout(self.lo_measure)
-
-        self.plot_measurement = MplCanvas(Form)
+        self.splitter.addWidget(self.widget)
+        self.plot_measurement = MplCanvas(self.splitter)
         self.plot_measurement.setObjectName(u"plot_measurement")
-        sizePolicy3 = QSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding)
-        sizePolicy3.setHorizontalStretch(0)
-        sizePolicy3.setVerticalStretch(0)
-        sizePolicy3.setHeightForWidth(self.plot_measurement.sizePolicy().hasHeightForWidth())
-        self.plot_measurement.setSizePolicy(sizePolicy3)
+        sizePolicy5 = QSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding)
+        sizePolicy5.setHorizontalStretch(0)
+        sizePolicy5.setVerticalStretch(0)
+        sizePolicy5.setHeightForWidth(self.plot_measurement.sizePolicy().hasHeightForWidth())
+        self.plot_measurement.setSizePolicy(sizePolicy5)
         self.plot_measurement.setMinimumSize(QSize(0, 0))
+        self.splitter.addWidget(self.plot_measurement)
 
-        self.verticalLayout_2.addWidget(self.plot_measurement)
+        self.verticalLayout_2.addWidget(self.splitter)
 
 
         self.retranslateUi(Form)
@@ -444,8 +487,10 @@ class Ui_Form(object):
         self.btn_measure.setStatusTip(QCoreApplication.translate("Form", u"Start PhotoAcoustic measurement", None))
 #endif // QT_CONFIG(statustip)
         self.btn_measure.setText(QCoreApplication.translate("Form", u"MEASURE", None))
+        self.btn_restart.setText("")
+        self.btn_stop.setText("")
         self.lbl_measured_p.setText(QCoreApplication.translate("Form", u"Measured points", None))
-        self.lbl_pb.setText(QCoreApplication.translate("Form", u"5/10", None))
+        self.lbl_pb.setText("")
         self.lbl_cur_param.setText(QCoreApplication.translate("Form", u"Set Wavelength", None))
         self.lbl_sample_en.setText(QCoreApplication.translate("Form", u"Sample Energy", None))
         self.sb_sample_en.setSuffix(QCoreApplication.translate("Form", u" uJ", None))

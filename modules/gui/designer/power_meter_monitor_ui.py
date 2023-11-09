@@ -27,21 +27,22 @@ class Ui_pm_monitor(object):
         pm_monitor.resize(882, 594)
         self.horizontalLayout = QHBoxLayout(pm_monitor)
         self.horizontalLayout.setObjectName(u"horizontalLayout")
+        self.horizontalLayout.setContentsMargins(0, -1, 0, -1)
         self.splitter = QSplitter(pm_monitor)
         self.splitter.setObjectName(u"splitter")
         self.splitter.setOrientation(Qt.Horizontal)
-        self.widget = QWidget(self.splitter)
-        self.widget.setObjectName(u"widget")
-        self.verticalLayout = QVBoxLayout(self.widget)
+        self.layoutWidget = QWidget(self.splitter)
+        self.layoutWidget.setObjectName(u"layoutWidget")
+        self.verticalLayout = QVBoxLayout(self.layoutWidget)
         self.verticalLayout.setObjectName(u"verticalLayout")
         self.verticalLayout.setContentsMargins(0, 0, 0, 0)
-        self.lbl_signal = QLabel(self.widget)
+        self.lbl_signal = QLabel(self.layoutWidget)
         self.lbl_signal.setObjectName(u"lbl_signal")
         self.lbl_signal.setAlignment(Qt.AlignCenter)
 
         self.verticalLayout.addWidget(self.lbl_signal)
 
-        self.plot_left = MplCanvas(self.widget)
+        self.plot_left = MplCanvas(self.layoutWidget)
         self.plot_left.setObjectName(u"plot_left")
         sizePolicy = QSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding)
         sizePolicy.setHorizontalStretch(0)
@@ -51,26 +52,26 @@ class Ui_pm_monitor(object):
 
         self.verticalLayout.addWidget(self.plot_left)
 
-        self.splitter.addWidget(self.widget)
-        self.widget1 = QWidget(self.splitter)
-        self.widget1.setObjectName(u"widget1")
-        self.verticalLayout_2 = QVBoxLayout(self.widget1)
+        self.splitter.addWidget(self.layoutWidget)
+        self.layoutWidget1 = QWidget(self.splitter)
+        self.layoutWidget1.setObjectName(u"layoutWidget1")
+        self.verticalLayout_2 = QVBoxLayout(self.layoutWidget1)
         self.verticalLayout_2.setObjectName(u"verticalLayout_2")
         self.verticalLayout_2.setContentsMargins(0, 0, 0, 0)
-        self.lbl_tune = QLabel(self.widget1)
+        self.lbl_tune = QLabel(self.layoutWidget1)
         self.lbl_tune.setObjectName(u"lbl_tune")
         self.lbl_tune.setAlignment(Qt.AlignCenter)
 
         self.verticalLayout_2.addWidget(self.lbl_tune)
 
-        self.plot_right = MplCanvas(self.widget1)
+        self.plot_right = MplCanvas(self.layoutWidget1)
         self.plot_right.setObjectName(u"plot_right")
         sizePolicy.setHeightForWidth(self.plot_right.sizePolicy().hasHeightForWidth())
         self.plot_right.setSizePolicy(sizePolicy)
 
         self.verticalLayout_2.addWidget(self.plot_right)
 
-        self.splitter.addWidget(self.widget1)
+        self.splitter.addWidget(self.layoutWidget1)
 
         self.horizontalLayout.addWidget(self.splitter)
 
