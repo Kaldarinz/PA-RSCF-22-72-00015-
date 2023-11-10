@@ -301,6 +301,12 @@ class Window(QMainWindow,Ui_MainWindow,):
         self.action_Save.setEnabled(is_exist)
         self.actionSave_As.setEnabled(is_exist)
 
+        # set marker for title
+        data_title = self.data_viwer.lbl_data_title.text()
+        if not data_title.endswith('*'):
+            data_title = data_title + '*'
+            self.data_viwer.lbl_data_title.setText(data_title)
+
         # Update data viewer
         self.load_data_view(self.data)
 
@@ -334,6 +340,10 @@ class Window(QMainWindow,Ui_MainWindow,):
             if self.data.attrs.version < 1.2:
                 self.data.attrs.version = PaData.VERSION
             self.data.save(filename)
+            # remove marker of changed data from data title
+            data_title = self.data_viwer.lbl_data_title.text()
+            data_title = data_title.split('*')[0]
+            self.data_viwer.lbl_data_title.setText(data_title)
 
     def close_file(self) -> None:
         """Close current file."""
@@ -461,7 +471,14 @@ class Window(QMainWindow,Ui_MainWindow,):
         view = self.data_viwer.p_0d
         self.set_cb_detail_view(view)
         # Set plot
-        detail_data = data.point_data_plot(
+        if (self.data is None 
+            or self.data_viwer.measurement is None
+            or self.data_viwer.dtype_point is None):
+            logger.warning(
+                'Point view cannot be set, some data is missing.'
+            )
+            return
+        detail_data = self.data.point_data_plot(
             msmnt = self.data_viwer.measurement,
             index = self.data_viwer.data_index,
             dtype = self.data_viwer.dtype_point
@@ -470,6 +487,14 @@ class Window(QMainWindow,Ui_MainWindow,):
 
     def set_curve_view(self) -> None:
         """Set central part of data_viewer for curve view."""
+
+        if (self.data is None
+            or self.data_viwer.measurement is None):
+            logger.warning(
+                'Curve view cannot be updated. Some data is missing.'
+            )
+            return 
+            
 
         self.data_viwer.sw_view.setCurrentWidget(self.data_viwer.p_1d)
         view = self.data_viwer.p_1d
@@ -486,7 +511,7 @@ class Window(QMainWindow,Ui_MainWindow,):
         view.cb_curve_select.currentTextChanged.connect(
             lambda new_val: self.upd_plot(
                 view.plot_curve,
-                *data.param_data_plot(
+                *self.data.param_data_plot(
                     self.data_viwer.measurement,
                     ParamSignals[new_val]
                 ),
@@ -494,8 +519,8 @@ class Window(QMainWindow,Ui_MainWindow,):
                 enable_pick = True 
             )
         )
-        # Set main plot
-        main_data = data.param_data_plot(
+        ## Set main plot ##
+        main_data = self.data.param_data_plot(
             msmnt = self.data_viwer.measurement,
             dtype = ParamSignals[view.cb_curve_select.currentText()]
         )
@@ -506,7 +531,7 @@ class Window(QMainWindow,Ui_MainWindow,):
             enable_pick = True
         )
         # Set additional plot
-        detail_data = data.point_data_plot(
+        detail_data = self.data.point_data_plot(
             msmnt = self.data_viwer.measurement,
             index = self.data_viwer.data_index,
             dtype = self.data_viwer.dtype_point
@@ -608,11 +633,18 @@ class Window(QMainWindow,Ui_MainWindow,):
         if new_text is not None:
             self.data_viwer.dtype_point = DetailedSignals[new_text]
 
+        if (self.data is None
+            or self.data_viwer.measurement is None):
+            logger.warning(
+                'Point info cannot be updated. Some data is missing.'
+            )
+            return
+
         # update plot
         active_dview = self.data_viwer.sw_view.currentWidget()
         self.upd_plot(
             active_dview.plot_detail, # type: ignore
-            *data.point_data_plot(
+            *self.data.point_data_plot(
                 msmnt = self.data_viwer.measurement,
                 index = self.data_viwer.data_index,
                 dtype = self.data_viwer.dtype_point
@@ -757,8 +789,6 @@ class Window(QMainWindow,Ui_MainWindow,):
             page.current_point = 0
         elif not pa_logic.osc_open():
             logger.warning('Oscilloscope is not initialized.')
-        else:
-            self.stop_worker(self.worker_curve_adj)
 
     def measure(
             self,
@@ -769,6 +799,9 @@ class Window(QMainWindow,Ui_MainWindow,):
         # Stop PM measurements
         if self.worker_pm is not None:
             self.worker_pm.kwargs['flags']['pause'] = True
+
+        # block measure button
+        mode_widget.btn_measure.setEnabled(False)
 
         # Launch measurement
         wl = mode_widget.sb_cur_param.quantity
@@ -863,19 +896,28 @@ class Window(QMainWindow,Ui_MainWindow,):
                 param_val = cur_param.copy()
             )
 
-            # update current point, which will trigger update of 
-            # widgets on parent
+            
             if isinstance(parent, CurveMeasureWidget):
+                # update current point, which will trigger update of 
+                # widgets on parent
                 parent.current_point += 1
+                # Enable measure button if not last point
+                if parent.current_point < parent.max_steps:
+                    parent.btn_measure.setEnabled(True)
                 # update measurement plot
                 self.upd_plot(
                     parent.plot_measurement,
                     *self.data.param_data_plot(msmnt = msmnt)
                 )
+            else:
+                # Enable measure button
+                parent.btn_measure.setEnabled(True)
                 
             # Update data_viewer
             self.data_changed.emit()
-
+        else:
+            # Enable measure button
+            parent.btn_measure.setEnabled(True)
         # Resume energy adjustment
         if self.worker_pm is not None:
             self.worker_pm.kwargs['flags']['pause'] = False

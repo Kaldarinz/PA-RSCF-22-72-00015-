@@ -31,7 +31,10 @@ from . import (
 )
 
 from ...pa_data import Measurement
-from ...data_classes import DataPoint
+from ...data_classes import (
+    DataPoint,
+    DetailedSignals
+)
 
 
 class PAVerifierDialog(QDialog, verify_measure_ui.Ui_Dialog):
@@ -67,7 +70,7 @@ class DataViewer(QWidget, data_viewer_ui.Ui_Form):
         "Selected datapoint."
         self.data_index: int = 0
         "Index of the selceted datapoint."
-        self.dtype_point: str|None = None
+        self.dtype_point: str = next(iter(DetailedSignals.values()))
         "Data type of the currently displayed datapoint."
 
         # This is bullshit, but I cannot find other solution.

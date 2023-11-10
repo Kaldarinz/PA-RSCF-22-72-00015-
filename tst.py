@@ -12,11 +12,8 @@ ureg = UnitRegistry(auto_reduce_dimensions=True)
 Q_ = ureg.Quantity
 
 
-v1 = Q_(1,'s')
-v2 = Q_(2,'s')
-lst = [v1,v2]
-v3 = Q_.from_list(lst)
-print(v3)
+str1 = 'abcd'
+print(str1.split('f')[0])
 
 # dct = {'one': 1, 'two': 2}
 
