@@ -9,14 +9,12 @@ import sys
 import time
 import logging, logging.config
 from datetime import datetime
-import traceback
-from typing import Iterable, Optional, cast, Callable
+from typing import Iterable, Callable
 from dataclasses import field, fields
 from functools import partial
 
 import pint
 import yaml
-from pylablib.devices.Thorlabs import KinesisMotor
 from pint.facets.plain.quantity import PlainQuantity
 from matplotlib.backend_bases import PickEvent
 from PySide6.QtCore import (
@@ -245,11 +243,19 @@ class Window(QMainWindow,Ui_MainWindow,):
         )
 
         ### 1D measurements ###
-        # Run button
+        # Button Run
         self.p_curve.btn_run.toggled.connect(self.run_curve)
-        # Measure button
+        # Button Measure
         self.p_curve.btn_measure.clicked.connect(
             lambda x: self.measure(self.p_curve)
+        )
+        # Button restart
+        self.p_curve.btn_restart.clicked.connect(
+            lambda x: setattr(self.p_curve, 'current_point', 0)
+        )
+        # Button stop
+        self.p_curve.btn_stop.clicked.connect(
+            lambda x: setattr(self.p_curve, 'current_point', 0)
         )
         # Sample energy SetPoint 
         self.p_curve.sb_sample_sp.valueChanged.connect(
