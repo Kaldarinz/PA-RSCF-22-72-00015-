@@ -135,8 +135,10 @@ class Window(QMainWindow,Ui_MainWindow,):
     _data: PaData|None = None
 
     data_changed = Signal()
+    "Signal, which is emitted when data is changed."
 
     pm_monitors: dict[PowerMeterMonitor, Callable] = {}
+    "Contain all subsribers to PM measurements."
 
     @property
     def data(self) -> PaData|None:
@@ -196,19 +198,23 @@ class Window(QMainWindow,Ui_MainWindow,):
         )
         self.d_pm.hide()
 
-        # 0D measurements
+        ### 0D measurements ###
         self.p_point = PointMeasureWidget(self.sw_central)
         self.sw_central.addWidget(self.p_point)
+        self.init_pm_monitor(self.p_point.pm_monitor)
 
-        # 1D measurements
+        ### 1D measurements ###
         self.p_curve = CurveMeasureWidget(self.sw_central)
         self.sw_central.addWidget(self.p_curve)
         self.p_curve.w_measure.hide()
+        # Initial value of SetPoint
         setpoint = self.p_curve.sb_sample_sp.quantity
         self.p_curve.pm_monitor.plot_right.sp = setpoint
         self.upd_sp(self.p_curve.sb_sample_sp)
+        # Init power meter monitor
+        self.init_pm_monitor(self.p_curve.pm_monitor)
 
-        # 2D measurements
+        ### 2D measurements ###
         self.p_map = MapMeasureWidget(self.sw_central)
         self.sw_central.addWidget(self.p_map)
 
@@ -227,40 +233,48 @@ class Window(QMainWindow,Ui_MainWindow,):
     def connectSignalsSlots(self):
         """Connect signals and slots."""
 
-        #logs
+        ### logs ###
         self.q_logger.thread.log.connect(self.d_log.te_log.appendPlainText)
 
-        #Various actions
+        ### Various actions ###
         self.action_Init.triggered.connect(self.init_hardware)
         self.data_changed.connect(self.data_updated)
         self.action_Close.triggered.connect(self.close_file)
         self.actionSave_As.triggered.connect(self.save_as_file)
 
-        #Mode selection
+        ### Mode selection ###
         self.cb_mode_select.currentTextChanged.connect(self.upd_mode)
         self.action_measure_PA.toggled.connect(self.activate_measure_widget)
 
-        #1D measurements
+        ### 1D measurements ###
+        # Run button
         self.p_curve.btn_run.toggled.connect(self.run_curve)
+        # Measure button
         self.p_curve.btn_measure.clicked.connect(self.measure_curve)
+        # Sample energy SetPoint 
         self.p_curve.sb_sample_sp.valueChanged.connect(
             lambda x: self.upd_sp(self.p_curve.sb_sample_sp)
         )
+        # Power meter energy SetPoint
         self.p_curve.sb_pm_sp.valueChanged.connect(
             lambda x: self.upd_sp(self.p_curve.sb_pm_sp)
         )
-        self.p_curve.pm_monitor.btn_start.toggled.connect(
-            lambda enable: self.start_pm_monitor(
-                self.p_curve.pm_monitor,
-                enable
+        # Current energy value
+        self.p_curve.pm_monitor.le_cur_en.textChanged.connect(
+            self.p_curve.le_pm_en.setText
+        )
+        # Current power meter value
+        self.p_curve.pm_monitor.le_cur_en.textChanged.connect(
+            lambda val: self.p_curve.le_sample_en.setText(
+                str(pa_logic.glan_calc(ureg(val)))
             )
         )
 
-        #Data
+        ### Data ###
         self.action_Data.toggled.connect(self.activate_data_viwer)
         self.action_Open.triggered.connect(self.open_file)
 
-        #Logs
+        ### Logs ###
         self.action_Logs.toggled.connect(self.d_log.setVisible)
         self.d_log.visibilityChanged.connect(self.action_Logs.setChecked)
 
@@ -274,6 +288,28 @@ class Window(QMainWindow,Ui_MainWindow,):
         self.action_Power_Meter.toggled.connect(self.d_pm.setVisible)
         self.d_pm.visibilityChanged.connect(
             self.action_Power_Meter.setChecked
+        )
+
+    def init_pm_monitor(
+            self,
+            monitor: PowerMeterMonitor
+        ) -> None:
+        """Initialize power meter monitor."""
+
+        monitor.btn_start.toggled.connect(
+            lambda enable: self.start_pm_monitor(
+                monitor = monitor,
+                enable = enable
+            )
+        )
+        monitor.btn_pause.toggled.connect(
+            lambda enable: self.start_pm_monitor(
+                monitor = monitor,
+                enable = not enable
+            )
+        )
+        monitor.btn_stop.clicked.connect(
+            lambda x: self.stop_pm_monitor(monitor)
         )
 
     def data_updated(self) -> None:
@@ -690,17 +726,12 @@ class Window(QMainWindow,Ui_MainWindow,):
         self.p_curve.w_measure.setVisible(activated)
 
         page = self.p_curve
-        #launch energy adjustment
         if activated and pa_logic.osc_open():
-            if self.worker_curve_adj is None:
-                self.worker_curve_adj = Worker(pa_logic.track_power)
-                self.worker_curve_adj.signals.progess.connect(
-                    lambda measure: self.upd_measure_monitor(
-                        page,
-                        measure
-                    )
-                )
-                self.pool.start(self.worker_curve_adj)
+            # launch energy adjustment
+            self.start_pm_monitor(
+                page.pm_monitor,
+                True
+            )
 
             # calculate amount of paramter values
             param_start = page.sb_from.quantity
@@ -853,42 +884,6 @@ class Window(QMainWindow,Ui_MainWindow,):
         if self.worker_curve_adj is not None:
             self.worker_curve_adj.kwargs['flags']['pause'] = False
 
-    def upd_measure_monitor(
-            self,
-            page: CurveMeasureWidget,
-            measurement: dict) -> None:
-        """
-        Update ``monitor`` widget.
-
-        Expect that ``measurement`` match return of 
-        ``pa_logic.track_power``, i.e. it should contain:\n 
-        ``data``: list[PlainQuantity] - a list with data\n
-        ``signal``: PlainQuantity - measured PM signal(full data)\n
-        ``sbx``: int - Signal Begining X
-        ``sby``: PlainQuantity - Signal Begining Y
-        ``sex``: int - Signal End X
-        ``sey``: PlainQuantity - Signal End Y
-        ``energy``: PlainQuantity - just measured energy value\n
-        ``aver``: PlainQuantity - average energy\n
-        ``std``: PlainQuantity - standart deviation of the measured data\n
-        """
-
-        pm_energy = measurement['energy']
-        sample_energy = pa_logic.glan_calc(pm_energy)
-        if sample_energy is None:
-            logger.warning('Sample energy cannot be calculated')
-            sample_energy = Q_(-1, 'uJ')
-        page.sb_pm_en.quantity = pm_energy
-        page.sb_sample_en.quantity = sample_energy
-        self.upd_plot(
-            page.pm_monitor.plot_left,
-            ydata=measurement['signal']
-        )
-        self.upd_plot(
-            page.pm_monitor.plot_right,
-            ydata=measurement['data']
-        )
-
     def upd_sp(self, caller: QuantSpinBox) -> None:
         """Update Set Point data for currently active page."""
 
@@ -979,19 +974,66 @@ class Window(QMainWindow,Ui_MainWindow,):
         ) -> None:
         """Subscribe power meter monitor to data."""
 
-        if self.worker_pm is not None:
-            if enable:
-                self.pm_monitors.update(
-                    {monitor: partial(self.update_pm, monitor = monitor)}
-                )
-                self.worker_pm.signals.progess.connect(
-                    self.pm_monitors[monitor]
-                )
-            else:
-                self.worker_pm.signals.progess.disconnect(
-                    self.pm_monitors[monitor]
-                )
+        if pa_logic.osc_open():
+            if self.worker_pm is not None:
+                if enable:
+                    self.pm_monitors.update(
+                        {monitor: partial(
+                            self.update_pm,
+                            monitor = monitor
+                        )}
+                    )
+                    self.worker_pm.signals.progess.connect(
+                        self.pm_monitors[monitor]
+                    )
+                    # Set states of buttons
+                    monitor.btn_start.blockSignals(True)
+                    monitor.btn_start.setChecked(True)
+                    monitor.btn_start.blockSignals(False)
+                    monitor.btn_pause.blockSignals(True)
+                    monitor.btn_pause.setChecked(False)
+                    monitor.btn_pause.blockSignals(False)
+                else:
+                    self.worker_pm.signals.progess.disconnect(
+                        self.pm_monitors[monitor]
+                    )
+                    # Set states of buttons
+                    monitor.btn_start.blockSignals(True)
+                    monitor.btn_start.setChecked(False)
+                    monitor.btn_start.blockSignals(False)
+        else:
+            logger.warning("Oscilooscope is not open.")
+            monitor.btn_start.blockSignals(True)
+            monitor.btn_start.setChecked(False)
+            monitor.btn_start.blockSignals(False)
 
+    def stop_pm_monitor(
+            self,
+            monitor: PowerMeterMonitor
+        ) -> None:
+        """Unsubscribe power meter monitor and clear data."""
+
+        if self.worker_pm is not None:
+            # Unsubscribe from data
+            monitor_slot = self.pm_monitors.get(monitor, None)
+            if monitor_slot is not None:
+                try:
+                    self.worker_pm.signals.progess.disconnect(
+                        monitor_slot
+                    )
+                except:
+                    logger.debug('Failed to unsubsribe.')
+                monitor.btn_start.blockSignals(True)
+                monitor.btn_start.setChecked(False)
+                monitor.btn_start.blockSignals(False)
+
+                monitor.btn_pause.blockSignals(True)
+                monitor.btn_pause.setChecked(False)
+                monitor.btn_pause.blockSignals(False)
+            
+            # Clear widgets
+            self.upd_plot(monitor.plot_left, [])
+            self.upd_plot(monitor.plot_right, [])
 
     def stop_worker(self, worker: Worker|None) -> None:
         
