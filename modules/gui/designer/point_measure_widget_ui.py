@@ -26,66 +26,30 @@ class Ui_Form(object):
     def setupUi(self, Form):
         if not Form.objectName():
             Form.setObjectName(u"Form")
-        Form.resize(1073, 732)
-        self.verticalLayout_2 = QVBoxLayout(Form)
-        self.verticalLayout_2.setObjectName(u"verticalLayout_2")
-        self.horizontalLayout = QHBoxLayout()
+        Form.resize(1073, 720)
+        self.horizontalLayout = QHBoxLayout(Form)
         self.horizontalLayout.setObjectName(u"horizontalLayout")
-        self.horizontalLayout_12 = QHBoxLayout()
-        self.horizontalLayout_12.setObjectName(u"horizontalLayout_12")
-        self.lbl_cur_param = QLabel(Form)
-        self.lbl_cur_param.setObjectName(u"lbl_cur_param")
-        font = QFont()
-        font.setBold(True)
-        self.lbl_cur_param.setFont(font)
-
-        self.horizontalLayout_12.addWidget(self.lbl_cur_param)
-
-        self.sb_cur_param = QuantSpinBox(Form)
-        self.sb_cur_param.setObjectName(u"sb_cur_param")
-        sizePolicy = QSizePolicy(QSizePolicy.Minimum, QSizePolicy.Fixed)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.sb_cur_param.sizePolicy().hasHeightForWidth())
-        self.sb_cur_param.setSizePolicy(sizePolicy)
-        self.sb_cur_param.setMinimumSize(QSize(71, 0))
-        self.sb_cur_param.setMaximumSize(QSize(71, 16777215))
-        self.sb_cur_param.setBaseSize(QSize(0, 0))
-        self.sb_cur_param.setReadOnly(False)
-        self.sb_cur_param.setButtonSymbols(QAbstractSpinBox.NoButtons)
-        self.sb_cur_param.setDecimals(0)
-
-        self.horizontalLayout_12.addWidget(self.sb_cur_param)
-
-
-        self.horizontalLayout.addLayout(self.horizontalLayout_12)
-
-        self.horizontalSpacer_2 = QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum)
-
-        self.horizontalLayout.addItem(self.horizontalSpacer_2)
-
-
-        self.verticalLayout_2.addLayout(self.horizontalLayout)
-
         self.lo_measure = QHBoxLayout()
         self.lo_measure.setObjectName(u"lo_measure")
         self.w_measure = QWidget(Form)
         self.w_measure.setObjectName(u"w_measure")
-        sizePolicy1 = QSizePolicy(QSizePolicy.Minimum, QSizePolicy.Preferred)
-        sizePolicy1.setHorizontalStretch(0)
-        sizePolicy1.setVerticalStretch(0)
-        sizePolicy1.setHeightForWidth(self.w_measure.sizePolicy().hasHeightForWidth())
-        self.w_measure.setSizePolicy(sizePolicy1)
+        sizePolicy = QSizePolicy(QSizePolicy.Minimum, QSizePolicy.Preferred)
+        sizePolicy.setHorizontalStretch(0)
+        sizePolicy.setVerticalStretch(0)
+        sizePolicy.setHeightForWidth(self.w_measure.sizePolicy().hasHeightForWidth())
+        self.w_measure.setSizePolicy(sizePolicy)
         self.verticalLayout = QVBoxLayout(self.w_measure)
         self.verticalLayout.setObjectName(u"verticalLayout")
         self.verticalLayout.setContentsMargins(0, 0, 0, 0)
         self.btn_measure = QPushButton(self.w_measure)
         self.btn_measure.setObjectName(u"btn_measure")
-        sizePolicy2 = QSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
-        sizePolicy2.setHorizontalStretch(0)
-        sizePolicy2.setVerticalStretch(0)
-        sizePolicy2.setHeightForWidth(self.btn_measure.sizePolicy().hasHeightForWidth())
-        self.btn_measure.setSizePolicy(sizePolicy2)
+        sizePolicy1 = QSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+        sizePolicy1.setHorizontalStretch(0)
+        sizePolicy1.setVerticalStretch(0)
+        sizePolicy1.setHeightForWidth(self.btn_measure.sizePolicy().hasHeightForWidth())
+        self.btn_measure.setSizePolicy(sizePolicy1)
+        font = QFont()
+        font.setBold(True)
         self.btn_measure.setFont(font)
         icon = QIcon()
         icon.addFile(u":/icons/qt_resources/control-stop.png", QSize(), QIcon.Normal, QIcon.Off)
@@ -101,6 +65,43 @@ class Ui_Form(object):
 
         self.verticalLayout.addWidget(self.line_8)
 
+        self.horizontalLayout_12 = QHBoxLayout()
+        self.horizontalLayout_12.setObjectName(u"horizontalLayout_12")
+        self.lbl_cur_param = QLabel(self.w_measure)
+        self.lbl_cur_param.setObjectName(u"lbl_cur_param")
+        self.lbl_cur_param.setFont(font)
+
+        self.horizontalLayout_12.addWidget(self.lbl_cur_param)
+
+        self.sb_cur_param = QuantSpinBox(self.w_measure)
+        self.sb_cur_param.setObjectName(u"sb_cur_param")
+        sizePolicy2 = QSizePolicy(QSizePolicy.Minimum, QSizePolicy.Fixed)
+        sizePolicy2.setHorizontalStretch(0)
+        sizePolicy2.setVerticalStretch(0)
+        sizePolicy2.setHeightForWidth(self.sb_cur_param.sizePolicy().hasHeightForWidth())
+        self.sb_cur_param.setSizePolicy(sizePolicy2)
+        self.sb_cur_param.setMinimumSize(QSize(71, 0))
+        self.sb_cur_param.setMaximumSize(QSize(71, 16777215))
+        self.sb_cur_param.setBaseSize(QSize(0, 0))
+        self.sb_cur_param.setReadOnly(False)
+        self.sb_cur_param.setButtonSymbols(QAbstractSpinBox.NoButtons)
+        self.sb_cur_param.setDecimals(0)
+        self.sb_cur_param.setMinimum(300.000000000000000)
+        self.sb_cur_param.setMaximum(1100.000000000000000)
+        self.sb_cur_param.setValue(700.000000000000000)
+
+        self.horizontalLayout_12.addWidget(self.sb_cur_param)
+
+
+        self.verticalLayout.addLayout(self.horizontalLayout_12)
+
+        self.line = QFrame(self.w_measure)
+        self.line.setObjectName(u"line")
+        self.line.setFrameShape(QFrame.HLine)
+        self.line.setFrameShadow(QFrame.Sunken)
+
+        self.verticalLayout.addWidget(self.line)
+
         self.horizontalLayout_4 = QHBoxLayout()
         self.horizontalLayout_4.setObjectName(u"horizontalLayout_4")
         self.lbl_sample_en = QLabel(self.w_measure)
@@ -110,8 +111,8 @@ class Ui_Form(object):
 
         self.sb_sample_en = QuantSpinBox(self.w_measure)
         self.sb_sample_en.setObjectName(u"sb_sample_en")
-        sizePolicy.setHeightForWidth(self.sb_sample_en.sizePolicy().hasHeightForWidth())
-        self.sb_sample_en.setSizePolicy(sizePolicy)
+        sizePolicy2.setHeightForWidth(self.sb_sample_en.sizePolicy().hasHeightForWidth())
+        self.sb_sample_en.setSizePolicy(sizePolicy2)
         self.sb_sample_en.setMinimumSize(QSize(71, 0))
         self.sb_sample_en.setMaximumSize(QSize(71, 16777215))
         self.sb_sample_en.setReadOnly(True)
@@ -136,8 +137,8 @@ class Ui_Form(object):
 
         self.sb_sample_sp = QuantSpinBox(self.w_measure)
         self.sb_sample_sp.setObjectName(u"sb_sample_sp")
-        sizePolicy.setHeightForWidth(self.sb_sample_sp.sizePolicy().hasHeightForWidth())
-        self.sb_sample_sp.setSizePolicy(sizePolicy)
+        sizePolicy2.setHeightForWidth(self.sb_sample_sp.sizePolicy().hasHeightForWidth())
+        self.sb_sample_sp.setSizePolicy(sizePolicy2)
         self.sb_sample_sp.setMinimumSize(QSize(71, 0))
         self.sb_sample_sp.setMaximumSize(QSize(71, 16777215))
         self.sb_sample_sp.setDecimals(1)
@@ -167,8 +168,8 @@ class Ui_Form(object):
 
         self.sb_pm_en = QuantSpinBox(self.w_measure)
         self.sb_pm_en.setObjectName(u"sb_pm_en")
-        sizePolicy.setHeightForWidth(self.sb_pm_en.sizePolicy().hasHeightForWidth())
-        self.sb_pm_en.setSizePolicy(sizePolicy)
+        sizePolicy2.setHeightForWidth(self.sb_pm_en.sizePolicy().hasHeightForWidth())
+        self.sb_pm_en.setSizePolicy(sizePolicy2)
         self.sb_pm_en.setMinimumSize(QSize(71, 0))
         self.sb_pm_en.setMaximumSize(QSize(71, 16777215))
         self.sb_pm_en.setReadOnly(True)
@@ -192,8 +193,8 @@ class Ui_Form(object):
 
         self.sb_pm_sp = QuantSpinBox(self.w_measure)
         self.sb_pm_sp.setObjectName(u"sb_pm_sp")
-        sizePolicy.setHeightForWidth(self.sb_pm_sp.sizePolicy().hasHeightForWidth())
-        self.sb_pm_sp.setSizePolicy(sizePolicy)
+        sizePolicy2.setHeightForWidth(self.sb_pm_sp.sizePolicy().hasHeightForWidth())
+        self.sb_pm_sp.setSizePolicy(sizePolicy2)
         self.sb_pm_sp.setMinimumSize(QSize(71, 0))
         self.sb_pm_sp.setMaximumSize(QSize(71, 16777215))
         self.sb_pm_sp.setButtonSymbols(QAbstractSpinBox.UpDownArrows)
@@ -225,8 +226,8 @@ class Ui_Form(object):
         self.sb_aver = QSpinBox(self.w_measure)
         self.sb_aver.setObjectName(u"sb_aver")
         self.sb_aver.setEnabled(False)
-        sizePolicy.setHeightForWidth(self.sb_aver.sizePolicy().hasHeightForWidth())
-        self.sb_aver.setSizePolicy(sizePolicy)
+        sizePolicy2.setHeightForWidth(self.sb_aver.sizePolicy().hasHeightForWidth())
+        self.sb_aver.setSizePolicy(sizePolicy2)
         self.sb_aver.setMinimumSize(QSize(71, 0))
         self.sb_aver.setMaximumSize(QSize(43, 16777215))
         self.sb_aver.setButtonSymbols(QAbstractSpinBox.NoButtons)
@@ -253,7 +254,7 @@ class Ui_Form(object):
         self.lo_measure.addWidget(self.placeholder_pm_monitor)
 
 
-        self.verticalLayout_2.addLayout(self.lo_measure)
+        self.horizontalLayout.addLayout(self.lo_measure)
 
 
         self.retranslateUi(Form)
@@ -263,11 +264,12 @@ class Ui_Form(object):
 
     def retranslateUi(self, Form):
         Form.setWindowTitle(QCoreApplication.translate("Form", u"Form", None))
-        self.lbl_cur_param.setText(QCoreApplication.translate("Form", u"Set Wavelength", None))
 #if QT_CONFIG(statustip)
         self.btn_measure.setStatusTip(QCoreApplication.translate("Form", u"Start PhotoAcoustic measurement", None))
 #endif // QT_CONFIG(statustip)
         self.btn_measure.setText(QCoreApplication.translate("Form", u"MEASURE", None))
+        self.lbl_cur_param.setText(QCoreApplication.translate("Form", u"Current Wavelength", None))
+        self.sb_cur_param.setSuffix(QCoreApplication.translate("Form", u" nm", None))
         self.lbl_sample_en.setText(QCoreApplication.translate("Form", u"Sample Energy", None))
         self.sb_sample_en.setSuffix(QCoreApplication.translate("Form", u" uJ", None))
         self.lbl_sample_sp.setText(QCoreApplication.translate("Form", u"SetPoint", None))

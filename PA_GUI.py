@@ -78,7 +78,8 @@ from modules.gui.designer.custom_widgets import (
     CurveMeasureWidget,
     MapMeasureWidget,
     PowerMeterMonitor,
-    CurveView
+    CurveView,
+    PointView
 )
 
 
@@ -116,21 +117,11 @@ def init_logs() -> tuple[logging.Logger, QLogHandler]:
 
     return logging.getLogger('pa_cli'), q_log_handler
 
-def init_hardware() -> None:
-    """CLI for hardware init"""
-
-    try:
-        pa_logic.init_hardware()
-    except HardwareError:
-        logger.error('Hardware initialization failed')
-
 class Window(QMainWindow,Ui_MainWindow,):
     """Application MainWindow."""
 
     worker_pm: Worker|None = None
     "Thread for measuring energy."
-    worker_curve_adj: Worker|None = None
-    "Thread for curve adjustments."
 
     _data: PaData|None = None
 
@@ -201,6 +192,7 @@ class Window(QMainWindow,Ui_MainWindow,):
         ### 0D measurements ###
         self.p_point = PointMeasureWidget(self.sw_central)
         self.sw_central.addWidget(self.p_point)
+        # Init power meter monitor
         self.init_pm_monitor(self.p_point.pm_monitor)
 
         ### 1D measurements ###
@@ -246,11 +238,19 @@ class Window(QMainWindow,Ui_MainWindow,):
         self.cb_mode_select.currentTextChanged.connect(self.upd_mode)
         self.action_measure_PA.toggled.connect(self.activate_measure_widget)
 
+        ### 0D measurements ###
+        # Measure button
+        self.p_point.btn_measure.clicked.connect(
+            lambda x: self.measure(self.p_point)
+        )
+
         ### 1D measurements ###
         # Run button
         self.p_curve.btn_run.toggled.connect(self.run_curve)
         # Measure button
-        self.p_curve.btn_measure.clicked.connect(self.measure_curve)
+        self.p_curve.btn_measure.clicked.connect(
+            lambda x: self.measure(self.p_curve)
+        )
         # Sample energy SetPoint 
         self.p_curve.sb_sample_sp.valueChanged.connect(
             lambda x: self.upd_sp(self.p_curve.sb_sample_sp)
@@ -288,28 +288,6 @@ class Window(QMainWindow,Ui_MainWindow,):
         self.action_Power_Meter.toggled.connect(self.d_pm.setVisible)
         self.d_pm.visibilityChanged.connect(
             self.action_Power_Meter.setChecked
-        )
-
-    def init_pm_monitor(
-            self,
-            monitor: PowerMeterMonitor
-        ) -> None:
-        """Initialize power meter monitor."""
-
-        monitor.btn_start.toggled.connect(
-            lambda enable: self.start_pm_monitor(
-                monitor = monitor,
-                enable = enable
-            )
-        )
-        monitor.btn_pause.toggled.connect(
-            lambda enable: self.start_pm_monitor(
-                monitor = monitor,
-                enable = not enable
-            )
-        )
-        monitor.btn_stop.clicked.connect(
-            lambda x: self.stop_pm_monitor(monitor)
         )
 
     def data_updated(self) -> None:
@@ -543,28 +521,39 @@ class Window(QMainWindow,Ui_MainWindow,):
             )
         )
 
-    def set_cb_detail_view(self, parent: QWidget) -> None:
+    def set_cb_detail_view(
+            self,
+            parent: PointView|CurveView
+        ) -> None:
         """
         Set combobox with signals for detail view.
         
         Implies that combobox is ``cb_detail_select``.
         ``parent`` should have attribute with this name.
         """
-        parent.cb_detail_select.blockSignals(True) # type: ignore
-        parent.cb_detail_select.clear() # type: ignore
-        parent.cb_detail_select.blockSignals(False) # type: ignore
-        parent.cb_detail_select.addItems( # type: ignore
+
+        # Silently clear old values
+        parent.cb_detail_select.blockSignals(True)
+        parent.cb_detail_select.clear()
+        parent.cb_detail_select.blockSignals(False)
+
+        # Set new values
+        parent.cb_detail_select.addItems(
             [key for key in DetailedSignals.keys()]
         )
         self.data_viwer.dtype_point = DetailedSignals[
-            parent.cb_detail_select.currentText() # type: ignore
+            parent.cb_detail_select.currentText()
         ]
-        #Disconnect old slots
+
+        # Disconnect old slots
         try:
-            parent.cb_detail_select.currentTextChanged.disconnect() # type: ignore
+            parent.cb_detail_select.currentTextChanged.disconnect()
         except:
             logger.debug('No slots were connected to cb_detail_select.')
-        parent.cb_detail_select.currentTextChanged.connect(self.upd_point_info) # type: ignore
+        # Not clear
+        parent.cb_detail_select.currentTextChanged.connect(
+            self.upd_point_info
+        )
 
     def set_data_description_view(self, data: PaData) -> None:
         """Set data description tv_info."""
@@ -771,21 +760,22 @@ class Window(QMainWindow,Ui_MainWindow,):
         else:
             self.stop_worker(self.worker_curve_adj)
 
-    def measure_curve(self) -> None:
+    def measure(
+            self,
+            mode_widget: CurveMeasureWidget|PointMeasureWidget
+        ) -> None:
         """Measure a point for 1D PA measurement."""
 
-        #Stop adjustment measurements
-        if self.worker_curve_adj is not None:
-            adj_flag = self.worker_curve_adj.kwargs['flags']['pause']
-            self.worker_curve_adj.kwargs['flags']['pause'] = True
+        # Stop PM measurements
         if self.worker_pm is not None:
             self.worker_pm.kwargs['flags']['pause'] = True
 
-        wl = self.p_curve.sb_cur_param.quantity
+        # Launch measurement
+        wl = mode_widget.sb_cur_param.quantity
         worker = Worker(pa_logic._measure_point, wl)
         worker.signals.result.connect(
             lambda data: self.verify_measurement(
-                self.p_curve,
+                mode_widget,
                 data
             )
         )
@@ -793,7 +783,7 @@ class Window(QMainWindow,Ui_MainWindow,):
 
     def verify_measurement(
             self,
-            parent: CurveMeasureWidget,
+            parent: CurveMeasureWidget|PointMeasureWidget,
             data: MeasuredPoint
         ) -> None:
         """
@@ -835,33 +825,37 @@ class Window(QMainWindow,Ui_MainWindow,):
 
         # pa_verifier.exec return 1 if data is ok and 0 otherwise
         if self.pa_verifier.exec():
+            # create new data structure if necessary
+            if self.data is None:
+                self.data = PaData()
             # create new measurement if it is the first measured point
-            if parent.current_point == 0:
-                # create new data structure if necessary
-                if self.data is None:
-                    self.data = PaData()
-                dims = 0
-                if isinstance(parent, CurveMeasureWidget):
-                    dims = 1
-                msmnt_title = self.data.add_measurement(
-                    dims = dims,
-                    parameters = parent.parameter
+            # in curve measurement
+            if isinstance(parent, CurveMeasureWidget):
+                if parent.current_point == 0:
+                    msmnt_title = self.data.add_measurement(
+                        dims = 1,
+                        parameters = parent.parameter
+                    )
+                # otherwise take title of the last measurement
+                else:
+                    if self.data is None:
+                        logger.error('Trying to add not starting point '
+                                    + 'while data is None.')
+                        return
+                    msmnt_title = PaData._build_name(
+                        self.data.attrs.measurements_count,
+                        'measurement'
                 )
-            # otherwise take title of the last measurement
+            # for point data new measurement is created each time
             else:
-                if self.data is None:
-                    logger.error('Trying to add not starting point '
-                                 + 'while data is None.')
-                    return
-                msmnt_title = PaData._build_name(
-                    self.data.attrs.measurements_count,
-                    'measurement'
+                msmnt_title = self.data.add_measurement(
+                    dims = 0,
+                    parameters = []
                 )
-            
             # add datapoint to the measurement
             msmnt = self.data.measurements[msmnt_title]
             cur_param = []
-            if isinstance(parent,CurveMeasureWidget):
+            if isinstance(parent, CurveMeasureWidget):
                 cur_param.append(parent.sb_cur_param.quantity)
             self.data.add_point(
                 measurement = msmnt,
@@ -869,20 +863,22 @@ class Window(QMainWindow,Ui_MainWindow,):
                 param_val = cur_param.copy()
             )
 
-            if msmnt.attrs.measurement_dims != 0:
-                # update current point, which will trigger update of widgets on parent
+            # update current point, which will trigger update of 
+            # widgets on parent
+            if isinstance(parent, CurveMeasureWidget):
                 parent.current_point += 1
                 # update measurement plot
                 self.upd_plot(
                     parent.plot_measurement,
                     *self.data.param_data_plot(msmnt = msmnt)
                 )
+                
             # Update data_viewer
             self.data_changed.emit()
 
         # Resume energy adjustment
-        if self.worker_curve_adj is not None:
-            self.worker_curve_adj.kwargs['flags']['pause'] = False
+        if self.worker_pm is not None:
+            self.worker_pm.kwargs['flags']['pause'] = False
 
     def upd_sp(self, caller: QuantSpinBox) -> None:
         """Update Set Point data for currently active page."""
@@ -966,6 +962,28 @@ class Window(QMainWindow,Ui_MainWindow,):
                 logger.info('Energy measurement cycle started!')
         else:
             logger.info('Failed to start energy mesurement cycle!')
+
+    def init_pm_monitor(
+            self,
+            monitor: PowerMeterMonitor
+        ) -> None:
+        """Initialize power meter monitor."""
+
+        monitor.btn_start.toggled.connect(
+            lambda enable: self.start_pm_monitor(
+                monitor = monitor,
+                enable = enable
+            )
+        )
+        monitor.btn_pause.toggled.connect(
+            lambda enable: self.start_pm_monitor(
+                monitor = monitor,
+                enable = not enable
+            )
+        )
+        monitor.btn_stop.clicked.connect(
+            lambda x: self.stop_pm_monitor(monitor)
+        )
 
     def start_pm_monitor(
             self,
@@ -1191,22 +1209,6 @@ class Window(QMainWindow,Ui_MainWindow,):
                 result.extend(self._unpack_layout(item.children()))
         return result
 
-    def upd_le(self, widget: QWidget, val: str|PlainQuantity) -> None:
-        """
-        Update text of a line edit.
-        
-        ``widget`` - line edit widget,\n
-        ``val`` - value to be set.
-        """
-
-        if not isinstance(widget, QLineEdit):
-            logger.warning(
-                'Trying to set text of a LINE EDIT = '
-                + f'{widget.objectName()}, which actually is '
-                + f'{type(widget)}.')
-            return
-        widget.setText(str(val))
-
     def confirm_action(self,
             title: str = 'Confirm',
             message: str = 'Are you sure?'
@@ -1278,7 +1280,5 @@ if __name__ == '__main__':
     ureg.setup_matplotlib(True)
     logger.debug('MatplotLib handlers for pint activated')
     pa_logic.load_config()
-    logger.debug('Initializing PaData class for storing data')
-    data = PaData()
     win.showMaximized()
     sys.exit(app.exec())

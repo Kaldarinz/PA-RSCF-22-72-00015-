@@ -104,7 +104,7 @@ class MeasurementMetadata:
 
     measurement_dims: int
     'dimensionality of the measurement'
-    parameter_name: list[str]
+    parameter_name: list[str] = field(default_factory = list)
     'independent parameter, changed between measured PA signals'
     data_points: int = 0
     'amount of datapoints in the measurement'
@@ -123,7 +123,7 @@ class Measurement:
 
     attrs: MeasurementMetadata
     "MetaData of the measurement."
-    data: dict[str, DataPoint] = field(default_factory=dict)
+    data: dict[str, DataPoint] = field(default_factory = dict)
 
 def empty_ndarray():
     return np.empty(0, dtype=np.int8)

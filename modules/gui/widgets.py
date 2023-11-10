@@ -1,4 +1,4 @@
-from typing import Iterable
+from typing import Iterable, Optional
 import os
 import logging
 
@@ -18,7 +18,8 @@ from PySide6.QtWidgets import (
     QTreeWidget,
     QTreeWidgetItem,
     QMenu,
-    QFileDialog
+    QFileDialog,
+    QWidget
 )
 from PySide6.QtGui import (
     QStandardItem,
@@ -129,6 +130,11 @@ class MplCanvas(FigureCanvasQTAgg):
         self._sp = value.m
             
 class QuantSpinBox(QDoubleSpinBox):
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+
+        self.quantity = ureg(self.text())
 
     @property
     def quantity(self) -> PlainQuantity:
