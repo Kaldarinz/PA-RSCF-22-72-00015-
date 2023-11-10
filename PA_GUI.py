@@ -514,11 +514,12 @@ class Window(QMainWindow,Ui_MainWindow,):
         view.cb_curve_select.addItems(
             [key for key in ParamSignals.keys()]
         )
+
         view.cb_curve_select.currentTextChanged.connect(
             lambda new_val: self.upd_plot(
                 view.plot_curve,
-                *self.data.param_data_plot(
-                    self.data_viwer.measurement,
+                *self.data.param_data_plot( # type: ignore
+                    self.data_viwer.measurement, # type: ignore
                     ParamSignals[new_val]
                 ),
                 marker = self.data_viwer.data_index,
@@ -694,9 +695,15 @@ class Window(QMainWindow,Ui_MainWindow,):
             measurement: Measurement|None = None):
         """Callback method for processing data picking on plot."""
 
+        if self.data_viwer.measurement is None:
+            logger.warning(
+                'pick event cannot be processed. Measurement is missing.'
+            )
+            return
+
         # Update datamarker on plot
         if widget._marker_ref is None:
-            logger.warning('Marker is None')
+            logger.warning('Marker is not set.')
             return
         widget._marker_ref.set_data(
             widget.xdata[event.ind[0]], # type: ignore
