@@ -28,13 +28,9 @@ class Ui_Form(object):
         Form.resize(995, 623)
         self.verticalLayout_3 = QVBoxLayout(Form)
         self.verticalLayout_3.setObjectName(u"verticalLayout_3")
-        self.verticalLayout_3.setContentsMargins(0, 0, 0, 0)
+        self.verticalLayout_3.setContentsMargins(0, 6, 0, 6)
         self.horizontalLayout_9 = QHBoxLayout()
         self.horizontalLayout_9.setObjectName(u"horizontalLayout_9")
-        self.horizontalSpacer_2 = QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum)
-
-        self.horizontalLayout_9.addItem(self.horizontalSpacer_2)
-
         self.lbl_cur_en = QLabel(Form)
         self.lbl_cur_en.setObjectName(u"lbl_cur_en")
 
@@ -112,24 +108,29 @@ class Ui_Form(object):
 
         self.horizontalLayout_9.addWidget(self.btn_stop)
 
+        self.horizontalSpacer = QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum)
+
+        self.horizontalLayout_9.addItem(self.horizontalSpacer)
+
 
         self.verticalLayout_3.addLayout(self.horizontalLayout_9)
 
         self.splitter = QSplitter(Form)
         self.splitter.setObjectName(u"splitter")
         self.splitter.setOrientation(Qt.Horizontal)
-        self.widget = QWidget(self.splitter)
-        self.widget.setObjectName(u"widget")
-        self.verticalLayout_2 = QVBoxLayout(self.widget)
+        self.layoutWidget = QWidget(self.splitter)
+        self.layoutWidget.setObjectName(u"layoutWidget")
+        self.verticalLayout_2 = QVBoxLayout(self.layoutWidget)
         self.verticalLayout_2.setObjectName(u"verticalLayout_2")
         self.verticalLayout_2.setContentsMargins(0, 0, 0, 0)
-        self.lbl_signal = QLabel(self.widget)
+        self.lbl_signal = QLabel(self.layoutWidget)
         self.lbl_signal.setObjectName(u"lbl_signal")
+        self.lbl_signal.setFont(font)
         self.lbl_signal.setAlignment(Qt.AlignCenter)
 
         self.verticalLayout_2.addWidget(self.lbl_signal)
 
-        self.plot_left = MplCanvas(self.widget)
+        self.plot_left = MplCanvas(self.layoutWidget)
         self.plot_left.setObjectName(u"plot_left")
         sizePolicy1 = QSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         sizePolicy1.setHorizontalStretch(0)
@@ -139,26 +140,27 @@ class Ui_Form(object):
 
         self.verticalLayout_2.addWidget(self.plot_left)
 
-        self.splitter.addWidget(self.widget)
-        self.widget1 = QWidget(self.splitter)
-        self.widget1.setObjectName(u"widget1")
-        self.verticalLayout = QVBoxLayout(self.widget1)
+        self.splitter.addWidget(self.layoutWidget)
+        self.layoutWidget1 = QWidget(self.splitter)
+        self.layoutWidget1.setObjectName(u"layoutWidget1")
+        self.verticalLayout = QVBoxLayout(self.layoutWidget1)
         self.verticalLayout.setObjectName(u"verticalLayout")
         self.verticalLayout.setContentsMargins(0, 0, 0, 0)
-        self.lbl_tune = QLabel(self.widget1)
+        self.lbl_tune = QLabel(self.layoutWidget1)
         self.lbl_tune.setObjectName(u"lbl_tune")
+        self.lbl_tune.setFont(font)
         self.lbl_tune.setAlignment(Qt.AlignCenter)
 
         self.verticalLayout.addWidget(self.lbl_tune)
 
-        self.plot_right = MplCanvas(self.widget1)
+        self.plot_right = MplCanvas(self.layoutWidget1)
         self.plot_right.setObjectName(u"plot_right")
         sizePolicy1.setHeightForWidth(self.plot_right.sizePolicy().hasHeightForWidth())
         self.plot_right.setSizePolicy(sizePolicy1)
 
         self.verticalLayout.addWidget(self.plot_right)
 
-        self.splitter.addWidget(self.widget1)
+        self.splitter.addWidget(self.layoutWidget1)
 
         self.verticalLayout_3.addWidget(self.splitter)
 
@@ -172,7 +174,7 @@ class Ui_Form(object):
         Form.setWindowTitle(QCoreApplication.translate("Form", u"Form", None))
         self.lbl_cur_en.setText(QCoreApplication.translate("Form", u"Current Energy:", None))
         self.lbl_aver_en.setText(QCoreApplication.translate("Form", u"Average Energy:", None))
-        self.lbl_std_en.setText(QCoreApplication.translate("Form", u"std Energy:", None))
+        self.lbl_std_en.setText(QCoreApplication.translate("Form", u"std:", None))
         self.btn_start.setText(QCoreApplication.translate("Form", u"START", None))
         self.btn_pause.setText(QCoreApplication.translate("Form", u"PAUSE", None))
         self.btn_stop.setText(QCoreApplication.translate("Form", u"STOP", None))

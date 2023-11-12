@@ -41,6 +41,22 @@ class Ui_Form(object):
         self.verticalLayout = QVBoxLayout(self.w_measure)
         self.verticalLayout.setObjectName(u"verticalLayout")
         self.verticalLayout.setContentsMargins(0, 0, 0, 0)
+        self.lbl_measure_settings = QLabel(self.w_measure)
+        self.lbl_measure_settings.setObjectName(u"lbl_measure_settings")
+        font = QFont()
+        font.setBold(True)
+        self.lbl_measure_settings.setFont(font)
+        self.lbl_measure_settings.setAlignment(Qt.AlignCenter)
+
+        self.verticalLayout.addWidget(self.lbl_measure_settings)
+
+        self.line_3 = QFrame(self.w_measure)
+        self.line_3.setObjectName(u"line_3")
+        self.line_3.setFrameShape(QFrame.HLine)
+        self.line_3.setFrameShadow(QFrame.Sunken)
+
+        self.verticalLayout.addWidget(self.line_3)
+
         self.btn_measure = QPushButton(self.w_measure)
         self.btn_measure.setObjectName(u"btn_measure")
         sizePolicy1 = QSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
@@ -48,8 +64,6 @@ class Ui_Form(object):
         sizePolicy1.setVerticalStretch(0)
         sizePolicy1.setHeightForWidth(self.btn_measure.sizePolicy().hasHeightForWidth())
         self.btn_measure.setSizePolicy(sizePolicy1)
-        font = QFont()
-        font.setBold(True)
         self.btn_measure.setFont(font)
         icon = QIcon()
         icon.addFile(u":/icons/qt_resources/control-stop.png", QSize(), QIcon.Normal, QIcon.Off)
@@ -248,6 +262,13 @@ class Ui_Form(object):
 
         self.lo_measure.addWidget(self.w_measure)
 
+        self.line_2 = QFrame(Form)
+        self.line_2.setObjectName(u"line_2")
+        self.line_2.setFrameShape(QFrame.VLine)
+        self.line_2.setFrameShadow(QFrame.Sunken)
+
+        self.lo_measure.addWidget(self.line_2)
+
         self.placeholder_pm_monitor = QWidget(Form)
         self.placeholder_pm_monitor.setObjectName(u"placeholder_pm_monitor")
 
@@ -264,6 +285,7 @@ class Ui_Form(object):
 
     def retranslateUi(self, Form):
         Form.setWindowTitle(QCoreApplication.translate("Form", u"Form", None))
+        self.lbl_measure_settings.setText(QCoreApplication.translate("Form", u"Set Measurement Settings", None))
 #if QT_CONFIG(statustip)
         self.btn_measure.setStatusTip(QCoreApplication.translate("Form", u"Start PhotoAcoustic measurement", None))
 #endif // QT_CONFIG(statustip)

@@ -196,7 +196,6 @@ class Window(QMainWindow,Ui_MainWindow,):
         ### 1D measurements ###
         self.p_curve = CurveMeasureWidget(self.sw_central)
         self.sw_central.addWidget(self.p_curve)
-        self.p_curve.w_measure.hide()
         # Initial value of SetPoint
         setpoint = self.p_curve.sb_sample_sp.quantity
         self.p_curve.pm_monitor.plot_right.sp = setpoint
@@ -243,19 +242,19 @@ class Window(QMainWindow,Ui_MainWindow,):
         )
 
         ### 1D measurements ###
-        # Button Run
-        self.p_curve.btn_run.toggled.connect(self.run_curve)
+        # Button Set Parameter
+        self.p_curve.btn_run.clicked.connect(self.run_curve)
         # Button Measure
         self.p_curve.btn_measure.clicked.connect(
             lambda x: self.measure(self.p_curve)
         )
         # Button restart
         self.p_curve.btn_restart.clicked.connect(
-            lambda x: setattr(self.p_curve, 'current_point', 0)
+            lambda x: self.restart_measurement(self.p_curve)
         )
         # Button stop
         self.p_curve.btn_stop.clicked.connect(
-            lambda x: setattr(self.p_curve, 'current_point', 0)
+            lambda x: self.stop_measurement(self.p_curve)
         )
         # Sample energy SetPoint 
         self.p_curve.sb_sample_sp.valueChanged.connect(
@@ -747,7 +746,21 @@ class Window(QMainWindow,Ui_MainWindow,):
         else:
             self.action_Data.setChecked(True)
 
-    def run_curve(self, activated: bool) -> None:
+    def _set_layout_enabled(
+            self,
+            layout: QLayout,
+            enabled: bool
+        ) -> None:
+        """Set enabled for all QWidgets in a layout."""
+
+        for i in range(layout.count()):
+            child = layout.itemAt(i)
+            if child.layout() is not None:
+                self._set_layout_enabled(child.layout(), enabled)
+            else:
+                child.widget().setEnabled(enabled) # type: ignore
+
+    def run_curve(self) -> None:
         """
         Start 1D measurement.
         
@@ -756,52 +769,59 @@ class Window(QMainWindow,Ui_MainWindow,):
         Also set progress bar and realted widgets.
         """
 
-        # Activate curve measure widget
-        self.p_curve.w_measure.setVisible(activated)
+        # Activate curve measure button
+        self._set_layout_enabled(
+            self.p_curve.lo_measure_ctrls,
+            True
+        )
+        # But keep restart deactivated
+        self.p_curve.btn_restart.setEnabled(False)
+
+        # Deactivate paramter controls
+        self._set_layout_enabled(
+            self.p_curve.lo_parameter,
+            False
+        )
 
         page = self.p_curve
-        if activated and pa_logic.osc_open():
+        if  pa_logic.osc_open():
             # launch energy adjustment
             self.start_pm_monitor(
                 page.pm_monitor,
                 True
             )
-
-            # calculate amount of paramter values
-            param_start = page.sb_from.quantity
-            param_end = page.sb_to.quantity
-            step = page.sb_step.quantity
-            delta = abs(param_end-param_start)
-            if delta%step:
-                max_steps = int(delta/step) + 2
-            else:
-                max_steps = int(delta/step) + 1
-            page.max_steps = max_steps
-
-            # set paramter name attribute
-            page.parameter = [page.cb_mode.currentText()]
-
-            # create array with all parameter values
-            # and set it as attribute along with step
-            spectral_points = []
-            if param_start < param_end:
-                page.sb_cur_param.setMinimum(param_start.m)
-                page.sb_cur_param.setMaximum(param_end.m)
-                page.step = step
-                for i in range(max_steps-1):
-                    spectral_points.append(param_start+i*step)
-                spectral_points.append(param_end)
-            else:
-                page.sb_cur_param.setMinimum(param_end.m)
-                page.sb_cur_param.setMaximum(param_start.m)
-                page.step = -step
-                for i in range(max_steps-1):
-                    spectral_points.append(param_end+i*step)
-                spectral_points.append(param_start)
-            page.param_points = Q_.from_list(spectral_points)
-            page.current_point = 0
-        elif not pa_logic.osc_open():
+        else:
             logger.warning('Oscilloscope is not initialized.')
+        
+        # calculate amount of paramter values
+        param_start = page.sb_from.quantity
+        param_end = page.sb_to.quantity
+        step = page.sb_step.quantity
+        delta = abs(param_end-param_start)
+        if delta%step:
+            max_steps = int(delta/step) + 2
+        else:
+            max_steps = int(delta/step) + 1
+        page.max_steps = max_steps
+
+        # set paramter name attribute
+        page.parameter = [page.cb_mode.currentText()]
+
+        # create array with all parameter values
+        # and set it as attribute along with step
+        spectral_points = []
+        if param_start < param_end:
+            page.step = step
+            for i in range(max_steps-1):
+                spectral_points.append(param_start+i*step)
+            spectral_points.append(param_end)
+        else:
+            page.step = -step
+            for i in range(max_steps-1):
+                spectral_points.append(param_end+i*step)
+            spectral_points.append(param_start)
+        page.param_points = Q_.from_list(spectral_points)
+        page.current_point = 0
 
     def measure(
             self,
@@ -848,18 +868,18 @@ class Window(QMainWindow,Ui_MainWindow,):
             data.dt_pm.u
         )
         self.upd_plot(
-            plot_pm,
-            ydata=ydata,
-            xdata=xdata
+            widget = plot_pm,
+            ydata = ydata,
+            xdata = xdata
         )
 
         # PA signal plot
         start = data.start_time
         stop = data.stop_time.to(start.u)
         self.upd_plot(
-            plot_pa,
-            ydata=data.pa_signal,
-            xdata=Q_(
+            widget = plot_pa,
+            ydata = data.pa_signal,
+            xdata = Q_(
                 np.linspace(
                     start.m,
                     stop.m,
@@ -882,6 +902,8 @@ class Window(QMainWindow,Ui_MainWindow,):
                         dims = 1,
                         parameters = parent.parameter
                     )
+                    # Activate restart button
+                    parent.btn_restart.setEnabled(True)
                 # otherwise take title of the last measurement
                 else:
                     if self.data is None:
@@ -908,32 +930,66 @@ class Window(QMainWindow,Ui_MainWindow,):
                 data = data,
                 param_val = cur_param.copy()
             )
-
             
             if isinstance(parent, CurveMeasureWidget):
-                # update current point, which will trigger update of 
-                # widgets on parent
+                # update current point attribute, which will trigger 
+                # update of realted widgets on parent
                 parent.current_point += 1
                 # Enable measure button if not last point
                 if parent.current_point < parent.max_steps:
                     parent.btn_measure.setEnabled(True)
+                # Enable parameter control if it was the last point
+                else:
+                    self._set_layout_enabled(
+                        parent.lo_parameter,
+                        True
+                    )
                 # update measurement plot
                 self.upd_plot(
                     parent.plot_measurement,
                     *self.data.param_data_plot(msmnt = msmnt)
                 )
             else:
-                # Enable measure button
-                parent.btn_measure.setEnabled(True)
-                
+                # Enable measure button for Point measuremnt
+                parent.btn_measure.setEnabled(True) 
             # Update data_viewer
             self.data_changed.emit()
+        # Enable measure button if measured point is bad
         else:
-            # Enable measure button
             parent.btn_measure.setEnabled(True)
+        
         # Resume energy adjustment
         if self.worker_pm is not None:
             self.worker_pm.kwargs['flags']['pause'] = False
+
+    def restart_measurement(
+            self,
+            msmnt_page: CurveMeasureWidget
+        ) -> None:
+        """Restart a measurement."""
+
+        msmnt_page.current_point = 0
+
+    def stop_measurement(
+            self,
+            msmnt_page: CurveMeasureWidget
+        ) -> None:
+        """
+        Stop a measurement.
+        
+        Stop the measurement, by activating paramter controls
+        and deactivating measurement controls.
+        """
+
+        msmnt_page.current_point = 0
+        self._set_layout_enabled(
+            msmnt_page.lo_parameter,
+            True
+        )
+        self._set_layout_enabled(
+            msmnt_page.lo_measure_ctrls,
+            False
+        )
 
     def upd_sp(self, caller: QuantSpinBox) -> None:
         """Update Set Point data for currently active page."""
