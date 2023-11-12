@@ -712,13 +712,16 @@ class PaData:
     def point_data_plot(
             msmnt: Measurement,
             index: int,
-            dtype: str
+            dtype: str,
+            dstart: PlainQuantity|None = None,
+            dstop: PlainQuantity|None = None
         ) -> tuple[npt.NDArray, npt.NDArray, str, str]:
         """
         Get point data for plotting.
         
         ``index`` - index of data to get the data point.\n
-        ``dtype`` - type of data to be returned..\n
+        ``dtype`` - type of data to be returned.\n
+        ``dstart`` and ``dstop`` limit plot range.\n
         Return a tuple, which contain [ydata, xdata, ylabel, xlabel].
         """
 
@@ -727,22 +730,28 @@ class PaData:
         ds_name = PaData._build_name(index+1)
 
         ds = getattr(msmnt.data[ds_name], dtype)
-        result = PaData._point_data(ds)
+        result = PaData._point_data(ds, dstart, dstop)
         return result
 
     @staticmethod
     def _point_data(
-            ds: BaseData|ProcessedData
+            ds: BaseData|ProcessedData,
+            dstart: PlainQuantity|None = None,
+            dstop: PlainQuantity|None = None
         ) -> tuple[npt.NDArray, npt.NDArray, str, str]:
         """
         Get point data for plotting.
         
         ``ds`` - dataset for plotting.\n
         ``attrs`` - dict with attributes of group containing ``ds``.\n
+        ``dstart`` and ``dstop`` limit plot range.\n
         Return a tuple, which contain [ydata, ydata, ylabel, xlabel].
         """
         
         start = ds.x_var_start
+        ### Need to finish it on real data.
+        if dstart is not None and dstart.is_compatible_with(start):
+            pass
         stop = ds.x_var_stop
         step = ds.x_var_step
         num = len(ds.data) # type: ignore
