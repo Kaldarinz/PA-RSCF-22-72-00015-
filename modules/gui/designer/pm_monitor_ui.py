@@ -31,6 +31,10 @@ class Ui_Form(object):
         self.verticalLayout_3.setContentsMargins(0, 6, 0, 6)
         self.horizontalLayout_9 = QHBoxLayout()
         self.horizontalLayout_9.setObjectName(u"horizontalLayout_9")
+        self.horizontalSpacer = QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum)
+
+        self.horizontalLayout_9.addItem(self.horizontalSpacer)
+
         self.lbl_cur_en = QLabel(Form)
         self.lbl_cur_en.setObjectName(u"lbl_cur_en")
 
@@ -108,15 +112,16 @@ class Ui_Form(object):
 
         self.horizontalLayout_9.addWidget(self.btn_stop)
 
-        self.horizontalSpacer = QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum)
-
-        self.horizontalLayout_9.addItem(self.horizontalSpacer)
-
 
         self.verticalLayout_3.addLayout(self.horizontalLayout_9)
 
         self.splitter = QSplitter(Form)
         self.splitter.setObjectName(u"splitter")
+        sizePolicy1 = QSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        sizePolicy1.setHorizontalStretch(0)
+        sizePolicy1.setVerticalStretch(0)
+        sizePolicy1.setHeightForWidth(self.splitter.sizePolicy().hasHeightForWidth())
+        self.splitter.setSizePolicy(sizePolicy1)
         self.splitter.setOrientation(Qt.Horizontal)
         self.layoutWidget = QWidget(self.splitter)
         self.layoutWidget.setObjectName(u"layoutWidget")
@@ -132,9 +137,6 @@ class Ui_Form(object):
 
         self.plot_left = MplCanvas(self.layoutWidget)
         self.plot_left.setObjectName(u"plot_left")
-        sizePolicy1 = QSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        sizePolicy1.setHorizontalStretch(0)
-        sizePolicy1.setVerticalStretch(0)
         sizePolicy1.setHeightForWidth(self.plot_left.sizePolicy().hasHeightForWidth())
         self.plot_left.setSizePolicy(sizePolicy1)
 

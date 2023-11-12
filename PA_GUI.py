@@ -9,7 +9,7 @@ import sys
 import time
 import logging, logging.config
 from datetime import datetime
-from typing import Iterable, Callable
+from typing import Iterable, Callable, cast
 from dataclasses import field, fields
 from functools import partial
 
@@ -226,10 +226,20 @@ class Window(QMainWindow,Ui_MainWindow,):
         self.q_logger.thread.log.connect(self.d_log.te_log.appendPlainText)
 
         ### Various actions ###
+        # Hardware initialization
         self.action_Init.triggered.connect(self.init_hardware)
+        # Date change event
         self.data_changed.connect(self.data_updated)
+        # Close file
         self.action_Close.triggered.connect(self.close_file)
-        self.actionSave_As.triggered.connect(self.save_as_file)
+        # Save file
+        self.action_Save.triggered.connect(
+            lambda x: self.save_file(False)
+        )
+        # Save as file
+        self.actionSave_As.triggered.connect(
+            lambda x: self.save_file(True)
+        )
 
         ### Mode selection ###
         self.cb_mode_select.currentTextChanged.connect(self.upd_mode)
@@ -295,6 +305,7 @@ class Window(QMainWindow,Ui_MainWindow,):
             self.action_Power_Meter.setChecked
         )
 
+    @Slot()
     def data_updated(self) -> None:
         """Slot, which triggers when data is changed."""
 
@@ -303,18 +314,23 @@ class Window(QMainWindow,Ui_MainWindow,):
             is_exist = False
         else:
             is_exist = True
-        self.action_Save.setEnabled(is_exist)
+        # Set enable for save only if data was loaded from file
+        data_title = self.data_viwer.lbl_data_title.text()
+        data_title = data_title.split('*')[0]
+        if data_title.endswith('hdf5') and is_exist:
+            self.action_Save.setEnabled(is_exist)
         self.actionSave_As.setEnabled(is_exist)
 
-        # set marker for title
+        # set marker of changed data for title
         data_title = self.data_viwer.lbl_data_title.text()
-        if not data_title.endswith('*'):
+        if not data_title.endswith('*') and self.data is not None:
             data_title = data_title + '*'
             self.data_viwer.lbl_data_title.setText(data_title)
 
         # Update data viewer
         self.load_data_view(self.data)
 
+    @Slot()
     def open_file(self) -> None:
         """Load data file."""
 
@@ -330,17 +346,23 @@ class Window(QMainWindow,Ui_MainWindow,):
             self.data_viwer.lbl_data_title.setText(basename)
             self.load_data_view(self.data)
 
-    def save_as_file(self) -> None:
+    @Slot()
+    def save_file(self, new_file: bool) -> None:
         """Save data to file."""
 
         path = os.path.dirname(__file__)
         initial_dir = os.path.join(path, 'measuring results')
-        filename = QFileDialog.getSaveFileName(
-            self,
-            caption='Choose a file',
-            dir=initial_dir,
-            filter='Hierarchical Data Format (*.hdf5)'
-        )[0]
+        if not new_file:
+            file_title = self.data_viwer.lbl_data_title.text()
+            file_title = file_title.split('*')[0]
+            filename = os.path.join(initial_dir, file_title)
+        else:
+            filename = QFileDialog.getSaveFileName(
+                self,
+                caption='Choose a file',
+                dir=initial_dir,
+                filter='Hierarchical Data Format (*.hdf5)'
+            )[0]
         if self.data is not None:
             if self.data.attrs.version < 1.2:
                 self.data.attrs.version = PaData.VERSION
@@ -350,6 +372,7 @@ class Window(QMainWindow,Ui_MainWindow,):
             data_title = data_title.split('*')[0]
             self.data_viwer.lbl_data_title.setText(data_title)
 
+    @Slot()
     def close_file(self) -> None:
         """Close current file."""
 
@@ -648,6 +671,7 @@ class Window(QMainWindow,Ui_MainWindow,):
 
         # update plot
         active_dview = self.data_viwer.sw_view.currentWidget()
+        active_dview = cast(CurveView, active_dview)
         self.upd_plot(
             active_dview.plot_detail, # type: ignore
             *self.data.point_data_plot(
@@ -658,9 +682,8 @@ class Window(QMainWindow,Ui_MainWindow,):
         )
         # Update description
         tv = self.data_viwer.tv_info
-        exp_state = False
+
         # clear existing description 
-        # but save expanded state
         if tv.pmd is not None:
             index = tv.indexOfTopLevelItem(tv.pmd)
             tv.takeTopLevelItem(index)
@@ -713,7 +736,7 @@ class Window(QMainWindow,Ui_MainWindow,):
         self.data_viwer.data_index = event.ind[0] # type: ignore
         dp_name = PaData._build_name(event.ind[0] + 1) # type: ignore
         self.data_viwer.datapoint = self.data_viwer.measurement.data[dp_name]
-        # update text info
+        # update point widgets
         self.upd_point_info()
 
     def get_filename(self) -> str:
@@ -738,6 +761,7 @@ class Window(QMainWindow,Ui_MainWindow,):
         else:
             self.upd_mode(self.cb_mode_select.currentText())
 
+    @Slot()
     def activate_measure_widget(self, activated: bool) -> None:
         """Toggle measre widget."""
 
@@ -1042,15 +1066,23 @@ class Window(QMainWindow,Ui_MainWindow,):
     def closeEvent(self, event) -> None:
         """Exis routines."""
 
-        if self.confirm_action(
+        # Check if some data is not saved
+        if self.data_viwer.lbl_data_title.text().endswith('*'):
+            if not self.confirm_action(
+                title = 'Data not saved',
+                message = ('You have not saved data. '
+                           + 'Do you really want to exit?')
+            ):
+                event.ignore()
+        elif not self.confirm_action(
             title = 'Confirm Close',
             message = 'Do you really want to exit?'
         ):
+            event.ignore()
+        else:
             logger.info('Stopping application')
             for stage in dc.hardware.stages:
                 stage.close()
-        else:
-            event.ignore()
 
     def init_hardware(self) -> None:
         """
@@ -1214,6 +1246,7 @@ class Window(QMainWindow,Ui_MainWindow,):
 
         return f'{quant:~.2gP}'
 
+    @Slot()
     def upd_plot(
             self,
             widget: MplCanvas,

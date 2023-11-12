@@ -106,7 +106,7 @@ class CurveMeasureWidget(QWidget,curve_measure_widget_ui.Ui_Form):
 
         self.pm_monitor = PowerMeterMonitor(self)
         self.lo_measure.replaceWidget(
-            self.placeholder_pm_monitor,
+            0,
             self.pm_monitor
         )
         self.parameter: list[str]

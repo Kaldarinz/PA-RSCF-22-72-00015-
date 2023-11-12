@@ -28,20 +28,19 @@ class Ui_Form(object):
         if not Form.objectName():
             Form.setObjectName(u"Form")
         Form.resize(1117, 842)
-        self.horizontalLayout_8 = QHBoxLayout(Form)
-        self.horizontalLayout_8.setObjectName(u"horizontalLayout_8")
-        self.splitter = QSplitter(Form)
-        self.splitter.setObjectName(u"splitter")
-        self.splitter.setOrientation(Qt.Vertical)
-        self.widget = QWidget(self.splitter)
-        self.widget.setObjectName(u"widget")
-        self.lo_measure = QHBoxLayout(self.widget)
-        self.lo_measure.setObjectName(u"lo_measure")
-        self.lo_measure.setContentsMargins(0, 0, 0, 0)
+        self.verticalLayout_3 = QVBoxLayout(Form)
+        self.verticalLayout_3.setObjectName(u"verticalLayout_3")
+        self.horizontalLayout = QHBoxLayout()
+        self.horizontalLayout.setObjectName(u"horizontalLayout")
         self.verticalLayout_2 = QVBoxLayout()
         self.verticalLayout_2.setObjectName(u"verticalLayout_2")
-        self.lbl_measure_settings = QLabel(self.widget)
+        self.lbl_measure_settings = QLabel(Form)
         self.lbl_measure_settings.setObjectName(u"lbl_measure_settings")
+        sizePolicy = QSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
+        sizePolicy.setHorizontalStretch(0)
+        sizePolicy.setVerticalStretch(0)
+        sizePolicy.setHeightForWidth(self.lbl_measure_settings.sizePolicy().hasHeightForWidth())
+        self.lbl_measure_settings.setSizePolicy(sizePolicy)
         font = QFont()
         font.setBold(True)
         self.lbl_measure_settings.setFont(font)
@@ -49,47 +48,39 @@ class Ui_Form(object):
 
         self.verticalLayout_2.addWidget(self.lbl_measure_settings)
 
-        self.line_7 = QFrame(self.widget)
-        self.line_7.setObjectName(u"line_7")
-        self.line_7.setFrameShape(QFrame.HLine)
-        self.line_7.setFrameShadow(QFrame.Sunken)
-
-        self.verticalLayout_2.addWidget(self.line_7)
-
         self.lo_parameter = QVBoxLayout()
         self.lo_parameter.setObjectName(u"lo_parameter")
         self.grid_lo = QGridLayout()
         self.grid_lo.setObjectName(u"grid_lo")
-        self.lbl_mode = QLabel(self.widget)
+        self.lbl_mode = QLabel(Form)
         self.lbl_mode.setObjectName(u"lbl_mode")
+        sizePolicy.setHeightForWidth(self.lbl_mode.sizePolicy().hasHeightForWidth())
+        self.lbl_mode.setSizePolicy(sizePolicy)
 
         self.grid_lo.addWidget(self.lbl_mode, 0, 0, 1, 1)
 
-        self.cb_mode = QComboBox(self.widget)
+        self.cb_mode = QComboBox(Form)
         self.cb_mode.addItem("")
         self.cb_mode.addItem("")
         self.cb_mode.addItem("")
         self.cb_mode.setObjectName(u"cb_mode")
-        sizePolicy = QSizePolicy(QSizePolicy.Maximum, QSizePolicy.Fixed)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.cb_mode.sizePolicy().hasHeightForWidth())
-        self.cb_mode.setSizePolicy(sizePolicy)
-        self.cb_mode.setMaximumSize(QSize(100, 16777215))
+        sizePolicy1 = QSizePolicy(QSizePolicy.Maximum, QSizePolicy.Fixed)
+        sizePolicy1.setHorizontalStretch(0)
+        sizePolicy1.setVerticalStretch(0)
+        sizePolicy1.setHeightForWidth(self.cb_mode.sizePolicy().hasHeightForWidth())
+        self.cb_mode.setSizePolicy(sizePolicy1)
+        self.cb_mode.setMaximumSize(QSize(16777215, 16777215))
 
         self.grid_lo.addWidget(self.cb_mode, 0, 1, 1, 1)
 
-        self.lbl_from = QLabel(self.widget)
+        self.lbl_from = QLabel(Form)
         self.lbl_from.setObjectName(u"lbl_from")
-        sizePolicy1 = QSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
-        sizePolicy1.setHorizontalStretch(0)
-        sizePolicy1.setVerticalStretch(0)
-        sizePolicy1.setHeightForWidth(self.lbl_from.sizePolicy().hasHeightForWidth())
-        self.lbl_from.setSizePolicy(sizePolicy1)
+        sizePolicy.setHeightForWidth(self.lbl_from.sizePolicy().hasHeightForWidth())
+        self.lbl_from.setSizePolicy(sizePolicy)
 
         self.grid_lo.addWidget(self.lbl_from, 1, 0, 1, 1)
 
-        self.sb_from = QuantSpinBox(self.widget)
+        self.sb_from = QuantSpinBox(Form)
         self.sb_from.setObjectName(u"sb_from")
         self.sb_from.setDecimals(0)
         self.sb_from.setMinimum(500.000000000000000)
@@ -99,12 +90,14 @@ class Ui_Form(object):
 
         self.grid_lo.addWidget(self.sb_from, 1, 1, 1, 1)
 
-        self.lbl_to = QLabel(self.widget)
+        self.lbl_to = QLabel(Form)
         self.lbl_to.setObjectName(u"lbl_to")
+        sizePolicy.setHeightForWidth(self.lbl_to.sizePolicy().hasHeightForWidth())
+        self.lbl_to.setSizePolicy(sizePolicy)
 
         self.grid_lo.addWidget(self.lbl_to, 2, 0, 1, 1)
 
-        self.sb_to = QuantSpinBox(self.widget)
+        self.sb_to = QuantSpinBox(Form)
         self.sb_to.setObjectName(u"sb_to")
         self.sb_to.setDecimals(0)
         self.sb_to.setMinimum(500.000000000000000)
@@ -114,12 +107,14 @@ class Ui_Form(object):
 
         self.grid_lo.addWidget(self.sb_to, 2, 1, 1, 1)
 
-        self.lbl_step = QLabel(self.widget)
+        self.lbl_step = QLabel(Form)
         self.lbl_step.setObjectName(u"lbl_step")
+        sizePolicy.setHeightForWidth(self.lbl_step.sizePolicy().hasHeightForWidth())
+        self.lbl_step.setSizePolicy(sizePolicy)
 
         self.grid_lo.addWidget(self.lbl_step, 3, 0, 1, 1)
 
-        self.sb_step = QuantSpinBox(self.widget)
+        self.sb_step = QuantSpinBox(Form)
         self.sb_step.setObjectName(u"sb_step")
         self.sb_step.setDecimals(0)
         self.sb_step.setMinimum(1.000000000000000)
@@ -130,7 +125,7 @@ class Ui_Form(object):
 
         self.lo_parameter.addLayout(self.grid_lo)
 
-        self.btn_run = QPushButton(self.widget)
+        self.btn_run = QPushButton(Form)
         self.btn_run.setObjectName(u"btn_run")
         sizePolicy2 = QSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
         sizePolicy2.setHorizontalStretch(0)
@@ -145,16 +140,16 @@ class Ui_Form(object):
 
         self.verticalLayout_2.addLayout(self.lo_parameter)
 
-        self.line = QFrame(self.widget)
+        self.line = QFrame(Form)
         self.line.setObjectName(u"line")
         self.line.setFrameShape(QFrame.HLine)
         self.line.setFrameShadow(QFrame.Sunken)
 
         self.verticalLayout_2.addWidget(self.line)
 
-        self.w_measure = QWidget(self.widget)
+        self.w_measure = QWidget(Form)
         self.w_measure.setObjectName(u"w_measure")
-        sizePolicy3 = QSizePolicy(QSizePolicy.Minimum, QSizePolicy.Preferred)
+        sizePolicy3 = QSizePolicy(QSizePolicy.Maximum, QSizePolicy.Preferred)
         sizePolicy3.setHorizontalStretch(0)
         sizePolicy3.setVerticalStretch(0)
         sizePolicy3.setHeightForWidth(self.w_measure.sizePolicy().hasHeightForWidth())
@@ -211,6 +206,8 @@ class Ui_Form(object):
         self.horizontalLayout_11.setObjectName(u"horizontalLayout_11")
         self.lbl_measured_p = QLabel(self.w_measure)
         self.lbl_measured_p.setObjectName(u"lbl_measured_p")
+        sizePolicy3.setHeightForWidth(self.lbl_measured_p.sizePolicy().hasHeightForWidth())
+        self.lbl_measured_p.setSizePolicy(sizePolicy3)
 
         self.horizontalLayout_11.addWidget(self.lbl_measured_p)
 
@@ -226,6 +223,8 @@ class Ui_Form(object):
 
         self.lbl_pb = QLabel(self.w_measure)
         self.lbl_pb.setObjectName(u"lbl_pb")
+        sizePolicy3.setHeightForWidth(self.lbl_pb.sizePolicy().hasHeightForWidth())
+        self.lbl_pb.setSizePolicy(sizePolicy3)
         self.lbl_pb.setLineWidth(0)
         self.lbl_pb.setAlignment(Qt.AlignLeading|Qt.AlignLeft|Qt.AlignVCenter)
 
@@ -245,6 +244,8 @@ class Ui_Form(object):
         self.horizontalLayout_12.setObjectName(u"horizontalLayout_12")
         self.lbl_cur_param = QLabel(self.w_measure)
         self.lbl_cur_param.setObjectName(u"lbl_cur_param")
+        sizePolicy.setHeightForWidth(self.lbl_cur_param.sizePolicy().hasHeightForWidth())
+        self.lbl_cur_param.setSizePolicy(sizePolicy)
         self.lbl_cur_param.setFont(font)
 
         self.horizontalLayout_12.addWidget(self.lbl_cur_param)
@@ -256,8 +257,8 @@ class Ui_Form(object):
         sizePolicy5.setVerticalStretch(0)
         sizePolicy5.setHeightForWidth(self.sb_cur_param.sizePolicy().hasHeightForWidth())
         self.sb_cur_param.setSizePolicy(sizePolicy5)
-        self.sb_cur_param.setMinimumSize(QSize(100, 0))
-        self.sb_cur_param.setMaximumSize(QSize(71, 16777215))
+        self.sb_cur_param.setMinimumSize(QSize(0, 0))
+        self.sb_cur_param.setMaximumSize(QSize(94, 16777215))
         self.sb_cur_param.setBaseSize(QSize(0, 0))
         self.sb_cur_param.setReadOnly(True)
         self.sb_cur_param.setButtonSymbols(QAbstractSpinBox.NoButtons)
@@ -280,15 +281,17 @@ class Ui_Form(object):
         self.horizontalLayout_4.setObjectName(u"horizontalLayout_4")
         self.lbl_sample_en = QLabel(self.w_measure)
         self.lbl_sample_en.setObjectName(u"lbl_sample_en")
+        sizePolicy.setHeightForWidth(self.lbl_sample_en.sizePolicy().hasHeightForWidth())
+        self.lbl_sample_en.setSizePolicy(sizePolicy)
 
         self.horizontalLayout_4.addWidget(self.lbl_sample_en)
 
         self.le_sample_en = QLineEdit(self.w_measure)
         self.le_sample_en.setObjectName(u"le_sample_en")
-        sizePolicy4.setHeightForWidth(self.le_sample_en.sizePolicy().hasHeightForWidth())
-        self.le_sample_en.setSizePolicy(sizePolicy4)
-        self.le_sample_en.setMinimumSize(QSize(71, 0))
-        self.le_sample_en.setMaximumSize(QSize(100, 16777215))
+        sizePolicy2.setHeightForWidth(self.le_sample_en.sizePolicy().hasHeightForWidth())
+        self.le_sample_en.setSizePolicy(sizePolicy2)
+        self.le_sample_en.setMinimumSize(QSize(0, 0))
+        self.le_sample_en.setMaximumSize(QSize(94, 16777215))
 
         self.horizontalLayout_4.addWidget(self.le_sample_en)
 
@@ -299,6 +302,8 @@ class Ui_Form(object):
         self.horizontalLayout_7.setObjectName(u"horizontalLayout_7")
         self.lbl_sample_sp = QLabel(self.w_measure)
         self.lbl_sample_sp.setObjectName(u"lbl_sample_sp")
+        sizePolicy.setHeightForWidth(self.lbl_sample_sp.sizePolicy().hasHeightForWidth())
+        self.lbl_sample_sp.setSizePolicy(sizePolicy)
 
         self.horizontalLayout_7.addWidget(self.lbl_sample_sp)
 
@@ -306,8 +311,8 @@ class Ui_Form(object):
         self.sb_sample_sp.setObjectName(u"sb_sample_sp")
         sizePolicy5.setHeightForWidth(self.sb_sample_sp.sizePolicy().hasHeightForWidth())
         self.sb_sample_sp.setSizePolicy(sizePolicy5)
-        self.sb_sample_sp.setMinimumSize(QSize(71, 0))
-        self.sb_sample_sp.setMaximumSize(QSize(100, 16777215))
+        self.sb_sample_sp.setMinimumSize(QSize(0, 0))
+        self.sb_sample_sp.setMaximumSize(QSize(94, 16777215))
         self.sb_sample_sp.setDecimals(1)
         self.sb_sample_sp.setMinimum(0.000000000000000)
         self.sb_sample_sp.setMaximum(5000.000000000000000)
@@ -330,14 +335,16 @@ class Ui_Form(object):
         self.horizontalLayout_3.setObjectName(u"horizontalLayout_3")
         self.lbl_pm_en = QLabel(self.w_measure)
         self.lbl_pm_en.setObjectName(u"lbl_pm_en")
+        sizePolicy.setHeightForWidth(self.lbl_pm_en.sizePolicy().hasHeightForWidth())
+        self.lbl_pm_en.setSizePolicy(sizePolicy)
 
         self.horizontalLayout_3.addWidget(self.lbl_pm_en)
 
         self.le_pm_en = QLineEdit(self.w_measure)
         self.le_pm_en.setObjectName(u"le_pm_en")
-        sizePolicy5.setHeightForWidth(self.le_pm_en.sizePolicy().hasHeightForWidth())
-        self.le_pm_en.setSizePolicy(sizePolicy5)
-        self.le_pm_en.setMaximumSize(QSize(100, 16777215))
+        sizePolicy1.setHeightForWidth(self.le_pm_en.sizePolicy().hasHeightForWidth())
+        self.le_pm_en.setSizePolicy(sizePolicy1)
+        self.le_pm_en.setMaximumSize(QSize(94, 16777215))
 
         self.horizontalLayout_3.addWidget(self.le_pm_en)
 
@@ -348,6 +355,8 @@ class Ui_Form(object):
         self.horizontalLayout_6.setObjectName(u"horizontalLayout_6")
         self.lbl_pm_sp = QLabel(self.w_measure)
         self.lbl_pm_sp.setObjectName(u"lbl_pm_sp")
+        sizePolicy.setHeightForWidth(self.lbl_pm_sp.sizePolicy().hasHeightForWidth())
+        self.lbl_pm_sp.setSizePolicy(sizePolicy)
 
         self.horizontalLayout_6.addWidget(self.lbl_pm_sp)
 
@@ -355,8 +364,8 @@ class Ui_Form(object):
         self.sb_pm_sp.setObjectName(u"sb_pm_sp")
         sizePolicy5.setHeightForWidth(self.sb_pm_sp.sizePolicy().hasHeightForWidth())
         self.sb_pm_sp.setSizePolicy(sizePolicy5)
-        self.sb_pm_sp.setMinimumSize(QSize(71, 0))
-        self.sb_pm_sp.setMaximumSize(QSize(100, 16777215))
+        self.sb_pm_sp.setMinimumSize(QSize(0, 0))
+        self.sb_pm_sp.setMaximumSize(QSize(94, 16777215))
         self.sb_pm_sp.setButtonSymbols(QAbstractSpinBox.UpDownArrows)
         self.sb_pm_sp.setDecimals(1)
         self.sb_pm_sp.setMinimum(0.000000000000000)
@@ -380,15 +389,17 @@ class Ui_Form(object):
         self.horizontalLayout_5.setObjectName(u"horizontalLayout_5")
         self.lbl_aver = QLabel(self.w_measure)
         self.lbl_aver.setObjectName(u"lbl_aver")
+        sizePolicy.setHeightForWidth(self.lbl_aver.sizePolicy().hasHeightForWidth())
+        self.lbl_aver.setSizePolicy(sizePolicy)
 
         self.horizontalLayout_5.addWidget(self.lbl_aver)
 
         self.sb_aver = QSpinBox(self.w_measure)
         self.sb_aver.setObjectName(u"sb_aver")
-        sizePolicy5.setHeightForWidth(self.sb_aver.sizePolicy().hasHeightForWidth())
-        self.sb_aver.setSizePolicy(sizePolicy5)
-        self.sb_aver.setMinimumSize(QSize(71, 0))
-        self.sb_aver.setMaximumSize(QSize(100, 16777215))
+        sizePolicy2.setHeightForWidth(self.sb_aver.sizePolicy().hasHeightForWidth())
+        self.sb_aver.setSizePolicy(sizePolicy2)
+        self.sb_aver.setMinimumSize(QSize(0, 0))
+        self.sb_aver.setMaximumSize(QSize(94, 16777215))
         self.sb_aver.setButtonSymbols(QAbstractSpinBox.NoButtons)
         self.sb_aver.setMinimum(1)
         self.sb_aver.setMaximum(10)
@@ -415,37 +426,42 @@ class Ui_Form(object):
         self.verticalLayout_2.addWidget(self.w_measure)
 
 
-        self.lo_measure.addLayout(self.verticalLayout_2)
+        self.horizontalLayout.addLayout(self.verticalLayout_2)
 
-        self.line_2 = QFrame(self.widget)
+        self.line_2 = QFrame(Form)
         self.line_2.setObjectName(u"line_2")
         self.line_2.setFrameShape(QFrame.VLine)
         self.line_2.setFrameShadow(QFrame.Sunken)
 
-        self.lo_measure.addWidget(self.line_2)
+        self.horizontalLayout.addWidget(self.line_2)
 
-        self.placeholder_pm_monitor = QWidget(self.widget)
-        self.placeholder_pm_monitor.setObjectName(u"placeholder_pm_monitor")
-        sizePolicy6 = QSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        self.lo_measure = QSplitter(Form)
+        self.lo_measure.setObjectName(u"lo_measure")
+        sizePolicy6 = QSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         sizePolicy6.setHorizontalStretch(0)
         sizePolicy6.setVerticalStretch(0)
-        sizePolicy6.setHeightForWidth(self.placeholder_pm_monitor.sizePolicy().hasHeightForWidth())
-        self.placeholder_pm_monitor.setSizePolicy(sizePolicy6)
-
-        self.lo_measure.addWidget(self.placeholder_pm_monitor)
-
-        self.splitter.addWidget(self.widget)
-        self.plot_measurement = MplCanvas(self.splitter)
-        self.plot_measurement.setObjectName(u"plot_measurement")
-        sizePolicy7 = QSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding)
+        sizePolicy6.setHeightForWidth(self.lo_measure.sizePolicy().hasHeightForWidth())
+        self.lo_measure.setSizePolicy(sizePolicy6)
+        self.lo_measure.setOrientation(Qt.Vertical)
+        self.placeholder_pm_monitor = QWidget(self.lo_measure)
+        self.placeholder_pm_monitor.setObjectName(u"placeholder_pm_monitor")
+        sizePolicy7 = QSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         sizePolicy7.setHorizontalStretch(0)
         sizePolicy7.setVerticalStretch(0)
-        sizePolicy7.setHeightForWidth(self.plot_measurement.sizePolicy().hasHeightForWidth())
-        self.plot_measurement.setSizePolicy(sizePolicy7)
+        sizePolicy7.setHeightForWidth(self.placeholder_pm_monitor.sizePolicy().hasHeightForWidth())
+        self.placeholder_pm_monitor.setSizePolicy(sizePolicy7)
+        self.lo_measure.addWidget(self.placeholder_pm_monitor)
+        self.plot_measurement = MplCanvas(self.lo_measure)
+        self.plot_measurement.setObjectName(u"plot_measurement")
+        sizePolicy6.setHeightForWidth(self.plot_measurement.sizePolicy().hasHeightForWidth())
+        self.plot_measurement.setSizePolicy(sizePolicy6)
         self.plot_measurement.setMinimumSize(QSize(0, 0))
-        self.splitter.addWidget(self.plot_measurement)
+        self.lo_measure.addWidget(self.plot_measurement)
 
-        self.horizontalLayout_8.addWidget(self.splitter)
+        self.horizontalLayout.addWidget(self.lo_measure)
+
+
+        self.verticalLayout_3.addLayout(self.horizontalLayout)
 
 
         self.retranslateUi(Form)
@@ -455,7 +471,7 @@ class Ui_Form(object):
 
     def retranslateUi(self, Form):
         Form.setWindowTitle(QCoreApplication.translate("Form", u"Form", None))
-        self.lbl_measure_settings.setText(QCoreApplication.translate("Form", u"Set Measurement Settings", None))
+        self.lbl_measure_settings.setText(QCoreApplication.translate("Form", u"Set Parameter Settings", None))
 #if QT_CONFIG(statustip)
         self.lbl_mode.setStatusTip(QCoreApplication.translate("Form", u"Choose an independent variable", None))
 #endif // QT_CONFIG(statustip)
