@@ -410,10 +410,13 @@ class Window(QMainWindow,Ui_MainWindow,):
         # Selected index
         ind = selected.indexes()[0]
 
+        # Get selected measurement
         model = self.data_viwer.tv_content.model()
         msmnt_title = next(iter(model.itemData(ind).values()))
         msmnt = self.data.measurements[msmnt_title] # type: ignore
-        data_index = self.data_viwer.data_index
+        
+        # Selected measurements will show first DataPoint
+        data_index = 0
         self.show_data(msmnt, data_index)
 
     def load_data_view(self, data: PaData|None = None) -> None:

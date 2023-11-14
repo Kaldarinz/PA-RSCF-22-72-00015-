@@ -450,14 +450,18 @@ class PaData:
         for key, val in dtype.__annotations__.items():
             # this condition check is different from others
             if val == list[PlainQuantity]:
-                mags = source[key]
-                units = source[key + '_u']
-                item = [Q_(m, u) for m, u in zip(mags, units)]
+                if len(source[key]):
+                    mags = source[key]
+                    units = source[key + '_u']
+                    item = [Q_(m, u) for m, u in zip(mags, units)]
+                else:
+                    item = None
             elif val is PlainQuantity:
                 item = Q_(source[key], source[key + '_u'])
             else:
                 item = source[key]
-            init_vals.update({key: item})
+            if item is not None:
+                init_vals.update({key: item})
         return dtype(**init_vals)
 
     def _load_basedata(

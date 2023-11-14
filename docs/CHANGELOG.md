@@ -20,6 +20,29 @@
 
 * To be fixed...
 
+## 2.0.0 - [2023-11-10]
+
+### Added
+
+#### General
+
+* Graphical user interface (GUI) is introduced. Basic operations are listed in GUI section.
+
+#### GUI
+
+##### Basic functions include:
+
+1. Load, view and save PA data.
+2. Measurements of point (0D) and curve (1D, e.g. PA spectrum) data.
+3. Measurements of laser energy via PowerMeter monitor.
+4. Data from any plot in the program can be exported to *.txt format by Right Click on the plot.
+5. Other functionality, which was available in CLI version is not currently supported.
+
+#### Data storage and representation
+
+* Data format is updated to version 1.2.
+* Data files can now contain several measurements.
+
 ## 1.1.1 - [2023-10-08]
 
 ### Added
