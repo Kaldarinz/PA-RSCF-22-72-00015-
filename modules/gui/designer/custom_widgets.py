@@ -70,7 +70,7 @@ class DataViewer(QWidget, data_viewer_ui.Ui_Form):
         "Selected datapoint."
         self.data_index: int = 0
         "Index of the selceted datapoint."
-        self.dtype_point: str = next(iter(DetailedSignals.values()))
+        self.dtype_point: str = ''
         "Data type of the currently displayed datapoint."
 
         # This is bullshit, but I cannot find other solution.

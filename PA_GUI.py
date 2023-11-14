@@ -443,6 +443,7 @@ class Window(QMainWindow,Ui_MainWindow,):
             return
         self.data_viwer.tv_content.setSelection(
             QRect(0,0,1,1), QItemSelectionModel.SelectionFlag.Select)
+        # Signal for selection change
         self.data_viwer.tv_content.selectionModel().selectionChanged.connect(
             self.new_sel_msmnt
         )
@@ -466,6 +467,7 @@ class Window(QMainWindow,Ui_MainWindow,):
         ``data_index`` - index of datapoint to be displayed.
         """
 
+        # Load data to show o attributes of data_viwer
         self.data_viwer.measurement = measurement
         self.data_viwer.data_index = data_index
         dp_name = PaData._build_name(data_index + 1)
@@ -589,25 +591,32 @@ class Window(QMainWindow,Ui_MainWindow,):
         ``parent`` should have attribute with this name.
         """
 
-        # Silently clear old values
-        parent.cb_detail_select.blockSignals(True)
-        parent.cb_detail_select.clear()
-        parent.cb_detail_select.blockSignals(False)
-
-        # Set new values
-        parent.cb_detail_select.addItems(
-            [key for key in DetailedSignals.keys()]
-        )
-        self.data_viwer.dtype_point = DetailedSignals[
-            parent.cb_detail_select.currentText()
-        ]
-
         # Disconnect old slots
         try:
             parent.cb_detail_select.currentTextChanged.disconnect()
         except:
             logger.debug('No slots were connected to cb_detail_select.')
-        # Not clear
+
+        # Clear old values
+        parent.cb_detail_select.clear()
+
+        # Set new values
+        parent.cb_detail_select.addItems(
+            [key for key in DetailedSignals.keys()]
+        )
+
+        # If necessary, set dtype_point attribute
+        if self.data_viwer.dtype_point:
+            for key,val in DetailedSignals.items():
+                if val == self.data_viwer.dtype_point:
+                    parent.cb_detail_select.setCurrentText(key)
+                    break
+        else:
+            self.data_viwer.dtype_point = DetailedSignals[
+                parent.cb_detail_select.currentText()
+            ]
+
+        # Connect slot again
         parent.cb_detail_select.currentTextChanged.connect(
             self.upd_point_info
         )
@@ -683,13 +692,13 @@ class Window(QMainWindow,Ui_MainWindow,):
                 dtype = self.data_viwer.dtype_point
             )
         )
-        # Update description
-        tv = self.data_viwer.tv_info
 
-        # clear existing description 
+        # clear existing description
+        tv = self.data_viwer.tv_info 
         if tv.pmd is not None:
             index = tv.indexOfTopLevelItem(tv.pmd)
             tv.takeTopLevelItem(index)
+        # set new description
         tv.pmd = QTreeWidgetItem(tv, ['Point attributes'])
         tv.pmd.setExpanded(True)
         dp_title = PaData._build_name(self.data_viwer.data_index + 1)
