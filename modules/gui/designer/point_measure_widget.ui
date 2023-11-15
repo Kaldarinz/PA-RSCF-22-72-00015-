@@ -179,9 +179,9 @@
            </widget>
           </item>
           <item>
-           <widget class="QuantSpinBox" name="sb_sample_en">
+           <widget class="QLineEdit" name="le_sample_en">
             <property name="sizePolicy">
-             <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
+             <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
               <horstretch>0</horstretch>
               <verstretch>0</verstretch>
              </sizepolicy>
@@ -197,30 +197,6 @@
               <width>71</width>
               <height>16777215</height>
              </size>
-            </property>
-            <property name="readOnly">
-             <bool>true</bool>
-            </property>
-            <property name="buttonSymbols">
-             <enum>QAbstractSpinBox::NoButtons</enum>
-            </property>
-            <property name="suffix">
-             <string> uJ</string>
-            </property>
-            <property name="decimals">
-             <number>1</number>
-            </property>
-            <property name="minimum">
-             <double>0.000000000000000</double>
-            </property>
-            <property name="maximum">
-             <double>2000.000000000000000</double>
-            </property>
-            <property name="singleStep">
-             <double>50.000000000000000</double>
-            </property>
-            <property name="value">
-             <double>0.000000000000000</double>
             </property>
            </widget>
           </item>
@@ -297,45 +273,18 @@
            </widget>
           </item>
           <item>
-           <widget class="QuantSpinBox" name="sb_pm_en">
+           <widget class="QLineEdit" name="le_pm_en">
             <property name="sizePolicy">
              <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
               <horstretch>0</horstretch>
               <verstretch>0</verstretch>
              </sizepolicy>
             </property>
-            <property name="minimumSize">
-             <size>
-              <width>71</width>
-              <height>0</height>
-             </size>
-            </property>
             <property name="maximumSize">
              <size>
               <width>71</width>
               <height>16777215</height>
              </size>
-            </property>
-            <property name="readOnly">
-             <bool>true</bool>
-            </property>
-            <property name="buttonSymbols">
-             <enum>QAbstractSpinBox::NoButtons</enum>
-            </property>
-            <property name="suffix">
-             <string> uJ</string>
-            </property>
-            <property name="decimals">
-             <number>1</number>
-            </property>
-            <property name="minimum">
-             <double>0.000000000000000</double>
-            </property>
-            <property name="maximum">
-             <double>2000.000000000000000</double>
-            </property>
-            <property name="value">
-             <double>0.000000000000000</double>
             </property>
            </widget>
           </item>

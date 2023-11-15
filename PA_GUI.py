@@ -190,6 +190,11 @@ class Window(QMainWindow,Ui_MainWindow,):
         ### 0D measurements ###
         self.p_point = PointMeasureWidget(self.sw_central)
         self.sw_central.addWidget(self.p_point)
+        # Initial value of SetPoint
+        self.upd_sp(
+            self.p_point,
+            self.p_point.sb_sample_sp
+        )
         # Init power meter monitor
         self.init_pm_monitor(self.p_point.pm_monitor)
 
@@ -197,9 +202,10 @@ class Window(QMainWindow,Ui_MainWindow,):
         self.p_curve = CurveMeasureWidget(self.sw_central)
         self.sw_central.addWidget(self.p_curve)
         # Initial value of SetPoint
-        setpoint = self.p_curve.sb_sample_sp.quantity
-        self.p_curve.pm_monitor.plot_right.sp = setpoint
-        self.upd_sp(self.p_curve.sb_sample_sp)
+        self.upd_sp(
+            self.p_curve,
+            self.p_curve.sb_sample_sp
+        )
         # Init power meter monitor
         self.init_pm_monitor(self.p_curve.pm_monitor)
 
@@ -250,6 +256,30 @@ class Window(QMainWindow,Ui_MainWindow,):
         self.p_point.btn_measure.clicked.connect(
             lambda x: self.measure(self.p_point)
         )
+        # Sample SetPoint changed 
+        self.p_point.sb_sample_sp.valueChanged.connect(
+            lambda x: self.upd_sp(
+                self.p_point,
+                self.p_point.sb_sample_sp
+            )
+        )
+        # PM SetPoint changed
+        self.p_point.sb_pm_sp.valueChanged.connect(
+            lambda x: self.upd_sp(
+                self.p_point,
+                self.p_point.sb_pm_sp
+            )
+        )
+        # Current PM energy value
+        self.p_point.pm_monitor.le_cur_en.textChanged.connect(
+            self.p_point.le_pm_en.setText
+        )
+        # Current Sample energy value
+        self.p_point.pm_monitor.le_cur_en.textChanged.connect(
+            lambda val: self.p_point.le_sample_en.setText(
+                str(pa_logic.glan_calc(ureg(val)))
+            )
+        )
 
         ### 1D measurements ###
         # Button Set Parameter
@@ -268,17 +298,23 @@ class Window(QMainWindow,Ui_MainWindow,):
         )
         # Sample energy SetPoint 
         self.p_curve.sb_sample_sp.valueChanged.connect(
-            lambda x: self.upd_sp(self.p_curve.sb_sample_sp)
+            lambda x: self.upd_sp(
+                self.p_curve,
+                self.p_curve.sb_sample_sp
+            )
         )
         # Power meter energy SetPoint
         self.p_curve.sb_pm_sp.valueChanged.connect(
-            lambda x: self.upd_sp(self.p_curve.sb_pm_sp)
+            lambda x: self.upd_sp(
+                self.p_curve,
+                self.p_curve.sb_pm_sp
+            )
         )
-        # Current energy value
+        # Current PM energy value
         self.p_curve.pm_monitor.le_cur_en.textChanged.connect(
             self.p_curve.le_pm_en.setText
         )
-        # Current power meter value
+        # Current Sample energy value
         self.p_curve.pm_monitor.le_cur_en.textChanged.connect(
             lambda val: self.p_curve.le_sample_en.setText(
                 str(pa_logic.glan_calc(ureg(val)))
@@ -1027,27 +1063,29 @@ class Window(QMainWindow,Ui_MainWindow,):
             False
         )
 
-    def upd_sp(self, caller: QuantSpinBox) -> None:
-        """Update Set Point data for currently active page."""
+    def upd_sp(
+            self,
+            parent: PointMeasureWidget|CurveMeasureWidget,
+            caller: QuantSpinBox) -> None:
+        """Update Set Point data."""
 
-        # only for curve widget?
-
-        page = self.p_curve
-        if caller == page.sb_sample_sp:
+        # Update PM SetPoint if Sample SetPoint was set
+        if caller == parent.sb_sample_sp:
             new_sp = pa_logic.glan_calc_reverse(caller.quantity)
             if new_sp is None:
                 logger.error('New set point cannot be calculated')
                 return
-            self.set_spinbox_silent(page.sb_pm_sp, new_sp)
-                
-        elif caller == page.sb_pm_sp:
+            self.set_spinbox_silent(parent.sb_pm_sp, new_sp)
+        # Update Sample SetPoint if PM SetPoint was set   
+        elif caller == parent.sb_pm_sp:
             new_sp = pa_logic.glan_calc(caller.quantity)
             if new_sp is None:
                 logger.error('New set point cannot be calculated')
                 return
-            self.set_spinbox_silent(page.sb_sample_sp, new_sp)
+            self.set_spinbox_silent(parent.sb_sample_sp, new_sp)
 
-        page.pm_monitor.plot_right.sp = page.sb_pm_sp.quantity
+        # Update SetPoint on plot
+        parent.pm_monitor.plot_right.sp = parent.sb_pm_sp.quantity
                 
     def set_spinbox_silent(
             self,
