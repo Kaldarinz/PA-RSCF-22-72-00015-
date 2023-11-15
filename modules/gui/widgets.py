@@ -5,6 +5,7 @@ import logging
 import numpy as np
 import numpy.typing as npt
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
+from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT
 from matplotlib.figure import Figure
 from matplotlib.axes import Axes
 from matplotlib.lines import Line2D
@@ -19,7 +20,8 @@ from PySide6.QtWidgets import (
     QTreeWidgetItem,
     QMenu,
     QFileDialog,
-    QWidget
+    QWidget,
+    QVBoxLayout
 )
 from PySide6.QtGui import (
     QStandardItem,
@@ -128,7 +130,20 @@ class MplCanvas(FigureCanvasQTAgg):
         else:
             self.ylabel = f'{value.u:~.2gP}'
         self._sp = value.m
-            
+
+class MplNavCanvas(QWidget):
+    """MPL plot with navigation toolbar."""
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+
+        self.canvas = MplCanvas()
+        self.toolbar = NavigationToolbar2QT(self.canvas, self)
+        layout = QVBoxLayout()
+        layout.addWidget(self.canvas)
+        layout.addWidget(self.toolbar)
+        self.setLayout(layout)
+
 class QuantSpinBox(QDoubleSpinBox):
 
     def __init__(self, parent: QWidget | None = None) -> None:

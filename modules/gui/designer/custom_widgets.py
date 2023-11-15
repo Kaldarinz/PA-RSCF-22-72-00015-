@@ -196,10 +196,6 @@ class CurveView(QWidget,curve_data_view_ui.Ui_Form):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setupUi(self)
-        self.nav_curve = NavigationToolbar2QT(self.plot_curve, self)
-        self.lo_curve.addWidget(self.nav_curve)
-        self.nav_detail = NavigationToolbar2QT(self.plot_detail, self)
-        self.lo_detail.addWidget(self.nav_detail)
         
 class PointView(QWidget, point_data_view_ui.Ui_Form):
     """Plots for 1D data."""
@@ -207,6 +203,4 @@ class PointView(QWidget, point_data_view_ui.Ui_Form):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setupUi(self)
-        self.nav_detail = NavigationToolbar2QT(self.plot_detail, self)
-        self.layout().addWidget(self.nav_detail)
     

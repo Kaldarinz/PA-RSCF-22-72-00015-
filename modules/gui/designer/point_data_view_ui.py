@@ -18,7 +18,7 @@ from PySide6.QtGui import (QBrush, QColor, QConicalGradient, QCursor,
 from PySide6.QtWidgets import (QApplication, QComboBox, QHBoxLayout, QSizePolicy,
     QSpacerItem, QVBoxLayout, QWidget)
 
-from ..widgets import MplCanvas
+from ..widgets import MplNavCanvas
 
 class Ui_Form(object):
     def setupUi(self, Form):
@@ -42,7 +42,7 @@ class Ui_Form(object):
 
         self.verticalLayout.addLayout(self.horizontalLayout)
 
-        self.plot_detail = MplCanvas(Form)
+        self.plot_detail = MplNavCanvas(Form)
         self.plot_detail.setObjectName(u"plot_detail")
         sizePolicy = QSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         sizePolicy.setHorizontalStretch(0)

@@ -17,6 +17,7 @@ import pint
 import yaml
 from pint.facets.plain.quantity import PlainQuantity
 from matplotlib.backend_bases import PickEvent
+from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT
 from PySide6.QtCore import (
     Qt,
     QObject,
@@ -63,6 +64,7 @@ from modules.data_classes import (
 )
 from modules.gui.widgets import (
     MplCanvas,
+    MplNavCanvas,
     QuantSpinBox,
 )
 from modules.gui.designer.PA_main_window_ui import Ui_MainWindow
@@ -606,10 +608,10 @@ class Window(QMainWindow,Ui_MainWindow,):
         )
         self.upd_plot(view.plot_detail, *detail_data)
         # Picker event
-        view.plot_curve.fig.canvas.mpl_connect(
+        view.plot_curve.canvas.fig.canvas.mpl_connect(
             'pick_event',
             lambda event: self.pick_event(
-                view.plot_curve,
+                view.plot_curve.canvas,
                 event
             )
         )
@@ -1290,13 +1292,14 @@ class Window(QMainWindow,Ui_MainWindow,):
     @Slot()
     def upd_plot(
             self,
-            widget: MplCanvas,
+            base_widget: MplCanvas|MplNavCanvas,
             ydata: Iterable,
             xdata: Iterable|None = None,
             ylabel: str|None = None,
             xlabel: str|None = None,
             marker: Iterable|None = None,
-            enable_pick: bool = False
+            enable_pick: bool = False,
+            toolbar: NavigationToolbar2QT|None = None
         ) -> None:
         """
         Update a plot.
@@ -1310,8 +1313,14 @@ class Window(QMainWindow,Ui_MainWindow,):
          ``ylabel`` - Optional label for y data.\n
          ``marker`` - Index of marker for data. If this option is
          omitted, then marker is removed.\n
-         ``picker`` - enabler picker for main data.
+         ``enable_pick`` - enabler picker for main data.\n
+         ``toolbar`` - navigation toolbar.
         """
+
+        if isinstance(base_widget, MplNavCanvas):
+            widget = base_widget.canvas
+        else:
+            widget = base_widget
 
         # Update data
         if xdata is None:
@@ -1366,16 +1375,20 @@ class Window(QMainWindow,Ui_MainWindow,):
                 )
             else:
                 widget._marker_ref.set_data(
-                    widget.xdata[marker], # type: ignore
-                    widget.ydata[marker] # type: ignore
+                    [widget.xdata[marker]], # type: ignore
+                    [widget.ydata[marker]] # type: ignore
                 )
         else:
             widget._marker_ref = None
         widget.axes.set_xlabel(widget.xlabel) # type: ignore
         widget.axes.set_ylabel(widget.ylabel) # type: ignore
         widget.axes.relim()
-        widget.axes.autoscale_view(True,True,True)
+        widget.axes.autoscale(True, 'both')
         widget.draw()
+
+        # Reset history of navigation toolbar
+        if isinstance(base_widget, MplNavCanvas):
+            base_widget.toolbar.update()
 
     def get_layout(self, widget: QWidget) -> QLayout|None:
         """Return parent layout for a widget."""
