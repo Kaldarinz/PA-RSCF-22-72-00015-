@@ -191,6 +191,7 @@ class Oscilloscope:
                     data_raw = self.rolling_average(data_raw)
                 if correct_bl:
                     data_raw = self._baseline_correction(data_raw)
+                data_raw = self._trail_correction(data_raw)
                 data = self._to_volts(data_raw)
                 self.data[i] = data
                 self.data_raw[i] = data_raw
@@ -224,6 +225,7 @@ class Oscilloscope:
                     data_raw = self.rolling_average(data_raw)
                 if correct_bl:
                     data_raw = self._baseline_correction(data_raw)
+                data_raw = self._trail_correction(data_raw)
                 data = self._to_volts(data_raw)
                 self.scr_amp[i] = data.ptp() #type: ignore
                 self.scr_data_raw[i] = data_raw
@@ -233,6 +235,37 @@ class Oscilloscope:
         logger.debug('...Finishing. Screen measure successfull.')
         result = (self.scr_data.copy(), self.scr_data_raw.copy())
         return result
+
+    def _trail_correction(
+            self,
+            data: npt.NDArray[np.int8],
+            w: int = 10
+        ) -> npt.NDArray[np.int8]:
+        """
+        Correct trailing values of data.
+        
+        ``w`` - amount of trailing points to be corrected.
+        """
+        
+        logger.debug('Starting trail correction procedure.')
+        if len(data) < 2*w:
+            logger.warning(
+                'Trail correction cannot be done. Data too short.'
+            )
+            return data
+        
+        # minimum increment of data
+        dif = np.diff(data)
+        min_inc = dif[dif>0].min()
+        # correction is required, when average value in
+        # in the last Window differs from the previous Window
+        # for more than 2 minimum data increment
+        if abs(data[-2*w:-w].mean() - data[-w:].mean()) > 2 * min_inc:
+            # data is corrected by filling last Window values 
+            # with mean from previous Window
+            fill = int(data[-2*w:-w].mean())
+            data[-w:] = fill
+        return data
 
     def _wait_trig(self, timeout: int=5000) -> bool:
         """Wait for trigger to set.
@@ -481,10 +514,10 @@ class Oscilloscope:
         rem = factor//10**iterations
         decim_factor = 1
         for _ in range(iterations):
-            data = decimate(data,10)
+            data = decimate(data, 10) # type: ignore
             decim_factor *=10
         if rem > 1:
-            data = decimate(data,rem)
+            data = decimate(data, rem) # type: ignore
             decim_factor *=rem
         logger.debug(f'...Finishing. Final size is {len(data)}')
         return data, decim_factor
