@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
-from typing import Iterable, Sized, List, Any, TypeVar
+from collections.abc import Iterable, Sequence
+import typing
 from pint import UnitRegistry
 from pint.facets.plain.quantity import PlainQuantity
 import pint
@@ -12,8 +13,9 @@ ureg = UnitRegistry(auto_reduce_dimensions=True)
 Q_ = ureg.Quantity
 
 
-str1 = 'abcd'
-print(str1.split('f')[0])
+arr= np.array([1,2,3,4,5,6])
+ind = [1,4]
+print(arr[ind])
 
 # dct = {'one': 1, 'two': 2}
 

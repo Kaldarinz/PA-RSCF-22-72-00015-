@@ -128,6 +128,9 @@ class Measurement:
 def empty_ndarray():
     return np.empty(0, dtype=np.int8)
 
+def empty_arr_quantity() -> PlainQuantity:
+    return Q_(np.empty(0), 'uJ')
+
 @dataclass
 class MeasuredPoint:
     """Single PA measurement."""
@@ -154,6 +157,25 @@ class MeasuredPoint:
     "Maximum PA signal amplitude"
     wavelength: PlainQuantity = Q_(0, 'nm')
     "Excitation laser wavelength"
+
+@dataclass
+class EnergyMeasurement:
+    """Energy measurement from power meter."""
+
+    data: PlainQuantity = field(default_factory=empty_arr_quantity)
+    "History of energy values."
+    signal: PlainQuantity = field(default_factory=empty_arr_quantity)
+    "Measured PM signal (full data)."
+    sbx: int = 0
+    "Index of laser pulse start."
+    sex: int = 0
+    "Index of laser pulse end."
+    energy: PlainQuantity = Q_(0, 'uJ')
+    "Last measured laser energy."
+    aver: PlainQuantity = Q_(0, 'uJ')
+    "Average laser energy."
+    std: PlainQuantity = Q_(0, 'uJ')
+    "Standard deviation of laser energy."
 
 class Hardware():
     """Class for hardware references."""

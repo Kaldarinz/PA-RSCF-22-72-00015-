@@ -57,7 +57,7 @@ from modules.data_classes import (
     Worker,
     MeasuredPoint,
     Measurement,
-    DataPoint,
+    EnergyMeasurement,
     DetailedSignals,
     ParamSignals
 )
@@ -330,9 +330,7 @@ class Window(QMainWindow,Ui_MainWindow,):
         self.d_log.visibilityChanged.connect(self.action_Logs.setChecked)
 
         #PowerMeter
-        
-
-        #### Stopped here
+    
         self.d_pm.btn_pause.toggled.connect(
             lambda state: self.pause_worker(state, self.worker_pm)
         )
@@ -776,8 +774,8 @@ class Window(QMainWindow,Ui_MainWindow,):
             logger.warning('Marker is not set.')
             return
         widget._marker_ref.set_data(
-            widget.xdata[event.ind[0]], # type: ignore
-            widget.ydata[event.ind[0]] # type: ignore
+            [widget.xdata[event.ind[0]]], # type: ignore
+            [widget.ydata[event.ind[0]]] # type: ignore
         )
         widget.draw()
         # Update index of currently selected data
@@ -1266,30 +1264,23 @@ class Window(QMainWindow,Ui_MainWindow,):
 
     def update_pm(
             self,
-            measurement: dict,
+            measurement: EnergyMeasurement,
             monitor: PowerMeterMonitor
         ) -> None:
         """
         Update power meter widget.
 
-        Expect that ``measurement`` match return of 
-        ``pa_logic.track_power``, i.e. it should contain:\n 
-        ``data``: list[PlainQuantity] - a list with data\n
-        ``signal``: PlainQuantity - measured PM signal(full data)\n
-        ``sbx``: int - Signal Begining X
-        ``sby``: PlainQuantity - Signal Begining Y
-        ``sex``: int - Signal End X
-        ``sey``: PlainQuantity - Signal End Y
-        ``energy``: PlainQuantity - just measured energy value\n
-        ``aver``: PlainQuantity - average energy\n
-        ``std``: PlainQuantity - standart deviation of the measured data\n
         """
 
-        self.upd_plot(monitor.plot_left, ydata=measurement['signal'])
-        self.upd_plot(monitor.plot_right, ydata=measurement['data'])
-        monitor.le_cur_en.setText(self.form_quant(measurement['energy']))
-        monitor.le_aver_en.setText(self.form_quant(measurement['aver']))
-        monitor.le_std_en.setText(self.form_quant(measurement['std']))
+        self.upd_plot(
+            widget = monitor.plot_left,
+            ydata = measurement.signal,
+            marker = [measurement.sbx, measurement.sex]
+        )
+        self.upd_plot(monitor.plot_right, ydata=measurement.data)
+        monitor.le_cur_en.setText(self.form_quant(measurement.energy))
+        monitor.le_aver_en.setText(self.form_quant(measurement.aver))
+        monitor.le_std_en.setText(self.form_quant(measurement.std))
     
     def form_quant(self, quant: PlainQuantity) -> str:
         """Format str representation of a quantity."""
@@ -1304,13 +1295,13 @@ class Window(QMainWindow,Ui_MainWindow,):
             xdata: Iterable|None = None,
             ylabel: str|None = None,
             xlabel: str|None = None,
-            marker: int|None = None,
+            marker: Iterable|None = None,
             enable_pick: bool = False
         ) -> None:
         """
         Update a plot.
         
-        ``name`` - name of the plot widget,\n
+        ``widget`` - widget with axes, where to plot,\n
         ``xdata`` - Iterable containing data for X axes. Should not
          be shorter than ``ydata``. If None, then enumeration of 
          ``ydata`` will be used.\n
@@ -1332,8 +1323,6 @@ class Window(QMainWindow,Ui_MainWindow,):
             widget.xlabel = xlabel
         if ylabel is not None:
             widget.ylabel = ylabel
-        # if marker is not None:
-        #     widget.marker = marker
 
         # Plot data
         if widget._plot_ref is None:
@@ -1358,13 +1347,17 @@ class Window(QMainWindow,Ui_MainWindow,):
             else:
                 widget._sp_ref.set_xdata(widget.xdata) # type: ignore
                 widget._sp_ref.set_ydata(spdata)
+
+        # Set markers
         if marker is not None:
             if widget._marker_ref is None:
+                # Marker Style
                 marker_style = {
                     'marker': 'o',
                     'alpha': 0.4,
                     'ms': 12,
-                    'color': 'yellow'
+                    'color': 'yellow',
+                    'linewidth': 0
                 }
                 widget._marker_ref, = widget.axes.plot(
                     widget.xdata[marker], # type: ignore

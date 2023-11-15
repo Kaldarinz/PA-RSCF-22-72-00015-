@@ -36,6 +36,7 @@ from .pa_data import PaData
 from .data_classes import (
     WorkerSignals,
     MeasuredPoint,
+    EnergyMeasurement,
     hardware
 )
 from . import ureg, Q_
@@ -333,7 +334,7 @@ def track_power(
         flags: dict,
         tune_width: int = 50,
         **kwargs
-    ) -> dict:
+    ) -> EnergyMeasurement:
     """Measure laser energy.
 
     Run infinite loop and measure energy from power meter.\n
@@ -342,16 +343,7 @@ def track_power(
     Execution can be halted and resumed by sending ``flags['is_running']``
     from outside.\n
     After each measurement fire ``signals.progress``, which return
-    a dict, containing:\n
-    ``data``: list[PlainQuantity] - a list with data\n
-    ``signal``: PlainQuantity - measured PM signal(full data)\n
-    ``sbx``: int - Signal Begining X
-    ``sby``: PlainQuantity - Signal Begining Y
-    ``sex``: int - Signal End X
-    ``sey``: PlainQuantity - Signal End Y
-    ``energy``: PlainQuantity - just measured energy value\n
-    ``aver``: PlainQuantity - average energy\n
-    ``std``: PlainQuantity - standart deviation of the measured data\n
+    an EnergyMeasurement instance.
     """
 
     ### config parameters
@@ -363,12 +355,13 @@ def track_power(
     measure_delay = ureg('10ms')
     ###
 
-    results = {}
+    results = EnergyMeasurement()
 
     pm = hardware.power_meter
     if pm is None:
-        logger.warning('Power meter is off in config')
-        raise OscIOError
+        msg = 'Power meter is off in config'
+        logger.warning(msg)
+        raise OscIOError(msg)
     
     #tune_width cannot be smaller than averaging
     if tune_width < aver:
@@ -399,18 +392,16 @@ def track_power(
         mean = tmp_data.mean() # type: ignore
         std = tmp_data.std() # type: ignore
         logger.debug(f'{laser_amp=}, {mean=}, {std=}')
-        results = {
-            'data': pint.Quantity.from_list(
+        results = EnergyMeasurement(
+            data = pint.Quantity.from_list(
                 [x for x in data]),
-            'signal': pm.data,
-            'sbx': pm.start_ind,
-            'sby': pm.data[pm.start_ind],
-            'sex': pm.stop_ind,
-            'sey': pm.data[pm.stop_ind],
-            'energy': laser_amp,
-            'aver': mean,
-            'std': std
-        }
+            signal = pm.data, # type: ignore
+            sbx = pm.start_ind,
+            sex = pm.stop_ind,
+            energy = laser_amp,
+            aver = mean,
+            std = std
+        )
         signals.progess.emit(results)
         time.sleep(measure_delay.to('s').m)
 
