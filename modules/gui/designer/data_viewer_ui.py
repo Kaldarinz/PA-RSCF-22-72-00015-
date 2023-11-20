@@ -15,8 +15,8 @@ from PySide6.QtGui import (QBrush, QColor, QConicalGradient, QCursor,
     QFont, QFontDatabase, QGradient, QIcon,
     QImage, QKeySequence, QLinearGradient, QPainter,
     QPalette, QPixmap, QRadialGradient, QTransform)
-from PySide6.QtWidgets import (QApplication, QHeaderView, QLabel, QSizePolicy,
-    QSplitter, QStackedWidget, QTreeView, QTreeWidgetItem,
+from PySide6.QtWidgets import (QApplication, QHeaderView, QLabel, QListView,
+    QSizePolicy, QSplitter, QStackedWidget, QTreeWidgetItem,
     QVBoxLayout, QWidget)
 
 from ..widgets import TreeInfoWidget
@@ -57,18 +57,16 @@ class Ui_Form(object):
 
         self.verticalLayout_2.addWidget(self.lbl_content_title)
 
-        self.tv_content = QTreeView(self.w_content)
-        self.tv_content.setObjectName(u"tv_content")
+        self.lv_content = QListView(self.w_content)
+        self.lv_content.setObjectName(u"lv_content")
         sizePolicy2 = QSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding)
         sizePolicy2.setHorizontalStretch(0)
         sizePolicy2.setVerticalStretch(0)
-        sizePolicy2.setHeightForWidth(self.tv_content.sizePolicy().hasHeightForWidth())
-        self.tv_content.setSizePolicy(sizePolicy2)
-        self.tv_content.setMaximumSize(QSize(16777215, 16777215))
-        self.tv_content.setAnimated(True)
-        self.tv_content.setHeaderHidden(True)
+        sizePolicy2.setHeightForWidth(self.lv_content.sizePolicy().hasHeightForWidth())
+        self.lv_content.setSizePolicy(sizePolicy2)
+        self.lv_content.setMaximumSize(QSize(16777215, 16777215))
 
-        self.verticalLayout_2.addWidget(self.tv_content)
+        self.verticalLayout_2.addWidget(self.lv_content)
 
         self.splitter.addWidget(self.w_content)
         self.w_view = QWidget(self.splitter)

@@ -4,11 +4,6 @@ import logging
 
 import numpy as np
 import numpy.typing as npt
-from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
-from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT
-from matplotlib.figure import Figure
-from matplotlib.axes import Axes
-from matplotlib.lines import Line2D
 from pint.facets.plain.quantity import PlainQuantity
 from PySide6.QtCore import (
     QRunnable
@@ -29,11 +24,15 @@ from PySide6.QtGui import (
     QAction,
     QContextMenuEvent
 )
+from matplotlib.figure import Figure
+from matplotlib.axes import Axes
+from matplotlib.lines import Line2D
+from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
+from matplotlib.backends.backend_qtagg import NavigationToolbar2QT
 
 from modules import ureg, Q_
 
 logger = logging.getLogger(__name__)
-
 class MplCanvas(FigureCanvasQTAgg):
     """Single plot MatPlotLib widget."""
 

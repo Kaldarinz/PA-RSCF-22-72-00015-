@@ -3,7 +3,8 @@ Classes with initaited widgets, built in Qt Designer.
 """
 from PySide6.QtCore import (
     Signal,
-    Qt
+    Qt,
+    QStringListModel
 )
 from PySide6.QtWidgets import (
     QDialog,
@@ -72,6 +73,10 @@ class DataViewer(QWidget, data_viewer_ui.Ui_Form):
         "Index of the selceted datapoint."
         self.dtype_point: str = ''
         "Data type of the currently displayed datapoint."
+
+        # Set model for file content
+        self.content_model = QStringListModel()
+        self.lv_content.setModel(self.content_model)
 
         # This is bullshit, but I cannot find other solution.
         # With default stretch factor central widget is too narrow 

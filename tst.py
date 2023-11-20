@@ -13,13 +13,10 @@ ureg = UnitRegistry(auto_reduce_dimensions=True)
 Q_ = ureg.Quantity
 
 
-arr= np.array([1,2,3,4,5,6])
-ind = [1,4]
-print(arr[ind])
 
-# dct = {'one': 1, 'two': 2}
+dct = {'one': 1, 'two': 2, 'three': 3}
 
-# print(next(iter(dct.items())))
+print(len([key for key in dct.keys()]))
 
 
 

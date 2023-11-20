@@ -27,7 +27,9 @@ from PySide6.QtCore import (
     Signal,
     QItemSelection,
     QRect,
-    QItemSelectionModel
+    QItemSelectionModel,
+    QModelIndex,
+    QStringListModel
 )
 from PySide6.QtWidgets import (
     QApplication,
@@ -43,8 +45,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtGui import (
     QColor,
     QPalette,
-    QStandardItem,
-    QStandardItemModel
+    QStandardItem
 )
 import numpy as np
 
@@ -138,12 +139,15 @@ class Window(QMainWindow,Ui_MainWindow,):
     
     @data.setter
     def data(self, value: PaData|None) -> None:
+        """Set new PaData and triggers data_viwer update."""
+        logger.debug(f'data attribute is set to {value}')
         if isinstance(value, PaData) or value is None:
             self._data = value
         else:
             logger.warning('Attempt to set wrong object to data.')
             return
-        self.data_changed.emit()
+        if value is not None:
+            self.data_changed.emit()
 
     def __init__(
             self,
@@ -169,7 +173,7 @@ class Window(QMainWindow,Ui_MainWindow,):
         #Measurement verifuer dialog
         self.pa_verifier = PAVerifierDialog()
 
-        #Data viewer
+        ### Data viewer ###
         self.data_viwer = DataViewer()
         self.sw_central.addWidget(self.data_viwer)
 
@@ -323,9 +327,17 @@ class Window(QMainWindow,Ui_MainWindow,):
             )
         )
 
-        ### Data ###
+        ### Data view###
         self.action_Data.toggled.connect(self.activate_data_viwer)
         self.action_Open.triggered.connect(self.open_file)
+        # Measurement selection
+        self.data_viwer.lv_content.selectionModel().selectionChanged.connect(
+            self.new_sel_msmnt
+        )
+        # Measurement title change
+        self.data_viwer.content_model.dataChanged.connect(
+            self._msmnt_changed
+        )
 
         ### Logs ###
         self.action_Logs.toggled.connect(self.d_log.setVisible)
@@ -374,15 +386,15 @@ class Window(QMainWindow,Ui_MainWindow,):
         filename = self.get_filename()
         if filename:
             self.close_file()
-            self.data = PaData()
-            self.data.load(filename)
-            logger.info(f'Data with {self.data.attrs.measurements_count} '
+            data = PaData()
+            data.load(filename)
+            logger.info(f'Data with {data.attrs.measurements_count} '
                         + 'PA measurements loaded!')
             basename = os.path.basename(filename)
             self.data_viwer.lbl_data_title.setText(basename)
-            self.load_data_view(self.data)
+            self.data = data
 
-    @Slot()
+    @Slot(bool)
     def save_file(self, new_file: bool) -> None:
         """Save data to file."""
 
@@ -428,14 +440,19 @@ class Window(QMainWindow,Ui_MainWindow,):
     def _clear_data_view(self) -> None:
         """Clear data viewer."""
 
+        # Remove measurement and datapoint data
         self.data_viwer.measurement = None
         self.data_viwer.datapoint = None
-        self.data_viwer.tv_content.setModel(QStandardItemModel())
+        # Clear file content
+        self.data_viwer.content_model.setStringList([])
+        # Clear information view
         tv_detail = self.data_viwer.tv_info
         while tv_detail.topLevelItemCount():
             tv_detail.takeTopLevelItem(0)
+        # Set empty page for plot view
         self.data_viwer.sw_view.setCurrentWidget(self.data_viwer.p_empty)
 
+    @Slot(QItemSelection, QItemSelection)
     def new_sel_msmnt(
             self,
             selected: QItemSelection,
@@ -447,13 +464,47 @@ class Window(QMainWindow,Ui_MainWindow,):
         ind = selected.indexes()[0]
 
         # Get selected measurement
-        model = self.data_viwer.tv_content.model()
-        msmnt_title = next(iter(model.itemData(ind).values()))
-        msmnt = self.data.measurements[msmnt_title] # type: ignore
+        model = self.data_viwer.content_model
+        msmnt_title = model.data(ind, Qt.ItemDataRole.EditRole)
+        msmnt = self.data.measurements.get(msmnt_title)
+        
+        if msmnt is None:
+            logger.warning(
+                f'Trying to load invalid measurement: {msmnt_title}'
+            )
+            return
         
         # Selected measurements will show first DataPoint
         data_index = 0
         self.show_data(msmnt, data_index)
+
+    def _msmnt_changed(
+            self,
+            top_left: QModelIndex,
+            bot_right: QModelIndex,
+            roles: list
+        ) -> None:
+        """Test func to handle data change."""
+
+        # Get old measurement title
+        title = ''
+        for title, val in self.data.measurements.items(): # type: ignore
+            if val == self.data_viwer.measurement:
+                break
+        if not title:
+            logger.warning('Error in measurement title change.')
+            return
+        # If new title is invalid, set old title back
+        if not top_left.data():
+            self.data_viwer.content_model.setData(
+                index = top_left,
+                value = title
+            )
+            return
+        
+        # Update data
+        msmnts = self.data.measurements # type: ignore
+        msmnts[top_left.data()] = msmnts.pop(title)
 
     def load_data_view(self, data: PaData|None = None) -> None:
         """Load data into DataView widget."""
@@ -468,21 +519,24 @@ class Window(QMainWindow,Ui_MainWindow,):
         # clear old data view
         self._clear_data_view()
 
-        # Update content representation
-        self.set_data_content_view(data)
+        # Update file content and set selected msmsnt
+        self.data_viwer.content_model.setStringList(
+            [key for key in data.measurements.keys()]
+        )
+        self.data_viwer.lv_content.setSelection(
+            QRect(0,0,1,1),
+            QItemSelectionModel.SelectionFlag.Select
+        )
 
         # choose a measurement to show data from
-        try:
-            msmnt_title, msmnt = next(iter(data.measurements.items()))
-        except StopIteration:
-            logger.debug('Data is empty.')
+        ind = self.data_viwer.lv_content.selectedIndexes()[0]
+        msmnt_title = ind.data()
+        msmnt = data.measurements.get(msmnt_title)
+        if msmnt is None:
+            logger.warning(
+                f'Trying to load invalid measurement: {msmnt_title}.'
+            )
             return
-        self.data_viwer.tv_content.setSelection(
-            QRect(0,0,1,1), QItemSelectionModel.SelectionFlag.Select)
-        # Signal for selection change
-        self.data_viwer.tv_content.selectionModel().selectionChanged.connect(
-            self.new_sel_msmnt
-        )
 
         self.show_data(
             measurement = msmnt,
@@ -518,19 +572,6 @@ class Window(QMainWindow,Ui_MainWindow,):
             
         # Update description
         self.set_data_description_view(self.data) # type: ignore
-
-    def set_data_content_view(self, data: PaData) -> None:
-        """"Set tv_content."""
-
-        content = self.data_viwer.tv_content
-
-        treemodel = QStandardItemModel()
-        rootnode = treemodel.invisibleRootItem()
-
-        for msmnt_title, msmnt in data.measurements.items():
-            name = QStandardItem(msmnt_title)
-            rootnode.appendRow(name)
-        content.setModel(treemodel)
 
     def set_point_view(self) -> None:
         """Set central part of data_viewer for point view."""
