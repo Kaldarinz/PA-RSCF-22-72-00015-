@@ -486,13 +486,14 @@ class Window(QMainWindow,Ui_MainWindow,):
         data_index = 0
         self.show_data(msmnt, data_index)
 
+    @Slot(QModelIndex, QModelIndex, list)
     def _msmnt_changed(
             self,
             top_left: QModelIndex,
             bot_right: QModelIndex,
             roles: list
         ) -> None:
-        """Test func to handle data change."""
+        """Change measurement title."""
 
         # Get old measurement title
         title = ''
@@ -515,6 +516,7 @@ class Window(QMainWindow,Ui_MainWindow,):
         msmnts = self.data.measurements # type: ignore
         msmnts[top_left.data()] = msmnts.pop(title)
 
+    @Slot()
     def del_msmsnt(self) -> None:
         """Delete currently selected measurement."""
 
