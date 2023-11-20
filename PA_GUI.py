@@ -43,9 +43,8 @@ from PySide6.QtWidgets import (
     QFileDialog
 )
 from PySide6.QtGui import (
-    QColor,
-    QPalette,
-    QStandardItem
+    QKeySequence,
+    QShortcut
 )
 import numpy as np
 
@@ -252,6 +251,15 @@ class Window(QMainWindow,Ui_MainWindow,):
         self.actionSave_As.triggered.connect(
             lambda x: self.save_file(True)
         )
+
+        ### Shortcuts ###
+        # Delete measurements
+        del_sc = QShortcut(
+            QKeySequence.StandardKey.Delete,
+            self.data_viwer.lv_content,
+            context = Qt.ShortcutContext.WidgetShortcut
+        )
+        del_sc.activated.connect(self.del_msmsnt)
 
         ### Mode selection ###
         self.cb_mode_select.currentTextChanged.connect(self.upd_mode)
@@ -506,6 +514,17 @@ class Window(QMainWindow,Ui_MainWindow,):
         # Update data
         msmnts = self.data.measurements # type: ignore
         msmnts[top_left.data()] = msmnts.pop(title)
+
+    def del_msmsnt(self) -> None:
+        """Delete currently selected measurement."""
+
+        # Get currently selected index
+        val = self.data_viwer.lv_content.selectedIndexes()[0]
+        # Remove measurement from data
+        self.data.measurements.pop(val.data()) # type: ignore
+        # Trigger update of widgets
+        self.data_changed.emit()
+        logger.info(f'Measurement: {val.data()} removed.')
 
     def load_data_view(self, data: PaData|None = None) -> None:
         """Load data into DataView widget."""
