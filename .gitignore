@@ -1,7 +1,6 @@
 #user folder
 .DS_Store
 backup files/
-measuring results/
 typings/
 test.py
 .gitignore
