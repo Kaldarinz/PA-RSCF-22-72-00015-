@@ -497,8 +497,9 @@ class Window(QMainWindow,Ui_MainWindow,):
         # If new title is invalid, set old title back
         if not top_left.data():
             self.data_viwer.content_model.setData(
-                index = top_left,
-                value = title
+                top_left,
+                title,
+                role = Qt.ItemDataRole.EditRole
             )
             return
         
