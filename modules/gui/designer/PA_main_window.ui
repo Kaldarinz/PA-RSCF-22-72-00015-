@@ -80,6 +80,7 @@
     </property>
     <addaction name="action_Init"/>
     <addaction name="separator"/>
+    <addaction name="action_position"/>
    </widget>
    <widget class="QMenu" name="menu_Measurements">
     <property name="title">
@@ -158,6 +159,7 @@
    </attribute>
    <addaction name="action_Logs"/>
    <addaction name="action_Power_Meter"/>
+   <addaction name="action_position"/>
   </widget>
   <action name="action_Open">
    <property name="text">
@@ -273,6 +275,18 @@
    </property>
    <property name="statusTip">
     <string>Data viewer</string>
+   </property>
+  </action>
+  <action name="action_position">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="icon">
+    <iconset resource="qt_resources.qrc">
+     <normaloff>:/icons/qt_resources/joystick.png</normaloff>:/icons/qt_resources/joystick.png</iconset>
+   </property>
+   <property name="text">
+    <string>Positioning</string>
    </property>
   </action>
  </widget>

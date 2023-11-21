@@ -49,18 +49,19 @@ from PySide6.QtGui import (
 import numpy as np
 
 from modules import ureg, Q_
-import modules.validators as vd
 from modules.pa_data import PaData
 import modules.pa_logic as pa_logic
-from modules.exceptions import StageError, HardwareError
-import modules.data_classes as dc
+from modules.utils import (
+    upd_plot
+)
 from modules.data_classes import (
     Worker,
     MeasuredPoint,
     Measurement,
     EnergyMeasurement,
     DetailedSignals,
-    ParamSignals
+    ParamSignals,
+    hardware
 )
 from modules.gui.widgets import (
     MplCanvas,
@@ -68,8 +69,7 @@ from modules.gui.widgets import (
     QuantSpinBox,
 )
 from modules.gui.designer.PA_main_window_ui import Ui_MainWindow
-
-from modules.gui.designer.custom_widgets import (
+from modules.gui.designer.designer_widgets import (
     PAVerifierDialog,
     DataViewer,
     LoggerWidget,
@@ -615,7 +615,7 @@ class Window(QMainWindow,Ui_MainWindow,):
             index = self.data_viwer.data_index,
             dtype = self.data_viwer.dtype_point
         )
-        self.upd_plot(view.plot_detail, *detail_data)
+        upd_plot(view.plot_detail, *detail_data)
 
     def set_curve_view(self) -> None:
         """Set central part of data_viewer for curve view."""
@@ -642,7 +642,7 @@ class Window(QMainWindow,Ui_MainWindow,):
         )
 
         view.cb_curve_select.currentTextChanged.connect(
-            lambda new_val: self.upd_plot(
+            lambda new_val: upd_plot(
                 view.plot_curve,
                 *self.data.param_data_plot( # type: ignore
                     self.data_viwer.measurement, # type: ignore
@@ -657,7 +657,7 @@ class Window(QMainWindow,Ui_MainWindow,):
             msmnt = self.data_viwer.measurement,
             dtype = ParamSignals[view.cb_curve_select.currentText()]
         )
-        self.upd_plot(
+        upd_plot(
             view.plot_curve,
             *main_data,
             marker = self.data_viwer.data_index,
@@ -669,7 +669,7 @@ class Window(QMainWindow,Ui_MainWindow,):
             index = self.data_viwer.data_index,
             dtype = self.data_viwer.dtype_point
         )
-        self.upd_plot(view.plot_detail, *detail_data)
+        upd_plot(view.plot_detail, *detail_data)
         # Picker event
         view.plot_curve.canvas.fig.canvas.mpl_connect(
             'pick_event',
@@ -783,7 +783,7 @@ class Window(QMainWindow,Ui_MainWindow,):
         # update plot
         active_dview = self.data_viwer.sw_view.currentWidget()
         active_dview = cast(CurveView, active_dview)
-        self.upd_plot(
+        upd_plot(
             active_dview.plot_detail, # type: ignore
             *self.data.point_data_plot(
                 msmnt = self.data_viwer.measurement,
@@ -1002,7 +1002,7 @@ class Window(QMainWindow,Ui_MainWindow,):
             np.arange(len(data.pm_signal))*data.dt_pm.m, # type: ignore
             data.dt_pm.u
         )
-        self.upd_plot(
+        upd_plot(
             widget = plot_pm,
             ydata = ydata,
             xdata = xdata
@@ -1011,7 +1011,7 @@ class Window(QMainWindow,Ui_MainWindow,):
         # PA signal plot
         start = data.start_time
         stop = data.stop_time.to(start.u)
-        self.upd_plot(
+        upd_plot(
             widget = plot_pa,
             ydata = data.pa_signal,
             xdata = Q_(
@@ -1080,7 +1080,7 @@ class Window(QMainWindow,Ui_MainWindow,):
                         True
                     )
                 # update measurement plot
-                self.upd_plot(
+                upd_plot(
                     parent.plot_measurement,
                     *self.data.param_data_plot(msmnt = msmnt)
                 )
@@ -1194,7 +1194,7 @@ class Window(QMainWindow,Ui_MainWindow,):
             event.ignore()
         else:
             logger.info('Stopping application')
-            for stage in dc.hardware.stages:
+            for stage in hardware.stages:
                 stage.close()
 
     def init_hardware(self) -> None:
@@ -1306,8 +1306,8 @@ class Window(QMainWindow,Ui_MainWindow,):
                 monitor.btn_pause.blockSignals(False)
             
             # Clear widgets
-            self.upd_plot(monitor.plot_left, [])
-            self.upd_plot(monitor.plot_right, [])
+            upd_plot(monitor.plot_left, [])
+            upd_plot(monitor.plot_right, [])
 
     def stop_worker(self, worker: Worker|None) -> None:
         
@@ -1337,12 +1337,12 @@ class Window(QMainWindow,Ui_MainWindow,):
 
         """
 
-        self.upd_plot(
+        upd_plot(
             widget = monitor.plot_left,
             ydata = measurement.signal,
             marker = [measurement.sbx, measurement.sex]
         )
-        self.upd_plot(monitor.plot_right, ydata=measurement.data)
+        upd_plot(monitor.plot_right, ydata=measurement.data)
         monitor.le_cur_en.setText(self.form_quant(measurement.energy))
         monitor.le_aver_en.setText(self.form_quant(measurement.aver))
         monitor.le_std_en.setText(self.form_quant(measurement.std))
@@ -1351,107 +1351,6 @@ class Window(QMainWindow,Ui_MainWindow,):
         """Format str representation of a quantity."""
 
         return f'{quant:~.2gP}'
-
-    @Slot()
-    def upd_plot(
-            self,
-            base_widget: MplCanvas|MplNavCanvas,
-            ydata: Iterable,
-            xdata: Iterable|None = None,
-            ylabel: str|None = None,
-            xlabel: str|None = None,
-            marker: Iterable|None = None,
-            enable_pick: bool = False,
-            toolbar: NavigationToolbar2QT|None = None
-        ) -> None:
-        """
-        Update a plot.
-        
-        ``widget`` - widget with axes, where to plot,\n
-        ``xdata`` - Iterable containing data for X axes. Should not
-         be shorter than ``ydata``. If None, then enumeration of 
-         ``ydata`` will be used.\n
-         ``ydata`` - Iterable containing data for Y axes.\n
-         ``xlabel`` - Optional label for x data.\n
-         ``ylabel`` - Optional label for y data.\n
-         ``marker`` - Index of marker for data. If this option is
-         omitted, then marker is removed.\n
-         ``enable_pick`` - enabler picker for main data.\n
-         ``toolbar`` - navigation toolbar.
-        """
-
-        if isinstance(base_widget, MplNavCanvas):
-            widget = base_widget.canvas
-        else:
-            widget = base_widget
-
-        # Update data
-        if xdata is None:
-            widget.xdata = np.array(range(len(ydata))) # type: ignore
-        else:
-            widget.xdata = xdata
-        widget.ydata = ydata
-        if xlabel is not None:
-            widget.xlabel = xlabel
-        if ylabel is not None:
-            widget.ylabel = ylabel
-
-        # Plot data
-        if widget._plot_ref is None:
-            widget._plot_ref = widget.axes.plot(
-                widget.xdata,
-                widget.ydata,
-                'r',
-                picker = enable_pick,
-                pickradius = 10
-            )[0]
-        else:
-            widget._plot_ref.set_xdata(widget.xdata) # type: ignore
-            widget._plot_ref.set_ydata(widget.ydata) # type: ignore
-        if widget.sp is not None:
-            spdata = [widget.sp]*len(widget.xdata) # type: ignore
-            if widget._sp_ref is None:
-                widget._sp_ref = widget.axes.plot(
-                    widget.xdata,
-                    spdata,
-                    'b'
-                )[0]
-            else:
-                widget._sp_ref.set_xdata(widget.xdata) # type: ignore
-                widget._sp_ref.set_ydata(spdata)
-
-        # Set markers
-        if marker is not None:
-            if widget._marker_ref is None:
-                # Marker Style
-                marker_style = {
-                    'marker': 'o',
-                    'alpha': 0.4,
-                    'ms': 12,
-                    'color': 'yellow',
-                    'linewidth': 0
-                }
-                widget._marker_ref, = widget.axes.plot(
-                    widget.xdata[marker], # type: ignore
-                    widget.ydata[marker], # type: ignore
-                    **marker_style
-                )
-            else:
-                widget._marker_ref.set_data(
-                    [widget.xdata[marker]], # type: ignore
-                    [widget.ydata[marker]] # type: ignore
-                )
-        else:
-            widget._marker_ref = None
-        widget.axes.set_xlabel(widget.xlabel) # type: ignore
-        widget.axes.set_ylabel(widget.ylabel) # type: ignore
-        widget.axes.relim()
-        widget.axes.autoscale(True, 'both')
-        widget.draw()
-
-        # Reset history of navigation toolbar
-        if isinstance(base_widget, MplNavCanvas):
-            base_widget.toolbar.update()
 
     def get_layout(self, widget: QWidget) -> QLayout|None:
         """Return parent layout for a widget."""

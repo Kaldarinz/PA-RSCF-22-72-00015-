@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>982</width>
-    <height>692</height>
+    <height>693</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -550,7 +550,7 @@
           <string/>
          </property>
          <property name="pixmap">
-          <pixmap resource="qt_resources.qrc">:/icons/qt_resources/battery-plug.png</pixmap>
+          <pixmap resource="qt_resources.qrc">:/icons/qt_resources/plug-connect.png</pixmap>
          </property>
         </widget>
        </item>
@@ -585,7 +585,7 @@
           <string/>
          </property>
          <property name="pixmap">
-          <pixmap resource="qt_resources.qrc">:/icons/qt_resources/battery-plug.png</pixmap>
+          <pixmap resource="qt_resources.qrc">:/icons/qt_resources/plug-connect.png</pixmap>
          </property>
         </widget>
        </item>
@@ -620,7 +620,7 @@
           <string/>
          </property>
          <property name="pixmap">
-          <pixmap resource="qt_resources.qrc">:/icons/qt_resources/battery-plug.png</pixmap>
+          <pixmap resource="qt_resources.qrc">:/icons/qt_resources/plug-connect.png</pixmap>
          </property>
         </widget>
        </item>
@@ -755,6 +755,7 @@
  </customwidgets>
  <resources>
   <include location="qt_resources.qrc"/>
+  <include location="../../../../../../Users/apopo/.designer/backup/qt_resources.qrc"/>
  </resources>
  <connections/>
 </ui>

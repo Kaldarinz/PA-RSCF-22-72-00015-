@@ -22,12 +22,13 @@ from PySide6.QtWidgets import (QApplication, QDoubleSpinBox, QFormLayout, QFrame
 
 from ..widgets.py import MplCanvas
 from . import qt_resources_rc
+from . import qt_resources_rc
 
 class Ui_Form(object):
     def setupUi(self, Form):
         if not Form.objectName():
             Form.setObjectName(u"Form")
-        Form.resize(982, 692)
+        Form.resize(982, 693)
         self.horizontalLayout = QHBoxLayout(Form)
         self.horizontalLayout.setObjectName(u"horizontalLayout")
         self.verticalLayout = QVBoxLayout()
@@ -314,7 +315,7 @@ class Ui_Form(object):
         self.icon_x_status.setObjectName(u"icon_x_status")
         sizePolicy.setHeightForWidth(self.icon_x_status.sizePolicy().hasHeightForWidth())
         self.icon_x_status.setSizePolicy(sizePolicy)
-        self.icon_x_status.setPixmap(QPixmap(u":/icons/qt_resources/battery-plug.png"))
+        self.icon_x_status.setPixmap(QPixmap(u":/icons/qt_resources/plug-connect.png"))
 
         self.formLayout_4.setWidget(0, QFormLayout.FieldRole, self.icon_x_status)
 
@@ -330,7 +331,7 @@ class Ui_Form(object):
         self.icon_y_status.setObjectName(u"icon_y_status")
         sizePolicy.setHeightForWidth(self.icon_y_status.sizePolicy().hasHeightForWidth())
         self.icon_y_status.setSizePolicy(sizePolicy)
-        self.icon_y_status.setPixmap(QPixmap(u":/icons/qt_resources/battery-plug.png"))
+        self.icon_y_status.setPixmap(QPixmap(u":/icons/qt_resources/plug-connect.png"))
 
         self.formLayout_4.setWidget(1, QFormLayout.FieldRole, self.icon_y_status)
 
@@ -346,7 +347,7 @@ class Ui_Form(object):
         self.icon_z_status.setObjectName(u"icon_z_status")
         sizePolicy.setHeightForWidth(self.icon_z_status.sizePolicy().hasHeightForWidth())
         self.icon_z_status.setSizePolicy(sizePolicy)
-        self.icon_z_status.setPixmap(QPixmap(u":/icons/qt_resources/battery-plug.png"))
+        self.icon_z_status.setPixmap(QPixmap(u":/icons/qt_resources/plug-connect.png"))
 
         self.formLayout_4.setWidget(2, QFormLayout.FieldRole, self.icon_z_status)
 

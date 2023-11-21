@@ -28,7 +28,8 @@ from . import (
     map_measure_widget_ui,
     pm_monitor_ui,
     curve_data_view_ui,
-    point_data_view_ui
+    point_data_view_ui,
+    motor_control_ui
 )
 
 from ...pa_data import Measurement
@@ -143,7 +144,7 @@ class CurveMeasureWidget(QWidget,curve_measure_widget_ui.Ui_Form):
         self.cur_p_changed.emit()
 
     def upd_widgets(self) -> None:
-        """Update widgets, related to corrent scan point.
+        """Update widgets, related to current scan point.
         
         Updates progress bar, its label and current param."""
 
@@ -208,4 +209,13 @@ class PointView(QWidget, point_data_view_ui.Ui_Form):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setupUi(self)
+
+class MotorView(QWidget, motor_control_ui.Ui_Form):
+    """Mechanical positioning widget."""
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setupUi(self)
+
+
     
