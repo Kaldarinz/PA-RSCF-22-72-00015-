@@ -26,16 +26,15 @@ def confirm_action(message: str='') -> bool:
     logger.debug(f'"{message}" = {confirm}')
     return confirm
 
-@Slot()
 def upd_plot(
         base_widget: MplCanvas|MplNavCanvas,
         ydata: Iterable,
         xdata: Iterable|None = None,
+        fmt: str|None = None,
         ylabel: str|None = None,
         xlabel: str|None = None,
         marker: Iterable|None = None,
-        enable_pick: bool = False,
-        toolbar: NavigationToolbar2QT|None = None
+        enable_pick: bool = False
     ) -> None:
     """
     Update a plot.
@@ -45,12 +44,12 @@ def upd_plot(
         be shorter than ``ydata``. If None, then enumeration of 
         ``ydata`` will be used.\n
         ``ydata`` - Iterable containing data for Y axes.\n
+        ``fmt`` - Format string.\n
         ``xlabel`` - Optional label for x data.\n
         ``ylabel`` - Optional label for y data.\n
         ``marker`` - Index of marker for data. If this option is
         omitted, then marker is removed.\n
-        ``enable_pick`` - enabler picker for main data.\n
-        ``toolbar`` - navigation toolbar.
+        ``enable_pick`` - enabler picker for main data.
     """
 
     if isinstance(base_widget, MplNavCanvas):
@@ -70,17 +69,24 @@ def upd_plot(
         widget.ylabel = ylabel
 
     # Plot data
+    # If plot is empty, create reference to 2D line
     if widget._plot_ref is None:
+        # Set format
+        if fmt is None:
+            fmt = 'r'
+        # Actual plot
         widget._plot_ref = widget.axes.plot(
             widget.xdata,
             widget.ydata,
-            'r',
+            fmt,
             picker = enable_pick,
             pickradius = 10
         )[0]
+    # otherwise just update data
     else:
         widget._plot_ref.set_xdata(widget.xdata) # type: ignore
         widget._plot_ref.set_ydata(widget.ydata) # type: ignore
+    # Update SetPoint if necessary
     if widget.sp is not None:
         spdata = [widget.sp]*len(widget.xdata) # type: ignore
         if widget._sp_ref is None:
@@ -116,8 +122,10 @@ def upd_plot(
             )
     else:
         widget._marker_ref = None
+    # Set labels
     widget.axes.set_xlabel(widget.xlabel) # type: ignore
     widget.axes.set_ylabel(widget.ylabel) # type: ignore
+    # Update limits
     widget.axes.relim()
     widget.axes.autoscale(True, 'both')
     widget.draw()

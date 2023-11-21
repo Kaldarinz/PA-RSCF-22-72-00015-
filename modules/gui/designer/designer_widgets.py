@@ -4,7 +4,8 @@ Classes with initaited widgets, built in Qt Designer.
 from PySide6.QtCore import (
     Signal,
     Qt,
-    QStringListModel
+    QStringListModel,
+    Slot
 )
 from PySide6.QtWidgets import (
     QDialog,
@@ -32,10 +33,18 @@ from . import (
     motor_control_ui
 )
 
+from ... import Q_
 from ...pa_data import Measurement
 from ...data_classes import (
     DataPoint,
-    DetailedSignals
+    DetailedSignals,
+    Coordinate
+)
+from ...utils import (
+    upd_plot
+)
+from ...pa_logic import (
+    stages_status
 )
 
 
@@ -210,12 +219,93 @@ class PointView(QWidget, point_data_view_ui.Ui_Form):
         super().__init__(parent)
         self.setupUi(self)
 
-# class MotorView(QWidget, motor_control_ui.Ui_Form):
-#     """Mechanical positioning widget."""
+class MotorView(QWidget, motor_control_ui.Ui_Form):
+    """Mechanical positioning widget."""
 
-#     def __init__(self, parent: QWidget | None = None) -> None:
-#         super().__init__(parent)
-#         self.setupUi(self)
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setupUi(self)
 
+        self.x: PlainQuantity = Q_(0, 'mm')
+        self.y: PlainQuantity = Q_(0, 'mm')
+        self.z: PlainQuantity = Q_(0, 'mm')
 
-    
+        self.fmt = 'o'
+        "Format string for plotting."
+
+    @Slot(Coordinate)
+    def set_position(self, position: Coordinate) -> None:
+        """Update current coordinate."""
+
+        # Update current position line edits and attributes.
+        if position.x is not None:
+            self.x = position.x
+            self.le_x_cur_pos.setText(str(position.x))
+        if position.y is not None:
+            self.y = position.y
+            self.le_y_cur_pos.setText(str(position.y))
+        if position.z is not None:
+            self.z = position.z
+            self.le_z_cur_pos.setText(str(position.z))
+
+        # Update plot positions
+        upd_plot(
+            base_widget = self.plot_xy,
+            ydata = [self.y],
+            xdata = [self.x],
+            fmt = self.fmt
+        )
+        upd_plot(
+            base_widget = self.plot_xz,
+            ydata = [self.z],
+            xdata = [self.x],
+            fmt = self.fmt
+        )
+        upd_plot(
+            base_widget = self.plot_yz,
+            ydata = [self.y],
+            xdata = [self.z],
+            fmt = self.fmt
+        )
+
+    def set_range(
+            self,
+            range: tuple[PlainQuantity, PlainQuantity]
+        ) -> None:
+        """Set range of valid coordinates."""
+
+        min_val = range[0].to('mm').m
+        max_val = range[1].to('mm').m
+        range_mm = [min_val, max_val]
+        # Set range for plots
+        self.plot_xy.axes.set_xlim(range_mm) # type: ignore
+        self.plot_xz.axes.set_xlim(range_mm) # type: ignore
+        self.plot_yz.axes.set_xlim(range_mm) # type: ignore
+        # Set range for spin boxes
+        for sb in iter([
+            self.sb_x_new_pos,
+            self.sb_y_new_pos,
+            self.sb_z_new_pos
+        ]):
+            sb.setMinimum(min_val)
+            sb.setMaximum(max_val)
+
+    def upd_status(self) -> None:
+        """Update status of motors."""
+
+        status_lst = stages_status()
+        for status, icon, lbl in zip(
+            status_lst,
+            [
+                self.icon_x_status,
+                self.icon_y_status,
+                self.icon_z_status
+            ],
+             [
+                self.lbl_x_status,
+                self.lbl_y_status,
+                self.lbl_z_status
+             ]
+        ):
+            ### Continue from here
+            icon.setPixmap()

@@ -83,7 +83,6 @@ from modules.gui.designer.designer_widgets import (
 )
 
 
-
 def init_logs() -> tuple[logging.Logger, QLogHandler]:
     """Initiate logging"""
 

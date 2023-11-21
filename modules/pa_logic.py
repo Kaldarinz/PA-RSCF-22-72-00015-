@@ -228,6 +228,18 @@ def stages_open() -> bool:
     logger.debug(f'...Finishing. stages {connected=}')
     return connected
 
+def stages_status() -> list[tuple[bool, PlainQuantity]]:
+    """Return status of all stages."""
+
+    status = []
+    for stage in hardware.stages:
+        status_lst = stage.get_status()
+        status.append(
+            (stage.is_opened(),', '.join(status_lst))
+        )
+
+    return status
+        
 def pm_open() -> bool:
     """Return true if power meter is configured."""
 

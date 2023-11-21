@@ -14,9 +14,9 @@ Q_ = ureg.Quantity
 
 
 
-dct = {'one': 1, 'two': 2, 'three': 3}
+lst = ['one', 'two', 'three']
 
-print(len([key for key in dct.keys()]))
+print(', '.join(lst))
 
 
 

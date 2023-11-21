@@ -1,4 +1,4 @@
-from typing import Iterable, Optional
+from typing import Iterable
 import os
 import logging
 
@@ -28,11 +28,12 @@ from matplotlib.figure import Figure
 from matplotlib.axes import Axes
 from matplotlib.lines import Line2D
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
-from matplotlib.backends.backend_qtagg import NavigationToolbar2QT
+from matplotlib.backends.backend_qtagg import NavigationToolbar2QT # type: ignore
 
 from modules import ureg, Q_
 
 logger = logging.getLogger(__name__)
+
 class MplCanvas(FigureCanvasQTAgg):
     """Single plot MatPlotLib widget."""
 

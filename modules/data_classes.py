@@ -177,6 +177,13 @@ class EnergyMeasurement:
     std: PlainQuantity = Q_(0, 'uJ')
     "Standard deviation of laser energy."
 
+@dataclass
+class Coordinate:
+    
+    x: PlainQuantity|None = None
+    y: PlainQuantity|None = None
+    z: PlainQuantity|None = None
+
 class Hardware():
     """Class for hardware references."""
     
