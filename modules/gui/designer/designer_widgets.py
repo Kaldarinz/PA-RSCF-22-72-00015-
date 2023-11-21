@@ -210,12 +210,12 @@ class PointView(QWidget, point_data_view_ui.Ui_Form):
         super().__init__(parent)
         self.setupUi(self)
 
-class MotorView(QWidget, motor_control_ui.Ui_Form):
-    """Mechanical positioning widget."""
+# class MotorView(QWidget, motor_control_ui.Ui_Form):
+#     """Mechanical positioning widget."""
 
-    def __init__(self, parent: QWidget | None = None) -> None:
-        super().__init__(parent)
-        self.setupUi(self)
+#     def __init__(self, parent: QWidget | None = None) -> None:
+#         super().__init__(parent)
+#         self.setupUi(self)
 
 
     

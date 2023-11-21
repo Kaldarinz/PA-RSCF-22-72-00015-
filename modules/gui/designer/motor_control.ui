@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>982</width>
-    <height>693</height>
+    <width>1010</width>
+    <height>715</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -749,7 +749,7 @@
   <customwidget>
    <class>MplCanvas</class>
    <extends>QWidget</extends>
-   <header>..widgets.py</header>
+   <header>..widgets</header>
    <container>1</container>
   </customwidget>
  </customwidgets>

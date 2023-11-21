@@ -20,7 +20,7 @@ from PySide6.QtWidgets import (QApplication, QDoubleSpinBox, QFormLayout, QFrame
     QLineEdit, QPushButton, QSizePolicy, QSlider,
     QSpacerItem, QVBoxLayout, QWidget)
 
-from ..widgets.py import MplCanvas
+from ..widgets import MplCanvas
 from . import qt_resources_rc
 from . import qt_resources_rc
 
@@ -28,7 +28,7 @@ class Ui_Form(object):
     def setupUi(self, Form):
         if not Form.objectName():
             Form.setObjectName(u"Form")
-        Form.resize(982, 693)
+        Form.resize(1010, 715)
         self.horizontalLayout = QHBoxLayout(Form)
         self.horizontalLayout.setObjectName(u"horizontalLayout")
         self.verticalLayout = QVBoxLayout()
