@@ -1003,7 +1003,7 @@ class Window(QMainWindow,Ui_MainWindow,):
             data.dt_pm.u
         )
         upd_plot(
-            widget = plot_pm,
+            base_widget = plot_pm,
             ydata = ydata,
             xdata = xdata
         )
@@ -1012,7 +1012,7 @@ class Window(QMainWindow,Ui_MainWindow,):
         start = data.start_time
         stop = data.stop_time.to(start.u)
         upd_plot(
-            widget = plot_pa,
+            base_widget = plot_pa,
             ydata = data.pa_signal,
             xdata = Q_(
                 np.linspace(
@@ -1338,7 +1338,7 @@ class Window(QMainWindow,Ui_MainWindow,):
         """
 
         upd_plot(
-            widget = monitor.plot_left,
+            base_widget = monitor.plot_left,
             ydata = measurement.signal,
             marker = [measurement.sbx, measurement.sex]
         )
