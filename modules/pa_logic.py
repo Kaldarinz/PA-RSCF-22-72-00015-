@@ -3,6 +3,7 @@ PA backend
 """
 
 from typing import List, Tuple, Optional, cast
+from dataclasses import fields
 import logging
 import os
 from itertools import combinations
@@ -37,6 +38,7 @@ from .data_classes import (
     WorkerSignals,
     MeasuredPoint,
     EnergyMeasurement,
+    Coordinate,
     hardware
 )
 from . import ureg, Q_
@@ -228,18 +230,36 @@ def stages_open() -> bool:
     logger.debug(f'...Finishing. stages {connected=}')
     return connected
 
-def stages_status() -> list[tuple[bool, PlainQuantity]]:
+def stages_status() -> list[tuple[bool, str]]:
     """Return status of all stages."""
 
     status = []
     for stage in hardware.stages:
         status_lst = stage.get_status()
-        status.append(
-            (stage.is_opened(),', '.join(status_lst))
-        )
+        try:
+            status.append(
+                (stage.is_opened(),', '.join(status_lst))
+            )
+        except:
+            logger.warning(
+                'Error occured while trying to get stage status.'
+            )
 
     return status
-        
+
+def stages_position() -> Coordinate:
+    """Get position of all stages."""
+
+    coord = Coordinate()
+    for stage, axes in zip(hardware.stages, fields(coord)):
+        try:
+            pos = stage.get_position()
+        except:
+            continue
+        else:
+            setattr(coord, axes.name, Q_(pos, 'm'))
+    return coord
+
 def pm_open() -> bool:
     """Return true if power meter is configured."""
 

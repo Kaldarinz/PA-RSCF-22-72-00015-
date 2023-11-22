@@ -15,26 +15,27 @@ from PySide6.QtGui import (QBrush, QColor, QConicalGradient, QCursor,
     QFont, QFontDatabase, QGradient, QIcon,
     QImage, QKeySequence, QLinearGradient, QPainter,
     QPalette, QPixmap, QRadialGradient, QTransform)
-from PySide6.QtWidgets import (QApplication, QDoubleSpinBox, QFormLayout, QFrame,
-    QGridLayout, QHBoxLayout, QLabel, QLayout,
-    QLineEdit, QPushButton, QSizePolicy, QSlider,
-    QSpacerItem, QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (QApplication, QDockWidget, QDoubleSpinBox, QFormLayout,
+    QFrame, QGridLayout, QHBoxLayout, QLabel,
+    QLayout, QLineEdit, QPushButton, QSizePolicy,
+    QSlider, QSpacerItem, QVBoxLayout, QWidget)
 
 from ..widgets import MplCanvas
 from . import qt_resources_rc
 from . import qt_resources_rc
 
-class Ui_Form(object):
-    def setupUi(self, Form):
-        if not Form.objectName():
-            Form.setObjectName(u"Form")
-        Form.resize(1010, 715)
-        self.horizontalLayout = QHBoxLayout(Form)
+class Ui_DockWidget(object):
+    def setupUi(self, DockWidget):
+        if not DockWidget.objectName():
+            DockWidget.setObjectName(u"DockWidget")
+        DockWidget.resize(815, 815)
+        self.dockWidgetContents = QWidget()
+        self.dockWidgetContents.setObjectName(u"dockWidgetContents")
+        self.horizontalLayout = QHBoxLayout(self.dockWidgetContents)
         self.horizontalLayout.setObjectName(u"horizontalLayout")
         self.verticalLayout = QVBoxLayout()
         self.verticalLayout.setObjectName(u"verticalLayout")
-        self.verticalLayout.setSizeConstraint(QLayout.SetMinimumSize)
-        self.lbl_cur_pos = QLabel(Form)
+        self.lbl_cur_pos = QLabel(self.dockWidgetContents)
         self.lbl_cur_pos.setObjectName(u"lbl_cur_pos")
         sizePolicy = QSizePolicy(QSizePolicy.Minimum, QSizePolicy.Preferred)
         sizePolicy.setHorizontalStretch(0)
@@ -47,16 +48,23 @@ class Ui_Form(object):
 
         self.verticalLayout.addWidget(self.lbl_cur_pos)
 
+        self.line_5 = QFrame(self.dockWidgetContents)
+        self.line_5.setObjectName(u"line_5")
+        self.line_5.setFrameShape(QFrame.VLine)
+        self.line_5.setFrameShadow(QFrame.Sunken)
+
+        self.verticalLayout.addWidget(self.line_5)
+
         self.gridLayout_2 = QGridLayout()
         self.gridLayout_2.setObjectName(u"gridLayout_2")
         self.gridLayout_2.setSizeConstraint(QLayout.SetDefaultConstraint)
-        self.lbl_x_cur_pos = QLabel(Form)
+        self.lbl_x_cur_pos = QLabel(self.dockWidgetContents)
         self.lbl_x_cur_pos.setObjectName(u"lbl_x_cur_pos")
         self.lbl_x_cur_pos.setFont(font)
 
         self.gridLayout_2.addWidget(self.lbl_x_cur_pos, 0, 0, 1, 1)
 
-        self.le_x_cur_pos = QLineEdit(Form)
+        self.le_x_cur_pos = QLineEdit(self.dockWidgetContents)
         self.le_x_cur_pos.setObjectName(u"le_x_cur_pos")
         sizePolicy1 = QSizePolicy(QSizePolicy.Minimum, QSizePolicy.Fixed)
         sizePolicy1.setHorizontalStretch(0)
@@ -68,13 +76,13 @@ class Ui_Form(object):
 
         self.gridLayout_2.addWidget(self.le_x_cur_pos, 0, 1, 1, 1)
 
-        self.lbl_y_cur_pos = QLabel(Form)
+        self.lbl_y_cur_pos = QLabel(self.dockWidgetContents)
         self.lbl_y_cur_pos.setObjectName(u"lbl_y_cur_pos")
         self.lbl_y_cur_pos.setFont(font)
 
         self.gridLayout_2.addWidget(self.lbl_y_cur_pos, 1, 0, 1, 1)
 
-        self.le_y_cur_pos = QLineEdit(Form)
+        self.le_y_cur_pos = QLineEdit(self.dockWidgetContents)
         self.le_y_cur_pos.setObjectName(u"le_y_cur_pos")
         sizePolicy1.setHeightForWidth(self.le_y_cur_pos.sizePolicy().hasHeightForWidth())
         self.le_y_cur_pos.setSizePolicy(sizePolicy1)
@@ -83,13 +91,13 @@ class Ui_Form(object):
 
         self.gridLayout_2.addWidget(self.le_y_cur_pos, 1, 1, 1, 1)
 
-        self.lbl_z_cur_pos = QLabel(Form)
+        self.lbl_z_cur_pos = QLabel(self.dockWidgetContents)
         self.lbl_z_cur_pos.setObjectName(u"lbl_z_cur_pos")
         self.lbl_z_cur_pos.setFont(font)
 
         self.gridLayout_2.addWidget(self.lbl_z_cur_pos, 2, 0, 1, 1)
 
-        self.le_z_cur_pos = QLineEdit(Form)
+        self.le_z_cur_pos = QLineEdit(self.dockWidgetContents)
         self.le_z_cur_pos.setObjectName(u"le_z_cur_pos")
         sizePolicy1.setHeightForWidth(self.le_z_cur_pos.sizePolicy().hasHeightForWidth())
         self.le_z_cur_pos.setSizePolicy(sizePolicy1)
@@ -101,14 +109,14 @@ class Ui_Form(object):
 
         self.verticalLayout.addLayout(self.gridLayout_2)
 
-        self.line = QFrame(Form)
+        self.line = QFrame(self.dockWidgetContents)
         self.line.setObjectName(u"line")
         self.line.setFrameShape(QFrame.HLine)
         self.line.setFrameShadow(QFrame.Sunken)
 
         self.verticalLayout.addWidget(self.line)
 
-        self.lbl_new_pos = QLabel(Form)
+        self.lbl_new_pos = QLabel(self.dockWidgetContents)
         self.lbl_new_pos.setObjectName(u"lbl_new_pos")
         sizePolicy.setHeightForWidth(self.lbl_new_pos.sizePolicy().hasHeightForWidth())
         self.lbl_new_pos.setSizePolicy(sizePolicy)
@@ -119,13 +127,13 @@ class Ui_Form(object):
         self.gridLayout_7 = QGridLayout()
         self.gridLayout_7.setObjectName(u"gridLayout_7")
         self.gridLayout_7.setSizeConstraint(QLayout.SetMinimumSize)
-        self.lbl_x_new_pos = QLabel(Form)
+        self.lbl_x_new_pos = QLabel(self.dockWidgetContents)
         self.lbl_x_new_pos.setObjectName(u"lbl_x_new_pos")
         self.lbl_x_new_pos.setFont(font)
 
         self.gridLayout_7.addWidget(self.lbl_x_new_pos, 0, 0, 1, 1)
 
-        self.sb_x_new_pos = QDoubleSpinBox(Form)
+        self.sb_x_new_pos = QDoubleSpinBox(self.dockWidgetContents)
         self.sb_x_new_pos.setObjectName(u"sb_x_new_pos")
         sizePolicy1.setHeightForWidth(self.sb_x_new_pos.sizePolicy().hasHeightForWidth())
         self.sb_x_new_pos.setSizePolicy(sizePolicy1)
@@ -133,26 +141,26 @@ class Ui_Form(object):
 
         self.gridLayout_7.addWidget(self.sb_x_new_pos, 0, 1, 1, 1)
 
-        self.lbl_y_new_pos = QLabel(Form)
+        self.lbl_y_new_pos = QLabel(self.dockWidgetContents)
         self.lbl_y_new_pos.setObjectName(u"lbl_y_new_pos")
         self.lbl_y_new_pos.setFont(font)
 
         self.gridLayout_7.addWidget(self.lbl_y_new_pos, 1, 0, 1, 1)
 
-        self.sb_y_new_pos = QDoubleSpinBox(Form)
+        self.sb_y_new_pos = QDoubleSpinBox(self.dockWidgetContents)
         self.sb_y_new_pos.setObjectName(u"sb_y_new_pos")
         sizePolicy1.setHeightForWidth(self.sb_y_new_pos.sizePolicy().hasHeightForWidth())
         self.sb_y_new_pos.setSizePolicy(sizePolicy1)
 
         self.gridLayout_7.addWidget(self.sb_y_new_pos, 1, 1, 1, 1)
 
-        self.lbl_z_new_pos = QLabel(Form)
+        self.lbl_z_new_pos = QLabel(self.dockWidgetContents)
         self.lbl_z_new_pos.setObjectName(u"lbl_z_new_pos")
         self.lbl_z_new_pos.setFont(font)
 
         self.gridLayout_7.addWidget(self.lbl_z_new_pos, 2, 0, 1, 1)
 
-        self.sb_z_new_pos = QDoubleSpinBox(Form)
+        self.sb_z_new_pos = QDoubleSpinBox(self.dockWidgetContents)
         self.sb_z_new_pos.setObjectName(u"sb_z_new_pos")
         sizePolicy1.setHeightForWidth(self.sb_z_new_pos.sizePolicy().hasHeightForWidth())
         self.sb_z_new_pos.setSizePolicy(sizePolicy1)
@@ -166,7 +174,7 @@ class Ui_Form(object):
         self.formLayout_3.setObjectName(u"formLayout_3")
         self.formLayout_3.setSizeConstraint(QLayout.SetMinimumSize)
         self.formLayout_3.setFieldGrowthPolicy(QFormLayout.FieldsStayAtSizeHint)
-        self.btn_go = QPushButton(Form)
+        self.btn_go = QPushButton(self.dockWidgetContents)
         self.btn_go.setObjectName(u"btn_go")
         sizePolicy1.setHeightForWidth(self.btn_go.sizePolicy().hasHeightForWidth())
         self.btn_go.setSizePolicy(sizePolicy1)
@@ -178,7 +186,7 @@ class Ui_Form(object):
 
         self.formLayout_3.setWidget(0, QFormLayout.LabelRole, self.btn_go)
 
-        self.btn_stop = QPushButton(Form)
+        self.btn_stop = QPushButton(self.dockWidgetContents)
         self.btn_stop.setObjectName(u"btn_stop")
         sizePolicy1.setHeightForWidth(self.btn_stop.sizePolicy().hasHeightForWidth())
         self.btn_stop.setSizePolicy(sizePolicy1)
@@ -193,14 +201,14 @@ class Ui_Form(object):
 
         self.verticalLayout.addLayout(self.formLayout_3)
 
-        self.line_2 = QFrame(Form)
+        self.line_2 = QFrame(self.dockWidgetContents)
         self.line_2.setObjectName(u"line_2")
         self.line_2.setFrameShape(QFrame.HLine)
         self.line_2.setFrameShadow(QFrame.Sunken)
 
         self.verticalLayout.addWidget(self.line_2)
 
-        self.lbl_move = QLabel(Form)
+        self.lbl_move = QLabel(self.dockWidgetContents)
         self.lbl_move.setObjectName(u"lbl_move")
         sizePolicy.setHeightForWidth(self.lbl_move.sizePolicy().hasHeightForWidth())
         self.lbl_move.setSizePolicy(sizePolicy)
@@ -211,7 +219,7 @@ class Ui_Form(object):
         self.gridLayout = QGridLayout()
         self.gridLayout.setObjectName(u"gridLayout")
         self.gridLayout.setSizeConstraint(QLayout.SetMinimumSize)
-        self.lbl_x_move = QLabel(Form)
+        self.lbl_x_move = QLabel(self.dockWidgetContents)
         self.lbl_x_move.setObjectName(u"lbl_x_move")
         sizePolicy.setHeightForWidth(self.lbl_x_move.sizePolicy().hasHeightForWidth())
         self.lbl_x_move.setSizePolicy(sizePolicy)
@@ -220,7 +228,7 @@ class Ui_Form(object):
 
         self.gridLayout.addWidget(self.lbl_x_move, 0, 0, 1, 1)
 
-        self.btn_x_left_move = QPushButton(Form)
+        self.btn_x_left_move = QPushButton(self.dockWidgetContents)
         self.btn_x_left_move.setObjectName(u"btn_x_left_move")
         icon2 = QIcon()
         icon2.addFile(u":/icons/qt_resources/control-double-180.png", QSize(), QIcon.Normal, QIcon.Off)
@@ -228,7 +236,7 @@ class Ui_Form(object):
 
         self.gridLayout.addWidget(self.btn_x_left_move, 0, 1, 1, 1)
 
-        self.btn_x_right_move = QPushButton(Form)
+        self.btn_x_right_move = QPushButton(self.dockWidgetContents)
         self.btn_x_right_move.setObjectName(u"btn_x_right_move")
         icon3 = QIcon()
         icon3.addFile(u":/icons/qt_resources/control-double.png", QSize(), QIcon.Normal, QIcon.Off)
@@ -236,7 +244,7 @@ class Ui_Form(object):
 
         self.gridLayout.addWidget(self.btn_x_right_move, 0, 2, 1, 1)
 
-        self.lbl_y_move = QLabel(Form)
+        self.lbl_y_move = QLabel(self.dockWidgetContents)
         self.lbl_y_move.setObjectName(u"lbl_y_move")
         sizePolicy.setHeightForWidth(self.lbl_y_move.sizePolicy().hasHeightForWidth())
         self.lbl_y_move.setSizePolicy(sizePolicy)
@@ -244,19 +252,19 @@ class Ui_Form(object):
 
         self.gridLayout.addWidget(self.lbl_y_move, 1, 0, 1, 1)
 
-        self.btn_y_left_move = QPushButton(Form)
+        self.btn_y_left_move = QPushButton(self.dockWidgetContents)
         self.btn_y_left_move.setObjectName(u"btn_y_left_move")
         self.btn_y_left_move.setIcon(icon2)
 
         self.gridLayout.addWidget(self.btn_y_left_move, 1, 1, 1, 1)
 
-        self.btn_y_right_move = QPushButton(Form)
+        self.btn_y_right_move = QPushButton(self.dockWidgetContents)
         self.btn_y_right_move.setObjectName(u"btn_y_right_move")
         self.btn_y_right_move.setIcon(icon3)
 
         self.gridLayout.addWidget(self.btn_y_right_move, 1, 2, 1, 1)
 
-        self.lbl_z_move = QLabel(Form)
+        self.lbl_z_move = QLabel(self.dockWidgetContents)
         self.lbl_z_move.setObjectName(u"lbl_z_move")
         sizePolicy.setHeightForWidth(self.lbl_z_move.sizePolicy().hasHeightForWidth())
         self.lbl_z_move.setSizePolicy(sizePolicy)
@@ -264,13 +272,13 @@ class Ui_Form(object):
 
         self.gridLayout.addWidget(self.lbl_z_move, 2, 0, 1, 1)
 
-        self.btn_z_left_move = QPushButton(Form)
+        self.btn_z_left_move = QPushButton(self.dockWidgetContents)
         self.btn_z_left_move.setObjectName(u"btn_z_left_move")
         self.btn_z_left_move.setIcon(icon2)
 
         self.gridLayout.addWidget(self.btn_z_left_move, 2, 1, 1, 1)
 
-        self.btn_z_right_move = QPushButton(Form)
+        self.btn_z_right_move = QPushButton(self.dockWidgetContents)
         self.btn_z_right_move.setObjectName(u"btn_z_right_move")
         self.btn_z_right_move.setIcon(icon3)
 
@@ -279,14 +287,14 @@ class Ui_Form(object):
 
         self.verticalLayout.addLayout(self.gridLayout)
 
-        self.line_3 = QFrame(Form)
+        self.line_3 = QFrame(self.dockWidgetContents)
         self.line_3.setObjectName(u"line_3")
         self.line_3.setFrameShape(QFrame.HLine)
         self.line_3.setFrameShadow(QFrame.Sunken)
 
         self.verticalLayout.addWidget(self.line_3)
 
-        self.lbl_status = QLabel(Form)
+        self.lbl_status = QLabel(self.dockWidgetContents)
         self.lbl_status.setObjectName(u"lbl_status")
         sizePolicy.setHeightForWidth(self.lbl_status.sizePolicy().hasHeightForWidth())
         self.lbl_status.setSizePolicy(sizePolicy)
@@ -297,7 +305,7 @@ class Ui_Form(object):
         self.gridLayout_8 = QGridLayout()
         self.gridLayout_8.setObjectName(u"gridLayout_8")
         self.gridLayout_8.setSizeConstraint(QLayout.SetMaximumSize)
-        self.lbl_y_title_status = QLabel(Form)
+        self.lbl_y_title_status = QLabel(self.dockWidgetContents)
         self.lbl_y_title_status.setObjectName(u"lbl_y_title_status")
         sizePolicy2 = QSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
         sizePolicy2.setHorizontalStretch(0)
@@ -308,7 +316,7 @@ class Ui_Form(object):
 
         self.gridLayout_8.addWidget(self.lbl_y_title_status, 1, 0, 1, 1)
 
-        self.lbl_z_title_status = QLabel(Form)
+        self.lbl_z_title_status = QLabel(self.dockWidgetContents)
         self.lbl_z_title_status.setObjectName(u"lbl_z_title_status")
         sizePolicy2.setHeightForWidth(self.lbl_z_title_status.sizePolicy().hasHeightForWidth())
         self.lbl_z_title_status.setSizePolicy(sizePolicy2)
@@ -316,7 +324,7 @@ class Ui_Form(object):
 
         self.gridLayout_8.addWidget(self.lbl_z_title_status, 2, 0, 1, 1)
 
-        self.icon_x_status = QLabel(Form)
+        self.icon_x_status = QLabel(self.dockWidgetContents)
         self.icon_x_status.setObjectName(u"icon_x_status")
         sizePolicy3 = QSizePolicy(QSizePolicy.Maximum, QSizePolicy.Preferred)
         sizePolicy3.setHorizontalStretch(0)
@@ -327,7 +335,7 @@ class Ui_Form(object):
 
         self.gridLayout_8.addWidget(self.icon_x_status, 0, 1, 1, 1)
 
-        self.icon_z_status = QLabel(Form)
+        self.icon_z_status = QLabel(self.dockWidgetContents)
         self.icon_z_status.setObjectName(u"icon_z_status")
         sizePolicy.setHeightForWidth(self.icon_z_status.sizePolicy().hasHeightForWidth())
         self.icon_z_status.setSizePolicy(sizePolicy)
@@ -335,7 +343,7 @@ class Ui_Form(object):
 
         self.gridLayout_8.addWidget(self.icon_z_status, 2, 1, 1, 1)
 
-        self.icon_y_status = QLabel(Form)
+        self.icon_y_status = QLabel(self.dockWidgetContents)
         self.icon_y_status.setObjectName(u"icon_y_status")
         sizePolicy.setHeightForWidth(self.icon_y_status.sizePolicy().hasHeightForWidth())
         self.icon_y_status.setSizePolicy(sizePolicy)
@@ -343,7 +351,7 @@ class Ui_Form(object):
 
         self.gridLayout_8.addWidget(self.icon_y_status, 1, 1, 1, 1)
 
-        self.lbl_x_title_satus = QLabel(Form)
+        self.lbl_x_title_satus = QLabel(self.dockWidgetContents)
         self.lbl_x_title_satus.setObjectName(u"lbl_x_title_satus")
         sizePolicy3.setHeightForWidth(self.lbl_x_title_satus.sizePolicy().hasHeightForWidth())
         self.lbl_x_title_satus.setSizePolicy(sizePolicy3)
@@ -351,17 +359,17 @@ class Ui_Form(object):
 
         self.gridLayout_8.addWidget(self.lbl_x_title_satus, 0, 0, 1, 1)
 
-        self.lbl_x_status = QLabel(Form)
+        self.lbl_x_status = QLabel(self.dockWidgetContents)
         self.lbl_x_status.setObjectName(u"lbl_x_status")
 
         self.gridLayout_8.addWidget(self.lbl_x_status, 0, 2, 1, 1)
 
-        self.lbl_y_status = QLabel(Form)
+        self.lbl_y_status = QLabel(self.dockWidgetContents)
         self.lbl_y_status.setObjectName(u"lbl_y_status")
 
         self.gridLayout_8.addWidget(self.lbl_y_status, 1, 2, 1, 1)
 
-        self.lbl_z_status = QLabel(Form)
+        self.lbl_z_status = QLabel(self.dockWidgetContents)
         self.lbl_z_status.setObjectName(u"lbl_z_status")
 
         self.gridLayout_8.addWidget(self.lbl_z_status, 2, 2, 1, 1)
@@ -369,7 +377,7 @@ class Ui_Form(object):
 
         self.verticalLayout.addLayout(self.gridLayout_8)
 
-        self.line_4 = QFrame(Form)
+        self.line_4 = QFrame(self.dockWidgetContents)
         self.line_4.setObjectName(u"line_4")
         self.line_4.setFrameShape(QFrame.HLine)
         self.line_4.setFrameShadow(QFrame.Sunken)
@@ -383,24 +391,17 @@ class Ui_Form(object):
 
         self.horizontalLayout.addLayout(self.verticalLayout)
 
-        self.line_5 = QFrame(Form)
-        self.line_5.setObjectName(u"line_5")
-        self.line_5.setFrameShape(QFrame.VLine)
-        self.line_5.setFrameShadow(QFrame.Sunken)
-
-        self.horizontalLayout.addWidget(self.line_5)
-
         self.gridLayout_6 = QGridLayout()
         self.gridLayout_6.setObjectName(u"gridLayout_6")
         self.gridLayout_4 = QGridLayout()
         self.gridLayout_4.setObjectName(u"gridLayout_4")
-        self.slide_xz_z = QSlider(Form)
+        self.slide_xz_z = QSlider(self.dockWidgetContents)
         self.slide_xz_z.setObjectName(u"slide_xz_z")
         self.slide_xz_z.setOrientation(Qt.Vertical)
 
         self.gridLayout_4.addWidget(self.slide_xz_z, 0, 0, 1, 1)
 
-        self.plot_xz = MplCanvas(Form)
+        self.plot_xz = MplCanvas(self.dockWidgetContents)
         self.plot_xz.setObjectName(u"plot_xz")
         sizePolicy4 = QSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         sizePolicy4.setHorizontalStretch(0)
@@ -410,7 +411,7 @@ class Ui_Form(object):
 
         self.gridLayout_4.addWidget(self.plot_xz, 0, 1, 1, 1)
 
-        self.slide_xz_x = QSlider(Form)
+        self.slide_xz_x = QSlider(self.dockWidgetContents)
         self.slide_xz_x.setObjectName(u"slide_xz_x")
         self.slide_xz_x.setMaximum(250)
         self.slide_xz_x.setPageStep(10)
@@ -425,20 +426,20 @@ class Ui_Form(object):
 
         self.gridLayout_3 = QGridLayout()
         self.gridLayout_3.setObjectName(u"gridLayout_3")
-        self.slide_xy_y = QSlider(Form)
+        self.slide_xy_y = QSlider(self.dockWidgetContents)
         self.slide_xy_y.setObjectName(u"slide_xy_y")
         self.slide_xy_y.setOrientation(Qt.Vertical)
 
         self.gridLayout_3.addWidget(self.slide_xy_y, 0, 0, 1, 1)
 
-        self.plot_xy = MplCanvas(Form)
+        self.plot_xy = MplCanvas(self.dockWidgetContents)
         self.plot_xy.setObjectName(u"plot_xy")
         sizePolicy4.setHeightForWidth(self.plot_xy.sizePolicy().hasHeightForWidth())
         self.plot_xy.setSizePolicy(sizePolicy4)
 
         self.gridLayout_3.addWidget(self.plot_xy, 0, 1, 1, 1)
 
-        self.slide_xy_x = QSlider(Form)
+        self.slide_xy_x = QSlider(self.dockWidgetContents)
         self.slide_xy_x.setObjectName(u"slide_xy_x")
         self.slide_xy_x.setOrientation(Qt.Horizontal)
 
@@ -449,20 +450,20 @@ class Ui_Form(object):
 
         self.gridLayout_5 = QGridLayout()
         self.gridLayout_5.setObjectName(u"gridLayout_5")
-        self.slide_yz_y = QSlider(Form)
+        self.slide_yz_y = QSlider(self.dockWidgetContents)
         self.slide_yz_y.setObjectName(u"slide_yz_y")
         self.slide_yz_y.setOrientation(Qt.Vertical)
 
         self.gridLayout_5.addWidget(self.slide_yz_y, 0, 0, 1, 1)
 
-        self.plot_yz = MplCanvas(Form)
+        self.plot_yz = MplCanvas(self.dockWidgetContents)
         self.plot_yz.setObjectName(u"plot_yz")
         sizePolicy4.setHeightForWidth(self.plot_yz.sizePolicy().hasHeightForWidth())
         self.plot_yz.setSizePolicy(sizePolicy4)
 
         self.gridLayout_5.addWidget(self.plot_yz, 0, 1, 1, 1)
 
-        self.slide_yz_z = QSlider(Form)
+        self.slide_yz_z = QSlider(self.dockWidgetContents)
         self.slide_yz_z.setObjectName(u"slide_yz_z")
         self.slide_yz_z.setOrientation(Qt.Horizontal)
 
@@ -474,46 +475,47 @@ class Ui_Form(object):
 
         self.horizontalLayout.addLayout(self.gridLayout_6)
 
+        DockWidget.setWidget(self.dockWidgetContents)
 
-        self.retranslateUi(Form)
+        self.retranslateUi(DockWidget)
 
-        QMetaObject.connectSlotsByName(Form)
+        QMetaObject.connectSlotsByName(DockWidget)
     # setupUi
 
-    def retranslateUi(self, Form):
-        Form.setWindowTitle(QCoreApplication.translate("Form", u"Form", None))
-        self.lbl_cur_pos.setText(QCoreApplication.translate("Form", u"Current Position", None))
-        self.lbl_x_cur_pos.setText(QCoreApplication.translate("Form", u"X", None))
-        self.lbl_y_cur_pos.setText(QCoreApplication.translate("Form", u"Y", None))
-        self.lbl_z_cur_pos.setText(QCoreApplication.translate("Form", u"Z", None))
-        self.lbl_new_pos.setText(QCoreApplication.translate("Form", u"New Position", None))
-        self.lbl_x_new_pos.setText(QCoreApplication.translate("Form", u"X", None))
-        self.sb_x_new_pos.setSuffix(QCoreApplication.translate("Form", u" mm", None))
-        self.lbl_y_new_pos.setText(QCoreApplication.translate("Form", u"Y", None))
-        self.sb_y_new_pos.setSuffix(QCoreApplication.translate("Form", u" mm", None))
-        self.lbl_z_new_pos.setText(QCoreApplication.translate("Form", u"Z", None))
-        self.sb_z_new_pos.setSuffix(QCoreApplication.translate("Form", u" mm", None))
-        self.btn_go.setText(QCoreApplication.translate("Form", u"Go", None))
-        self.btn_stop.setText(QCoreApplication.translate("Form", u"STOP", None))
-        self.lbl_move.setText(QCoreApplication.translate("Form", u"Move", None))
-        self.lbl_x_move.setText(QCoreApplication.translate("Form", u"X", None))
+    def retranslateUi(self, DockWidget):
+        DockWidget.setWindowTitle(QCoreApplication.translate("DockWidget", u"DockWidget", None))
+        self.lbl_cur_pos.setText(QCoreApplication.translate("DockWidget", u"Current Position", None))
+        self.lbl_x_cur_pos.setText(QCoreApplication.translate("DockWidget", u"X", None))
+        self.lbl_y_cur_pos.setText(QCoreApplication.translate("DockWidget", u"Y", None))
+        self.lbl_z_cur_pos.setText(QCoreApplication.translate("DockWidget", u"Z", None))
+        self.lbl_new_pos.setText(QCoreApplication.translate("DockWidget", u"New Position", None))
+        self.lbl_x_new_pos.setText(QCoreApplication.translate("DockWidget", u"X", None))
+        self.sb_x_new_pos.setSuffix(QCoreApplication.translate("DockWidget", u" mm", None))
+        self.lbl_y_new_pos.setText(QCoreApplication.translate("DockWidget", u"Y", None))
+        self.sb_y_new_pos.setSuffix(QCoreApplication.translate("DockWidget", u" mm", None))
+        self.lbl_z_new_pos.setText(QCoreApplication.translate("DockWidget", u"Z", None))
+        self.sb_z_new_pos.setSuffix(QCoreApplication.translate("DockWidget", u" mm", None))
+        self.btn_go.setText(QCoreApplication.translate("DockWidget", u"Go", None))
+        self.btn_stop.setText(QCoreApplication.translate("DockWidget", u"STOP", None))
+        self.lbl_move.setText(QCoreApplication.translate("DockWidget", u"Move", None))
+        self.lbl_x_move.setText(QCoreApplication.translate("DockWidget", u"X", None))
         self.btn_x_left_move.setText("")
         self.btn_x_right_move.setText("")
-        self.lbl_y_move.setText(QCoreApplication.translate("Form", u"Y", None))
+        self.lbl_y_move.setText(QCoreApplication.translate("DockWidget", u"Y", None))
         self.btn_y_left_move.setText("")
         self.btn_y_right_move.setText("")
-        self.lbl_z_move.setText(QCoreApplication.translate("Form", u"Z", None))
+        self.lbl_z_move.setText(QCoreApplication.translate("DockWidget", u"Z", None))
         self.btn_z_left_move.setText("")
         self.btn_z_right_move.setText("")
-        self.lbl_status.setText(QCoreApplication.translate("Form", u"Status", None))
-        self.lbl_y_title_status.setText(QCoreApplication.translate("Form", u"Y", None))
-        self.lbl_z_title_status.setText(QCoreApplication.translate("Form", u"Z", None))
+        self.lbl_status.setText(QCoreApplication.translate("DockWidget", u"Status", None))
+        self.lbl_y_title_status.setText(QCoreApplication.translate("DockWidget", u"Y", None))
+        self.lbl_z_title_status.setText(QCoreApplication.translate("DockWidget", u"Z", None))
         self.icon_x_status.setText("")
         self.icon_z_status.setText("")
         self.icon_y_status.setText("")
-        self.lbl_x_title_satus.setText(QCoreApplication.translate("Form", u"X", None))
-        self.lbl_x_status.setText(QCoreApplication.translate("Form", u"Not Set", None))
-        self.lbl_y_status.setText(QCoreApplication.translate("Form", u"Not Set", None))
-        self.lbl_z_status.setText(QCoreApplication.translate("Form", u"Not Set", None))
+        self.lbl_x_title_satus.setText(QCoreApplication.translate("DockWidget", u"X", None))
+        self.lbl_x_status.setText(QCoreApplication.translate("DockWidget", u"Not Set", None))
+        self.lbl_y_status.setText(QCoreApplication.translate("DockWidget", u"Not Set", None))
+        self.lbl_z_status.setText(QCoreApplication.translate("DockWidget", u"Not Set", None))
     # retranslateUi
 

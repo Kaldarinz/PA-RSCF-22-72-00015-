@@ -16,6 +16,9 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QLabel
 )
+from PySide6.QtGui import (
+    QPixmap
+)
 from pint.facets.plain.quantity import PlainQuantity
 from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT
 
@@ -44,7 +47,8 @@ from ...utils import (
     upd_plot
 )
 from ...pa_logic import (
-    stages_status
+    stages_status,
+    stages_position
 )
 
 
@@ -219,7 +223,7 @@ class PointView(QWidget, point_data_view_ui.Ui_Form):
         super().__init__(parent)
         self.setupUi(self)
 
-class MotorView(QWidget, motor_control_ui.Ui_Form):
+class MotorView(QDockWidget, motor_control_ui.Ui_DockWidget):
     """Mechanical positioning widget."""
 
     def __init__(self, parent: QWidget | None = None) -> None:
@@ -233,10 +237,23 @@ class MotorView(QWidget, motor_control_ui.Ui_Form):
         self.fmt = 'o'
         "Format string for plotting."
 
+        self.pixmap_c = QPixmap(
+            u":/icons/qt_resources/plug-connect.png"
+        )
+        "Connected state icon."
+        self.pixmap_dc = QPixmap(
+            u":/icons/qt_resources/plug-disconnect-prohibition.png"
+        )
+        "Disconnected state icon."
+
     @Slot(Coordinate)
-    def set_position(self, position: Coordinate) -> None:
+    def set_position(self, position: Coordinate|None = None) -> None:
         """Update current coordinate."""
 
+        if not self.isVisible():
+            return
+        if position is None:
+            position = stages_position()
         # Update current position line edits and attributes.
         if position.x is not None:
             self.x = position.x
@@ -251,20 +268,20 @@ class MotorView(QWidget, motor_control_ui.Ui_Form):
         # Update plot positions
         upd_plot(
             base_widget = self.plot_xy,
-            ydata = [self.y],
-            xdata = [self.x],
+            ydata = [self.y.to('mm').m],
+            xdata = [self.x.to('mm').m],
             fmt = self.fmt
         )
         upd_plot(
             base_widget = self.plot_xz,
-            ydata = [self.z],
-            xdata = [self.x],
+            ydata = [self.z.to('mm').m],
+            xdata = [self.x.to('mm').m],
             fmt = self.fmt
         )
         upd_plot(
             base_widget = self.plot_yz,
-            ydata = [self.y],
-            xdata = [self.z],
+            ydata = [self.y.to('mm').m],
+            xdata = [self.z.to('mm').m],
             fmt = self.fmt
         )
 
@@ -293,7 +310,11 @@ class MotorView(QWidget, motor_control_ui.Ui_Form):
     def upd_status(self) -> None:
         """Update status of motors."""
 
+        if not self.isVisible():
+            return
         status_lst = stages_status()
+        # Length of list with status can vary, but it assumed to satuses
+        # for X, Y, Z axes if they are present.
         for status, icon, lbl in zip(
             status_lst,
             [
@@ -307,5 +328,10 @@ class MotorView(QWidget, motor_control_ui.Ui_Form):
                 self.lbl_z_status
              ]
         ):
-            ### Continue from here
-            icon.setPixmap()
+            # Set icons and status text
+            if status[0]:
+                icon.setPixmap(self.pixmap_c)
+                lbl.setText(status[1])
+            else:
+                icon.setPixmap(self.pixmap_dc)
+                lbl.setText('Disconnected')

@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields
 from collections.abc import Iterable, Sequence
 import typing
 from pint import UnitRegistry
@@ -7,16 +7,18 @@ import pint
 import numpy as np
 import numpy.typing as npt
 from enum import Enum
-from modules.data_classes import DetailedSignals
+from modules.data_classes import Coordinate
 
 ureg = UnitRegistry(auto_reduce_dimensions=True)
 Q_ = ureg.Quantity
 
 
 
-lst = ['one', 'two', 'three']
+coord = Coordinate()
+for axes in fields(coord):
+    setattr(coord, axes.name, Q_(1,'s'))
 
-print(', '.join(lst))
+print(coord)
 
 
 

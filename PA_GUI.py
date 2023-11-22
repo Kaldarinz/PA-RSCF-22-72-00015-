@@ -29,7 +29,7 @@ from PySide6.QtCore import (
     QRect,
     QItemSelectionModel,
     QModelIndex,
-    QStringListModel
+    QTimer
 )
 from PySide6.QtWidgets import (
     QApplication,
@@ -79,7 +79,8 @@ from modules.gui.designer.designer_widgets import (
     MapMeasureWidget,
     PowerMeterMonitor,
     CurveView,
-    PointView
+    PointView,
+    MotorView
 )
 
 
@@ -160,6 +161,10 @@ class Window(QMainWindow,Ui_MainWindow,):
         #Threadpool
         self.pool = QThreadPool()
 
+        # Timers
+        self.timer_motor = QTimer()
+        self.timer_motor.setInterval(100)
+
         self.set_widgets()
 
         #Connect custom signals and slots
@@ -175,13 +180,13 @@ class Window(QMainWindow,Ui_MainWindow,):
         self.data_viwer = DataViewer()
         self.sw_central.addWidget(self.data_viwer)
 
-        #Log viewer
+        ### Log viewer ###
         self.d_log = LoggerWidget()
         self.addDockWidget(
             Qt.DockWidgetArea.BottomDockWidgetArea,
             self.d_log)
 
-        # Power Meter
+        ### Power Meter ###
         # Set parent in constructor makes 
         # dock widget undocked by default
         self.d_pm = PowerMeterWidget(self)
@@ -190,6 +195,17 @@ class Window(QMainWindow,Ui_MainWindow,):
             self.d_pm
         )
         self.d_pm.hide()
+
+        ### Motors control ###
+        self.d_motors = MotorView(self)
+        self.addDockWidget(
+            Qt.DockWidgetArea.RightDockWidgetArea,
+            self.d_motors
+        )
+        self.d_motors.set_range(
+            (Q_(0, 'mm'), Q_(25, 'mm'))
+        )
+        self.d_motors.hide()
 
         ### 0D measurements ###
         self.p_point = PointMeasureWidget(self.sw_central)
@@ -238,6 +254,11 @@ class Window(QMainWindow,Ui_MainWindow,):
         ### Various actions ###
         # Hardware initialization
         self.action_Init.triggered.connect(self.init_hardware)
+        # Motor dock widget
+        self.action_position.toggled.connect(self.d_motors.setVisible)
+        self.d_motors.visibilityChanged.connect(
+            self.action_position.setChecked
+        )
         # Date change event
         self.data_changed.connect(self.data_updated)
         # Close file
@@ -1205,11 +1226,12 @@ class Window(QMainWindow,Ui_MainWindow,):
         """
         worker = Worker(pa_logic.init_hardware)
         self.pool.start(worker)
-        worker.signals.finished.connect(self.track_power)
+        worker.signals.finished.connect(self.post_init)
 
-    def track_power(self) -> None:
-        """Start energy measurements cycle."""
+    def post_init(self) -> None:
+        """Routines to be done after initialization of hardware."""
 
+        # Start energy measurement cycle.
         if pa_logic.osc_open():
             if self.worker_pm is None:
                 self.worker_pm = Worker(pa_logic.track_power)
@@ -1217,6 +1239,12 @@ class Window(QMainWindow,Ui_MainWindow,):
                 logger.info('Energy measurement cycle started!')
         else:
             logger.info('Failed to start energy mesurement cycle!')
+
+        if pa_logic.stages_open():
+            if not self.timer_motor.isActive():
+                self.timer_motor.timeout.connect(self.d_motors.set_position)
+                self.timer_motor.timeout.connect(self.d_motors.upd_status)
+                self.timer_motor.start()
 
     def init_pm_monitor(
             self,
