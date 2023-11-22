@@ -6,9 +6,12 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>815</width>
-    <height>815</height>
+    <width>654</width>
+    <height>518</height>
    </rect>
+  </property>
+  <property name="floating">
+   <bool>true</bool>
   </property>
   <property name="windowTitle">
    <string>DockWidget</string>
@@ -34,6 +37,9 @@
         <property name="text">
          <string>Current Position</string>
         </property>
+        <property name="alignment">
+         <set>Qt::AlignCenter</set>
+        </property>
        </widget>
       </item>
       <item>
@@ -44,12 +50,18 @@
        </widget>
       </item>
       <item>
-       <layout class="QGridLayout" name="gridLayout_2">
+       <layout class="QFormLayout" name="formLayout">
         <property name="sizeConstraint">
          <enum>QLayout::SetDefaultConstraint</enum>
         </property>
         <item row="0" column="0">
          <widget class="QLabel" name="lbl_x_cur_pos">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
           <property name="font">
            <font>
             <weight>75</weight>
@@ -64,14 +76,14 @@
         <item row="0" column="1">
          <widget class="QLineEdit" name="le_x_cur_pos">
           <property name="sizePolicy">
-           <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
+           <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
             <horstretch>0</horstretch>
             <verstretch>0</verstretch>
            </sizepolicy>
           </property>
           <property name="maximumSize">
            <size>
-            <width>74</width>
+            <width>16777215</width>
             <height>16777215</height>
            </size>
           </property>
@@ -103,7 +115,7 @@
           </property>
           <property name="maximumSize">
            <size>
-            <width>74</width>
+            <width>16777215</width>
             <height>16777215</height>
            </size>
           </property>
@@ -135,7 +147,7 @@
           </property>
           <property name="maximumSize">
            <size>
-            <width>74</width>
+            <width>16777215</width>
             <height>16777215</height>
            </size>
           </property>
@@ -170,10 +182,13 @@
         <property name="text">
          <string>New Position</string>
         </property>
+        <property name="alignment">
+         <set>Qt::AlignCenter</set>
+        </property>
        </widget>
       </item>
       <item>
-       <layout class="QGridLayout" name="gridLayout_7">
+       <layout class="QFormLayout" name="formLayout_2">
         <property name="sizeConstraint">
          <enum>QLayout::SetMinimumSize</enum>
         </property>
@@ -207,6 +222,9 @@
           <property name="suffix">
            <string> mm</string>
           </property>
+          <property name="decimals">
+           <number>2</number>
+          </property>
          </widget>
         </item>
         <item row="1" column="0">
@@ -233,6 +251,9 @@
           <property name="suffix">
            <string> mm</string>
           </property>
+          <property name="decimals">
+           <number>2</number>
+          </property>
          </widget>
         </item>
         <item row="2" column="0">
@@ -258,6 +279,9 @@
           </property>
           <property name="suffix">
            <string> mm</string>
+          </property>
+          <property name="decimals">
+           <number>2</number>
           </property>
          </widget>
         </item>
@@ -287,7 +311,7 @@
           </property>
           <property name="maximumSize">
            <size>
-            <width>50</width>
+            <width>16777215</width>
             <height>16777215</height>
            </size>
           </property>
@@ -316,7 +340,7 @@
           </property>
           <property name="maximumSize">
            <size>
-            <width>50</width>
+            <width>16777215</width>
             <height>16777215</height>
            </size>
           </property>
@@ -354,6 +378,9 @@
         </property>
         <property name="text">
          <string>Move</string>
+        </property>
+        <property name="alignment">
+         <set>Qt::AlignCenter</set>
         </property>
        </widget>
       </item>
@@ -517,6 +544,9 @@
         <property name="text">
          <string>Status</string>
         </property>
+        <property name="alignment">
+         <set>Qt::AlignCenter</set>
+        </property>
        </widget>
       </item>
       <item>
@@ -574,7 +604,7 @@
            <string/>
           </property>
           <property name="pixmap">
-           <pixmap resource="qt_resources.qrc">:/icons/qt_resources/plug-connect.png</pixmap>
+           <pixmap resource="qt_resources.qrc">:/icons/qt_resources/plug-disconnect-prohibition.png</pixmap>
           </property>
          </widget>
         </item>
@@ -590,7 +620,7 @@
            <string/>
           </property>
           <property name="pixmap">
-           <pixmap resource="qt_resources.qrc">:/icons/qt_resources/plug-connect.png</pixmap>
+           <pixmap resource="qt_resources.qrc">:/icons/qt_resources/plug-disconnect-prohibition.png</pixmap>
           </property>
          </widget>
         </item>
@@ -606,7 +636,7 @@
            <string/>
           </property>
           <property name="pixmap">
-           <pixmap resource="qt_resources.qrc">:/icons/qt_resources/plug-connect.png</pixmap>
+           <pixmap resource="qt_resources.qrc">:/icons/qt_resources/plug-disconnect-prohibition.png</pixmap>
           </property>
          </widget>
         </item>
@@ -631,6 +661,12 @@
         </item>
         <item row="0" column="2">
          <widget class="QLabel" name="lbl_x_status">
+          <property name="minimumSize">
+           <size>
+            <width>120</width>
+            <height>0</height>
+           </size>
+          </property>
           <property name="text">
            <string>Not Set</string>
           </property>

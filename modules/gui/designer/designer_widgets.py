@@ -1,6 +1,8 @@
 """
 Classes with initaited widgets, built in Qt Designer.
 """
+import logging
+
 from PySide6.QtCore import (
     Signal,
     Qt,
@@ -51,6 +53,7 @@ from ...pa_logic import (
     stages_position
 )
 
+logger = logging.getLogger(__name__)
 
 class PAVerifierDialog(QDialog, verify_measure_ui.Ui_Dialog):
     """Dialog window for verification of a PA measurement."""
@@ -234,6 +237,11 @@ class MotorView(QDockWidget, motor_control_ui.Ui_DockWidget):
         self.y: PlainQuantity = Q_(0, 'mm')
         self.z: PlainQuantity = Q_(0, 'mm')
 
+        # Set fixed scales for all plots.
+        self.plot_xy.fixed_scales = True
+        self.plot_xz.fixed_scales = True
+        self.plot_yz.fixed_scales = True
+
         self.fmt = 'o'
         "Format string for plotting."
 
@@ -247,29 +255,27 @@ class MotorView(QDockWidget, motor_control_ui.Ui_DockWidget):
         "Disconnected state icon."
 
     @Slot(Coordinate)
-    def set_position(self, position: Coordinate|None = None) -> None:
+    def set_position(self, position: Coordinate) -> None:
         """Update current coordinate."""
 
-        if not self.isVisible():
-            return
         if position is None:
-            position = stages_position()
+            logger.warning('Invalid coordinate in set position.')
         # Update current position line edits and attributes.
         if position.x is not None:
-            self.x = position.x
-            self.le_x_cur_pos.setText(str(position.x))
+            self.x = position.x.to('mm')
+            self.le_x_cur_pos.setText(str(self.x))
         if position.y is not None:
-            self.y = position.y
-            self.le_y_cur_pos.setText(str(position.y))
+            self.y = position.y.to('mm')
+            self.le_y_cur_pos.setText(str(self.y))
         if position.z is not None:
-            self.z = position.z
-            self.le_z_cur_pos.setText(str(position.z))
+            self.z = position.z.to('mm')
+            self.le_z_cur_pos.setText(str(self.z))
 
         # Update plot positions
         upd_plot(
             base_widget = self.plot_xy,
-            ydata = [self.y.to('mm').m],
-            xdata = [self.x.to('mm').m],
+            ydata = [self.y.m],
+            xdata = [self.x.m],
             fmt = self.fmt
         )
         upd_plot(
@@ -296,8 +302,11 @@ class MotorView(QDockWidget, motor_control_ui.Ui_DockWidget):
         range_mm = [min_val, max_val]
         # Set range for plots
         self.plot_xy.axes.set_xlim(range_mm) # type: ignore
+        self.plot_xy.axes.set_ylim(range_mm) # type: ignore
         self.plot_xz.axes.set_xlim(range_mm) # type: ignore
+        self.plot_xz.axes.set_ylim(range_mm) # type: ignore
         self.plot_yz.axes.set_xlim(range_mm) # type: ignore
+        self.plot_yz.axes.set_ylim(range_mm) # type: ignore
         # Set range for spin boxes
         for sb in iter([
             self.sb_x_new_pos,
@@ -307,12 +316,12 @@ class MotorView(QDockWidget, motor_control_ui.Ui_DockWidget):
             sb.setMinimum(min_val)
             sb.setMaximum(max_val)
 
-    def upd_status(self) -> None:
+    def upd_status(
+            self,
+            status_lst: list[tuple[bool, str]]
+        ) -> None:
         """Update status of motors."""
 
-        if not self.isVisible():
-            return
-        status_lst = stages_status()
         # Length of list with status can vary, but it assumed to satuses
         # for X, Y, Z axes if they are present.
         for status, icon, lbl in zip(

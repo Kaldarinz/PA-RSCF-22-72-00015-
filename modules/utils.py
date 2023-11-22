@@ -125,9 +125,10 @@ def upd_plot(
     # Set labels
     widget.axes.set_xlabel(widget.xlabel) # type: ignore
     widget.axes.set_ylabel(widget.ylabel) # type: ignore
-    # Update limits
-    widget.axes.relim()
-    widget.axes.autoscale(True, 'both')
+    # Update scale limits
+    if not widget.fixed_scales:
+        widget.axes.relim()
+        widget.axes.autoscale(True, 'both')
     widget.draw()
 
     # Reset history of navigation toolbar

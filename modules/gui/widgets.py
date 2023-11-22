@@ -49,6 +49,7 @@ class MplCanvas(FigureCanvasQTAgg):
         self._sp_ref: Line2D|None = None
         self._sp: float|None = None
         self._marker_ref: Line2D|None = None
+        self.fixed_scales: bool = False
         super().__init__(self.fig)
 
     def contextMenuEvent(self, event: QContextMenuEvent) -> None:

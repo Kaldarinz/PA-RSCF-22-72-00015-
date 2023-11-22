@@ -2,7 +2,7 @@
 PA backend
 """
 
-from typing import List, Tuple, Optional, cast
+from typing import List, Tuple, Optional, cast, Literal
 from dataclasses import fields
 import logging
 import os
@@ -39,7 +39,8 @@ from .data_classes import (
     MeasuredPoint,
     EnergyMeasurement,
     Coordinate,
-    hardware
+    hardware,
+    PriorityQueue
 )
 from . import ureg, Q_
 
@@ -230,24 +231,22 @@ def stages_open() -> bool:
     logger.debug(f'...Finishing. stages {connected=}')
     return connected
 
-def stages_status() -> list[tuple[bool, str]]:
+def stages_status(**kwargs) -> list[tuple[bool, str]]:
     """Return status of all stages."""
 
     status = []
     for stage in hardware.stages:
-        status_lst = stage.get_status()
         try:
+            status_lst = stage.get_status()
             status.append(
                 (stage.is_opened(),', '.join(status_lst))
             )
         except:
-            logger.warning(
-                'Error occured while trying to get stage status.'
-            )
+            status.append((False, 'Disconnected'))
 
     return status
 
-def stages_position() -> Coordinate:
+def stages_position(**kwargs) -> Coordinate:
     """Get position of all stages."""
 
     coord = Coordinate()
@@ -272,6 +271,29 @@ def pm_open() -> bool:
         connected = hardware.osc.connection_check()
         logger.debug(f'...Finishing. Power meter {connected=}')
     return connected
+
+def stage_jog(
+        axes: Literal[1, 2, 3],
+        direction: Literal['+','-'],
+        **kwargs,
+    ) -> None:
+    """Jog given axis in given direction."""
+
+    if (axes - 1) > hardware.motor_axes:
+        logger.warning(f'Invalid axes ({axes}) for jogging.')
+        return
+    hardware.stages[axes-1].jog(direction)
+
+def stage_stop(
+        axes: Literal[1, 2, 3],
+        **kwargs
+    ) -> None:
+    """Stop movement along given axes."""
+
+    if (axes - 1) > hardware.motor_axes:
+        logger.warning(f'Invalid axes ({axes}) for stop.')
+        return
+    hardware.stages[axes-1].stop()
 
 def move_to(X: float, Y: float, Z: float|None=None) -> None:
     """Send PA detector to (X,Y,Z) position.
@@ -1056,3 +1078,11 @@ def set_next_measure_action() -> str:
     logger.debug(f'...Finishing. {measure_ans=} was choosen')
     return measure_ans
 
+def stage_exec(queue: PriorityQueue) -> None:
+    """The only method, which call stages."""
+
+    queue.get()
+
+stage_q = PriorityQueue()
+stage_calls = Thread(target = stage_exec, args = (stage_q,))
+stage_calls.start()

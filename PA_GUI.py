@@ -9,7 +9,7 @@ import sys
 import time
 import logging, logging.config
 from datetime import datetime
-from typing import Iterable, Callable, cast
+from typing import Iterable, Callable, cast, Literal
 from dataclasses import field, fields
 from functools import partial
 
@@ -122,6 +122,11 @@ class Window(QMainWindow,Ui_MainWindow,):
 
     worker_pm: Worker|None = None
     "Thread for measuring energy."
+
+    motors_locked: bool = False
+    "Flag for access to motors."
+    motors_needed: bool = False
+    "Flag indicating that a command should be sent."
 
     _data: PaData|None = None
 
@@ -254,11 +259,6 @@ class Window(QMainWindow,Ui_MainWindow,):
         ### Various actions ###
         # Hardware initialization
         self.action_Init.triggered.connect(self.init_hardware)
-        # Motor dock widget
-        self.action_position.toggled.connect(self.d_motors.setVisible)
-        self.d_motors.visibilityChanged.connect(
-            self.action_position.setChecked
-        )
         # Date change event
         self.data_changed.connect(self.data_updated)
         # Close file
@@ -380,6 +380,31 @@ class Window(QMainWindow,Ui_MainWindow,):
         self.d_pm.visibilityChanged.connect(
             self.action_Power_Meter.setChecked
         )
+
+        ### Motor dock widget ###
+        # Show/hide widget
+        self.action_position.toggled.connect(self.d_motors.setVisible)
+        self.d_motors.visibilityChanged.connect(
+            self.action_position.setChecked
+        )
+        # Buttons
+        self.d_motors.btn_x_left_move.pressed.connect(
+            lambda : self.jog_stage(axes = 1, direction = '-')
+        )
+        self.d_motors.btn_x_left_move.released.connect(
+            lambda : self.stop_stage(axes = 1)
+        )
+        self.d_motors.btn_x_right_move.pressed.connect(
+            lambda : self.jog_stage(axes = 1, direction = '+')
+        )
+        self.d_motors.btn_x_right_move.released.connect(
+            lambda : self.stop_stage(axes = 1)
+        )
+
+    def _release_motor_lock(self) -> None:
+        """Release lock on motors."""
+
+        self.motors_locked = False
 
     @Slot()
     def data_updated(self) -> None:
@@ -1242,9 +1267,74 @@ class Window(QMainWindow,Ui_MainWindow,):
 
         if pa_logic.stages_open():
             if not self.timer_motor.isActive():
-                self.timer_motor.timeout.connect(self.d_motors.set_position)
-                self.timer_motor.timeout.connect(self.d_motors.upd_status)
+                self.timer_motor.timeout.connect(self.upd_motor)
                 self.timer_motor.start()
+
+    def upd_motor(self) -> None:
+        """Update information on motors widget."""
+
+        # Thread for updating position
+        if not self.d_motors.isVisible():
+            return
+        
+        if self.motors_needed or self.motors_locked:
+            return
+        self.motors_locked = True
+        self.pos_worker = Worker(pa_logic.stages_position)
+        self.pos_worker.signals.result.connect(
+            self.d_motors.set_position
+        )
+        self.pos_worker.signals.finished.connect(self._upd_motor_status)
+        self.pool.start(self.pos_worker)
+
+    def _upd_motor_status(self) -> None:
+        """Second part of upd_motor, which updates status."""
+
+        if self.motors_needed:
+            self._release_motor_lock()
+            return
+        status_worker = Worker(pa_logic.stages_status)
+        status_worker.signals.result.connect(
+            self.d_motors.upd_status
+        )
+        status_worker.signals.finished.connect(self._release_motor_lock)
+        self.pool.start(status_worker)
+
+    def jog_stage(
+            self,
+            axes: Literal[1, 2, 3],
+            direction: Literal['+', '-']
+        ) -> None:
+        """Jog stage in a given direction."""
+
+        # Set flag that motor is needed.
+        self.motors_needed = True
+        while self.motors_locked:
+            time.sleep(0.01)
+
+        self.motors_locked = True
+        worker_jog = Worker(pa_logic.stage_jog, axes, direction)
+        worker_jog.signals.finished.connect(
+            self._release_motor_lock
+        )
+        self.pool.start(worker_jog)
+        self.motors_needed = False
+
+    def stop_stage(self, axes: Literal[1, 2 , 3]) -> None:
+        """Stop stage."""
+
+        # Set flag that motor is needed.
+        self.motors_needed = True
+        while self.motors_locked:
+            time.sleep(0.01)
+
+        self.motors_locked = True
+        worker_stop = Worker(pa_logic.stage_stop, axes)
+        worker_stop.signals.finished.connect(
+            self._release_motor_lock
+        )
+        self.pool.start(worker_stop)
+        self.motors_needed = False
 
     def init_pm_monitor(
             self,

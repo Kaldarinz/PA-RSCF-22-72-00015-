@@ -28,7 +28,8 @@ class Ui_DockWidget(object):
     def setupUi(self, DockWidget):
         if not DockWidget.objectName():
             DockWidget.setObjectName(u"DockWidget")
-        DockWidget.resize(815, 815)
+        DockWidget.resize(654, 518)
+        DockWidget.setFloating(True)
         self.dockWidgetContents = QWidget()
         self.dockWidgetContents.setObjectName(u"dockWidgetContents")
         self.horizontalLayout = QHBoxLayout(self.dockWidgetContents)
@@ -45,6 +46,7 @@ class Ui_DockWidget(object):
         font = QFont()
         font.setBold(True)
         self.lbl_cur_pos.setFont(font)
+        self.lbl_cur_pos.setAlignment(Qt.AlignCenter)
 
         self.verticalLayout.addWidget(self.lbl_cur_pos)
 
@@ -55,59 +57,67 @@ class Ui_DockWidget(object):
 
         self.verticalLayout.addWidget(self.line_5)
 
-        self.gridLayout_2 = QGridLayout()
-        self.gridLayout_2.setObjectName(u"gridLayout_2")
-        self.gridLayout_2.setSizeConstraint(QLayout.SetDefaultConstraint)
+        self.formLayout = QFormLayout()
+        self.formLayout.setObjectName(u"formLayout")
+        self.formLayout.setSizeConstraint(QLayout.SetDefaultConstraint)
         self.lbl_x_cur_pos = QLabel(self.dockWidgetContents)
         self.lbl_x_cur_pos.setObjectName(u"lbl_x_cur_pos")
+        sizePolicy1 = QSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
+        sizePolicy1.setHorizontalStretch(0)
+        sizePolicy1.setVerticalStretch(0)
+        sizePolicy1.setHeightForWidth(self.lbl_x_cur_pos.sizePolicy().hasHeightForWidth())
+        self.lbl_x_cur_pos.setSizePolicy(sizePolicy1)
         self.lbl_x_cur_pos.setFont(font)
 
-        self.gridLayout_2.addWidget(self.lbl_x_cur_pos, 0, 0, 1, 1)
+        self.formLayout.setWidget(0, QFormLayout.LabelRole, self.lbl_x_cur_pos)
 
         self.le_x_cur_pos = QLineEdit(self.dockWidgetContents)
         self.le_x_cur_pos.setObjectName(u"le_x_cur_pos")
-        sizePolicy1 = QSizePolicy(QSizePolicy.Minimum, QSizePolicy.Fixed)
-        sizePolicy1.setHorizontalStretch(0)
-        sizePolicy1.setVerticalStretch(0)
-        sizePolicy1.setHeightForWidth(self.le_x_cur_pos.sizePolicy().hasHeightForWidth())
-        self.le_x_cur_pos.setSizePolicy(sizePolicy1)
-        self.le_x_cur_pos.setMaximumSize(QSize(74, 16777215))
+        sizePolicy2 = QSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+        sizePolicy2.setHorizontalStretch(0)
+        sizePolicy2.setVerticalStretch(0)
+        sizePolicy2.setHeightForWidth(self.le_x_cur_pos.sizePolicy().hasHeightForWidth())
+        self.le_x_cur_pos.setSizePolicy(sizePolicy2)
+        self.le_x_cur_pos.setMaximumSize(QSize(16777215, 16777215))
         self.le_x_cur_pos.setReadOnly(True)
 
-        self.gridLayout_2.addWidget(self.le_x_cur_pos, 0, 1, 1, 1)
+        self.formLayout.setWidget(0, QFormLayout.FieldRole, self.le_x_cur_pos)
 
         self.lbl_y_cur_pos = QLabel(self.dockWidgetContents)
         self.lbl_y_cur_pos.setObjectName(u"lbl_y_cur_pos")
         self.lbl_y_cur_pos.setFont(font)
 
-        self.gridLayout_2.addWidget(self.lbl_y_cur_pos, 1, 0, 1, 1)
+        self.formLayout.setWidget(1, QFormLayout.LabelRole, self.lbl_y_cur_pos)
 
         self.le_y_cur_pos = QLineEdit(self.dockWidgetContents)
         self.le_y_cur_pos.setObjectName(u"le_y_cur_pos")
-        sizePolicy1.setHeightForWidth(self.le_y_cur_pos.sizePolicy().hasHeightForWidth())
-        self.le_y_cur_pos.setSizePolicy(sizePolicy1)
-        self.le_y_cur_pos.setMaximumSize(QSize(74, 16777215))
+        sizePolicy3 = QSizePolicy(QSizePolicy.Minimum, QSizePolicy.Fixed)
+        sizePolicy3.setHorizontalStretch(0)
+        sizePolicy3.setVerticalStretch(0)
+        sizePolicy3.setHeightForWidth(self.le_y_cur_pos.sizePolicy().hasHeightForWidth())
+        self.le_y_cur_pos.setSizePolicy(sizePolicy3)
+        self.le_y_cur_pos.setMaximumSize(QSize(16777215, 16777215))
         self.le_y_cur_pos.setReadOnly(True)
 
-        self.gridLayout_2.addWidget(self.le_y_cur_pos, 1, 1, 1, 1)
+        self.formLayout.setWidget(1, QFormLayout.FieldRole, self.le_y_cur_pos)
 
         self.lbl_z_cur_pos = QLabel(self.dockWidgetContents)
         self.lbl_z_cur_pos.setObjectName(u"lbl_z_cur_pos")
         self.lbl_z_cur_pos.setFont(font)
 
-        self.gridLayout_2.addWidget(self.lbl_z_cur_pos, 2, 0, 1, 1)
+        self.formLayout.setWidget(2, QFormLayout.LabelRole, self.lbl_z_cur_pos)
 
         self.le_z_cur_pos = QLineEdit(self.dockWidgetContents)
         self.le_z_cur_pos.setObjectName(u"le_z_cur_pos")
-        sizePolicy1.setHeightForWidth(self.le_z_cur_pos.sizePolicy().hasHeightForWidth())
-        self.le_z_cur_pos.setSizePolicy(sizePolicy1)
-        self.le_z_cur_pos.setMaximumSize(QSize(74, 16777215))
+        sizePolicy3.setHeightForWidth(self.le_z_cur_pos.sizePolicy().hasHeightForWidth())
+        self.le_z_cur_pos.setSizePolicy(sizePolicy3)
+        self.le_z_cur_pos.setMaximumSize(QSize(16777215, 16777215))
         self.le_z_cur_pos.setReadOnly(True)
 
-        self.gridLayout_2.addWidget(self.le_z_cur_pos, 2, 1, 1, 1)
+        self.formLayout.setWidget(2, QFormLayout.FieldRole, self.le_z_cur_pos)
 
 
-        self.verticalLayout.addLayout(self.gridLayout_2)
+        self.verticalLayout.addLayout(self.formLayout)
 
         self.line = QFrame(self.dockWidgetContents)
         self.line.setObjectName(u"line")
@@ -121,54 +131,58 @@ class Ui_DockWidget(object):
         sizePolicy.setHeightForWidth(self.lbl_new_pos.sizePolicy().hasHeightForWidth())
         self.lbl_new_pos.setSizePolicy(sizePolicy)
         self.lbl_new_pos.setFont(font)
+        self.lbl_new_pos.setAlignment(Qt.AlignCenter)
 
         self.verticalLayout.addWidget(self.lbl_new_pos)
 
-        self.gridLayout_7 = QGridLayout()
-        self.gridLayout_7.setObjectName(u"gridLayout_7")
-        self.gridLayout_7.setSizeConstraint(QLayout.SetMinimumSize)
+        self.formLayout_2 = QFormLayout()
+        self.formLayout_2.setObjectName(u"formLayout_2")
+        self.formLayout_2.setSizeConstraint(QLayout.SetMinimumSize)
         self.lbl_x_new_pos = QLabel(self.dockWidgetContents)
         self.lbl_x_new_pos.setObjectName(u"lbl_x_new_pos")
         self.lbl_x_new_pos.setFont(font)
 
-        self.gridLayout_7.addWidget(self.lbl_x_new_pos, 0, 0, 1, 1)
+        self.formLayout_2.setWidget(0, QFormLayout.LabelRole, self.lbl_x_new_pos)
 
         self.sb_x_new_pos = QDoubleSpinBox(self.dockWidgetContents)
         self.sb_x_new_pos.setObjectName(u"sb_x_new_pos")
-        sizePolicy1.setHeightForWidth(self.sb_x_new_pos.sizePolicy().hasHeightForWidth())
-        self.sb_x_new_pos.setSizePolicy(sizePolicy1)
+        sizePolicy3.setHeightForWidth(self.sb_x_new_pos.sizePolicy().hasHeightForWidth())
+        self.sb_x_new_pos.setSizePolicy(sizePolicy3)
         self.sb_x_new_pos.setMinimumSize(QSize(74, 0))
+        self.sb_x_new_pos.setDecimals(2)
 
-        self.gridLayout_7.addWidget(self.sb_x_new_pos, 0, 1, 1, 1)
+        self.formLayout_2.setWidget(0, QFormLayout.FieldRole, self.sb_x_new_pos)
 
         self.lbl_y_new_pos = QLabel(self.dockWidgetContents)
         self.lbl_y_new_pos.setObjectName(u"lbl_y_new_pos")
         self.lbl_y_new_pos.setFont(font)
 
-        self.gridLayout_7.addWidget(self.lbl_y_new_pos, 1, 0, 1, 1)
+        self.formLayout_2.setWidget(1, QFormLayout.LabelRole, self.lbl_y_new_pos)
 
         self.sb_y_new_pos = QDoubleSpinBox(self.dockWidgetContents)
         self.sb_y_new_pos.setObjectName(u"sb_y_new_pos")
-        sizePolicy1.setHeightForWidth(self.sb_y_new_pos.sizePolicy().hasHeightForWidth())
-        self.sb_y_new_pos.setSizePolicy(sizePolicy1)
+        sizePolicy3.setHeightForWidth(self.sb_y_new_pos.sizePolicy().hasHeightForWidth())
+        self.sb_y_new_pos.setSizePolicy(sizePolicy3)
+        self.sb_y_new_pos.setDecimals(2)
 
-        self.gridLayout_7.addWidget(self.sb_y_new_pos, 1, 1, 1, 1)
+        self.formLayout_2.setWidget(1, QFormLayout.FieldRole, self.sb_y_new_pos)
 
         self.lbl_z_new_pos = QLabel(self.dockWidgetContents)
         self.lbl_z_new_pos.setObjectName(u"lbl_z_new_pos")
         self.lbl_z_new_pos.setFont(font)
 
-        self.gridLayout_7.addWidget(self.lbl_z_new_pos, 2, 0, 1, 1)
+        self.formLayout_2.setWidget(2, QFormLayout.LabelRole, self.lbl_z_new_pos)
 
         self.sb_z_new_pos = QDoubleSpinBox(self.dockWidgetContents)
         self.sb_z_new_pos.setObjectName(u"sb_z_new_pos")
-        sizePolicy1.setHeightForWidth(self.sb_z_new_pos.sizePolicy().hasHeightForWidth())
-        self.sb_z_new_pos.setSizePolicy(sizePolicy1)
+        sizePolicy3.setHeightForWidth(self.sb_z_new_pos.sizePolicy().hasHeightForWidth())
+        self.sb_z_new_pos.setSizePolicy(sizePolicy3)
+        self.sb_z_new_pos.setDecimals(2)
 
-        self.gridLayout_7.addWidget(self.sb_z_new_pos, 2, 1, 1, 1)
+        self.formLayout_2.setWidget(2, QFormLayout.FieldRole, self.sb_z_new_pos)
 
 
-        self.verticalLayout.addLayout(self.gridLayout_7)
+        self.verticalLayout.addLayout(self.formLayout_2)
 
         self.formLayout_3 = QFormLayout()
         self.formLayout_3.setObjectName(u"formLayout_3")
@@ -176,10 +190,10 @@ class Ui_DockWidget(object):
         self.formLayout_3.setFieldGrowthPolicy(QFormLayout.FieldsStayAtSizeHint)
         self.btn_go = QPushButton(self.dockWidgetContents)
         self.btn_go.setObjectName(u"btn_go")
-        sizePolicy1.setHeightForWidth(self.btn_go.sizePolicy().hasHeightForWidth())
-        self.btn_go.setSizePolicy(sizePolicy1)
+        sizePolicy3.setHeightForWidth(self.btn_go.sizePolicy().hasHeightForWidth())
+        self.btn_go.setSizePolicy(sizePolicy3)
         self.btn_go.setMinimumSize(QSize(50, 0))
-        self.btn_go.setMaximumSize(QSize(50, 16777215))
+        self.btn_go.setMaximumSize(QSize(16777215, 16777215))
         icon = QIcon()
         icon.addFile(u":/icons/qt_resources/control.png", QSize(), QIcon.Normal, QIcon.Off)
         self.btn_go.setIcon(icon)
@@ -188,10 +202,10 @@ class Ui_DockWidget(object):
 
         self.btn_stop = QPushButton(self.dockWidgetContents)
         self.btn_stop.setObjectName(u"btn_stop")
-        sizePolicy1.setHeightForWidth(self.btn_stop.sizePolicy().hasHeightForWidth())
-        self.btn_stop.setSizePolicy(sizePolicy1)
+        sizePolicy3.setHeightForWidth(self.btn_stop.sizePolicy().hasHeightForWidth())
+        self.btn_stop.setSizePolicy(sizePolicy3)
         self.btn_stop.setMinimumSize(QSize(50, 0))
-        self.btn_stop.setMaximumSize(QSize(50, 16777215))
+        self.btn_stop.setMaximumSize(QSize(16777215, 16777215))
         icon1 = QIcon()
         icon1.addFile(u":/icons/qt_resources/control-stop-square.png", QSize(), QIcon.Normal, QIcon.Off)
         self.btn_stop.setIcon(icon1)
@@ -213,6 +227,7 @@ class Ui_DockWidget(object):
         sizePolicy.setHeightForWidth(self.lbl_move.sizePolicy().hasHeightForWidth())
         self.lbl_move.setSizePolicy(sizePolicy)
         self.lbl_move.setFont(font)
+        self.lbl_move.setAlignment(Qt.AlignCenter)
 
         self.verticalLayout.addWidget(self.lbl_move)
 
@@ -299,6 +314,7 @@ class Ui_DockWidget(object):
         sizePolicy.setHeightForWidth(self.lbl_status.sizePolicy().hasHeightForWidth())
         self.lbl_status.setSizePolicy(sizePolicy)
         self.lbl_status.setFont(font)
+        self.lbl_status.setAlignment(Qt.AlignCenter)
 
         self.verticalLayout.addWidget(self.lbl_status)
 
@@ -307,31 +323,28 @@ class Ui_DockWidget(object):
         self.gridLayout_8.setSizeConstraint(QLayout.SetMaximumSize)
         self.lbl_y_title_status = QLabel(self.dockWidgetContents)
         self.lbl_y_title_status.setObjectName(u"lbl_y_title_status")
-        sizePolicy2 = QSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
-        sizePolicy2.setHorizontalStretch(0)
-        sizePolicy2.setVerticalStretch(0)
-        sizePolicy2.setHeightForWidth(self.lbl_y_title_status.sizePolicy().hasHeightForWidth())
-        self.lbl_y_title_status.setSizePolicy(sizePolicy2)
+        sizePolicy1.setHeightForWidth(self.lbl_y_title_status.sizePolicy().hasHeightForWidth())
+        self.lbl_y_title_status.setSizePolicy(sizePolicy1)
         self.lbl_y_title_status.setFont(font)
 
         self.gridLayout_8.addWidget(self.lbl_y_title_status, 1, 0, 1, 1)
 
         self.lbl_z_title_status = QLabel(self.dockWidgetContents)
         self.lbl_z_title_status.setObjectName(u"lbl_z_title_status")
-        sizePolicy2.setHeightForWidth(self.lbl_z_title_status.sizePolicy().hasHeightForWidth())
-        self.lbl_z_title_status.setSizePolicy(sizePolicy2)
+        sizePolicy1.setHeightForWidth(self.lbl_z_title_status.sizePolicy().hasHeightForWidth())
+        self.lbl_z_title_status.setSizePolicy(sizePolicy1)
         self.lbl_z_title_status.setFont(font)
 
         self.gridLayout_8.addWidget(self.lbl_z_title_status, 2, 0, 1, 1)
 
         self.icon_x_status = QLabel(self.dockWidgetContents)
         self.icon_x_status.setObjectName(u"icon_x_status")
-        sizePolicy3 = QSizePolicy(QSizePolicy.Maximum, QSizePolicy.Preferred)
-        sizePolicy3.setHorizontalStretch(0)
-        sizePolicy3.setVerticalStretch(0)
-        sizePolicy3.setHeightForWidth(self.icon_x_status.sizePolicy().hasHeightForWidth())
-        self.icon_x_status.setSizePolicy(sizePolicy3)
-        self.icon_x_status.setPixmap(QPixmap(u":/icons/qt_resources/plug-connect.png"))
+        sizePolicy4 = QSizePolicy(QSizePolicy.Maximum, QSizePolicy.Preferred)
+        sizePolicy4.setHorizontalStretch(0)
+        sizePolicy4.setVerticalStretch(0)
+        sizePolicy4.setHeightForWidth(self.icon_x_status.sizePolicy().hasHeightForWidth())
+        self.icon_x_status.setSizePolicy(sizePolicy4)
+        self.icon_x_status.setPixmap(QPixmap(u":/icons/qt_resources/plug-disconnect-prohibition.png"))
 
         self.gridLayout_8.addWidget(self.icon_x_status, 0, 1, 1, 1)
 
@@ -339,7 +352,7 @@ class Ui_DockWidget(object):
         self.icon_z_status.setObjectName(u"icon_z_status")
         sizePolicy.setHeightForWidth(self.icon_z_status.sizePolicy().hasHeightForWidth())
         self.icon_z_status.setSizePolicy(sizePolicy)
-        self.icon_z_status.setPixmap(QPixmap(u":/icons/qt_resources/plug-connect.png"))
+        self.icon_z_status.setPixmap(QPixmap(u":/icons/qt_resources/plug-disconnect-prohibition.png"))
 
         self.gridLayout_8.addWidget(self.icon_z_status, 2, 1, 1, 1)
 
@@ -347,20 +360,21 @@ class Ui_DockWidget(object):
         self.icon_y_status.setObjectName(u"icon_y_status")
         sizePolicy.setHeightForWidth(self.icon_y_status.sizePolicy().hasHeightForWidth())
         self.icon_y_status.setSizePolicy(sizePolicy)
-        self.icon_y_status.setPixmap(QPixmap(u":/icons/qt_resources/plug-connect.png"))
+        self.icon_y_status.setPixmap(QPixmap(u":/icons/qt_resources/plug-disconnect-prohibition.png"))
 
         self.gridLayout_8.addWidget(self.icon_y_status, 1, 1, 1, 1)
 
         self.lbl_x_title_satus = QLabel(self.dockWidgetContents)
         self.lbl_x_title_satus.setObjectName(u"lbl_x_title_satus")
-        sizePolicy3.setHeightForWidth(self.lbl_x_title_satus.sizePolicy().hasHeightForWidth())
-        self.lbl_x_title_satus.setSizePolicy(sizePolicy3)
+        sizePolicy4.setHeightForWidth(self.lbl_x_title_satus.sizePolicy().hasHeightForWidth())
+        self.lbl_x_title_satus.setSizePolicy(sizePolicy4)
         self.lbl_x_title_satus.setFont(font)
 
         self.gridLayout_8.addWidget(self.lbl_x_title_satus, 0, 0, 1, 1)
 
         self.lbl_x_status = QLabel(self.dockWidgetContents)
         self.lbl_x_status.setObjectName(u"lbl_x_status")
+        self.lbl_x_status.setMinimumSize(QSize(120, 0))
 
         self.gridLayout_8.addWidget(self.lbl_x_status, 0, 2, 1, 1)
 
@@ -403,11 +417,11 @@ class Ui_DockWidget(object):
 
         self.plot_xz = MplCanvas(self.dockWidgetContents)
         self.plot_xz.setObjectName(u"plot_xz")
-        sizePolicy4 = QSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        sizePolicy4.setHorizontalStretch(0)
-        sizePolicy4.setVerticalStretch(0)
-        sizePolicy4.setHeightForWidth(self.plot_xz.sizePolicy().hasHeightForWidth())
-        self.plot_xz.setSizePolicy(sizePolicy4)
+        sizePolicy5 = QSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        sizePolicy5.setHorizontalStretch(0)
+        sizePolicy5.setVerticalStretch(0)
+        sizePolicy5.setHeightForWidth(self.plot_xz.sizePolicy().hasHeightForWidth())
+        self.plot_xz.setSizePolicy(sizePolicy5)
 
         self.gridLayout_4.addWidget(self.plot_xz, 0, 1, 1, 1)
 
@@ -434,8 +448,8 @@ class Ui_DockWidget(object):
 
         self.plot_xy = MplCanvas(self.dockWidgetContents)
         self.plot_xy.setObjectName(u"plot_xy")
-        sizePolicy4.setHeightForWidth(self.plot_xy.sizePolicy().hasHeightForWidth())
-        self.plot_xy.setSizePolicy(sizePolicy4)
+        sizePolicy5.setHeightForWidth(self.plot_xy.sizePolicy().hasHeightForWidth())
+        self.plot_xy.setSizePolicy(sizePolicy5)
 
         self.gridLayout_3.addWidget(self.plot_xy, 0, 1, 1, 1)
 
@@ -458,8 +472,8 @@ class Ui_DockWidget(object):
 
         self.plot_yz = MplCanvas(self.dockWidgetContents)
         self.plot_yz.setObjectName(u"plot_yz")
-        sizePolicy4.setHeightForWidth(self.plot_yz.sizePolicy().hasHeightForWidth())
-        self.plot_yz.setSizePolicy(sizePolicy4)
+        sizePolicy5.setHeightForWidth(self.plot_yz.sizePolicy().hasHeightForWidth())
+        self.plot_yz.setSizePolicy(sizePolicy5)
 
         self.gridLayout_5.addWidget(self.plot_yz, 0, 1, 1, 1)
 

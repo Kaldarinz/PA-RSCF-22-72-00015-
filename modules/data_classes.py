@@ -7,7 +7,8 @@ from typing import Callable
 from dataclasses import dataclass, field
 import traceback
 import logging
-from enum import Enum
+import heapq
+import threading
 
 from pint.facets.plain.quantity import PlainQuantity
 import numpy.typing as npt
@@ -198,6 +199,8 @@ class Hardware():
 
 hardware = Hardware()
 
+### Threading objects ###
+
 class WorkerSignals(QObject):
     """
     Signals available from a running worker thred.
@@ -252,6 +255,93 @@ class Worker(QRunnable):
             self.signals.result.emit(self.result)
         finally:
             self.signals.finished.emit()
+
+class PriorityQueue:
+
+    def __init__(self) -> None:
+        self._queue = []
+        self._count = 0
+        "Item id."
+        self._cv = threading.Condition()
+
+    def put(self, item: object, priority: int) -> None:
+        with self._cv:
+            heapq.heappush(
+                self._queue, (-priority, self._count, item)
+            )
+
+    def get(self) -> object:
+        with self._cv:
+            while len(self._queue) == 0:
+                self._cv.wait()
+            return heapq.heappop(self._queue)[-1]
+
+class Result:
+    """Result of actor call."""
+
+    def __init__(self) -> None:
+        
+        self._event = threading.Event()
+        self._result = None
+
+    def set_result(self, value: object) -> None:
+        
+        self._result = value
+        self._event.set()
+
+    def result(self) -> object:
+        
+        self._event.wait()
+        return self._result
+    
+class ActorExit(Exception):
+    
+    pass
+
+class Actor:
+    """Object to make calls to hardware."""
+
+    def __init__(self) -> None:
+        self._mailbox = PriorityQueue()
+
+    def send(self, msg) -> None:
+        self._mailbox.put(msg)
+
+    def recv(self) -> object:
+        msg = self._mailbox.get()
+        if msg is ActorExit:
+            raise ActorExit()
+        return msg
+    
+    def close(self) -> None:
+        self.send(ActorExit)
+
+    def start(self):
+        self._terminated = threading.Event()
+        t = threading.Thread(target = self._bootstrap)
+        t.daemon = True
+        t.start()
+
+    def _bootstrap(self):
+        try:
+            self.run()
+        except ActorExit:
+            pass
+        finally:
+            self._terminated.set()
+
+    def join(self):
+        self._terminated.wait()
+
+    def submit(self, func, *args, **kwargs):
+        r = Result()
+        self.send((func, args, kwargs, r))
+        return r
+
+    def run(self):
+        while True:
+            func, args, kwargs, r = self.recv()
+            r.set_result(func(*args, **kwargs))
 
 #### Constants ####
 
