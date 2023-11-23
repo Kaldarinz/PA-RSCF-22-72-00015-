@@ -23,6 +23,9 @@ from PySide6.QtCore import (
 
 from .osc_devices import Oscilloscope, PowerMeter, PhotoAcousticSensOlymp
 from . import Q_
+from .constants import (
+    Priority
+)
 
 logger = logging.getLogger(__name__)
 
@@ -256,26 +259,6 @@ class Worker(QRunnable):
         finally:
             self.signals.finished.emit()
 
-class PriorityQueue:
-
-    def __init__(self) -> None:
-        self._queue = []
-        self._count = 0
-        "Item id."
-        self._cv = threading.Condition()
-
-    def put(self, item: object, priority: int) -> None:
-        with self._cv:
-            heapq.heappush(
-                self._queue, (-priority, self._count, item)
-            )
-
-    def get(self) -> object:
-        with self._cv:
-            while len(self._queue) == 0:
-                self._cv.wait()
-            return heapq.heappop(self._queue)[-1]
-
 class Result:
     """Result of actor call."""
 
@@ -293,28 +276,61 @@ class Result:
         
         self._event.wait()
         return self._result
+
+class PriorityQueue:
+
+    def __init__(self) -> None:
+        self._queue = []
+        self._count = 0
+        "Item id."
+        self._cv = threading.Condition()
+
+    def put(
+            self,
+            item: tuple[Callable, tuple, dict, Result],
+            priority: int
+        ) -> None:
+        with self._cv:
+            heapq.heappush(
+                self._queue, (-priority, self._count, item)
+            )
+
+    def get(self) -> tuple[Callable, tuple, dict, Result]:
+        with self._cv:
+            while len(self._queue) == 0:
+                self._cv.wait()
+            return heapq.heappop(self._queue)[-1]
     
 class ActorExit(Exception):
     
     pass
 
 class Actor:
-    """Object to make calls to hardware."""
+    """Object for serial processing of calls."""
 
     def __init__(self) -> None:
         self._mailbox = PriorityQueue()
 
-    def send(self, msg) -> None:
-        self._mailbox.put(msg)
+    def _send(
+            self,
+            msg: tuple[Callable, tuple, dict, Result],
+            priority: int
+        ) -> None:
+        """Put a function to priority queue."""
+        self._mailbox.put(msg, priority)
 
-    def recv(self) -> object:
+    def recv(self) -> tuple[Callable, tuple, dict, Result]:
         msg = self._mailbox.get()
         if msg is ActorExit:
             raise ActorExit()
         return msg
     
     def close(self) -> None:
-        self.send(ActorExit)
+        """Close request."""
+        
+        r = Result()
+        # Close request is sent with highest priority.
+        self._send((ActorExit, tuple(), dict(), r), Priority.HIGHEST)
 
     def start(self):
         self._terminated = threading.Event()
@@ -333,27 +349,23 @@ class Actor:
     def join(self):
         self._terminated.wait()
 
-    def submit(self, func, *args, **kwargs):
+    def submit(
+            self,
+            priority: int,
+            func: Callable,
+            *args: tuple,
+            **kwargs: dict
+            ) -> Result:
+        """
+        Submit a function for serail processing.
+        
+        Priority can have values from 0 (lowest) to 10 (highest).
+        """
         r = Result()
-        self.send((func, args, kwargs, r))
+        self._send((func, args, kwargs, r), priority)
         return r
 
     def run(self):
         while True:
             func, args, kwargs, r = self.recv()
             r.set_result(func(*args, **kwargs))
-
-#### Constants ####
-
-DetailedSignals = {
-    'Raw': 'raw_data',
-    'Filtered': 'filt_data',
-    'Zoomed Raw': 'raw_data',
-    'Zoomed_Filtered': 'filt_data',
-    'FFT': 'freq_data'
-}
-
-ParamSignals = {
-    'Raw': 'raw_data',
-    'Filtered': 'filt_data'
-}
