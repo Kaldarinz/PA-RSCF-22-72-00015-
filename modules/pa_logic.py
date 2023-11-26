@@ -1,5 +1,7 @@
 """
-PA backend
+PA backend.
+
+All calls to hardware should be performed via corresponding actors (_stage_call, _osc_call).
 """
 
 from typing import List, Tuple, Optional, cast, Literal
@@ -40,11 +42,23 @@ from .data_classes import (
     EnergyMeasurement,
     Coordinate,
     hardware,
-    PriorityQueue
+    Actor,
+    StagesStatus
+)
+from .constants import (
+    Priority
 )
 from . import ureg, Q_
 
 logger = logging.getLogger(__name__)
+
+_stage_call = Actor()
+"Serial communication with stages."
+_stage_call.start()
+
+_osc_call = Actor()
+"Serial communication with oscilloscope."
+_osc_call.start()
 
 def init_hardware(**kwargs) -> bool:
     """Initialize all hardware.
@@ -231,32 +245,51 @@ def stages_open() -> bool:
     logger.debug(f'...Finishing. stages {connected=}')
     return connected
 
-def stages_status(**kwargs) -> list[tuple[bool, str]]:
-    """Return status of all stages."""
+def stages_status(**kwargs) -> StagesStatus:
+    """
+    Return status of all stages.
+    
+    Thread safe.
+    Have low priority.
+    """
 
-    status = []
-    for stage in hardware.stages:
+    status = StagesStatus()
+    for axes, stage in hardware.stages.items():
         try:
-            status_lst = stage.get_status()
-            status.append(
-                (stage.is_opened(),', '.join(status_lst))
+            status_lst = _stage_call.submit(
+                Priority.LOW,
+                stage.get_status
             )
+            is_open = _stage_call.submit(
+                Priority.LOW,
+                stage.is_opened
+            )
+            setattr(status, axes + '_open', is_open)
+            setattr(status, axes + '_status', status_lst)
         except:
-            status.append((False, 'Disconnected'))
+            logger.warning('General exception caught in "stages_status", need to change.')
 
     return status
 
 def stages_position(**kwargs) -> Coordinate:
-    """Get position of all stages."""
+    """
+    Get position of all stages.
+    
+    Thread safe.
+    Have low priority.
+    """
 
     coord = Coordinate()
-    for stage, axes in zip(hardware.stages, fields(coord)):
+    for axes, stage in hardware.stages.items():
         try:
-            pos = stage.get_position()
+            pos = _stage_call.submit(
+                Priority.LOW,
+                stage.get_position
+            )
         except:
-            continue
+            logger.warning('General exception caught in "Stages_position", nned to change.')
         else:
-            setattr(coord, axes.name, Q_(pos, 'm'))
+            setattr(coord, axes, Q_(pos, 'm'))
     return coord
 
 def pm_open() -> bool:
@@ -1077,12 +1110,3 @@ def set_next_measure_action() -> str:
     ).execute()
     logger.debug(f'...Finishing. {measure_ans=} was choosen')
     return measure_ans
-
-def stage_exec(queue: PriorityQueue) -> None:
-    """The only method, which call stages."""
-
-    queue.get()
-
-stage_q = PriorityQueue()
-stage_calls = Thread(target = stage_exec, args = (stage_q,))
-stage_calls.start()

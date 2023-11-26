@@ -54,14 +54,17 @@ import modules.pa_logic as pa_logic
 from modules.utils import (
     upd_plot
 )
+import modules.data_classes as dc
 from modules.data_classes import (
     Worker,
     MeasuredPoint,
     Measurement,
     EnergyMeasurement,
-    DetailedSignals,
-    ParamSignals,
     hardware
+)
+from modules.constants import (
+    DetailedSignals,
+    ParamSignals
 )
 from modules.gui.widgets import (
     MplCanvas,
@@ -82,7 +85,6 @@ from modules.gui.designer.designer_widgets import (
     PointView,
     MotorView
 )
-
 
 def init_logs() -> tuple[logging.Logger, QLogHandler]:
     """Initiate logging"""
@@ -1239,6 +1241,11 @@ class Window(QMainWindow,Ui_MainWindow,):
             event.ignore()
         else:
             logger.info('Stopping application')
+            # Close hardware actors
+            pa_logic._stage_call.close()
+            pa_logic._stage_call.join()
+            pa_logic._osc_call.close()
+            pa_logic._osc_call.join()
             for stage in hardware.stages:
                 stage.close()
 

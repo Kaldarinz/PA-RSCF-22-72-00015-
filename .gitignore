@@ -2,7 +2,9 @@
 .DS_Store
 backup files/
 typings/
+measuring results/
 test.py
+tst.py
 .gitignore
 .vscode
 

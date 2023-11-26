@@ -8,17 +8,13 @@ import numpy as np
 import numpy.typing as npt
 from enum import Enum
 from modules.data_classes import Coordinate
+from modules.constants import Priority
 
 ureg = UnitRegistry(auto_reduce_dimensions=True)
 Q_ = ureg.Quantity
 
+print(Priority.HIGHEST)
 
-
-coord = Coordinate()
-for axes in fields(coord):
-    setattr(coord, axes.name, Q_(1,'s'))
-
-print(coord)
 
 
 

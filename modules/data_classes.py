@@ -3,7 +3,8 @@ Module with data classes.
 """
 
 import sys
-from typing import Callable
+from typing import Callable, TypeVar
+from typing_extensions import ParamSpec
 from dataclasses import dataclass, field
 import traceback
 import logging
@@ -28,6 +29,9 @@ from .constants import (
 )
 
 logger = logging.getLogger(__name__)
+
+P = ParamSpec('P')
+T = TypeVar('T')
 
 @dataclass
 class FileMetadata:
@@ -188,13 +192,23 @@ class Coordinate:
     y: PlainQuantity|None = None
     z: PlainQuantity|None = None
 
+@dataclass
+class StagesStatus:
+
+    x_open: bool|None = None
+    y_open: bool|None = None
+    z_open: bool|None = None
+    x_status: list[str] = field(default_factory = list)
+    y_status: list[str] = field(default_factory = list)
+    z_status: list[str] = field(default_factory = list)
+
 class Hardware():
     """Class for hardware references."""
     
     def __init__(self):
         self.power_meter: PowerMeter | None = None
         self.pa_sens: PhotoAcousticSensOlymp | None = None
-        self.stages: list[KinesisMotor] = []
+        self.stages: dict[str, KinesisMotor] = {}
         self.motor_axes: int = -1
         self.axes_titles = ('X','Y','Z')
         self.osc: Oscilloscope = Oscilloscope()
@@ -340,7 +354,7 @@ class Actor:
 
     def _bootstrap(self):
         try:
-            self.run()
+            self._run()
         except ActorExit:
             pass
         finally:
@@ -352,10 +366,10 @@ class Actor:
     def submit(
             self,
             priority: int,
-            func: Callable,
+            func: Callable[P, T],
             *args: tuple,
             **kwargs: dict
-            ) -> Result:
+            ) -> T:
         """
         Submit a function for serail processing.
         
@@ -363,9 +377,11 @@ class Actor:
         """
         r = Result()
         self._send((func, args, kwargs, r), priority)
-        return r
+        return r.result() # type: ignore
 
-    def run(self):
+    def _run(self):
+        """Main execution loop."""
+
         while True:
             func, args, kwargs, r = self.recv()
             r.set_result(func(*args, **kwargs))
