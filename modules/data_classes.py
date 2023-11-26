@@ -206,12 +206,11 @@ class Hardware():
     """Class for hardware references."""
     
     def __init__(self):
+        self.osc: Oscilloscope = Oscilloscope()
         self.power_meter: PowerMeter | None = None
         self.pa_sens: PhotoAcousticSensOlymp | None = None
         self.stages: dict[str, KinesisMotor] = {}
         self.motor_axes: int = -1
-        self.axes_titles = ('X','Y','Z')
-        self.osc: Oscilloscope = Oscilloscope()
         self.config: dict = {}
 
 hardware = Hardware()
@@ -345,6 +344,11 @@ class Actor:
         r = Result()
         # Close request is sent with highest priority.
         self._send((ActorExit, tuple(), dict(), r), Priority.HIGHEST)
+
+    def reset(self) -> None:
+        """Reset call stack."""
+
+        self._mailbox = PriorityQueue()
 
     def start(self):
         self._terminated = threading.Event()

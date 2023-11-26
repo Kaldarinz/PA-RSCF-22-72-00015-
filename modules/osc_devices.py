@@ -97,14 +97,11 @@ class Oscilloscope:
 
         logger.debug('Oscilloscope class instantiated!')
         
-    def initialize(self,
-                 ra_kernel_size: int=20 #smoothing by rolling average
-                 ) -> bool:
-        """Oscilloscope initializator.
-
-        <chan_pre> and <chan_post> are time intervals before and after
-        trigger for saving data from corresponding channels.
-        """
+    def initialize(
+            self,
+            ra_kernel_size: int=20 #smoothing by rolling average
+        ) -> bool:
+        """Oscilloscope initializator."""
         
         logger.debug('Starting actual initialization of an oscilloscope...')
         rm = pv.ResourceManager()

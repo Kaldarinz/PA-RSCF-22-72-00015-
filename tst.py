@@ -15,7 +15,9 @@ Q_ = ureg.Quantity
 
 print(Priority.HIGHEST)
 
+dct = {'one':1, 'two': 2}
 
+print(len(dct))
 
 
 # @dataclass

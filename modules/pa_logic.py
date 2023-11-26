@@ -63,22 +63,21 @@ _osc_call.start()
 def init_hardware(**kwargs) -> bool:
     """Initialize all hardware.
     
-    Load hardware config from rsc/config.yaml if it was not done.
+    Load hardware config from rsc/config.yaml if it was not done.\n
+    Thread safe for stages.
     """
 
     logger.info('Starting hardware initialization...')
     
+    # Try init oscilloscope.
     if not init_osc():
         logger.warning('Oscilloscope cannot be loaded!')
-        logger.debug('...Terminating')
-        return False
     else:
-        logger.info('Oscilloscope initiated. ')
+        logger.info('Oscilloscope initiated.')
     osc = hardware.osc
+    # Try init stages
     if not init_stages():
         logger.warning('Stages cannot be loaded!')
-        logger.debug('...Terminating!')
-        return False
     
     config = hardware.config
     pm = hardware.power_meter
@@ -126,6 +125,7 @@ def load_config() -> dict:
         return {}
     
     hardware.config = config
+    # We need to know amount of axes before initiation of stages.
     axes = int(config['stages']['axes'])
     hardware.motor_axes = axes
     logger.debug('Config loaded into hardware["config"]')
@@ -151,7 +151,12 @@ def load_config() -> dict:
     return config
 
 def init_stages() -> bool:
-    """Initiate Thorlabs KDC based stages."""
+    """
+    Initiate Thorlabs KDC based stages.
+    
+    Thread safe.\n
+    Priority is high.
+    """
 
     logger.debug(f'Starting...')
     logger.debug('Checking if connection to stages is '
@@ -164,27 +169,29 @@ def init_stages() -> bool:
     logger.debug('Searching for Thorlabs kinsesis devices (stages)')
     stages = Thorlabs.list_kinesis_devices()
     logger.debug(f'{len(stages)} devices found')
-    axes = hardware.motor_axes
-    if len(stages) < axes:
-        msg = f'Less than {axes} kinesis devices found!'
+    axes_count = hardware.motor_axes
+    if len(stages) < axes_count:
+        msg = f'Less than {axes_count} kinesis devices found!'
         logger.error(msg)
         logger.debug('...Terminating.')
         return False
 
     connected = True
-    for stage_id, id in zip(stages,range(axes)):
+    for stage_id, id, axes in zip(stages, range(axes_count), ['x', 'y', 'z']):
         #motor units [m]
         stage = Thorlabs.KinesisMotor(stage_id[0], scale='stage')
         try:
-            connected = stage.is_opened()
+            connected = _stage_call.submit(
+                Priority.HIGH,
+                stage.is_opened
+            )
         except:
-            msg = f'Failed attempt to coomunicate with stage{id}'
+            msg = f'Failed attempt to coomunicate with stage {axes}'
             logger.error(msg)
-            if connected:
-                connected = False
+            connected = False
         else:
-            hardware.stages.append(stage)
-            logger.info(f'Stage {id+1} with ID={stage_id} is initiated')
+            hardware.stages.update({axes: stage})
+            logger.info(f'Stage {axes} with ID={stage_id} is initiated')
     
     if connected:
         logger.info('Stages initiated.')
@@ -224,24 +231,30 @@ def init_osc() -> bool:
 def stages_open() -> bool:
     """Return True if all stages are responding and open.
     
-    Never raise exceptions.
+    Never raise exceptions.\n
+    Thread safe.\n
+    Priority is high.
     """
 
     logger.debug('Starting connection check to stages...')
     connected = True
-    axes = hardware.motor_axes
-    if len(hardware.stages) < axes:
+
+    if not len(hardware.stages):
         logger.debug('...Finishing. Stages are not initialized.')
         return False
-    for stage, index in zip(hardware.stages, range(axes)):
-        if stage is None or not stage.is_opened():
-            logger.debug(f'stage {index+1} is not open')
-            connected = False
-        else:
-            logger.debug(f'stage {index+1} is open')  
+    for axes, stage in hardware.stages.items():
+        if not stage is None:
+            is_open = _stage_call.submit(
+                Priority.HIGH,
+                stage.is_opened
+            )
+            if is_open:
+                logger.debug(f'stage {axes} is open')
+                continue
+        logger.debug(f'stage {axes} is not open')
+        connected = False
     if connected:
         logger.debug('All stages are connected and open')
-
     logger.debug(f'...Finishing. stages {connected=}')
     return connected
 
@@ -306,27 +319,56 @@ def pm_open() -> bool:
     return connected
 
 def stage_jog(
-        axes: Literal[1, 2, 3],
+        axes: Literal['x', 'y', 'z'],
         direction: Literal['+','-'],
         **kwargs,
     ) -> None:
-    """Jog given axis in given direction."""
+    """
+    Jog given axis in given direction.
+    
+    Thread safe.\n
+    Priority is normal.
+    """
 
-    if (axes - 1) > hardware.motor_axes:
+    stage = hardware.stages.get(axes, None)
+    if stage is None:
         logger.warning(f'Invalid axes ({axes}) for jogging.')
         return
-    hardware.stages[axes-1].jog(direction)
+    _stage_call.submit(
+        Priority.NORMAL,
+        stage.jog,
+        (direction,)
+    )
 
 def stage_stop(
-        axes: Literal[1, 2, 3],
+        axes: Literal['x', 'y', 'z'],
+        priority: int|None = None,
         **kwargs
     ) -> None:
-    """Stop movement along given axes."""
+    """
+    Stop movement along given axes.
+    
+    Thread safe.\n
+    Priority is normal.
+    """
 
-    if (axes - 1) > hardware.motor_axes:
+    stage = hardware.stages.get(axes, None)
+    if stage is None:
         logger.warning(f'Invalid axes ({axes}) for stop.')
         return
-    hardware.stages[axes-1].stop()
+    if priority is None:
+        priority = Priority.NORMAL
+    _stage_call.submit(
+        priority,
+        stage.stop
+    )
+
+def break_all_stages() -> None:
+    """Stop move for all axes and reset call stack for stages."""
+
+    for axes in hardware.stages.keys():
+        stage_stop(axes, Priority.HIGHEST) # type: ignore
+    _stage_call.reset()
 
 def move_to(X: float, Y: float, Z: float|None=None) -> None:
     """Send PA detector to (X,Y,Z) position.

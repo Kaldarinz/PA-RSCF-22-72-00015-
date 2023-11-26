@@ -1246,7 +1246,7 @@ class Window(QMainWindow,Ui_MainWindow,):
             pa_logic._stage_call.join()
             pa_logic._osc_call.close()
             pa_logic._osc_call.join()
-            for stage in hardware.stages:
+            for stage in hardware.stages.values():
                 stage.close()
 
     def init_hardware(self) -> None:
