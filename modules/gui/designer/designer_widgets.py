@@ -264,30 +264,28 @@ class MotorView(QDockWidget, motor_control_ui.Ui_DockWidget):
         if position is None:
             logger.warning('Invalid coordinate in set position.')
         # Update current position line edits and attributes.
-        if position.x is not None:
+        if position.x is not None and position.x != self.x:
             self.x = position.x.to('mm')
-            self.le_x_cur_pos.setText(str(self.x))
-        if position.y is not None:
-            self.y = position.y.to('mm')
-            self.le_y_cur_pos.setText(str(self.y))
-        if position.z is not None:
-            self.z = position.z.to('mm')
-            self.le_z_cur_pos.setText(str(self.z))
-
-        # Update plot positions
-        upd_plot(
+            self.le_x_cur_pos.setText(f'{self.x:.3f~P}')
+            upd_plot(
             base_widget = self.plot_xy,
             ydata = [self.y.m],
             xdata = [self.x.m],
             fmt = self.fmt
         )
-        upd_plot(
+        if position.y is not None and position.y != self.y:
+            self.y = position.y.to('mm')
+            self.le_y_cur_pos.setText(f'{self.y:.3f~P}')
+            upd_plot(
             base_widget = self.plot_xz,
             ydata = [self.z.to('mm').m],
             xdata = [self.x.to('mm').m],
             fmt = self.fmt
         )
-        upd_plot(
+        if position.z is not None and position.z != self.z:
+            self.z = position.z.to('mm')
+            self.le_z_cur_pos.setText(f'{self.z:.3f~P}')
+            upd_plot(
             base_widget = self.plot_yz,
             ydata = [self.y.to('mm').m],
             xdata = [self.z.to('mm').m],
