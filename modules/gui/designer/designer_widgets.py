@@ -42,8 +42,11 @@ from ... import Q_
 from ...pa_data import Measurement
 from ...data_classes import (
     DataPoint,
-    DetailedSignals,
-    Coordinate
+    Coordinate,
+    StagesStatus
+)
+from ...constants import (
+    DetailedSignals
 )
 from ...utils import (
     upd_plot
@@ -318,29 +321,41 @@ class MotorView(QDockWidget, motor_control_ui.Ui_DockWidget):
 
     def upd_status(
             self,
-            status_lst: list[tuple[bool, str]]
+            status: StagesStatus
         ) -> None:
         """Update status of motors."""
 
-        # Length of list with status can vary, but it assumed to satuses
-        # for X, Y, Z axes if they are present.
-        for status, icon, lbl in zip(
-            status_lst,
-            [
-                self.icon_x_status,
-                self.icon_y_status,
-                self.icon_z_status
-            ],
-             [
-                self.lbl_x_status,
-                self.lbl_y_status,
-                self.lbl_z_status
-             ]
-        ):
-            # Set icons and status text
-            if status[0]:
-                icon.setPixmap(self.pixmap_c)
-                lbl.setText(status[1])
-            else:
-                icon.setPixmap(self.pixmap_dc)
-                lbl.setText('Disconnected')
+        self._upd_axes_status(
+            status.x_open,
+            status.x_status,
+            self.icon_x_status,
+            self.lbl_x_status
+        )
+        self._upd_axes_status(
+            status.y_open,
+            status.y_status,
+            self.icon_y_status,
+            self.lbl_y_status
+        )
+        self._upd_axes_status(
+            status.z_open,
+            status.z_status,
+            self.icon_z_status,
+            self.lbl_z_status
+        )
+
+    def _upd_axes_status(
+            self,
+            is_opened: bool|None,
+            status: list[str],
+            icon: QLabel,
+            lbl: QLabel
+        ) -> None:
+        """Update status widgets for an axes"""
+
+        if is_opened:
+            icon.setPixmap(self.pixmap_c)
+            lbl.setText(','.join(status))
+        else:
+            icon.setPixmap(self.pixmap_dc)
+            lbl.setText('Disconnected')

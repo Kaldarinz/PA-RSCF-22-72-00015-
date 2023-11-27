@@ -303,10 +303,16 @@ class PriorityQueue:
             item: tuple[Callable, tuple, dict, Result],
             priority: int
         ) -> None:
+
+        if priority < 3 and len(self._queue) > 20:
+            logger.warning('Too many calls, skipping low priority task.')
+            return
         with self._cv:
             heapq.heappush(
                 self._queue, (-priority, self._count, item)
             )
+            self._count += 1
+            self._cv.notify()
 
     def get(self) -> tuple[Callable, tuple, dict, Result]:
         with self._cv:
@@ -330,11 +336,13 @@ class Actor:
             priority: int
         ) -> None:
         """Put a function to priority queue."""
+
+        logger.debug('Msg sent.')
         self._mailbox.put(msg, priority)
 
     def recv(self) -> tuple[Callable, tuple, dict, Result]:
         msg = self._mailbox.get()
-        if msg is ActorExit:
+        if msg[0] is ActorExit:
             raise ActorExit()
         return msg
     
@@ -355,6 +363,7 @@ class Actor:
         t = threading.Thread(target = self._bootstrap)
         t.daemon = True
         t.start()
+        
 
     def _bootstrap(self):
         try:
@@ -379,6 +388,7 @@ class Actor:
         
         Priority can have values from 0 (lowest) to 10 (highest).
         """
+
         r = Result()
         self._send((func, args, kwargs, r), priority)
         return r.result() # type: ignore

@@ -52,13 +52,20 @@ from . import ureg, Q_
 
 logger = logging.getLogger(__name__)
 
-_stage_call = Actor()
-"Serial communication with stages."
-_stage_call.start()
 
-_osc_call = Actor()
-"Serial communication with oscilloscope."
-_osc_call.start()
+
+def _init_call() -> None:
+    """Start actors for serial communication with hardware."""
+
+    global _stage_call
+    _stage_call = Actor()
+    "Serial communication with stages."
+    _stage_call.start()
+
+    global _osc_call
+    _osc_call = Actor()
+    "Serial communication with oscilloscope."
+    _osc_call.start()
 
 def init_hardware(**kwargs) -> bool:
     """Initialize all hardware.
@@ -69,6 +76,8 @@ def init_hardware(**kwargs) -> bool:
 
     logger.info('Starting hardware initialization...')
     
+    # Start Actors to communicate with hardware
+    _init_call()
     # Try init oscilloscope.
     if not init_osc():
         logger.warning('Oscilloscope cannot be loaded!')
@@ -180,6 +189,7 @@ def init_stages() -> bool:
     for stage_id, id, axes in zip(stages, range(axes_count), ['x', 'y', 'z']):
         #motor units [m]
         stage = Thorlabs.KinesisMotor(stage_id[0], scale='stage')
+        logger.debug('Trying to call is_opened')
         try:
             connected = _stage_call.submit(
                 Priority.HIGH,
@@ -337,7 +347,7 @@ def stage_jog(
     _stage_call.submit(
         Priority.NORMAL,
         stage.jog,
-        (direction,)
+        direction
     )
 
 def stage_stop(

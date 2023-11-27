@@ -53,7 +53,7 @@ from modules.pa_data import PaData
 import modules.pa_logic as pa_logic
 from modules.utils import (
     upd_plot
-)
+)   
 import modules.data_classes as dc
 from modules.data_classes import (
     Worker,
@@ -124,11 +124,6 @@ class Window(QMainWindow,Ui_MainWindow,):
 
     worker_pm: Worker|None = None
     "Thread for measuring energy."
-
-    motors_locked: bool = False
-    "Flag for access to motors."
-    motors_needed: bool = False
-    "Flag indicating that a command should be sent."
 
     _data: PaData|None = None
 
@@ -391,22 +386,17 @@ class Window(QMainWindow,Ui_MainWindow,):
         )
         # Buttons
         self.d_motors.btn_x_left_move.pressed.connect(
-            lambda : self.jog_stage(axes = 1, direction = '-')
+            lambda : self.jog_stage(axes = 'x', direction = '-')
         )
         self.d_motors.btn_x_left_move.released.connect(
-            lambda : self.stop_stage(axes = 1)
+            lambda : self.stop_stage(axes = 'x')
         )
         self.d_motors.btn_x_right_move.pressed.connect(
-            lambda : self.jog_stage(axes = 1, direction = '+')
+            lambda : self.jog_stage(axes = 'x', direction = '+')
         )
         self.d_motors.btn_x_right_move.released.connect(
-            lambda : self.stop_stage(axes = 1)
+            lambda : self.stop_stage(axes = 'x')
         )
-
-    def _release_motor_lock(self) -> None:
-        """Release lock on motors."""
-
-        self.motors_locked = False
 
     @Slot()
     def data_updated(self) -> None:
@@ -1284,9 +1274,6 @@ class Window(QMainWindow,Ui_MainWindow,):
         if not self.d_motors.isVisible():
             return
         
-        if self.motors_needed or self.motors_locked:
-            return
-        self.motors_locked = True
         self.pos_worker = Worker(pa_logic.stages_position)
         self.pos_worker.signals.result.connect(
             self.d_motors.set_position
@@ -1297,51 +1284,27 @@ class Window(QMainWindow,Ui_MainWindow,):
     def _upd_motor_status(self) -> None:
         """Second part of upd_motor, which updates status."""
 
-        if self.motors_needed:
-            self._release_motor_lock()
-            return
         status_worker = Worker(pa_logic.stages_status)
         status_worker.signals.result.connect(
             self.d_motors.upd_status
         )
-        status_worker.signals.finished.connect(self._release_motor_lock)
         self.pool.start(status_worker)
 
     def jog_stage(
             self,
-            axes: Literal[1, 2, 3],
+            axes: Literal['x', 'y', 'y'],
             direction: Literal['+', '-']
         ) -> None:
         """Jog stage in a given direction."""
 
-        # Set flag that motor is needed.
-        self.motors_needed = True
-        while self.motors_locked:
-            time.sleep(0.01)
-
-        self.motors_locked = True
         worker_jog = Worker(pa_logic.stage_jog, axes, direction)
-        worker_jog.signals.finished.connect(
-            self._release_motor_lock
-        )
         self.pool.start(worker_jog)
-        self.motors_needed = False
 
-    def stop_stage(self, axes: Literal[1, 2 , 3]) -> None:
+    def stop_stage(self, axes: Literal['x', 'y' , 'z']) -> None:
         """Stop stage."""
 
-        # Set flag that motor is needed.
-        self.motors_needed = True
-        while self.motors_locked:
-            time.sleep(0.01)
-
-        self.motors_locked = True
         worker_stop = Worker(pa_logic.stage_stop, axes)
-        worker_stop.signals.finished.connect(
-            self._release_motor_lock
-        )
         self.pool.start(worker_stop)
-        self.motors_needed = False
 
     def init_pm_monitor(
             self,
