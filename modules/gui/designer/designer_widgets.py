@@ -295,17 +295,20 @@ class MotorView(QDockWidget, motor_control_ui.Ui_DockWidget):
         if position.x is not None and position.x != self.x:
             self.x = position.x.to('mm')
             self.le_x_cur_pos.setText(f'{self.x:.3f~P}')
+            self.sb_x_new_pos.setValue(self.x.m)
         if position.y is not None and position.y != self.y:
             self.y = position.y.to('mm')
             self.le_y_cur_pos.setText(f'{self.y:.3f~P}')
+            self.sb_y_new_pos.setValue(self.y.m)
         if position.z is not None and position.z != self.z:
             self.z = position.z.to('mm')
             self.le_z_cur_pos.setText(f'{self.z:.3f~P}')
+            self.sb_z_new_pos.setValue(self.z.m)
         
         # Update plots if necessary
         self._upd_plot(self.x.m, self.y.m, self.plot_xy)
         self._upd_plot(self.x.m, self.z.m, self.plot_xz)
-        self._upd_plot(self.y.m, self.z.m, self.plot_yz)
+        self._upd_plot(self.z.m, self.y.m, self.plot_yz)
 
     def set_range(
             self,
@@ -329,8 +332,8 @@ class MotorView(QDockWidget, motor_control_ui.Ui_DockWidget):
         self.plot_xy.ylabel = 'Y, [mm]'
         self.plot_xz.xlabel = 'X, [mm]'
         self.plot_xz.ylabel = 'Z, [mm]'
-        self.plot_yz.xlabel = 'Y, [mm]'
-        self.plot_yz.ylabel = 'Z, [mm]'
+        self.plot_yz.xlabel = 'Z, [mm]'
+        self.plot_yz.ylabel = 'Y, [mm]'
         # Set range for spin boxes
         for sb in iter([
             self.sb_x_new_pos,
@@ -396,3 +399,12 @@ class MotorView(QDockWidget, motor_control_ui.Ui_DockWidget):
         else:
             icon.setPixmap(self.pixmap_dc)
             lbl.setText('Disconnected')
+
+    def current_pos(self) -> Coordinate:
+        """Get position to send stages."""
+
+        pos = Coordinate()
+        pos.x = Q_(self.sb_x_new_pos.value(), 'mm')
+        pos.y = Q_(self.sb_y_new_pos.value(), 'mm')
+        pos.z = Q_(self.sb_z_new_pos.value(), 'mm')
+        return pos

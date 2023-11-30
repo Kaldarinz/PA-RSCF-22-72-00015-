@@ -374,34 +374,35 @@ def stage_stop(
         sync = False
     )
 
-def break_all_stages() -> None:
-    """Stop move for all axes and reset call stack for stages."""
+def break_all_stages(**kwargs) -> None:
+    """
+    Stop move for all axes and reset call stack for stages.
+    
+    Thread safe.\n
+    Highest priority.
+    """
 
     for axes in hardware.stages.keys():
         stage_stop(axes, Priority.HIGHEST) # type: ignore
     _stage_call.reset()
 
-def move_to(X: float, Y: float, Z: float|None=None) -> None:
-    """Send PA detector to (X,Y,Z) position.
+def move_to(new_pos: Coordinate, **kwargs) -> None:
+    """Send motors to new position.
     
-    Do not wait for stop moving.
-    Coordinates are in mm.
+    Thread safe.\n
+    Priority is normal.
     """
 
-    logger.debug('Starting...')
-    if Z is None:
-        dest = (X/1000,Y/1000)
-    else:
-        dest = (X/1000,Y/1000,Z/1000)
-    logger.debug(f'Sending stages to {dest} mm position')
-
-    for stage, pos in zip(hardware.stages, dest):
-        try:
-            stage.move_to(pos)
-        except:
-            msg = 'Stage move_to command failed'
-            logger.error('...Terminating. ' + msg)
-            raise StageError(msg)
+    logger.debug('Starting move_to procedure...')
+    for axes, stage in hardware.stages.items():
+        coord = getattr(new_pos, axes)
+        if coord is not None:
+            coord = coord.to('m').m
+            _stage_call.submit(
+                Priority.NORMAL,
+                stage.move_to,
+                position = coord
+            )
 
 def stage_ident(stage: KinesisMotor) -> Thread:
     """Identify a stage.
@@ -441,20 +442,6 @@ def mech_ident(
         stage.wait_for_stop()
         stage.move_by(amp_val)
         stage.wait_for_stop()
-
-def wait_stages_stop() -> None:
-    """Wait untill all (2) stages stop."""
-
-    logger.debug('Starting...')
-    logger.debug('Waiting untill stages complete moving.')
-    for stage in hardware.stages:
-        try:
-            stage.wait_for_stop()
-            logger.debug('Stage stopped')
-        except:
-            msg = 'Stage wait_for_stop command failed'
-            logger.error('...Terminating. ' + msg)
-            raise StageError(msg)
 
 def home(**kwargs) -> None:
     """

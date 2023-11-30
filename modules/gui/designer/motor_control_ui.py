@@ -18,7 +18,7 @@ from PySide6.QtGui import (QBrush, QColor, QConicalGradient, QCursor,
 from PySide6.QtWidgets import (QApplication, QDockWidget, QDoubleSpinBox, QFormLayout,
     QFrame, QGridLayout, QHBoxLayout, QLabel,
     QLayout, QLineEdit, QPushButton, QSizePolicy,
-    QSlider, QSpacerItem, QVBoxLayout, QWidget)
+    QSpacerItem, QVBoxLayout, QWidget)
 
 from ..widgets import MplCanvas
 from . import qt_resources_rc
@@ -399,12 +399,6 @@ class Ui_DockWidget(object):
         self.gridLayout_6.setObjectName(u"gridLayout_6")
         self.gridLayout_4 = QGridLayout()
         self.gridLayout_4.setObjectName(u"gridLayout_4")
-        self.slide_xz_z = QSlider(self.dockWidgetContents)
-        self.slide_xz_z.setObjectName(u"slide_xz_z")
-        self.slide_xz_z.setOrientation(Qt.Vertical)
-
-        self.gridLayout_4.addWidget(self.slide_xz_z, 0, 0, 1, 1)
-
         self.plot_xz = MplCanvas(self.dockWidgetContents)
         self.plot_xz.setObjectName(u"plot_xz")
         sizePolicy5 = QSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
@@ -413,65 +407,31 @@ class Ui_DockWidget(object):
         sizePolicy5.setHeightForWidth(self.plot_xz.sizePolicy().hasHeightForWidth())
         self.plot_xz.setSizePolicy(sizePolicy5)
 
-        self.gridLayout_4.addWidget(self.plot_xz, 0, 1, 1, 1)
-
-        self.slide_xz_x = QSlider(self.dockWidgetContents)
-        self.slide_xz_x.setObjectName(u"slide_xz_x")
-        self.slide_xz_x.setMaximum(250)
-        self.slide_xz_x.setPageStep(10)
-        self.slide_xz_x.setOrientation(Qt.Horizontal)
-        self.slide_xz_x.setTickPosition(QSlider.TicksBelow)
-        self.slide_xz_x.setTickInterval(10)
-
-        self.gridLayout_4.addWidget(self.slide_xz_x, 1, 1, 1, 1)
+        self.gridLayout_4.addWidget(self.plot_xz, 0, 0, 1, 1)
 
 
         self.gridLayout_6.addLayout(self.gridLayout_4, 0, 0, 1, 1)
 
         self.gridLayout_3 = QGridLayout()
         self.gridLayout_3.setObjectName(u"gridLayout_3")
-        self.slide_xy_y = QSlider(self.dockWidgetContents)
-        self.slide_xy_y.setObjectName(u"slide_xy_y")
-        self.slide_xy_y.setOrientation(Qt.Vertical)
-
-        self.gridLayout_3.addWidget(self.slide_xy_y, 0, 0, 1, 1)
-
         self.plot_xy = MplCanvas(self.dockWidgetContents)
         self.plot_xy.setObjectName(u"plot_xy")
         sizePolicy5.setHeightForWidth(self.plot_xy.sizePolicy().hasHeightForWidth())
         self.plot_xy.setSizePolicy(sizePolicy5)
 
-        self.gridLayout_3.addWidget(self.plot_xy, 0, 1, 1, 1)
-
-        self.slide_xy_x = QSlider(self.dockWidgetContents)
-        self.slide_xy_x.setObjectName(u"slide_xy_x")
-        self.slide_xy_x.setOrientation(Qt.Horizontal)
-
-        self.gridLayout_3.addWidget(self.slide_xy_x, 1, 1, 1, 1)
+        self.gridLayout_3.addWidget(self.plot_xy, 0, 0, 1, 1)
 
 
         self.gridLayout_6.addLayout(self.gridLayout_3, 1, 0, 1, 1)
 
         self.gridLayout_5 = QGridLayout()
         self.gridLayout_5.setObjectName(u"gridLayout_5")
-        self.slide_yz_y = QSlider(self.dockWidgetContents)
-        self.slide_yz_y.setObjectName(u"slide_yz_y")
-        self.slide_yz_y.setOrientation(Qt.Vertical)
-
-        self.gridLayout_5.addWidget(self.slide_yz_y, 0, 0, 1, 1)
-
         self.plot_yz = MplCanvas(self.dockWidgetContents)
         self.plot_yz.setObjectName(u"plot_yz")
         sizePolicy5.setHeightForWidth(self.plot_yz.sizePolicy().hasHeightForWidth())
         self.plot_yz.setSizePolicy(sizePolicy5)
 
-        self.gridLayout_5.addWidget(self.plot_yz, 0, 1, 1, 1)
-
-        self.slide_yz_z = QSlider(self.dockWidgetContents)
-        self.slide_yz_z.setObjectName(u"slide_yz_z")
-        self.slide_yz_z.setOrientation(Qt.Horizontal)
-
-        self.gridLayout_5.addWidget(self.slide_yz_z, 1, 1, 1, 1)
+        self.gridLayout_5.addWidget(self.plot_yz, 0, 0, 1, 1)
 
 
         self.gridLayout_6.addLayout(self.gridLayout_5, 1, 1, 1, 1)
@@ -490,7 +450,7 @@ class Ui_DockWidget(object):
     # setupUi
 
     def retranslateUi(self, DockWidget):
-        DockWidget.setWindowTitle(QCoreApplication.translate("DockWidget", u"DockWidget", None))
+        DockWidget.setWindowTitle(QCoreApplication.translate("DockWidget", u"Motor Mover", None))
         self.lbl_cur_pos.setText(QCoreApplication.translate("DockWidget", u"Position & Status", None))
         self.lbl_x_cur_pos.setText(QCoreApplication.translate("DockWidget", u"X", None))
         self.icon_x_status.setText("")

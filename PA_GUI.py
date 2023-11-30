@@ -61,7 +61,8 @@ from modules.data_classes import (
     MeasuredPoint,
     Measurement,
     EnergyMeasurement,
-    hardware
+    hardware,
+    Coordinate
 )
 from modules.constants import (
     DetailedSignals,
@@ -388,7 +389,12 @@ class Window(QMainWindow,Ui_MainWindow,):
         # Buttons
         # Home
         self.d_motors.btn_home.clicked.connect(self.home_stage)
-        
+        # Move to
+        self.d_motors.btn_go.clicked.connect(
+            lambda: self.moveto_stage(self.d_motors.current_pos())
+        )
+        # Break al stages
+        self.d_motors.btn_stop.clicked.connect(self.break_stages)
         # Jog
         # X direction
         self._conn_jog_btn(
@@ -1336,11 +1342,26 @@ class Window(QMainWindow,Ui_MainWindow,):
         worker_home = Worker(pa_logic.home)
         self.pool.start(worker_home)
 
+    @Slot(Coordinate)
+    def moveto_stage(self, pos: Coordinate) -> None:
+        """Move stages to new position."""
+
+        worker_moveto = Worker(pa_logic.move_to, pos)
+        self.pool.start(worker_moveto)
+
+    @Slot()
     def stop_stage(self, axes: Literal['x', 'y' , 'z']) -> None:
         """Stop stage."""
 
         worker_stop = Worker(pa_logic.stage_stop, axes)
         self.pool.start(worker_stop)
+
+    @Slot()
+    def break_stages(self) -> None:
+        """Break all stages."""
+
+        worker_break = Worker(pa_logic.break_all_stages)
+        self.pool.start(worker_break)
 
     def init_pm_monitor(
             self,
