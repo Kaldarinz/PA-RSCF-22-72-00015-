@@ -37,6 +37,7 @@ from PySide6.QtWidgets import (
     QWidget,
     QMessageBox,
     QLineEdit,
+    QPushButton,
     QLayout,
     QComboBox,
     QTreeWidgetItem,
@@ -385,17 +386,45 @@ class Window(QMainWindow,Ui_MainWindow,):
             self.action_position.setChecked
         )
         # Buttons
-        self.d_motors.btn_x_left_move.pressed.connect(
-            lambda : self.jog_stage(axes = 'x', direction = '-')
+        # Home
+        self.d_motors.btn_home.clicked.connect(self.home_stage)
+        
+        # Jog
+        # X direction
+        self._conn_jog_btn(
+            self.d_motors.btn_x_left_move, 'x', '-'
         )
-        self.d_motors.btn_x_left_move.released.connect(
-            lambda : self.stop_stage(axes = 'x')
+        self._conn_jog_btn(
+            self.d_motors.btn_x_right_move, 'x', '+'
         )
-        self.d_motors.btn_x_right_move.pressed.connect(
-            lambda : self.jog_stage(axes = 'x', direction = '+')
+        # Y direction
+        self._conn_jog_btn(
+            self.d_motors.btn_y_left_move, 'y', '-'
         )
-        self.d_motors.btn_x_right_move.released.connect(
-            lambda : self.stop_stage(axes = 'x')
+        self._conn_jog_btn(
+            self.d_motors.btn_y_right_move, 'y', '+'
+        )
+        # Z direction
+        self._conn_jog_btn(
+            self.d_motors.btn_z_left_move, 'z', '-'
+        )
+        self._conn_jog_btn(
+            self.d_motors.btn_z_right_move, 'z', '+'
+        )
+
+    def _conn_jog_btn(
+            self,
+            btn: QPushButton,
+            axes: Literal['x', 'y', 'z'],
+            direction: Literal['-', '+']
+    ) -> None:
+        """Connect signals for jog button."""
+
+        btn.pressed.connect(
+            lambda: self.jog_stage(axes = axes, direction = direction)
+        )
+        btn.released.connect(
+            lambda: self.stop_stage(axes = axes)
         )
 
     @Slot()
@@ -1292,13 +1321,20 @@ class Window(QMainWindow,Ui_MainWindow,):
 
     def jog_stage(
             self,
-            axes: Literal['x', 'y', 'y'],
+            axes: Literal['x', 'y', 'z'],
             direction: Literal['+', '-']
         ) -> None:
         """Jog stage in a given direction."""
 
         worker_jog = Worker(pa_logic.stage_jog, axes, direction)
         self.pool.start(worker_jog)
+
+    @Slot()
+    def home_stage(self) -> None:
+        """Home all stages."""
+
+        worker_home = Worker(pa_logic.home)
+        self.pool.start(worker_home)
 
     def stop_stage(self, axes: Literal['x', 'y' , 'z']) -> None:
         """Stop stage."""

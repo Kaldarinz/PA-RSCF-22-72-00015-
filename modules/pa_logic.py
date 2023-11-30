@@ -370,7 +370,8 @@ def stage_stop(
         priority = Priority.NORMAL
     _stage_call.submit(
         priority,
-        stage.stop
+        stage.stop,
+        sync = False
     )
 
 def break_all_stages() -> None:
@@ -455,18 +456,22 @@ def wait_stages_stop() -> None:
             logger.error('...Terminating. ' + msg)
             raise StageError(msg)
 
-def home() -> None:
-    """Home all stages."""
+def home(**kwargs) -> None:
+    """
+    Home all stages.
+    
+    Thread safe.\n
+    Priority is normal.
+    """
 
     logger.debug('Starting homing...')
-    for stage in hardware.stages:
-        try:
-            stage.home(sync=False,force=True)
-        except:
-            msg = 'Stage homing command failed'
-            logger.error('...Terminating. ' + msg)
-            raise StageError(msg)
-    wait_stages_stop()
+    for axes, stage in hardware.stages.items():
+        _stage_call.submit(
+            Priority.NORMAL,
+            stage.home,
+            sync = False,
+            force = True
+        )
 
 def track_power(
         signals: WorkerSignals,

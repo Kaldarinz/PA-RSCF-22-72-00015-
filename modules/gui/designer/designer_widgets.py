@@ -55,6 +55,9 @@ from ...pa_logic import (
     stages_status,
     stages_position
 )
+from ..widgets import (
+    MplCanvas
+)
 
 logger = logging.getLogger(__name__)
 
@@ -257,6 +260,31 @@ class MotorView(QDockWidget, motor_control_ui.Ui_DockWidget):
         )
         "Disconnected state icon."
 
+        # Set default range
+        self.set_range(
+            (Q_(0, 'mm'), Q_(25, 'mm'))
+        )
+
+        # Set initial position of plots
+        upd_plot(
+            self.plot_xy,
+            ydata = [self.y.m],
+            xdata = [self.x.m],
+            fmt = self.fmt
+        )
+        upd_plot(
+            self.plot_xz,
+            ydata = [self.z.m],
+            xdata = [self.x.m],
+            fmt = self.fmt
+        )
+        upd_plot(
+            self.plot_yz,
+            ydata = [self.z.m],
+            xdata = [self.y.m],
+            fmt = self.fmt
+        )
+
     @Slot(Coordinate)
     def set_position(self, position: Coordinate) -> None:
         """Update current coordinate."""
@@ -267,30 +295,17 @@ class MotorView(QDockWidget, motor_control_ui.Ui_DockWidget):
         if position.x is not None and position.x != self.x:
             self.x = position.x.to('mm')
             self.le_x_cur_pos.setText(f'{self.x:.3f~P}')
-            upd_plot(
-            base_widget = self.plot_xy,
-            ydata = [self.y.m],
-            xdata = [self.x.m],
-            fmt = self.fmt
-        )
         if position.y is not None and position.y != self.y:
             self.y = position.y.to('mm')
             self.le_y_cur_pos.setText(f'{self.y:.3f~P}')
-            upd_plot(
-            base_widget = self.plot_xz,
-            ydata = [self.z.to('mm').m],
-            xdata = [self.x.to('mm').m],
-            fmt = self.fmt
-        )
         if position.z is not None and position.z != self.z:
             self.z = position.z.to('mm')
             self.le_z_cur_pos.setText(f'{self.z:.3f~P}')
-            upd_plot(
-            base_widget = self.plot_yz,
-            ydata = [self.y.to('mm').m],
-            xdata = [self.z.to('mm').m],
-            fmt = self.fmt
-        )
+        
+        # Update plots if necessary
+        self._upd_plot(self.x.m, self.y.m, self.plot_xy)
+        self._upd_plot(self.x.m, self.z.m, self.plot_xz)
+        self._upd_plot(self.y.m, self.z.m, self.plot_yz)
 
     def set_range(
             self,
@@ -308,6 +323,14 @@ class MotorView(QDockWidget, motor_control_ui.Ui_DockWidget):
         self.plot_xz.axes.set_ylim(range_mm) # type: ignore
         self.plot_yz.axes.set_xlim(range_mm) # type: ignore
         self.plot_yz.axes.set_ylim(range_mm) # type: ignore
+
+        # Set plot titles
+        self.plot_xy.xlabel = 'X, [mm]'
+        self.plot_xy.ylabel = 'Y, [mm]'
+        self.plot_xz.xlabel = 'X, [mm]'
+        self.plot_xz.ylabel = 'Z, [mm]'
+        self.plot_yz.xlabel = 'Y, [mm]'
+        self.plot_yz.ylabel = 'Z, [mm]'
         # Set range for spin boxes
         for sb in iter([
             self.sb_x_new_pos,
@@ -342,6 +365,22 @@ class MotorView(QDockWidget, motor_control_ui.Ui_DockWidget):
             self.lbl_z_status
         )
 
+    def _upd_plot(
+            self,
+            x: float,
+            y: float,
+            plot: MplCanvas
+        ) -> None:
+        """Update plot coordinate."""
+
+        if x != plot.xdata[0] or y != plot.ydata[0]:
+            upd_plot(
+            base_widget = plot,
+            ydata = [y],
+            xdata = [x],
+            fmt = self.fmt
+        )
+
     def _upd_axes_status(
             self,
             is_opened: bool|None,
@@ -349,7 +388,7 @@ class MotorView(QDockWidget, motor_control_ui.Ui_DockWidget):
             icon: QLabel,
             lbl: QLabel
         ) -> None:
-        """Update status widgets for an axes"""
+        """Update status widgets for an axes."""
 
         if is_opened:
             icon.setPixmap(self.pixmap_c)

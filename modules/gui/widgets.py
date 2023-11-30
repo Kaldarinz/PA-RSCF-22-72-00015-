@@ -101,7 +101,7 @@ class MplCanvas(FigureCanvasQTAgg):
             self.xlabel = f'{data.u:~.2gP}'
             self._xdata = data.m
         else:
-            self.xlabel = None
+            #self.xlabel = None
             self._xdata = data
 
     @property
@@ -116,7 +116,7 @@ class MplCanvas(FigureCanvasQTAgg):
             self.ylabel = f'{data.u:~.2gP}'
             self._ydata = data.m
         else:
-            self.ylabel = None
+            #self.ylabel = None
             self._ydata = data
 
     @property

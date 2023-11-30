@@ -9,15 +9,11 @@ import numpy.typing as npt
 from enum import Enum
 from modules.data_classes import Coordinate
 from modules.constants import Priority
+import modules.test_pack
 
 ureg = UnitRegistry(auto_reduce_dimensions=True)
 Q_ = ureg.Quantity
 
-print(Priority.HIGHEST)
-
-dct = {'one':1, 'two': 2}
-
-print(len(dct))
 
 
 # @dataclass
