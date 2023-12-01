@@ -25,7 +25,6 @@ from pylablib.devices.Thorlabs import KinesisMotor
 from pylablib.devices import Thorlabs
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
-import keyboard
 
 import modules.osc_devices as osc_devices
 from .utils import confirm_action
@@ -51,8 +50,6 @@ from .constants import (
 from . import ureg, Q_
 
 logger = logging.getLogger(__name__)
-
-
 
 def _init_call() -> None:
     """Start actors for serial communication with hardware."""
@@ -404,45 +401,6 @@ def move_to(new_pos: Coordinate, **kwargs) -> None:
                 position = coord
             )
 
-def stage_ident(stage: KinesisMotor) -> Thread:
-    """Identify a stage.
-    
-    Identification is done by stage vibration
-    and stage controller blinking.
-    """
-
-    stage.blink()
-    return_thread = asinc_mech_ident(stage)
-    return return_thread
-
-def asinc_mech_ident(
-        stage: KinesisMotor,
-        amp: PlainQuantity = Q_(1,'mm')
-    ) -> Thread:
-    """Asinc call of mech_ident."""
-
-    vibration = Thread(target=mech_ident, args=(stage, amp))
-    vibration.start()
-    return vibration
-
-def mech_ident(
-        stage: KinesisMotor,
-        amp: PlainQuantity = Q_(1,'mm')
-    ) -> None:
-    """Vibrate several times near current position.
-    
-    <amp> is vibration amplitude.
-    """
-    cycles: int = 1
-    amp_val = amp.to('m').m
-    for _ in range(cycles):
-        stage.move_by(amp_val)
-        stage.wait_for_stop()
-        stage.move_by(-2*amp_val)
-        stage.wait_for_stop()
-        stage.move_by(amp_val)
-        stage.wait_for_stop()
-
 def home(**kwargs) -> None:
     """
     Home all stages.
@@ -535,122 +493,7 @@ def track_power(
         )
         signals.progess.emit(results)
         time.sleep(measure_delay.to('s').m)
-
-def spectrum(
-        wl: PlainQuantity,
-        target_energy: PlainQuantity,
-        averaging: int
-    ) -> Optional[PaData]:
-    """Measure dependence of PA signal on excitation wavelength.
-    
-    Measurements start at <start_wl> wavelength and are taken
-    every <step> with the last measurement at <end_wl>,
-    so that the last step could be smaller than others.
-    Measurements are taken at <target_energy>.
-    Each measurement will be averaged <averaging> times.
-    """
-
-    logger.info('Starting measuring spectra...')
-    data = PaData(dims=1, params=['Wavelength'])
-
-    measurement, proceed = _ameasure_point(averaging, wl)
-    if measurement:
-        data.add_point(measurement, [current_wl])
-        data.save_tmp()
-    if not proceed:
-        logger.debug('...Terminating.')
-        return data
-    data.bp_filter()
-    logger.info('...Finishing. Spectral scanning complete!')
-    return data
-
-def single_measure(
-        wl: PlainQuantity,
-        target_energy: PlainQuantity,
-        averaging: int
-    ) -> Optional[PaData]:
-    """Measure single PA point.
-    
-    Measurement is taken at <target_energy>.
-    Each measurement will be averaged <averaging> times.
-    """
-
-    logger.info('Starting single point measurement...')
-    data = PaData(dims=0, params=['Wavelength'])
-
-    if not set_energy(wl, target_energy):
-        logger.debug('...Terminating single point measurement.')
-        return None
-    measurement, _ = _ameasure_point(averaging, wl)
-    if measurement is not None:
-        data.add_point(measurement, [wl])
-        data.save_tmp()
-        data.bp_filter()
-    logger.info('...Finishing single point measurement!')
-    return data
-
-def set_energy(
-    current_wl: PlainQuantity,
-    target_energy: PlainQuantity
-    ) -> bool:
-    """Set laser energy for measurements.
-    
-    Set <target_energy> at <current_wl>.
-    <repeated> is flag which indicates that this is not the first
-    call of set_energy."""
-
-    logger.debug('Starting setting laser energy...')
-    config = hardware.config
-    if config['power_control'] == 'Filters':
-        logger.info('Please remove all filters and measure '
-                    + 'energy at glass reflection.')
-        #measure mean energy at glass reflection
-        energy = track_power(50)
-        logger.info(f'Power meter energy = {energy}')
-
-        #find valid filters combinations for current parameters
-        max_filter_comb = config['energy']['max_filters']
-        logger.debug(f'{max_filter_comb=}')
-        filters = glass_calculator(
-            current_wl,
-            energy,
-            target_energy,
-            max_filter_comb)
-        if not len(filters):
-            logger.warning(f'No valid filter combination for '
-                    + f'{current_wl}')
-            if not confirm_action('Do you want to continue?'):
-                logger.warning('Spectral measurements terminated!')
-                logger.debug('...Terminating.')
-                return False
-            
-        reflection = glass_reflection(current_wl)
-        if reflection is not None and reflection != 0:
-            target_pm_value = target_energy*reflection
-            logger.info(f'Target power meter energy is {target_pm_value}!')
-            logger.info('Please set it using filters combination '
-                        + ' from above. Additional adjustment by '
-                        + 'laser software could be required.')
-            track_power(50)
-        else:
-            logger.warning('Target power meter energy '
-                            + 'cannot be calculated!')
-            logger.debug('...Terminating.')
-            return False
-    
-    elif config['power_control'] == 'Glan prism':
-        target_pm_value = glan_calc_reverse(target_energy)
-        logger.info(f'Target power meter energy is {target_pm_value}!') # type: ignore
-        logger.info(f'Please set it using Glan prism.')
-        track_power(50)
-    else:
-        logger.error('Unknown power control method! '
-                        + 'Measurements terminated!')
-        logger.debug('...Terminating.')
-        return False
-    logger.debug('...Finishing. Laser energy set.')
-    return True
-                
+               
 def glass_calculator(
         wavelength: PlainQuantity,
         current_energy_pm: PlainQuantity,
@@ -836,7 +679,7 @@ def glass_reflection(wl: PlainQuantity) -> Optional[float]:
 def glan_calc_reverse(
         target_energy: PlainQuantity,
         fit_order: int=1
-    ) -> Optional[PlainQuantity]:
+    ) -> PlainQuantity|None:
     """Calculate energy at power meter for given sample energy.
     
     It is assumed that power meter measures laser energy
@@ -878,7 +721,7 @@ def glan_calc_reverse(
 def glan_calc(
         energy: PlainQuantity,
         fit_order: int=1
-    ) -> Optional[PlainQuantity]:
+    ) -> PlainQuantity|None:
     """Calculates energy at sample for a given power meter energy"""
 
     logger.debug('Starting sample energy calculation...')
@@ -907,52 +750,6 @@ def glan_calc(
     sample_en = fit(energy.to('uJ').m)*ureg.uJ
     logger.debug('...Finishing. Sample energy calculated.')
     return sample_en
-
-def _ameasure_point(
-    averaging: int,
-    current_wl: PlainQuantity
-    ) -> Tuple[MeasuredPoint|None, bool]:
-    """Measure single PA data point with averaging.
-    
-    second value in the returned tuple (bool) is a flag to 
-    continue measurements.
-    """
-
-    logger.debug('Starting measuring PA data point with averaging...')
-    counter = 0
-    msmnts: List[MeasuredPoint]=[]
-    while counter < averaging:
-        logger.info(f'Signal at {current_wl} should be measured '
-                + f'{averaging-counter} more times.')
-        action = set_next_measure_action()
-        if action == 'Tune power':
-            track_power(40)
-        elif action == 'Measure':
-            tmp_measurement = _measure_point(current_wl)
-            if verify_measurement(tmp_measurement):
-                msmnts.append(tmp_measurement)
-                counter += 1
-                if counter == averaging:
-                    measurement = aver_measurements(msmnts)
-                    logger.debug('...Finishinng. Data point successfully measured!')
-                    return measurement, True
-       
-        elif action == 'Stop measurements':
-            if confirm_action():
-                if len(msmnts):
-                    measurement = aver_measurements(msmnts)
-                else:
-                    logger.debug('No data was measured')
-                    measurement = None
-                logger.warning('Spectral measurement terminated')
-                logger.debug('...Terminating.')
-                return measurement, False
-        else:
-            logger.warning('Unknown command in Spectral measure menu!')
-    
-    logger.warning('Unexpectedly passed after main measure sycle!')
-    logger.debug('...Terminating with empty data point.')
-    return MeasuredPoint(), True
 
 def _measure_point(
         wavelength: PlainQuantity,
@@ -1088,69 +885,3 @@ def aver_measurements(measurements: List[MeasuredPoint]) -> MeasuredPoint:
     
     logger.debug('...Finishing averaging of measurements.')
     return result
-
-def verify_measurement(
-        measurement: MeasuredPoint
-    ) -> bool:
-    """Verify a PA measurement."""
-
-    logger.debug('Starting measurement verification...')
-    # update state of power meter
-    pm = hardware.power_meter
-    if pm is None:
-        logger.warning('Power meter is off in config')
-        return False
-    pm_signal = measurement.pm_signal
-    dt = measurement.dt
-    dt_pm = measurement.dt_pm
-    pa_signal = measurement.pa_signal
-
-    fig = plt.figure(tight_layout=True)
-    gs = gridspec.GridSpec(1,2)
-    ax_pm = fig.add_subplot(gs[0,0])
-    pm_time = Q_(np.arange(len(pm_signal))*dt_pm.m, dt.u)
-    ax_pm.plot(pm_time.m,pm_signal.m)
-    ax_pm.set_xlabel(f'Time, [{pm_time.u}]')
-    ax_pm.set_ylabel(f'Power meter signal, [{pm_signal.u}]')
-
-    #add markers for data start and stop
-    ax_pm.plot(
-        pm.start_ind*dt_pm.m,
-        pm_signal[pm.start_ind].m,
-        'o',
-        alpha=0.4,
-        ms=12,
-        color='green')
-    ax_pm.plot(
-        pm.stop_ind*dt_pm.m,
-        pm_signal[pm.stop_ind].m,
-        'o',
-        alpha=0.4,
-        ms=12,
-        color='red')
-    ax_pa = fig.add_subplot(gs[0,1])
-    pa_time = Q_(np.arange(len(pa_signal))*dt.m,dt.u)
-    ax_pa.plot(pa_time.m,pa_signal.m)
-    ax_pa.set_xlabel(f'Time, [{pa_time.u}]')
-    ax_pa.set_ylabel(f'PA signal, [{pa_signal.u}]')
-    plt.show()
-
-    good_data = confirm_action('Data looks good?')
-    logger.debug('...Finishing measurement verification.')
-    return good_data
-
-def set_next_measure_action() -> str:
-    """Choose the next action during PA measurement.
-    
-    Returned values = ['Tune power'|'Measure'|'Stop measurements'].
-    """
-
-    logger.debug('Starting...')
-    # in future this function can have several implementations
-    # depending on whether CLI or GUI mode is used
-    measure_ans = inquirer.rawlist(
-    message='Chose an action:',
-    choices=['Tune power','Measure','Stop measurements']
-    ).execute()
-    logger.debug(f'...Finishing. {measure_ans=} was choosen')
-    return measure_ans
