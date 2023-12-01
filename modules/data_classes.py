@@ -3,7 +3,7 @@ Module with data classes.
 """
 
 import sys
-from typing import Callable, TypeVar
+from typing import Callable, TypeVar, Any
 from typing_extensions import ParamSpec
 from dataclasses import dataclass, field
 import traceback
@@ -22,10 +22,14 @@ from PySide6.QtCore import (
     QRunnable
 )
 
-from .osc_devices import Oscilloscope, PowerMeter, PhotoAcousticSensOlymp
 from . import Q_
 from .constants import (
     Priority
+)
+from .osc_devices import (
+    Oscilloscope,
+    PowerMeter,
+    PhotoAcousticSensOlymp
 )
 
 logger = logging.getLogger(__name__)
@@ -332,7 +336,7 @@ class Actor:
 
     def _send(
             self,
-            msg: tuple[Callable, tuple, dict, Result],
+            msg: tuple[Callable, Any, Any, Result],
             priority: int
         ) -> None:
         """Put a function to priority queue."""
@@ -340,7 +344,7 @@ class Actor:
         logger.debug('Msg sent.')
         self._mailbox.put(msg, priority)
 
-    def recv(self) -> tuple[Callable, tuple, dict, Result]:
+    def recv(self) -> tuple[Callable, Any, Any, Result]:
         msg = self._mailbox.get()
         if msg[0] is ActorExit:
             raise ActorExit()
@@ -380,8 +384,8 @@ class Actor:
             self,
             priority: int,
             func: Callable[P, T],
-            *args: tuple,
-            **kwargs: dict
+            *args: Any,
+            **kwargs: Any
             ) -> T:
         """
         Submit a function for serail processing.

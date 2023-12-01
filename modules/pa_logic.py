@@ -796,7 +796,7 @@ def _measure_point(
         logger.warning('Power meter energy cannot be measured!')
         pm_energy = Q_(0, 'uJ')
         logger.warning(f'Power meter energy set to {pm_energy}')
-    start_time = (pm_start - pm_offset) - pa_start
+    start_time = (pm_start - pm_offset) - pa_start # type: ignore
     stop_time = dt*(len(pa_signal_v.m)-1) + start_time
     measurement = replace(
         measurement,                 
@@ -838,10 +838,10 @@ def _measure_point(
         logger.debug('...Terminating.')
         return measurement
     measurement.sample_energy = sample_energy
-    measurement.pa_signal = pa_signal
+    measurement.pa_signal = pa_signal # type: ignore
     measurement.max_amp = pa_amp
     logger.debug(f'{sample_energy=}')
-    logger.debug(f'PA data has {len(pa_signal)} points '
+    logger.debug(f'PA data has {len(pa_signal)} points ' # type: ignore
                     + f'with max value={pa_signal.max():.2D}') #type: ignore
     logger.debug(f'{pa_amp=}')
 
