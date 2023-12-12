@@ -440,7 +440,7 @@ def home(**kwargs) -> None:
             force = True
         )
 
-def track_power(
+def track_power_long(
         signals: WorkerSignals,
         flags: dict,
         tune_width: int = 50,
@@ -516,7 +516,7 @@ def track_power(
         signals.progess.emit(results)
         time.sleep(measure_delay.to('s').m)
 
-def track_power_single(**kwargs) -> EnergyMeasurement:
+def track_power(**kwargs) -> EnergyMeasurement:
     """Measure laser energy."""
 
     pm = hardware.power_meter
