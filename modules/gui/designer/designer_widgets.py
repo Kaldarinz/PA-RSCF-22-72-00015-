@@ -51,10 +51,7 @@ from ...constants import (
 from ...utils import (
     upd_plot
 )
-from ...pa_logic import (
-    stages_status,
-    stages_position
-)
+
 from ..widgets import (
     MplCanvas
 )
@@ -393,6 +390,8 @@ class MotorView(QDockWidget, motor_control_ui.Ui_DockWidget):
         ) -> None:
         """Update status widgets for an axes."""
 
+        if is_opened is None or len(status) == 0:
+            return
         if is_opened:
             icon.setPixmap(self.pixmap_c)
             lbl.setText(','.join(status))

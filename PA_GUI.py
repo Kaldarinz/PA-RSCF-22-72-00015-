@@ -135,6 +135,9 @@ class Window(QMainWindow,Ui_MainWindow,):
     pm_monitors: dict[PowerMeterMonitor, Callable] = {}
     "Contain all subsribers to PM measurements."
 
+    # Tests
+    tst_signal = Signal()
+
     @property
     def data(self) -> PaData|None:
         "PA data."
@@ -1297,6 +1300,7 @@ class Window(QMainWindow,Ui_MainWindow,):
         else:
             logger.info('Failed to start energy mesurement cycle!')
 
+        # Start motor position update timer
         if pa_logic.stages_open():
             if not self.timer_motor.isActive():
                 self.timer_motor.timeout.connect(self.upd_motor)
@@ -1309,12 +1313,17 @@ class Window(QMainWindow,Ui_MainWindow,):
         if not self.d_motors.isVisible():
             return
         
-        self.pos_worker = Worker(pa_logic.stages_position)
-        self.pos_worker.signals.result.connect(
+        pos_worker = Worker(pa_logic.stages_position)
+        pos_worker.signals.result.connect(
             self.d_motors.set_position
         )
-        self.pos_worker.signals.finished.connect(self._upd_motor_status)
-        self.pool.start(self.pos_worker)
+        pos_worker.signals.finished.connect(self._upd_motor_status)
+        self.pool.start(pos_worker)
+
+        # Test code
+        self.tst_signal.connect(
+            self.d_motors.le_test.setText(str(pa_logic._stage_call.nitems)))
+        self.tst_signal.emit()
 
     def _upd_motor_status(self) -> None:
         """Second part of upd_motor, which updates status."""

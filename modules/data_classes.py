@@ -3,7 +3,7 @@ Module with data classes.
 """
 
 import sys
-from typing import Callable, TypeVar, Any
+from typing import Callable, TypeVar, Any, Literal
 from typing_extensions import ParamSpec
 from dataclasses import dataclass, field
 import traceback
@@ -306,17 +306,27 @@ class PriorityQueue:
             self,
             item: tuple[Callable, tuple, dict, Result],
             priority: int
-        ) -> None:
+        ) -> bool:
+        """
+        Put an item into the queue.
+        
+        Return operation status.
+        """
 
-        if priority < 3 and len(self._queue) > 20:
+        if priority < 3 and len(self._queue) > 10:
             logger.warning('Too many calls, skipping low priority task.')
-            return
+            return False
         with self._cv:
             heapq.heappush(
                 self._queue, (-priority, self._count, item)
             )
             self._count += 1
             self._cv.notify()
+            return True
+
+    @property
+    def nitems(self) -> int:
+        return len(self._queue)
 
     def get(self) -> tuple[Callable, tuple, dict, Result]:
         with self._cv:
@@ -334,6 +344,10 @@ class Actor:
     def __init__(self) -> None:
         self._mailbox = PriorityQueue()
 
+    @property 
+    def nitems(self) -> int:
+        return self._mailbox.nitems
+
     def _send(
             self,
             msg: tuple[Callable, Any, Any, Result],
@@ -342,7 +356,8 @@ class Actor:
         """Put a function to priority queue."""
 
         logger.debug('Msg sent.')
-        self._mailbox.put(msg, priority)
+        if not self._mailbox.put(msg, priority):
+            msg[3].set_result(False)
 
     def recv(self) -> tuple[Callable, Any, Any, Result]:
         msg = self._mailbox.get()
@@ -368,7 +383,6 @@ class Actor:
         t.daemon = True
         t.start()
         
-
     def _bootstrap(self):
         try:
             self._run()
@@ -386,11 +400,12 @@ class Actor:
             func: Callable[P, T],
             *args: Any,
             **kwargs: Any
-            ) -> T:
+            ) -> T|Literal[False]:
         """
         Submit a function for serail processing.
         
-        Priority can have values from 0 (lowest) to 10 (highest).
+        Priority can have values from 0 (lowest) to 10 (highest).\n
+        Return False if call stack is full.
         """
 
         r = Result()

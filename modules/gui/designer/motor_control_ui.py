@@ -381,6 +381,13 @@ class Ui_DockWidget(object):
 
         self.verticalLayout.addWidget(self.line_3)
 
+        self.le_test = QLineEdit(self.dockWidgetContents)
+        self.le_test.setObjectName(u"le_test")
+        sizePolicy4.setHeightForWidth(self.le_test.sizePolicy().hasHeightForWidth())
+        self.le_test.setSizePolicy(sizePolicy4)
+
+        self.verticalLayout.addWidget(self.le_test)
+
         self.verticalSpacer = QSpacerItem(20, 40, QSizePolicy.Minimum, QSizePolicy.Expanding)
 
         self.verticalLayout.addItem(self.verticalSpacer)

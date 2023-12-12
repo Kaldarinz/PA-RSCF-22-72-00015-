@@ -284,10 +284,13 @@ def stages_status(**kwargs) -> StagesStatus:
                 Priority.LOW,
                 stage.is_opened
             )
-            setattr(status, axes + '_open', is_open)
-            setattr(status, axes + '_status', status_lst)
         except:
             logger.warning('General exception caught in "stages_status", need to change.')
+        else:
+            # _stage_call.submit could return False if call stack is full
+            if not (status_lst == False or is_open == False):
+                setattr(status, axes + '_open', is_open)
+                setattr(status, axes + '_status', status_lst)
 
     return status
 
@@ -309,7 +312,9 @@ def stages_position(**kwargs) -> Coordinate:
         except:
             logger.warning('General exception caught in "Stages_position", nned to change.')
         else:
-            setattr(coord, axes, Q_(pos, 'm'))
+            # _stage_call.submit could return False if call stack is full
+            if not pos == False:
+                setattr(coord, axes, Q_(pos, 'm'))
     return coord
 
 def pm_open() -> bool:
