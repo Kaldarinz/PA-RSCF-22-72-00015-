@@ -27,7 +27,14 @@ import numpy.typing as npt
 from scipy.signal import decimate
 from pint.facets.plain.quantity import PlainQuantity
 
-from modules.exceptions import OscConnectError, OscIOError, OscValueError
+from .exceptions import (
+    OscConnectError,
+    OscIOError,
+    OscValueError
+)
+from .data_classes import (
+    EnergyMeasurement
+)
 from . import Q_, ureg
 
 logger = logging.getLogger(__name__)
@@ -698,28 +705,31 @@ class PowerMeter:
         self.threshold = threshold
         logger.debug('...Finishing')
 
-    def get_energy_scr(self) -> PlainQuantity:
+    def get_energy_scr(self) -> EnergyMeasurement:
         """Measure energy from screen (fast)."""
 
         logger.debug('Starting fast energy measuring...')
+        result = EnergyMeasurement()
         meas_channel = self._build_chan_list()
         data = self.osc.measure_scr(
                 read_ch1=meas_channel[0],
                 read_ch2=meas_channel[1])
+        # Get pysical quantity data for PM channel
         self.data = data[0][self.ch]
+        if self.data is None:
+            msg = 'Data can be read from osc.'
+            logger.warning(msg)
+            raise OscIOError(msg)
         logger.debug('PowerMeter response obtained')
-        #it is safe to assign data is this way
-        data = self.osc.scr_data[self.ch]
-        if data is not None:
-            self.data = data
-            laser_amp = self.energy_from_data(self.data,
-                                            self.osc.xincrement)
-            logger.debug(f'...Finishing. laser amp = {laser_amp}')
-            return laser_amp
-        else:
-            err_msg = 'Data is not accessible.'
-            logger.debug(err_msg)
-            raise OscValueError(err_msg)
+        result.energy = self.energy_from_data(
+            self.data,
+            self.osc.xincrement
+            )
+        result.istart = self.start_ind
+        result.istop = self.stop_ind
+        logger.debug(f'...Finishing energy measure.'
+                     + ' Laser amp = {result.energy}')
+        return result
 
     def energy_from_data(
             self,

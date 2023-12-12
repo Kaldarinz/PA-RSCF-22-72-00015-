@@ -171,8 +171,8 @@ class MeasuredPoint:
     "Excitation laser wavelength"
 
 @dataclass
-class EnergyMeasurement:
-    """Energy measurement from power meter."""
+class EnergyMeasurementLong:
+    """Energy measurement from power meter with history."""
 
     data: PlainQuantity = field(default_factory=empty_arr_quantity)
     "History of energy values."
@@ -190,6 +190,19 @@ class EnergyMeasurement:
     "Standard deviation of laser energy."
 
 @dataclass
+class EnergyMeasurement:
+    """Energy measurement from power meter."""
+
+    signal: PlainQuantity = field(default_factory=empty_arr_quantity)
+    "Measured PM signal (full data)."
+    istart: int = 0
+    "Index of laser pulse start."
+    istop: int = 0
+    "Index of laser pulse end."
+    energy: PlainQuantity = Q_(np.nan, 'uJ')
+    "Last measured laser energy."
+
+@dataclass
 class Coordinate:
     
     x: PlainQuantity|None = None
@@ -205,19 +218,6 @@ class StagesStatus:
     x_status: list[str] = field(default_factory = list)
     y_status: list[str] = field(default_factory = list)
     z_status: list[str] = field(default_factory = list)
-
-class Hardware():
-    """Class for hardware references."""
-    
-    def __init__(self):
-        self.osc: Oscilloscope = Oscilloscope()
-        self.power_meter: PowerMeter | None = None
-        self.pa_sens: PhotoAcousticSensOlymp | None = None
-        self.stages: dict[str, KinesisMotor] = {}
-        self.motor_axes: int = -1
-        self.config: dict = {}
-
-hardware = Hardware()
 
 ### Threading objects ###
 

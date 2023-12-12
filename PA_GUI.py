@@ -135,9 +135,6 @@ class Window(QMainWindow,Ui_MainWindow,):
     pm_monitors: dict[PowerMeterMonitor, Callable] = {}
     "Contain all subsribers to PM measurements."
 
-    # Tests
-    tst_signal = Signal()
-
     @property
     def data(self) -> PaData|None:
         "PA data."
@@ -172,6 +169,7 @@ class Window(QMainWindow,Ui_MainWindow,):
         self.timer_motor = QTimer()
         self.timer_motor.setInterval(100)
 
+        # Initiate widgets
         self.set_widgets()
 
         #Connect custom signals and slots
@@ -1305,29 +1303,25 @@ class Window(QMainWindow,Ui_MainWindow,):
             if not self.timer_motor.isActive():
                 self.timer_motor.timeout.connect(self.upd_motor)
                 self.timer_motor.start()
+            logger.info('Motors position and status cycle started!')
+        else:
+            logger.info('Failed to start motors measureemnts cycle!')
 
     def upd_motor(self) -> None:
         """Update information on motors widget."""
 
-        # Thread for updating position
+        # Request information only if dock with motors is visible
         if not self.d_motors.isVisible():
             return
         
+        # Update position information
         pos_worker = Worker(pa_logic.stages_position)
         pos_worker.signals.result.connect(
             self.d_motors.set_position
         )
-        pos_worker.signals.finished.connect(self._upd_motor_status)
         self.pool.start(pos_worker)
 
-        # Test code
-        self.tst_signal.connect(
-            self.d_motors.le_test.setText(str(pa_logic._stage_call.nitems)))
-        self.tst_signal.emit()
-
-    def _upd_motor_status(self) -> None:
-        """Second part of upd_motor, which updates status."""
-
+        # Update status information
         status_worker = Worker(pa_logic.stages_status)
         status_worker.signals.result.connect(
             self.d_motors.upd_status

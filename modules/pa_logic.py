@@ -26,7 +26,11 @@ from pylablib.devices import Thorlabs
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 
-import modules.osc_devices as osc_devices
+from .osc_devices import (
+    Oscilloscope,
+    PowerMeter,
+    PhotoAcousticSensOlymp
+)
 from .utils import confirm_action
 from modules.exceptions import (
     OscConnectError,
@@ -34,13 +38,12 @@ from modules.exceptions import (
     OscValueError,
     StageError
     )
-from .pa_data import PaData
+
 from .data_classes import (
     WorkerSignals,
     MeasuredPoint,
     EnergyMeasurement,
     Coordinate,
-    hardware,
     Actor,
     StagesStatus
 )
@@ -50,6 +53,19 @@ from .constants import (
 from . import ureg, Q_
 
 logger = logging.getLogger(__name__)
+
+class Hardware():
+    """Class for hardware references."""
+    
+    def __init__(self):
+        self.osc: Oscilloscope = Oscilloscope()
+        self.power_meter: PowerMeter | None = None
+        self.pa_sens: PhotoAcousticSensOlymp | None = None
+        self.stages: dict[str, KinesisMotor] = {}
+        self.motor_axes: int = -1
+        self.config: dict = {}
+
+hardware = Hardware()
 
 def _init_call() -> None:
     """Start actors for serial communication with hardware."""
@@ -80,6 +96,7 @@ def init_hardware(**kwargs) -> bool:
         logger.warning('Oscilloscope cannot be loaded!')
     else:
         logger.info('Oscilloscope initiated.')
+    
     osc = hardware.osc
     # Try init stages
     if not init_stages():
@@ -92,7 +109,7 @@ def init_hardware(**kwargs) -> bool:
         pm_chan = pm.ch
         pre_time = float(config['power_meter']['pre_time'])*ureg.us
         post_time = float(config['power_meter']['post_time'])*ureg.us
-        pm = osc_devices.PowerMeter(osc)
+        pm = PowerMeter(osc)
         pm.set_channel(pm_chan, pre_time, post_time)
         hardware.power_meter = pm
         logger.debug('Power meter reinitiated on the same channel')
@@ -103,7 +120,7 @@ def init_hardware(**kwargs) -> bool:
         pa_chan = pa.ch
         pre_time = float(config['pa_sensor']['pre_time'])*ureg.us
         post_time = float(config['pa_sensor']['post_time'])*ureg.us
-        pa = osc_devices.PhotoAcousticSensOlymp(osc)
+        pa = PhotoAcousticSensOlymp(osc)
         pa.set_channel(pa_chan, pre_time, post_time)
         hardware.pa_sens = pa
         logger.debug('PA sensor reinitiated on the same channel')
@@ -138,7 +155,7 @@ def load_config() -> dict:
     
     osc = hardware.osc
     if bool(config['power_meter']['connected']):
-        pm = osc_devices.PowerMeter(osc)
+        pm = PowerMeter(osc)
         hardware.power_meter = pm
         pm_chan = int(config['power_meter']['connected_chan']) - 1
         pre_time = float(config['power_meter']['pre_time'])*ureg.us
@@ -146,7 +163,7 @@ def load_config() -> dict:
         pm.set_channel(pm_chan, pre_time, post_time)
         logger.debug(f'Power meter added to hardare list at CHAN{pm_chan+1}')
     if bool(config['pa_sensor']['connected']):
-        pa = osc_devices.PhotoAcousticSensOlymp(osc)
+        pa = PhotoAcousticSensOlymp(osc)
         hardware.pa_sens = pa
         pa_chan = int(config['pa_sensor']['connected_chan']) - 1
         pre_time = float(config['pa_sensor']['pre_time'])*ureg.us
@@ -498,6 +515,28 @@ def track_power(
         )
         signals.progess.emit(results)
         time.sleep(measure_delay.to('s').m)
+
+def track_power_single(**kwargs) -> EnergyMeasurement:
+    """Measure laser energy."""
+
+    pm = hardware.power_meter
+    if pm is None:
+        msg = 'Power meter is not connected in config.'
+        logger.warning(msg)
+        return EnergyMeasurement()
+    
+    try:
+        result = _osc_call.submit(
+            Priority.LOW,
+            pm.get_energy_scr
+        )
+    except (OscValueError, OscIOError):
+        logger.debug('Measurement failed.')
+        return EnergyMeasurement()
+    else:
+        if result == False:
+            return EnergyMeasurement()
+        return result
                
 def glass_calculator(
         wavelength: PlainQuantity,
