@@ -129,8 +129,11 @@ class Window(QMainWindow,Ui_MainWindow,):
 
     _data: PaData|None = None
 
-    data_changed = Signal()
+    data_changed = Signal(EnergyMeasurement)
     "Signal, which is emitted when data is changed."
+
+    energy_measured = Signal()
+    "Signal, emitted when PM data is obtained."
 
     pm_monitors: dict[PowerMeterMonitor, Callable] = {}
     "Contain all subsribers to PM measurements."
@@ -168,6 +171,8 @@ class Window(QMainWindow,Ui_MainWindow,):
         # Timers
         self.timer_motor = QTimer()
         self.timer_motor.setInterval(100)
+        self.timer_pm = QTimer()
+        self.timer_pm.setInterval(100)
 
         # Initiate widgets
         self.set_widgets()
@@ -1291,9 +1296,9 @@ class Window(QMainWindow,Ui_MainWindow,):
 
         # Start energy measurement cycle.
         if pa_logic.osc_open():
-            if self.worker_pm is None:
-                self.worker_pm = Worker(pa_logic.track_power)
-                self.pool.start(self.worker_pm)
+            if not self.timer_motor.isActive():
+                self.timer_motor.timeout.connect(self.upd_motor)
+                self.timer_motor.start()
                 logger.info('Energy measurement cycle started!')
         else:
             logger.info('Failed to start energy mesurement cycle!')
@@ -1306,6 +1311,15 @@ class Window(QMainWindow,Ui_MainWindow,):
             logger.info('Motors position and status cycle started!')
         else:
             logger.info('Failed to start motors measureemnts cycle!')
+
+    def upd_pm(self) -> None:
+        """Update power meter information."""
+
+        pm_worker = Worker(pa_logic.track_power)
+        pm_worker.signals.result.connect(
+            self.energy_measured.emit
+        )
+        self.pool.start(pm_worker)
 
     def upd_motor(self) -> None:
         """Update information on motors widget."""
@@ -1484,11 +1498,19 @@ class Window(QMainWindow,Ui_MainWindow,):
 
         """
 
+        # Update information only if Start btn is checked
+        if not monitor.btn_start.isChecked():
+            return
+        # Check if measurement is not empty
+        if measurement.energy == np.nan:
+            return
         upd_plot(
             base_widget = monitor.plot_left,
             ydata = measurement.signal,
-            marker = [measurement.sbx, measurement.sex]
+            marker = [measurement.istart, measurement.istop]
         )
+
+        ##### Stopped here
         upd_plot(monitor.plot_right, ydata=measurement.data)
         monitor.le_cur_en.setText(self.form_quant(measurement.energy))
         monitor.le_aver_en.setText(self.form_quant(measurement.aver))
