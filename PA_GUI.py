@@ -191,16 +191,6 @@ class Window(QMainWindow,Ui_MainWindow,):
             Qt.DockWidgetArea.BottomDockWidgetArea,
             self.d_log)
 
-        ### Power Meter ###
-        # Set parent in constructor makes 
-        # dock widget undocked by default
-        self.d_pm = PowerMeterWidget(self)
-        self.addDockWidget(
-            Qt.DockWidgetArea.RightDockWidgetArea,
-            self.d_pm
-        )
-        self.d_pm.hide()
-
         ### Motors control ###
         self.d_motors = MotorView(self)
         self.addDockWidget(
@@ -370,16 +360,6 @@ class Window(QMainWindow,Ui_MainWindow,):
         ### Logs ###
         self.action_Logs.toggled.connect(self.d_log.setVisible)
         self.d_log.visibilityChanged.connect(self.action_Logs.setChecked)
-
-        #PowerMeter
-    
-        self.d_pm.btn_pause.toggled.connect(
-            lambda state: self.pause_worker(state, self.worker_pm)
-        )
-        self.action_Power_Meter.toggled.connect(self.d_pm.setVisible)
-        self.d_pm.visibilityChanged.connect(
-            self.action_Power_Meter.setChecked
-        )
 
         ### Motor dock widget ###
         # Show/hide widget
@@ -721,7 +701,7 @@ class Window(QMainWindow,Ui_MainWindow,):
                     self.data_viwer.measurement, # type: ignore
                     ParamSignals[new_val]
                 ),
-                marker = self.data_viwer.data_index,
+                marker = [self.data_viwer.data_index],
                 enable_pick = True 
             )
         )
@@ -733,7 +713,7 @@ class Window(QMainWindow,Ui_MainWindow,):
         upd_plot(
             view.plot_curve,
             *main_data,
-            marker = self.data_viwer.data_index,
+            marker = [self.data_viwer.data_index],
             enable_pick = True
         )
         # Set additional plot
@@ -992,14 +972,6 @@ class Window(QMainWindow,Ui_MainWindow,):
         )
 
         page = self.p_curve
-        if  pa_logic.osc_open():
-            # launch energy adjustment
-            self.start_pm_monitor(
-                page.pm_monitor,
-                True
-            )
-        else:
-            logger.warning('Oscilloscope is not initialized.')
         
         # calculate amount of paramter values
         param_start = page.sb_from.quantity
@@ -1036,10 +1008,6 @@ class Window(QMainWindow,Ui_MainWindow,):
             mode_widget: CurveMeasureWidget|PointMeasureWidget
         ) -> None:
         """Measure a point for 1D PA measurement."""
-
-        # Stop PM measurements
-        if self.worker_pm is not None:
-            self.worker_pm.kwargs['flags']['pause'] = True
 
         # block measure button
         mode_widget.btn_measure.setEnabled(False)
@@ -1165,10 +1133,6 @@ class Window(QMainWindow,Ui_MainWindow,):
         # Enable measure button if measured point is bad
         else:
             parent.btn_measure.setEnabled(True)
-        
-        # Resume energy adjustment
-        if self.worker_pm is not None:
-            self.worker_pm.kwargs['flags']['pause'] = False
 
     def restart_measurement(
             self,
@@ -1289,9 +1253,9 @@ class Window(QMainWindow,Ui_MainWindow,):
 
         # Start energy measurement cycle.
         if pa_logic.osc_open():
-            if not self.timer_motor.isActive():
-                self.timer_motor.timeout.connect(self.upd_pm)
-                self.timer_motor.start()
+            if not self.timer_pm.isActive():
+                self.timer_pm.timeout.connect(self.upd_pm)
+                self.timer_pm.start()
                 logger.info('Energy measurement cycle started!')
         else:
             logger.info('Failed to start energy mesurement cycle!')
