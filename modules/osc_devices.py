@@ -721,6 +721,7 @@ class PowerMeter:
             logger.warning(msg)
             raise OscIOError(msg)
         logger.debug('PowerMeter response obtained')
+        result.signal = self.data
         result.energy = self.energy_from_data(
             self.data,
             self.osc.xincrement

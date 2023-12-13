@@ -2,6 +2,7 @@
 Classes with initaited widgets, built in Qt Designer.
 """
 import logging
+from collections import deque
 
 from PySide6.QtCore import (
     Signal,
@@ -21,6 +22,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtGui import (
     QPixmap
 )
+import numpy as np
 from pint.facets.plain.quantity import PlainQuantity
 from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT
 
@@ -43,13 +45,16 @@ from ...pa_data import Measurement
 from ...data_classes import (
     DataPoint,
     Coordinate,
-    StagesStatus
+    StagesStatus,
+    EnergyMeasurement
 )
 from ...constants import (
     DetailedSignals
 )
 from ...utils import (
-    upd_plot
+    upd_plot,
+    form_quant,
+    btn_set_silent
 )
 
 from ..widgets import (
@@ -211,9 +216,101 @@ class PowerMeterMonitor(QWidget,pm_monitor_ui.Ui_Form):
     ``plot_left`` and ``plot_right``.
     """
 
-    def __init__(self, parent: QWidget | None = None) -> None:
+    def __init__(
+            self,
+            parent: QWidget|None = None,
+            tune_width: int = 50,
+            aver: int = 10  
+        ) -> None:
+        """
+        Initialization of Power meter monitor.
+
+        ``tune_width`` - size of energy adjustment plot (right).\n
+        ``aver`` - amount of measurements used to calc mean and std.
+        """
         super().__init__(parent)
         self.setupUi(self)
+        self.tune_width = tune_width
+        self.aver = aver
+        self.connect_signals_slots()
+
+    def connect_signals_slots(self):
+        """Connect signals and slots."""
+
+        # Start button
+        self.btn_start.toggled.connect(
+            lambda enable: self.btn_pause.setChecked(not enable)
+        )
+        # Pause button
+        self.btn_pause.toggled.connect(
+            lambda enable: self.btn_start.setChecked(not enable)
+        )
+
+        ### Stop button
+        # Reset buttons
+        self.btn_stop.clicked.connect(
+            lambda: btn_set_silent(self.btn_start, False)
+        )
+        self.btn_stop.clicked.connect(
+            lambda: btn_set_silent(self.btn_pause, False)
+        )
+        # Clear plots
+        self.btn_stop.clicked.connect(
+            lambda: upd_plot(base_widget=self.plot_left, ydata=[])
+        )
+        self.btn_stop.clicked.connect(
+            lambda: upd_plot(base_widget=self.plot_right, ydata=[])
+        )
+
+    def add_msmnt(self, measurement: EnergyMeasurement) -> None:
+        """"Add energy measurement."""
+
+        # Update information only if Start btn is checked 
+        # and widget is visible
+        if (not self.btn_start.isChecked()) or (not self.isVisible()):
+            return
+        # Check if measurement is not empty
+        if measurement.energy.m is np.nan:
+            return
+        # Skip duplicate read
+        if np.array_equal(
+            measurement.signal.m,
+            self.plot_left.ydata
+        ):
+            return
+        # Plot signal
+        upd_plot(
+            base_widget = self.plot_left,
+            ydata = measurement.signal,
+            marker = [measurement.istart, measurement.istop]
+        )
+
+        # Plot tune graph
+        ytune = self.plot_right.ydata
+        # Check if some data already present
+        if ytune.ndim == 0:
+            upd_plot(
+                base_widget = self.plot_right,
+                ydata = PlainQuantity.from_list([measurement.energy])
+            )
+        else:
+            energy = measurement.energy.to(self.plot_right.ylabel)
+            qu = deque(ytune, maxlen = self.tune_width)
+            qu.append(energy.m)
+            ytune = np.array(qu)
+            upd_plot(
+                base_widget = self.plot_right,
+                ydata = ytune
+            )
+        
+        # Update line edits with energy info
+        units = self.plot_right.ylabel
+        ytune = self.plot_right.ydata
+        self.le_cur_en.setText(form_quant(measurement.energy))
+        aver = Q_(ytune.mean(), units)
+        self.le_aver_en.setText(form_quant(aver))
+        std = Q_(ytune.std(), units)
+        self.le_std_en.setText(form_quant(std))
 
 class CurveView(QWidget,curve_data_view_ui.Ui_Form):
     """Plots for 1D data."""

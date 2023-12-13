@@ -48,20 +48,18 @@ from PySide6.QtGui import (
     QShortcut
 )
 import numpy as np
-
 from modules import ureg, Q_
 from modules.pa_data import PaData
 import modules.pa_logic as pa_logic
 from modules.utils import (
-    upd_plot
+    upd_plot,
+    form_quant
 )   
-import modules.data_classes as dc
 from modules.data_classes import (
     Worker,
     MeasuredPoint,
     Measurement,
     EnergyMeasurement,
-    hardware,
     Coordinate
 )
 from modules.constants import (
@@ -129,14 +127,11 @@ class Window(QMainWindow,Ui_MainWindow,):
 
     _data: PaData|None = None
 
-    data_changed = Signal(EnergyMeasurement)
+    data_changed = Signal()
     "Signal, which is emitted when data is changed."
 
-    energy_measured = Signal()
+    energy_measured = Signal(EnergyMeasurement)
     "Signal, emitted when PM data is obtained."
-
-    pm_monitors: dict[PowerMeterMonitor, Callable] = {}
-    "Contain all subsribers to PM measurements."
 
     @property
     def data(self) -> PaData|None:
@@ -172,7 +167,7 @@ class Window(QMainWindow,Ui_MainWindow,):
         self.timer_motor = QTimer()
         self.timer_motor.setInterval(100)
         self.timer_pm = QTimer()
-        self.timer_pm.setInterval(100)
+        self.timer_pm.setInterval(200)
 
         # Initiate widgets
         self.set_widgets()
@@ -183,7 +178,7 @@ class Window(QMainWindow,Ui_MainWindow,):
     def set_widgets(self):
         """Add and configure custom widgets."""
 
-        #Measurement verifuer dialog
+        #Measurement verifier dialog
         self.pa_verifier = PAVerifierDialog()
 
         ### Data viewer ###
@@ -1265,20 +1260,18 @@ class Window(QMainWindow,Ui_MainWindow,):
                            + 'Do you really want to exit?')
             ):
                 event.ignore()
+                return
         elif not self.confirm_action(
             title = 'Confirm Close',
             message = 'Do you really want to exit?'
         ):
             event.ignore()
-        else:
-            logger.info('Stopping application')
-            # Close hardware actors
-            pa_logic._stage_call.close()
-            pa_logic._stage_call.join()
-            pa_logic._osc_call.close()
-            pa_logic._osc_call.join()
-            for stage in hardware.stages.values():
-                stage.close()
+            return
+
+        logger.info('Stopping application')
+        # Close hardware actors
+        pa_logic.close_hardware()
+        self.pool.clear()
 
     def init_hardware(self) -> None:
         """
@@ -1297,7 +1290,7 @@ class Window(QMainWindow,Ui_MainWindow,):
         # Start energy measurement cycle.
         if pa_logic.osc_open():
             if not self.timer_motor.isActive():
-                self.timer_motor.timeout.connect(self.upd_motor)
+                self.timer_motor.timeout.connect(self.upd_pm)
                 self.timer_motor.start()
                 logger.info('Energy measurement cycle started!')
         else:
@@ -1315,7 +1308,7 @@ class Window(QMainWindow,Ui_MainWindow,):
     def upd_pm(self) -> None:
         """Update power meter information."""
 
-        pm_worker = Worker(pa_logic.track_power)
+        pm_worker = Worker(pa_logic.en_meas_fast)
         pm_worker.signals.result.connect(
             self.energy_measured.emit
         )
@@ -1386,89 +1379,7 @@ class Window(QMainWindow,Ui_MainWindow,):
         ) -> None:
         """Initialize power meter monitor."""
 
-        monitor.btn_start.toggled.connect(
-            lambda enable: self.start_pm_monitor(
-                monitor = monitor,
-                enable = enable
-            )
-        )
-        monitor.btn_pause.toggled.connect(
-            lambda enable: self.start_pm_monitor(
-                monitor = monitor,
-                enable = not enable
-            )
-        )
-        monitor.btn_stop.clicked.connect(
-            lambda x: self.stop_pm_monitor(monitor)
-        )
-
-    def start_pm_monitor(
-            self,
-            monitor: PowerMeterMonitor,
-            enable: bool
-        ) -> None:
-        """Subscribe power meter monitor to data."""
-
-        if pa_logic.osc_open():
-            if self.worker_pm is not None:
-                if enable:
-                    self.pm_monitors.update(
-                        {monitor: partial(
-                            self.update_pm,
-                            monitor = monitor
-                        )}
-                    )
-                    self.worker_pm.signals.progess.connect(
-                        self.pm_monitors[monitor]
-                    )
-                    # Set states of buttons
-                    monitor.btn_start.blockSignals(True)
-                    monitor.btn_start.setChecked(True)
-                    monitor.btn_start.blockSignals(False)
-                    monitor.btn_pause.blockSignals(True)
-                    monitor.btn_pause.setChecked(False)
-                    monitor.btn_pause.blockSignals(False)
-                else:
-                    self.worker_pm.signals.progess.disconnect(
-                        self.pm_monitors[monitor]
-                    )
-                    # Set states of buttons
-                    monitor.btn_start.blockSignals(True)
-                    monitor.btn_start.setChecked(False)
-                    monitor.btn_start.blockSignals(False)
-        else:
-            logger.warning("Oscilooscope is not open.")
-            monitor.btn_start.blockSignals(True)
-            monitor.btn_start.setChecked(False)
-            monitor.btn_start.blockSignals(False)
-
-    def stop_pm_monitor(
-            self,
-            monitor: PowerMeterMonitor
-        ) -> None:
-        """Unsubscribe power meter monitor and clear data."""
-
-        if self.worker_pm is not None:
-            # Unsubscribe from data
-            monitor_slot = self.pm_monitors.get(monitor, None)
-            if monitor_slot is not None:
-                try:
-                    self.worker_pm.signals.progess.disconnect(
-                        monitor_slot
-                    )
-                except:
-                    logger.debug('Failed to unsubsribe.')
-                monitor.btn_start.blockSignals(True)
-                monitor.btn_start.setChecked(False)
-                monitor.btn_start.blockSignals(False)
-
-                monitor.btn_pause.blockSignals(True)
-                monitor.btn_pause.setChecked(False)
-                monitor.btn_pause.blockSignals(False)
-            
-            # Clear widgets
-            upd_plot(monitor.plot_left, [])
-            upd_plot(monitor.plot_right, [])
+        self.energy_measured.connect(monitor.add_msmnt)
 
     def stop_worker(self, worker: Worker|None) -> None:
         
@@ -1487,39 +1398,6 @@ class Window(QMainWindow,Ui_MainWindow,):
 
         if worker is not None:
             worker.kwargs['flags']['pause'] = is_paused
-
-    def update_pm(
-            self,
-            measurement: EnergyMeasurement,
-            monitor: PowerMeterMonitor
-        ) -> None:
-        """
-        Update power meter widget.
-
-        """
-
-        # Update information only if Start btn is checked
-        if not monitor.btn_start.isChecked():
-            return
-        # Check if measurement is not empty
-        if measurement.energy == np.nan:
-            return
-        upd_plot(
-            base_widget = monitor.plot_left,
-            ydata = measurement.signal,
-            marker = [measurement.istart, measurement.istop]
-        )
-
-        ##### Stopped here
-        upd_plot(monitor.plot_right, ydata=measurement.data)
-        monitor.le_cur_en.setText(self.form_quant(measurement.energy))
-        monitor.le_aver_en.setText(self.form_quant(measurement.aver))
-        monitor.le_std_en.setText(self.form_quant(measurement.std))
-    
-    def form_quant(self, quant: PlainQuantity) -> str:
-        """Format str representation of a quantity."""
-
-        return f'{quant:~.2gP}'
 
     def get_layout(self, widget: QWidget) -> QLayout|None:
         """Return parent layout for a widget."""

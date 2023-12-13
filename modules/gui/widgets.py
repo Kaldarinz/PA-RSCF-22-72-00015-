@@ -102,10 +102,11 @@ class MplCanvas(FigureCanvasQTAgg):
             self._xdata = data.m
         else:
             #self.xlabel = None
-            self._xdata = data
+            self._xdata = np.array(data)
 
     @property
     def ydata(self) -> npt.NDArray:
+
         return np.array(self._ydata)
     
     @ydata.setter
@@ -117,7 +118,7 @@ class MplCanvas(FigureCanvasQTAgg):
             self._ydata = data.m
         else:
             #self.ylabel = None
-            self._ydata = data
+            self._ydata = np.array(data)
 
     @property
     def sp(self) -> float|None:

@@ -6,8 +6,12 @@ from typing import Iterable
 from PySide6.QtCore import (
     Slot
 )
+from PySide6.QtWidgets import (
+    QPushButton
+)
 from matplotlib.backends.backend_qtagg import NavigationToolbar2QT # type: ignore
 from InquirerPy import inquirer
+from pint.facets.plain.quantity import PlainQuantity
 import numpy as np
 
 from .gui.widgets import (
@@ -30,9 +34,9 @@ def upd_plot(
         base_widget: MplCanvas|MplNavCanvas,
         ydata: Iterable,
         xdata: Iterable|None = None,
-        fmt: str|None = None,
         ylabel: str|None = None,
         xlabel: str|None = None,
+        fmt: str|None = None,
         marker: Iterable|None = None,
         enable_pick: bool = False
     ) -> None:
@@ -58,11 +62,11 @@ def upd_plot(
         widget = base_widget
 
     # Update data
+    widget.ydata = ydata
     if xdata is None:
-        widget.xdata = np.array(range(len(ydata))) # type: ignore
+        widget.xdata = np.array(range(len(widget.ydata))) # type: ignore
     else:
         widget.xdata = xdata
-    widget.ydata = ydata
     if xlabel is not None:
         widget.xlabel = xlabel
     if ylabel is not None:
@@ -121,7 +125,9 @@ def upd_plot(
                 [widget.ydata[marker]] # type: ignore
             )
     else:
-        widget._marker_ref = None
+        if widget._marker_ref is not None:
+            widget._marker_ref.remove()
+            widget._marker_ref = None
     # Set labels
     widget.axes.set_xlabel(widget.xlabel) # type: ignore
     widget.axes.set_ylabel(widget.ylabel) # type: ignore
@@ -134,3 +140,15 @@ def upd_plot(
     # Reset history of navigation toolbar
     if isinstance(base_widget, MplNavCanvas):
         base_widget.toolbar.update()
+
+def form_quant(quant: PlainQuantity) -> str:
+    """Format str representation of a quantity."""
+
+    return f'{quant:~.2gP}'
+
+def btn_set_silent (btn: QPushButton, state: bool) -> None:
+    """Set state of a button without triggering signals."""
+
+    btn.blockSignals(True)
+    btn.setChecked(state)
+    btn.blockSignals(False)

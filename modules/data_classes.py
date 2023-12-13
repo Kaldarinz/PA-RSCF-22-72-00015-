@@ -26,11 +26,6 @@ from . import Q_
 from .constants import (
     Priority
 )
-from .osc_devices import (
-    Oscilloscope,
-    PowerMeter,
-    PhotoAcousticSensOlymp
-)
 
 logger = logging.getLogger(__name__)
 
@@ -314,7 +309,7 @@ class PriorityQueue:
         """
 
         if priority < 3 and len(self._queue) > 10:
-            logger.warning('Too many calls, skipping low priority task.')
+            logger.debug('Too many calls, skipping low priority task.')
             return False
         with self._cv:
             heapq.heappush(
@@ -343,6 +338,7 @@ class Actor:
 
     def __init__(self) -> None:
         self._mailbox = PriorityQueue()
+        self.enabled = False
 
     @property 
     def nitems(self) -> int:
@@ -355,22 +351,47 @@ class Actor:
         ) -> None:
         """Put a function to priority queue."""
 
-        logger.debug('Msg sent.')
-        if not self._mailbox.put(msg, priority):
+        if not self.enabled:
+            msg[3].set_result(False)
+        elif not self._mailbox.put(msg, priority):
             msg[3].set_result(False)
 
     def recv(self) -> tuple[Callable, Any, Any, Result]:
         msg = self._mailbox.get()
         if msg[0] is ActorExit:
+            logger.debug(f'{self.nitems} will be cancelled.')
+            self.flush()
+            logger.debug('All calls cancelled. Finishing actor.')
             raise ActorExit()
         return msg
     
-    def close(self) -> None:
-        """Close request."""
+    def flush(self) -> None:
+        """Cancel all calls from the queue."""
+
+        while self.nitems:
+            msg = self._mailbox.get()
+            msg[3].set_result(False)
+
+    def close(
+            self,
+            close_func: Callable|None = None
+        ) -> None:
+        """
+        Close request.
         
+        ``close_func`` - optional routine to close communication,
+        which will be performed just before closing the communication.
+        """
+        if close_func is not None:
+            self.submit(
+                Priority.HIGHEST,
+                close_func
+            )
         r = Result()
         # Close request is sent with highest priority.
         self._send((ActorExit, tuple(), dict(), r), Priority.HIGHEST)
+        # Stop accepting new submits
+        self.enabled = False
 
     def reset(self) -> None:
         """Reset call stack."""
@@ -415,6 +436,12 @@ class Actor:
     def _run(self):
         """Main execution loop."""
 
+        self.enabled = True
         while True:
             func, args, kwargs, r = self.recv()
-            r.set_result(func(*args, **kwargs))
+            try:
+                r.set_result(func(*args, **kwargs))
+            except:
+                exctype, value = sys.exc_info()[:2]
+                logger.warning(f'Error in hardware call: {exctype}, {value}')
+                r.set_result(False)

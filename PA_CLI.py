@@ -516,7 +516,7 @@ def calc_filters_for_energy() -> None:
         target_energy = float(target_energy)*ureg.mJ
 
     logger.info('Please remove all filters!')
-    energy = pa_logic.track_power(50)
+    energy = pa_logic.en_meas_fast(50)
     logger.info(f'Power meter energy = {energy}.')
     filters = pa_logic.glass_calculator(
         wl,
@@ -543,7 +543,7 @@ def glan_check() -> None:
     
     while True:
         logger.info('Set some energy at glass reflection')
-        energy = pa_logic.track_power(50)
+        energy = pa_logic.en_meas_fast(50)
         target_en = pa_logic.glan_calc(energy)
         if target_en is None:
             logger.warning('Target energy was not calculated')
@@ -553,7 +553,7 @@ def glan_check() -> None:
                            + 'set smaller energy!')
             continue
         logger.info(f'Energy at sample should be ~{target_en}. Check it!')
-        pa_logic.track_power(50)
+        pa_logic.en_meas_fast(50)
 
         option = inquirer.rawlist(
             message='Choose an action:',
@@ -725,7 +725,7 @@ if __name__ == "__main__":
                 logger.debug(f'"{utils_menu}" menu option choosen')
 
                 if utils_menu == 'Power meter':
-                    pa_logic.track_power(100)
+                    pa_logic.en_meas_fast(100)
                 elif utils_menu == 'Glan check':
                     glan_check()
                 elif utils_menu == 'Filter caclulation':

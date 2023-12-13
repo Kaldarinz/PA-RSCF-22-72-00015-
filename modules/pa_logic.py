@@ -20,11 +20,8 @@ import pint
 from pint.facets.plain.quantity import PlainQuantity
 import numpy as np
 import numpy.typing as npt
-from InquirerPy import inquirer
 from pylablib.devices.Thorlabs import KinesisMotor
 from pylablib.devices import Thorlabs
-import matplotlib.pyplot as plt
-import matplotlib.gridspec as gridspec
 
 from .osc_devices import (
     Oscilloscope,
@@ -127,6 +124,29 @@ def init_hardware(**kwargs) -> bool:
                 
     logger.debug('...Finishing hardware initialization.')
     return True
+
+def close_hardware(**kwargs) -> None:
+    """
+    Cloase all hardware.
+    
+    Thread safe.
+    """
+
+    _stage_call.close(__close_stages)
+    _osc_call.close()
+    _stage_call.join()
+    _osc_call.join()
+    logger.info('Hardware communication terminated.')
+
+def __close_stages() -> None:
+    """
+    Close request for all stages.
+    
+    Intended to be called by actor only.
+    """
+
+    for stage in hardware.stages.values():
+        stage.close()
 
 def load_config() -> dict:
     """Load configuration.
@@ -440,84 +460,15 @@ def home(**kwargs) -> None:
             force = True
         )
 
-def track_power_long(
-        signals: WorkerSignals,
-        flags: dict,
-        tune_width: int = 50,
+def en_meas_fast(
+        priority:int = Priority.LOW,
         **kwargs
     ) -> EnergyMeasurement:
-    """Measure laser energy.
-
-    Run infinite loop and measure energy from power meter.\n
-    To stop the measurements ``flags['is_running']`` should be set
-    to FALSE, which can be done from outside.\n
-    Execution can be halted and resumed by sending ``flags['is_running']``
-    from outside.\n
-    After each measurement fire ``signals.progress``, which return
-    an EnergyMeasurement instance.
     """
-
-    ### config parameters
-    #Averaging for mean and std calculations
-    aver = 10
-    # ignore energy read if it is smaller than threshold*mean
-    threshold = 0.01
-    # time delay between measurements
-    measure_delay = ureg('10ms')
-    ###
-
-    results = EnergyMeasurement()
-
-    pm = hardware.power_meter
-    if pm is None:
-        msg = 'Power meter is off in config'
-        logger.warning(msg)
-        raise OscIOError(msg)
+    Measure laser energy.
     
-    #tune_width cannot be smaller than averaging
-    if tune_width < aver:
-        logger.warning(f'{tune_width=} is smaller than averaging='
-                       + f'{aver}. tune_width set to {aver}.')
-        tune_width = aver
-    data = deque(maxlen=tune_width)   
-    mean = 0*ureg('J')
-    logger.debug('Entering measuring loop')
-    while True:
-        if not flags['is_running']:
-            return results
-        while flags['pause']:
-            time.sleep(0.1)
-        try:
-            laser_amp = pm.get_energy_scr()
-        except (OscValueError, OscIOError):
-            logger.debug('Measurement failed. Trying again.')
-            continue
-        if len(data) and laser_amp < data[-1]*threshold:
-            logger.debug('Measurement failed. Trying again.')
-            continue
-        data.append(laser_amp)
-        
-        #ndarray for up to last <aver> values
-        tmp_data = pint.Quantity.from_list(
-            [x for i,x in enumerate(reversed(data)) if i<aver])
-        mean = tmp_data.mean() # type: ignore
-        std = tmp_data.std() # type: ignore
-        logger.debug(f'{laser_amp=}, {mean=}, {std=}')
-        results = EnergyMeasurement(
-            data = pint.Quantity.from_list(
-                [x for x in data]),
-            signal = pm.data, # type: ignore
-            sbx = pm.start_ind,
-            sex = pm.stop_ind,
-            energy = laser_amp,
-            aver = mean,
-            std = std
-        )
-        signals.progess.emit(results)
-        time.sleep(measure_delay.to('s').m)
-
-def track_power(**kwargs) -> EnergyMeasurement:
-    """Measure laser energy."""
+    Thread safe.
+    """
 
     pm = hardware.power_meter
     if pm is None:
@@ -525,18 +476,16 @@ def track_power(**kwargs) -> EnergyMeasurement:
         logger.warning(msg)
         return EnergyMeasurement()
     
-    try:
-        result = _osc_call.submit(
-            Priority.LOW,
-            pm.get_energy_scr
-        )
-    except (OscValueError, OscIOError):
-        logger.debug('Measurement failed.')
+    result = _osc_call.submit(
+        priority,
+        pm.get_energy_scr
+    )
+
+    if result == False:
         return EnergyMeasurement()
-    else:
-        if result == False:
-            return EnergyMeasurement()
-        return result
+    logger.debug('Returning measured energy. '
+                    +f'signal len = {len(result.signal.m)}')
+    return result
                
 def glass_calculator(
         wavelength: PlainQuantity,
