@@ -30,7 +30,6 @@ from . import (
     verify_measure_ui,
     data_viewer_ui,
     log_dock_widget_ui,
-    pm_dock_widget_ui,
     point_measure_widget_ui,
     curve_measure_widget_ui,
     map_measure_widget_ui,
@@ -112,13 +111,6 @@ class DataViewer(QWidget, data_viewer_ui.Ui_Form):
 
 class LoggerWidget(QDockWidget, log_dock_widget_ui.Ui_d_log):
     """Logger dock widget."""
-
-    def __init__(self, parent: QWidget | None = None) -> None:
-        super().__init__(parent)
-        self.setupUi(self)
-
-class PowerMeterWidget(QDockWidget, pm_dock_widget_ui.Ui_d_pm):
-    """Power meter dock widget."""
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)

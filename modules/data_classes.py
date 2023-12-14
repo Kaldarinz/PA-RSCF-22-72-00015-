@@ -144,9 +144,9 @@ class MeasuredPoint:
 
     pa_signal_raw: npt.NDArray[np.uint8] = field(default_factory=empty_ndarray) # type: ignore
     "Sampled PA signal in int8 format"
-    dt: PlainQuantity = Q_(0,'s')
+    dt: PlainQuantity = Q_(np.nan,'s')
     "Sampling interval for PA data"
-    dt_pm: PlainQuantity = Q_(0, 's')
+    dt_pm: PlainQuantity = Q_(np.nan, 's')
     "Sampling interval for PM data, could differ from dt due to downsampling of PM data."
     pa_signal: PlainQuantity = Q_(np.empty(0), 'V/uJ')
     "Sampled PA signal in physical units"
@@ -166,33 +166,31 @@ class MeasuredPoint:
     "Excitation laser wavelength"
 
 @dataclass
-class EnergyMeasurementLong:
-    """Energy measurement from power meter with history."""
+class OscMeasurement:
+    """Oscilloscope measurement."""
 
-    data: PlainQuantity = field(default_factory=empty_arr_quantity)
-    "History of energy values."
-    signal: PlainQuantity = field(default_factory=empty_arr_quantity)
-    "Measured PM signal (full data)."
-    sbx: int = 0
-    "Index of laser pulse start."
-    sex: int = 0
-    "Index of laser pulse end."
-    energy: PlainQuantity = Q_(0, 'uJ')
-    "Last measured laser energy."
-    aver: PlainQuantity = Q_(0, 'uJ')
-    "Average laser energy."
-    std: PlainQuantity = Q_(0, 'uJ')
-    "Standard deviation of laser energy."
+    data_raw: list[npt.NDArray] = field(
+        default_factory=list
+    )
+    dt: PlainQuantity = Q_(np.nan, 'us')
+    pre_t: list[PlainQuantity] = field(default_factory=list)
+    yincrement: float = np.nan
+    "Data = yincrement*data_raw."
+
 
 @dataclass
 class EnergyMeasurement:
     """Energy measurement from power meter."""
 
-    signal: PlainQuantity = field(default_factory=empty_arr_quantity)
+    signal: PlainQuantity = field(
+        default_factory=empty_arr_quantity,
+        compare = False
+    )
     "Measured PM signal (full data)."
-    istart: int = 0
+    dt: PlainQuantity = Q_(np.nan, 'us')
+    istart: int = -1
     "Index of laser pulse start."
-    istop: int = 0
+    istop: int = -1
     "Index of laser pulse end."
     energy: PlainQuantity = Q_(np.nan, 'uJ')
     "Last measured laser energy."
@@ -333,6 +331,12 @@ class ActorExit(Exception):
     
     pass
 
+class ActorFail:
+    """Sentinel value for failed actor call."""
+
+    def __init__(self, reason:str = '') -> None:
+        self.reason = reason
+
 class Actor:
     """Object for serial processing of calls."""
 
@@ -352,9 +356,9 @@ class Actor:
         """Put a function to priority queue."""
 
         if not self.enabled:
-            msg[3].set_result(False)
+            msg[3].set_result(ActorFail('Actor disabled'))
         elif not self._mailbox.put(msg, priority):
-            msg[3].set_result(False)
+            msg[3].set_result(ActorFail('Queue is full'))
 
     def recv(self) -> tuple[Callable, Any, Any, Result]:
         msg = self._mailbox.get()
@@ -370,7 +374,7 @@ class Actor:
 
         while self.nitems:
             msg = self._mailbox.get()
-            msg[3].set_result(False)
+            msg[3].set_result(ActorFail('Actor terminating'))
 
     def close(
             self,
@@ -421,7 +425,7 @@ class Actor:
             func: Callable[P, T],
             *args: Any,
             **kwargs: Any
-            ) -> T|Literal[False]:
+            ) -> T|ActorFail:
         """
         Submit a function for serail processing.
         
@@ -431,7 +435,10 @@ class Actor:
 
         r = Result()
         self._send((func, args, kwargs, r), priority)
-        return r.result() # type: ignore
+        res = r.result()
+        if isinstance(res, ActorFail):
+            logger.warning(res.reason)
+        return res # type: ignore
 
     def _run(self):
         """Main execution loop."""
@@ -443,5 +450,5 @@ class Actor:
                 r.set_result(func(*args, **kwargs))
             except:
                 exctype, value = sys.exc_info()[:2]
-                logger.warning(f'Error in hardware call: {exctype}, {value}')
-                r.set_result(False)
+                msg = f'Error in call: {exctype}, {value}'
+                r.set_result(ActorFail(msg))

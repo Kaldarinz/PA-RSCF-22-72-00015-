@@ -33,7 +33,8 @@ from .exceptions import (
     OscValueError
 )
 from .data_classes import (
-    EnergyMeasurement
+    EnergyMeasurement,
+    OscMeasurement
 )
 from . import Q_, ureg
 
@@ -79,7 +80,7 @@ class Oscilloscope:
 
         #channels attributes
         # time before trig to save data
-        self.pre_t: List[Optional[PlainQuantity]] = [None]*self.CHANNELS
+        self.pre_t: List[PlainQuantity] = [Q_(np.nan, 's')]*self.CHANNELS
         # time after trigger
         self.post_t: List[Optional[PlainQuantity]] = [None]*self.CHANNELS
         # duration of data
@@ -88,10 +89,10 @@ class Oscilloscope:
         self.pre_p: List[Optional[int]] = [None]*self.CHANNELS
         self.post_p: List[Optional[int]] =[None]*self.CHANNELS
         self.dur_p: List[Optional[int]] = [None]*self.CHANNELS
-        self.data: List[Optional[PlainQuantity]] = [None]*self.CHANNELS
-        self.data_raw: List[Optional[npt.NDArray[np.int8]]] = [None]*self.CHANNELS
+        self.data: List[PlainQuantity] = []
+        self.data_raw: List[npt.NDArray[np.int8]] = []
         # amplitude of data
-        self.amp: List[Optional[PlainQuantity]] = [None]*self.CHANNELS
+        self.amp: List[PlainQuantity] = []
         self.scr_data: List[Optional[PlainQuantity]] = [None]*self.CHANNELS
         self.scr_data_raw: List[Optional[npt.NDArray[np.int8]]] = [None]*self.CHANNELS
         self.scr_amp: List[Optional[PlainQuantity]] = [None]*self.CHANNELS
@@ -168,15 +169,15 @@ class Oscilloscope:
             return False
 
     def measure(self,
-                read_ch1: bool=True, #flag for channel 1 read
-                read_ch2: bool=True, #flag for channel 1 read
-                correct_bl: bool=True, #correct baseline
-                smooth: bool=True, #smooth data
-        ) -> Tuple[List[PlainQuantity|None],List[npt.NDArray[np.int8]|None]]:
-        """Measure data from memory.
+                read_ch1: bool=True,
+                read_ch2: bool=True,
+                correct_bl: bool=True,
+                smooth: bool=True,
+        ) -> OscMeasurement:
+        """
+        Measure data from memory.
         
-        Data is saved to <data> and <data_raw> attributes.
-        Return tuple with <data> and <data_raw> attributes.
+        Data is saved to ``data`` and ``data_raw`` attributes.\n
         """
 
         logger.debug('Starting measure signal from oscilloscope '
@@ -188,8 +189,8 @@ class Oscilloscope:
             if read_flag:
                 logger.debug('Resetting data and data_raw attributes '
                              + f'for CHAN{i+1}.')
-                self.data[i] = None
-                self.data_raw[i] = None
+                self.data[i] = Q_(np.nan,'V')
+                self.data_raw[i] = np.array(np.nan)
                 data_raw = self._read_data(i)
                 if smooth:
                     data_raw = self.rolling_average(data_raw)
@@ -206,14 +207,20 @@ class Oscilloscope:
         logger.debug('Writing :RUN to enable oscilloscope')
         self._write([':RUN'])
         logger.debug('...Finishing. Measure successfull.')
-        result = (self.data.copy(), self.data_raw.copy())
+        result = OscMeasurement(
+            data_raw = self.data_raw.copy(),
+            dt = (1/self.sample_rate).to('us'),
+            pre_t = self.pre_t.copy(),
+            yincrement = self.yincrement
+        )
         return result
 
-    def measure_scr(self, 
-                    read_ch1: bool=True, #read channel 1
-                    read_ch2: bool=True, #read channel 2
-                    correct_bl: bool=True, #correct baseline
-                    smooth: bool=True, #smooth data
+    def measure_scr(
+            self, 
+            read_ch1: bool=True,
+            read_ch2: bool=True,
+            correct_bl: bool=True,
+            smooth: bool=True,
         ) -> Tuple[List[PlainQuantity|None],List[npt.NDArray[np.int8]|None]]:
         """Measure data from screen."""
 
@@ -500,9 +507,9 @@ class Oscilloscope:
                      +f'max val = {result.max()}, min val = {result.min()}.')
         return result
 
+    @staticmethod
     def decimate_data(
-            self,
-            data: npt.NDArray[np.int8],
+            data: npt.NDArray[np.uint8],
             target: int = 10_000,
         ) -> Tuple[npt.NDArray, int]:
         """Downsample data to <target> size.
@@ -513,6 +520,9 @@ class Oscilloscope:
 
         logger.debug(f'Starting decimation data with {len(data)} size.')
         factor = int(len(data)/target)
+        if factor == 0:
+            logger.debug('...Terminatin. Decimation is not required.')
+            return (data, 1)
         logger.debug(f'Decimation factor = {factor}')
         iterations = int(math.log10(factor))
         rem = factor//10**iterations
@@ -526,7 +536,6 @@ class Oscilloscope:
         logger.debug(f'...Finishing. Final size is {len(data)}')
         return data, decim_factor
         
-
     def _read_chunk(self, start: int, dur: int
         ) -> npt.NDArray[np.int8]:
         """Read a single chunk from memory.
@@ -706,102 +715,122 @@ class PowerMeter:
         logger.debug('...Finishing')
 
     def get_energy_scr(self) -> EnergyMeasurement:
-        """Measure energy from screen (fast)."""
+        """
+        Measure energy from screen (fast).
+        
+        Do not change any attributes.
+        This operation is not thread safe and must be
+        called only by Actor.
+        """
 
         logger.debug('Starting fast energy measuring...')
-        result = EnergyMeasurement()
         meas_channel = self._build_chan_list()
         data = self.osc.measure_scr(
                 read_ch1=meas_channel[0],
                 read_ch2=meas_channel[1])
         # Get pysical quantity data for PM channel
-        self.data = data[0][self.ch]
-        if self.data is None:
+        pm_data = data[0][self.ch]
+        if pm_data is None:
             msg = 'Data can be read from osc.'
             logger.warning(msg)
             raise OscIOError(msg)
         logger.debug('PowerMeter response obtained')
-        result.signal = self.data
-        result.energy = self.energy_from_data(
-            self.data,
+        result = self.energy_from_data(
+            pm_data,
             self.osc.xincrement
             )
-        result.istart = self.start_ind
-        result.istop = self.stop_ind
-        logger.debug(f'...Finishing energy measure.'
-                     + ' Laser amp = {result.energy}')
+        if result is None:
+            result = EnergyMeasurement()
+        logger.debug('...Finishing energy measure.'
+                     + f' Laser amp = {result.energy}')
         return result
 
     def energy_from_data(
             self,
             data: PlainQuantity,
             step: PlainQuantity
-        ) -> PlainQuantity:
-        """Calculate laser energy from data.
+        ) -> EnergyMeasurement|None:
+        """
+        Calculate laser energy from data.
 
-        <Step> is time step for the data.
+        ``Step`` - time step for the data.\n
         Data must be baseline corrected.
+
+        Thread safe.
         """
 
         logger.debug('Starting convertion of raw signal to energy...')
-        self._check_data(data)
-        self.start_ind = self._find_pm_start_ind(data)
+        start_ind = self.find_pm_start_ind(data)
+        if start_ind is None:
+            logger.debug('...Terminating. Start index failed.')
+            return None
+        # Search for stop index
+        logger.debug('Starting search for signal end...')
         try:
-            logger.debug('Starting search for signal end...')
-            neg_data = np.where(data[self.start_ind:] < 0)[0] #type: ignore
-            stop_ind_arr = neg_data + self.start_ind
-            logger.debug(f'{len(stop_ind_arr)} points with negative '
-                         + 'values found after signal start')
-            stop_index = 0
-            #check interval. If data at index + check_int less than zero
-            #then we assume that the laser pulse is really finished
-            check_ind = int(len(data.m)/100)
-            for x in stop_ind_arr:
-                if (x+check_ind) < len(data.m) and data[x+check_ind] < 0: # type: ignore
-                    stop_index = x
-                    break
-            if not stop_index:
-                err_msg = 'End of laser impulse was not found'
-                logger.debug(err_msg)
-                raise OscValueError(err_msg)
-            logger.debug(f'Position of signal stop is {stop_index}/'
-                         + f'{len(data.m)}')
-            self.stop_ind = stop_index
+            # array with indices of all negative elements after start_ind
+            neg_data = np.where(data[start_ind:] < 0)[0] #type: ignore     
         except IndexError:
-            err_msg = 'End of laser impulse was not found'
-            logger.debug(err_msg)
-            raise OscValueError(err_msg)
+            logger.debug('...Terminating. No negative values in data.')
+            return None
 
+        # Convert to indices of data
+        stop_ind_arr = neg_data + start_ind
+        logger.debug(f'{len(stop_ind_arr)} points with negative '
+                        + 'values found after signal start')
+        stop_index = 0
+        #check interval. If data at index + check_int less than zero
+        #then we assume that the laser pulse is really finished
+        check_ind = int(len(data)/100) # type: ignore
+        for x in stop_ind_arr:
+            if ((x+check_ind) < len(data.m)) and (data[x+check_ind] < 0): # type: ignore
+                stop_index = x
+                break
+        if not stop_index:
+            logger.debug('...Terminating. Stop index not found.')
+            return None
+        logger.debug(f'Position of signal stop is {stop_index}/'
+                        + f'{len(data.m)}')
         laser_amp = np.sum(
-            data[self.start_ind:self.stop_ind])*step.to('s').m*self.SENS # type: ignore
+            data[start_ind: stop_index])*step.to('s').m*self.SENS # type: ignore
         laser_amp = Q_(laser_amp.m, 'mJ')
         logger.debug(f'...Finishing. Laser amplitude = {laser_amp}')
-        return laser_amp
+        result = EnergyMeasurement(
+            signal = data,
+            dt = step.to('us'),
+            istart= start_ind,
+            istop = stop_index,
+            energy = laser_amp
+        )
+        return result
     
-    def _check_data(self, data: PlainQuantity) -> None:
-        """Check whether data is valid power meter data.
-        
-        Raise OscValueError if data is not correct.
-        """
+    @staticmethod
+    def check_data(data: PlainQuantity) -> bool:
+        """Check whether data is valid power meter data."""
 
-        if not isinstance(data.m, abc.Sized):
+        try:
+            iter(data)
+        except TypeError:
             err_msg = 'data is not iterable.'
             logger.debug(err_msg)
-            raise OscValueError(err_msg)
-        if len(data.m) < 10:
+            return False
+        if len(data) < 10: # type: ignore
             err_msg = ('data too small for laser energy '
                        + f'calc ({len(data.m)})')
             logger.debug(err_msg)
-            raise OscValueError(err_msg)
+            return False
+        return True
 
     def set_channel(
             self,
             chan: int,
             pre_time: PlainQuantity,
             post_time: PlainQuantity) -> None:
-        """Set read channel.
+        """
+        Set read channel.
         
-        <chan> is index, i.e. <chan>=0 for CHAN1."""
+        ``chan`` is index, i.e. <chan>=0 for CHAN1.\n
+        Thread safe.
+        """
 
         logger.debug(f'PowerMeter channel set to {self.osc.CH_IDS[chan]}')
         self.ch = chan
@@ -810,7 +839,11 @@ class PowerMeter:
         self.osc.dur_t[chan] = pre_time + post_time #type:ignore
 
     def _build_chan_list(self) -> List[bool]:
-        """Build a mask List for channels."""
+        """
+        Build a mask List for channels.
+        
+        Thread safe.
+        """
 
         len = self.osc.CHANNELS
         result = []
@@ -823,34 +856,45 @@ class PowerMeter:
             channel -= 1
         return result
 
-    def _find_pm_start_ind(self, data: PlainQuantity) -> int:
-        """Find index of power meter signal begining."""
+    def find_pm_start_ind(self, data: PlainQuantity) -> int|None:
+        """
+        Find index of power meter signal begining.
+        
+        Thread safe.
+        """
 
         logger.debug('Starting search for power meter signal start...')
+        if not PowerMeter.check_data(data):
+            return None
         max_amp = data.max() # type: ignore
         logger.debug(f'Max value in signal is {max_amp}')
         thr = max_amp*self.threshold # type: ignore
         logger.debug(f'Signal starts when amplitude exceeds {thr}')
         try:
-            str_ind = np.where(data>thr)[0][0]
-            logger.debug(f'Position of signal start is {str_ind}/'
-                         + f'{len(data.m)}')
+            ind = np.where(data>thr)[0][0]
         except IndexError:
             err_msg = 'Problem in set_laser_amp start_index'
             logger.debug(err_msg)
-            raise OscValueError(err_msg)
-        return str_ind
+            return None
+        logger.debug(f'Position of signal start is {ind}/'
+                     + f'{len(data)}') # type: ignore
+        return ind
 
     def pulse_offset(
             self,
             data: PlainQuantity,
             step: PlainQuantity
-        ) -> PlainQuantity:
-        """Calculate time offset of laser in PM data."""
+        ) -> PlainQuantity|None:
+        """
+        Calculate time offset of laser in PM data.
+        
+        Thread safe.
+        """
 
         logger.debug('Starting lase pulse offset calculation...')
-        self._check_data(data)
-        index = self._find_pm_start_ind(data)
+        index = self.find_pm_start_ind(data)
+        if index is None:
+            return None
         offset = (step*index).to('us')
         logger.debug(f'Laser pulse offset is {offset}')
         return offset
@@ -877,7 +921,11 @@ class PhotoAcousticSensOlymp:
                     chan: int,
                     pre_time: PlainQuantity,
                     post_time: PlainQuantity,) -> None:
-        """Sets read channel"""
+        """
+        Set read channel.
+        
+        Thread safe.
+        """
 
         self.ch = chan
         self._osc.pre_t[chan] = pre_time

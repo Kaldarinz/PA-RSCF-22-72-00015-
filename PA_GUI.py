@@ -76,7 +76,6 @@ from modules.gui.designer.designer_widgets import (
     PAVerifierDialog,
     DataViewer,
     LoggerWidget,
-    PowerMeterWidget,
     PointMeasureWidget,
     CurveMeasureWidget,
     MapMeasureWidget,
@@ -1014,7 +1013,7 @@ class Window(QMainWindow,Ui_MainWindow,):
 
         # Launch measurement
         wl = mode_widget.sb_cur_param.quantity
-        worker = Worker(pa_logic._measure_point, wl)
+        worker = Worker(pa_logic.measure_point, wl)
         worker.signals.result.connect(
             lambda data: self.verify_measurement(
                 mode_widget,
@@ -1026,7 +1025,7 @@ class Window(QMainWindow,Ui_MainWindow,):
     def verify_measurement(
             self,
             parent: CurveMeasureWidget|PointMeasureWidget,
-            data: MeasuredPoint
+            data: MeasuredPoint|None
         ) -> None:
         """
         Verify a measurement.

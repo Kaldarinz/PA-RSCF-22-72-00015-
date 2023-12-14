@@ -42,6 +42,7 @@ from .data_classes import (
     EnergyMeasurement,
     Coordinate,
     Actor,
+    ActorFail,
     StagesStatus
 )
 from .constants import (
@@ -81,7 +82,7 @@ def init_hardware(**kwargs) -> bool:
     """Initialize all hardware.
     
     Load hardware config from rsc/config.yaml if it was not done.\n
-    Thread safe for stages.
+    Thread safe.
     """
 
     logger.info('Starting hardware initialization...')
@@ -151,8 +152,9 @@ def __close_stages() -> None:
 def load_config() -> dict:
     """Load configuration.
 
-    Configuration is loaded from rsc/config.yaml.
-    Additionally add all optional devices to hardware dict.
+    Configuration is loaded from rsc/config.yaml.\n
+    Additionally add all optional devices to hardware dict.\n
+    Thread safe.
     """
 
     logger.debug('Starting loading config...')
@@ -224,12 +226,11 @@ def init_stages() -> bool:
         #motor units [m]
         stage = Thorlabs.KinesisMotor(stage_id[0], scale='stage')
         logger.debug('Trying to call is_opened')
-        try:
-            connected = _stage_call.submit(
-                Priority.HIGH,
-                stage.is_opened
-            )
-        except:
+        test_con = _stage_call.submit(
+            Priority.HIGH,
+            stage.is_opened
+        )
+        if isinstance(test_con, ActorFail):
             msg = f'Failed attempt to coomunicate with stage {axes}'
             logger.error(msg)
             connected = False
@@ -245,26 +246,45 @@ def init_stages() -> bool:
     logger.debug(f'...Finishing. Stages {connected=}')
     return connected
 
-def osc_open() -> bool:
-    """Check connection to oscilloscope."""
+def osc_open(priority:int = Priority.NORMAL) -> bool|None:
+    """
+    Check connection to oscilloscope.
+    
+    Thread safe.
+    """
 
-    return hardware.osc.connection_check()
+    is_open = _osc_call.submit(
+        priority = priority,
+        func = hardware.osc.connection_check
+    )
+    if isinstance(is_open, ActorFail):
+        return None
+    return is_open
 
-def init_osc() -> bool:
+def init_osc(priority:int = Priority.NORMAL) -> bool:
     """Initialize oscilloscope.
 
     Return true if connection is already established or
-    initialization is successfull.
+    initialization is successfull.\n
+    Thread safe.
     """
     osc = hardware.osc
     logger.debug('Starting init_osc...')
-    if osc.connection_check():
+    is_connected = _osc_call.submit(
+        priority = priority,
+        func = osc.connection_check
+    )
+    if not isinstance(is_connected,ActorFail) and is_connected:
         logger.info('Connection to oscilloscope is already established!')
         logger.debug('...Finishing init_osc.')
         return True
 
     logger.debug('No connection found. Trying to establish connection')
-    if osc.initialize():
+    init = _osc_call.submit(
+        priority = priority,
+        func = osc.initialize
+    )
+    if not isinstance(init, ActorFail) and osc.initialize():
         logger.debug('...Finishing. Oscilloscope initialization complete')
         return True
     else:
@@ -287,16 +307,16 @@ def stages_open() -> bool:
         logger.debug('...Finishing. Stages are not initialized.')
         return False
     for axes, stage in hardware.stages.items():
-        if not stage is None:
+        if stage is not None:
             is_open = _stage_call.submit(
                 Priority.HIGH,
                 stage.is_opened
             )
-            if is_open:
+            if isinstance(is_open, ActorFail) or not is_open:
+                logger.debug(f'stage {axes} is not open')
+                connected = False
+            else:
                 logger.debug(f'stage {axes} is open')
-                continue
-        logger.debug(f'stage {axes} is not open')
-        connected = False
     if connected:
         logger.debug('All stages are connected and open')
     logger.debug(f'...Finishing. stages {connected=}')
@@ -312,23 +332,18 @@ def stages_status(**kwargs) -> StagesStatus:
 
     status = StagesStatus()
     for axes, stage in hardware.stages.items():
-        try:
-            status_lst = _stage_call.submit(
-                Priority.LOW,
-                stage.get_status
-            )
-            is_open = _stage_call.submit(
-                Priority.LOW,
-                stage.is_opened
-            )
-        except:
-            logger.warning('General exception caught in "stages_status", need to change.')
-        else:
-            # _stage_call.submit could return False if call stack is full
-            if not (status_lst == False or is_open == False):
-                setattr(status, axes + '_open', is_open)
-                setattr(status, axes + '_status', status_lst)
-
+        status_lst = _stage_call.submit(
+            Priority.LOW,
+            stage.get_status
+        )
+        if not isinstance(status_lst, ActorFail):
+            setattr(status, axes + '_status', status_lst)
+        is_open = _stage_call.submit(
+            Priority.LOW,
+            stage.is_opened
+        )
+        if not isinstance(is_open, ActorFail):
+            setattr(status, axes + '_open', is_open)
     return status
 
 def stages_position(**kwargs) -> Coordinate:
@@ -341,17 +356,12 @@ def stages_position(**kwargs) -> Coordinate:
 
     coord = Coordinate()
     for axes, stage in hardware.stages.items():
-        try:
-            pos = _stage_call.submit(
-                Priority.LOW,
-                stage.get_position
-            )
-        except:
-            logger.warning('General exception caught in "Stages_position", nned to change.')
-        else:
-            # _stage_call.submit could return False if call stack is full
-            if not pos == False:
-                setattr(coord, axes, Q_(pos, 'm'))
+        pos = _stage_call.submit(
+            Priority.LOW,
+            stage.get_position
+        )
+        if not isinstance(pos, ActorFail):
+            setattr(coord, axes, Q_(pos, 'm'))
     return coord
 
 def pm_open() -> bool:
@@ -391,7 +401,7 @@ def stage_jog(
 
 def stage_stop(
         axes: Literal['x', 'y', 'z'],
-        priority: int|None = None,
+        priority: int = Priority.NORMAL,
         **kwargs
     ) -> None:
     """
@@ -405,8 +415,6 @@ def stage_stop(
     if stage is None:
         logger.warning(f'Invalid axes ({axes}) for stop.')
         return
-    if priority is None:
-        priority = Priority.NORMAL
     _stage_call.submit(
         priority,
         stage.stop,
@@ -480,8 +488,7 @@ def en_meas_fast(
         priority,
         pm.get_energy_scr
     )
-
-    if result == False:
+    if isinstance(result, ActorFail):
         return EnergyMeasurement()
     logger.debug('Returning measured energy. '
                     +f'signal len = {len(result.signal.m)}')
@@ -715,7 +722,11 @@ def glan_calc(
         energy: PlainQuantity,
         fit_order: int=1
     ) -> PlainQuantity|None:
-    """Calculates energy at sample for a given power meter energy"""
+    """
+    Calculates energy at sample for a given power meter energy.
+    
+    Do not interact with hardware.
+    """
 
     logger.debug('Starting sample energy calculation...')
     sub_folder = 'rsc'
@@ -744,80 +755,81 @@ def glan_calc(
     logger.debug('...Finishing. Sample energy calculated.')
     return sample_en
 
-def _measure_point(
+def measure_point(
         wavelength: PlainQuantity,
-        signals: WorkerSignals,
+        priority: int = Priority.NORMAL,
         **kwargs
-    ) -> MeasuredPoint:
-    """Measure single PA data point."""
+    ) -> MeasuredPoint|None:
+    """
+    Measure single PA data point.
+    
+    Thread safe.
+    """
 
     logger.debug('Starting PA point measurement...')
-    measurement = MeasuredPoint()
     osc = hardware.osc
     pm = hardware.power_meter
     config = hardware.config
     if pm is None:
-        logger.warning('...Terminating. Power meter is off in config')
-        return measurement
+        logger.warning('...Terminating. Power meter is off in config.')
+        return None
     pa_ch_id = int(config['pa_sensor']['connected_chan']) - 1
     pm_ch_id = int(config['power_meter']['connected_chan']) - 1
-    try:
-        data = osc.measure()
-        data = cast(
-            Tuple[List[PlainQuantity],List[npt.NDArray[np.int8]]],
-            data
-            )
-    except OscConnectError as err:
-        logger.warning('Oscilloscope disconnected!')
-        return measurement
-    except OscIOError as err:
-        logger.warning(f'Error during PA measurement: {err.value}')
-        return measurement
-    dt = (1/osc.sample_rate).to('us')
-    pm_start = osc.pre_t[pm_ch_id]
-    pa_start = osc.pre_t[pa_ch_id]
-    pa_signal_v = data[0][pa_ch_id]
-    pm_signal_raw, pm_time_decim = osc.decimate_data(data[1][pm_ch_id])
-    dt_pm = dt*pm_time_decim
-    pm_signal = osc._to_volts(pm_signal_raw)
-    pa_signal_raw = data[1][pa_ch_id]
-    pa_amp_v = osc.amp[pa_ch_id]
-    try:
-        pm_energy = pm.energy_from_data(pm_signal, dt_pm)
-        pm_offset = pm.pulse_offset(pm_signal, dt_pm)
-    except OscValueError:
-        logger.warning('Power meter energy cannot be measured!')
-        pm_energy = Q_(0, 'uJ')
-        logger.warning(f'Power meter energy set to {pm_energy}')
-    start_time = (pm_start - pm_offset) - pa_start # type: ignore
-    stop_time = dt*(len(pa_signal_v.m)-1) + start_time
-    measurement = replace(
-        measurement,                 
-        **{
-            'wavelength': wavelength,
-            'dt': dt,
-            'dt_pm': dt_pm,
-            'pa_signal_raw': pa_signal_raw,
-            'start_time': start_time,
-            'stop_time': stop_time,
-            'pm_signal': pm_signal,
-            'pm_energy': pm_energy,
-        }
+    data = _osc_call.submit(
+        priority = priority,
+        func = osc.measure
     )
+    # Check if operation was successfull
+    if isinstance(data, ActorFail):
+        logger.error('Error in measure point function.')
+        return None
+
+    # Downsample power meter data
+    pm_signal_raw, pm_decim_factor = Oscilloscope.decimate_data(
+        data.data_raw[pm_ch_id]
+    )
+    # Calculate dt for downsampled data
+    dt_pm = data.dt*pm_decim_factor
+    # Convert downsampled signal to volts
+    pm_signal = Q_(pm_signal_raw*data.yincrement, 'V')
+    
+    # Calculate energy information
+    pm_data = pm.energy_from_data(pm_signal, dt_pm)
+    if pm_data is None:
+        logger.error('Energy data cannot be calculated.')
+        return None
+    # Calculate time from start of pm_signal to trigger position
+    pm_offset = pm.pulse_offset(pm_signal, dt_pm)
+    if pm_offset is None:
+        logger.error('Time offset calculation for PM data failed.')
+        return None
+
+    # PA signal in volts
+    pa_signal_v = Q_(data.data_raw[pa_ch_id]*data.yincrement, 'V')
+    # Amplitude of PA signal in volts
+    pa_amp_v = pa_signal_v.ptp() # type: ignore
+
+    pm_start = data.pre_t[pm_ch_id]
+    pa_start = data.pre_t[pa_ch_id]
+    # Start time of PA data relative to start of laser pulse
+    start_time = (pm_start - pm_offset) - pa_start
+    # Stop time of PA data relative to start of laser pulse
+    stop_time = data.dt*(len(pa_signal_v)-1) + start_time # type: ignore
 
     if config['power_control'] == 'Filters':
         reflection = glass_reflection(wavelength)
         if reflection is not None and reflection !=0:
-            sample_energy = pm_energy/reflection
+            sample_energy = pm_data.energy/reflection
             pa_signal = pa_signal_v/sample_energy
             pa_amp = pa_amp_v/sample_energy
         else:
             sample_energy = Q_(0, 'J')
             pa_amp = Q_(0, 'V/J')
+            pa_signal = pa_signal_v
             logger.warning('Sample energy cannot be '
                             +'calculated')
     elif config['power_control'] == 'Glan prism':
-        sample_energy = glan_calc(pm_energy)
+        sample_energy = glan_calc(pm_data.energy)
         if sample_energy is not None and sample_energy:
             pa_signal = pa_signal_v/sample_energy
             pa_amp = pa_amp_v/sample_energy
@@ -825,14 +837,25 @@ def _measure_point(
             logger.warning(f'Sample energy = {sample_energy}')
             pa_amp = Q_(0, 'uJ')
             sample_energy = Q_(0, 'uJ')
+            pa_signal = pa_signal_v
     else:
         logger.error('Unknown power control method! '
                     + 'Measurements terminated!')
         logger.debug('...Terminating.')
-        return measurement
-    measurement.sample_energy = sample_energy
-    measurement.pa_signal = pa_signal # type: ignore
-    measurement.max_amp = pa_amp
+        return None
+    measurement = MeasuredPoint(
+        pa_signal_raw = data.data_raw[pa_ch_id].copy(),
+        dt = data.dt,
+        dt_pm = dt_pm,
+        pa_signal = pa_signal,
+        pm_signal = pm_data.signal,
+        start_time = start_time,
+        stop_time = stop_time, # type: ignore
+        pm_energy = pm_data.energy,
+        sample_energy = sample_energy,
+        max_amp = pa_amp,
+        wavelength = wavelength 
+    )
     logger.debug(f'{sample_energy=}')
     logger.debug(f'PA data has {len(pa_signal)} points ' # type: ignore
                     + f'with max value={pa_signal.max():.2D}') #type: ignore
