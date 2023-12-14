@@ -41,7 +41,8 @@ from PySide6.QtWidgets import (
     QLayout,
     QComboBox,
     QTreeWidgetItem,
-    QFileDialog
+    QFileDialog,
+    QMessageBox
 )
 from PySide6.QtGui import (
     QKeySequence,
@@ -1032,6 +1033,15 @@ class Window(QMainWindow,Ui_MainWindow,):
         
         ``parent`` is widget, which stores current point index.
         """
+
+        # Check if data was obtained
+        if data is None:
+            info_dial = QMessageBox()
+            info_dial.setWindowTitle('Bad data')
+            info_dial.setText('Error during data reading!')
+            info_dial.exec()
+            parent.btn_measure.setEnabled(True)
+            return None
 
         plot_pa = self.pa_verifier.plot_pa
         plot_pm = self.pa_verifier.plot_pm
