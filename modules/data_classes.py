@@ -10,6 +10,7 @@ import traceback
 import logging
 import heapq
 import threading
+from datetime import datetime as dt
 
 from pint.facets.plain.quantity import PlainQuantity
 import numpy.typing as npt
@@ -182,6 +183,7 @@ class OscMeasurement:
 class EnergyMeasurement:
     """Energy measurement from power meter."""
 
+    datetime: dt = field(compare=False)
     signal: PlainQuantity = field(
         default_factory=empty_arr_quantity,
         compare = False
@@ -213,6 +215,13 @@ class StagesStatus:
     z_status: list[str] = field(default_factory = list)
 
 ### Threading objects ###
+
+class Signals:
+    """Object for communication between threads."""
+
+    def __init__(self, is_running:bool = True) -> None:
+        
+        self.is_running = is_running
 
 class WorkerSignals(QObject):
     """

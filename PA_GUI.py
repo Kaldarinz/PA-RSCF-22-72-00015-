@@ -345,6 +345,12 @@ class Window(QMainWindow,Ui_MainWindow,):
             )
         )
 
+        ### 2D measurements ###
+        self.p_map.btn_start.clicked.connect(self.tst_map)
+        self.p_map.btn_stop.clicked.connect(
+            lambda: self.stop_worker(self.tst_worker)
+        )
+
         ### Data view###
         self.action_Data.toggled.connect(self.activate_data_viwer)
         self.action_Open.triggered.connect(self.open_file)
@@ -398,6 +404,18 @@ class Window(QMainWindow,Ui_MainWindow,):
         self._conn_jog_btn(
             self.d_motors.btn_z_right_move, 'z', '+'
         )
+
+    def tst_map(self):
+
+        self.tst_worker = Worker(pa_logic.en_meas_fast_cont)
+        self.tst_worker.signals.result.connect(self.tst_line_meas)
+        self.pool.start(self.tst_worker)
+
+    def tst_line_meas(self, data: list[EnergyMeasurement]):
+
+        delta = data[-1].datetime-data[0].datetime
+        msg = str(delta.seconds + delta.microseconds/1_000_000) + ' s, points: ' + str(len(data))
+        self.p_map.le_result.setText(msg)
 
     def _conn_jog_btn(
             self,
@@ -1355,9 +1373,12 @@ class Window(QMainWindow,Ui_MainWindow,):
         self.energy_measured.connect(monitor.add_msmnt)
 
     def stop_worker(self, worker: Worker|None) -> None:
-        
+        """Stop and delete worker."""
+
+
         if worker is not None:
             worker.kwargs['flags']['is_running'] = False
+            # delete worker
             for key, value in self.__dict__.items():
                 if value is worker:
                     self.__dict__[key] = None

@@ -14,6 +14,7 @@ import math
 from threading import Thread
 from dataclasses import replace
 import time
+from datetime import datetime as dt
 
 import yaml
 import pint
@@ -43,7 +44,8 @@ from .data_classes import (
     Coordinate,
     Actor,
     ActorFail,
-    StagesStatus
+    StagesStatus,
+    Signals
 )
 from .constants import (
     Priority
@@ -482,18 +484,85 @@ def en_meas_fast(
     if pm is None:
         msg = 'Power meter is not connected in config.'
         logger.warning(msg)
-        return EnergyMeasurement()
+        return EnergyMeasurement(dt.now())
     
     result = _osc_call.submit(
         priority,
         pm.get_energy_scr
     )
     if isinstance(result, ActorFail):
-        return EnergyMeasurement()
+        return EnergyMeasurement(dt.now())
     logger.debug('Returning measured energy. '
                     +f'signal len = {len(result.signal.m)}')
     return result
-               
+
+def en_meas_fast_cont(
+        signals: WorkerSignals,
+        flags: dict[str, bool],
+        priority: int = Priority.NORMAL,
+        **kwargs
+    ) -> list[EnergyMeasurement]:
+    """
+    Get screen information non-stop.
+
+    Thread safe.
+    """
+
+    # Object for communication with lower level fucntion
+    comm = Signals()
+    fkwargs = {'comm': comm}
+    result = []
+    tkwargs = {
+        'priority': priority,
+        'func': __en_meas_fast_cont,
+        'comm': comm,
+        'result': result
+    }
+    t = Thread(target = _osc_call.submit, kwargs = tkwargs)
+    t.start()
+    while flags.get('is_running'):
+        time.sleep(0.1)
+    comm.is_running = False
+    t.join()
+
+    return result
+
+
+def __en_meas_fast_cont(
+        comm: Signals,
+        result: list,
+        timeout: float = 20,
+    ) -> None:
+    """
+    Get screen information non-stop.
+    
+    ``comm`` - object for interthread communication.\n
+    Measuring continue untill ``comm.is_running`` set to False,
+    or ``timeout`` expires.\n
+    Intended to be called by actor only.
+    """
+
+    pm = hardware.power_meter
+    if pm is None:
+        return
+    start = time.time()
+    # execution loop
+    while comm.is_running:
+        # exit by timeout
+        if (time.time() - start) > timeout:
+            break
+        msmnt = pm.get_energy_scr()
+        # Skip bad read
+        if msmnt == EnergyMeasurement(dt.now()):
+            continue
+        # Add only unique measurements
+        if len(result):
+            if result[-1] != msmnt:
+                result.append(msmnt)
+        # Add first measurement
+        else:
+            result.append(msmnt)
+
 def glass_calculator(
         wavelength: PlainQuantity,
         current_energy_pm: PlainQuantity,
@@ -901,3 +970,4 @@ def aver_measurements(measurements: List[MeasuredPoint]) -> MeasuredPoint:
     
     logger.debug('...Finishing averaging of measurements.')
     return result
+

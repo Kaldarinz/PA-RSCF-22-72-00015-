@@ -20,6 +20,7 @@ from collections import abc
 import logging
 import time
 import math
+from datetime import datetime
 
 import pyvisa as pv
 import numpy as np
@@ -741,7 +742,7 @@ class PowerMeter:
             self.osc.xincrement
             )
         if result is None:
-            result = EnergyMeasurement()
+            result = EnergyMeasurement(datetime.now())
         logger.debug('...Finishing energy measure.'
                      + f' Laser amp = {result.energy}')
         return result
@@ -796,6 +797,7 @@ class PowerMeter:
         laser_amp = Q_(laser_amp.m, 'mJ')
         logger.debug(f'...Finishing. Laser amplitude = {laser_amp}')
         result = EnergyMeasurement(
+            datetime.now(),
             signal = data,
             dt = step.to('us'),
             istart= start_ind,
