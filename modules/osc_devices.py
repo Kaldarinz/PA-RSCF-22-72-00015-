@@ -89,10 +89,10 @@ class Oscilloscope:
         self.pre_p: List[Optional[int]] = [None]*self.CHANNELS
         self.post_p: List[Optional[int]] =[None]*self.CHANNELS
         self.dur_p: List[Optional[int]] = [None]*self.CHANNELS
-        self.data: List[PlainQuantity] = []
-        self.data_raw: List[npt.NDArray[np.int8]] = []
+        self.data: List[PlainQuantity] = [Q_(np.nan, 'V')]*self.CHANNELS
+        self.data_raw: List[npt.NDArray[np.int8]] = [np.array(np.nan)]*self.CHANNELS
         # amplitude of data
-        self.amp: List[PlainQuantity] = []
+        self.amp: List[PlainQuantity] = [Q_(np.nan, 'V')]*self.CHANNELS
         self.scr_data: List[Optional[PlainQuantity]] = [None]*self.CHANNELS
         self.scr_data_raw: List[Optional[npt.NDArray[np.int8]]] = [None]*self.CHANNELS
         self.scr_amp: List[Optional[PlainQuantity]] = [None]*self.CHANNELS
@@ -190,6 +190,7 @@ class Oscilloscope:
                 logger.debug('Resetting data and data_raw attributes '
                              + f'for CHAN{i+1}.')
                 self.data[i] = Q_(np.nan,'V')
+                logger.debug('passed')
                 self.data_raw[i] = np.array(np.nan)
                 data_raw = self._read_data(i)
                 if smooth:

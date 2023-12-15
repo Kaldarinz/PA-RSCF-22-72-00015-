@@ -430,14 +430,14 @@ class Actor:
         Submit a function for serail processing.
         
         Priority can have values from 0 (lowest) to 10 (highest).\n
-        Return False if call stack is full.
         """
 
         r = Result()
         self._send((func, args, kwargs, r), priority)
         res = r.result()
         if isinstance(res, ActorFail):
-            logger.warning(res.reason)
+            if not res.reason == 'Queue is full':
+                logger.warning(res.reason)
         return res # type: ignore
 
     def _run(self):
@@ -446,9 +446,11 @@ class Actor:
         self.enabled = True
         while True:
             func, args, kwargs, r = self.recv()
+            logger.debug(f'Starting {func.__name__}')
             try:
                 r.set_result(func(*args, **kwargs))
             except:
                 exctype, value = sys.exc_info()[:2]
                 msg = f'Error in call: {exctype}, {value}'
                 r.set_result(ActorFail(msg))
+            logger.debug(f'{func.__name__} ready')
