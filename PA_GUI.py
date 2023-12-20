@@ -122,9 +122,6 @@ def init_logs() -> tuple[logging.Logger, QLogHandler]:
 class Window(QMainWindow,Ui_MainWindow,):
     """Application MainWindow."""
 
-    worker_pm: Worker|None = None
-    "Thread for measuring energy."
-
     _data: PaData|None = None
 
     data_changed = Signal()
@@ -545,7 +542,7 @@ class Window(QMainWindow,Ui_MainWindow,):
         # Get selected measurement
         model = self.data_viwer.content_model
         msmnt_title = model.data(ind, Qt.ItemDataRole.EditRole)
-        msmnt = self.data.measurements.get(msmnt_title)
+        msmnt = self.data.measurements.get(msmnt_title) # type: ignore
         
         if msmnt is None:
             logger.warning(
