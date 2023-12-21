@@ -15,254 +15,416 @@ from PySide6.QtGui import (QBrush, QColor, QConicalGradient, QCursor,
     QFont, QFontDatabase, QGradient, QIcon,
     QImage, QKeySequence, QLinearGradient, QPainter,
     QPalette, QPixmap, QRadialGradient, QTransform)
-from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QFrame,
-    QGridLayout, QLabel, QLineEdit, QPushButton,
-    QRadioButton, QSizePolicy, QSpinBox, QWidget)
+from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QFormLayout,
+    QFrame, QGridLayout, QHBoxLayout, QLabel,
+    QLineEdit, QPushButton, QRadioButton, QSizePolicy,
+    QSpacerItem, QSpinBox, QVBoxLayout, QWidget)
 
 from ..widgets import (MplCanvas, QuantSpinBox)
 from . import qt_resources_rc
 
-class Ui_Form(object):
-    def setupUi(self, Form):
-        if not Form.objectName():
-            Form.setObjectName(u"Form")
-        Form.resize(924, 639)
-        self.btn_start = QPushButton(Form)
-        self.btn_start.setObjectName(u"btn_start")
-        self.btn_start.setGeometry(QRect(30, 420, 75, 23))
+class Ui_map_measure(object):
+    def setupUi(self, map_measure):
+        if not map_measure.objectName():
+            map_measure.setObjectName(u"map_measure")
+        map_measure.resize(924, 639)
+        self.horizontalLayout_3 = QHBoxLayout(map_measure)
+        self.horizontalLayout_3.setObjectName(u"horizontalLayout_3")
+        self.horizontalLayout_3.setContentsMargins(0, 0, 0, 0)
+        self.verticalLayout = QVBoxLayout()
+        self.verticalLayout.setObjectName(u"verticalLayout")
+        self.verticalLayout.setContentsMargins(6, -1, -1, -1)
+        self.lbl_scanarea = QLabel(map_measure)
+        self.lbl_scanarea.setObjectName(u"lbl_scanarea")
+        sizePolicy = QSizePolicy(QSizePolicy.Minimum, QSizePolicy.Preferred)
+        sizePolicy.setHorizontalStretch(0)
+        sizePolicy.setVerticalStretch(0)
+        sizePolicy.setHeightForWidth(self.lbl_scanarea.sizePolicy().hasHeightForWidth())
+        self.lbl_scanarea.setSizePolicy(sizePolicy)
         font = QFont()
         font.setBold(True)
+        self.lbl_scanarea.setFont(font)
+        self.lbl_scanarea.setAlignment(Qt.AlignCenter)
+
+        self.verticalLayout.addWidget(self.lbl_scanarea)
+
+        self.gridLayout = QGridLayout()
+        self.gridLayout.setObjectName(u"gridLayout")
+        self.gridLayout.setContentsMargins(0, -1, -1, -1)
+        self.rb_lockstep = QRadioButton(map_measure)
+        self.rb_lockstep.setObjectName(u"rb_lockstep")
+
+        self.gridLayout.addWidget(self.rb_lockstep, 3, 3, 1, 1)
+
+        self.lbl_size = QLabel(map_measure)
+        self.lbl_size.setObjectName(u"lbl_size")
+
+        self.gridLayout.addWidget(self.lbl_size, 0, 1, 1, 1)
+
+        self.sb_sizeX = QuantSpinBox(map_measure)
+        self.sb_sizeX.setObjectName(u"sb_sizeX")
+        sizePolicy1 = QSizePolicy(QSizePolicy.Minimum, QSizePolicy.Fixed)
+        sizePolicy1.setHorizontalStretch(0)
+        sizePolicy1.setVerticalStretch(0)
+        sizePolicy1.setHeightForWidth(self.sb_sizeX.sizePolicy().hasHeightForWidth())
+        self.sb_sizeX.setSizePolicy(sizePolicy1)
+        self.sb_sizeX.setMinimumSize(QSize(0, 0))
+        self.sb_sizeX.setDecimals(2)
+
+        self.gridLayout.addWidget(self.sb_sizeX, 1, 1, 1, 1)
+
+        self.lbl_lock = QLabel(map_measure)
+        self.lbl_lock.setObjectName(u"lbl_lock")
+
+        self.gridLayout.addWidget(self.lbl_lock, 3, 0, 1, 1)
+
+        self.lbl_points = QLabel(map_measure)
+        self.lbl_points.setObjectName(u"lbl_points")
+
+        self.gridLayout.addWidget(self.lbl_points, 0, 2, 1, 1)
+
+        self.lbl_step = QLabel(map_measure)
+        self.lbl_step.setObjectName(u"lbl_step")
+
+        self.gridLayout.addWidget(self.lbl_step, 0, 3, 1, 1)
+
+        self.lbl_areaX = QLabel(map_measure)
+        self.lbl_areaX.setObjectName(u"lbl_areaX")
+        self.lbl_areaX.setFont(font)
+
+        self.gridLayout.addWidget(self.lbl_areaX, 1, 0, 1, 1)
+
+        self.sb_sizeY = QuantSpinBox(map_measure)
+        self.sb_sizeY.setObjectName(u"sb_sizeY")
+        sizePolicy1.setHeightForWidth(self.sb_sizeY.sizePolicy().hasHeightForWidth())
+        self.sb_sizeY.setSizePolicy(sizePolicy1)
+        self.sb_sizeY.setMinimumSize(QSize(0, 0))
+        self.sb_sizeY.setDecimals(2)
+
+        self.gridLayout.addWidget(self.sb_sizeY, 2, 1, 1, 1)
+
+        self.sb_pointsY = QSpinBox(map_measure)
+        self.sb_pointsY.setObjectName(u"sb_pointsY")
+        sizePolicy1.setHeightForWidth(self.sb_pointsY.sizePolicy().hasHeightForWidth())
+        self.sb_pointsY.setSizePolicy(sizePolicy1)
+        self.sb_pointsY.setMinimumSize(QSize(0, 0))
+
+        self.gridLayout.addWidget(self.sb_pointsY, 2, 2, 1, 1)
+
+        self.rb_lockpoints = QRadioButton(map_measure)
+        self.rb_lockpoints.setObjectName(u"rb_lockpoints")
+
+        self.gridLayout.addWidget(self.rb_lockpoints, 3, 2, 1, 1)
+
+        self.sb_stepX = QuantSpinBox(map_measure)
+        self.sb_stepX.setObjectName(u"sb_stepX")
+        sizePolicy1.setHeightForWidth(self.sb_stepX.sizePolicy().hasHeightForWidth())
+        self.sb_stepX.setSizePolicy(sizePolicy1)
+        self.sb_stepX.setMinimumSize(QSize(0, 0))
+        self.sb_stepX.setDecimals(2)
+
+        self.gridLayout.addWidget(self.sb_stepX, 1, 3, 1, 1)
+
+        self.sb_pointsX = QSpinBox(map_measure)
+        self.sb_pointsX.setObjectName(u"sb_pointsX")
+        sizePolicy1.setHeightForWidth(self.sb_pointsX.sizePolicy().hasHeightForWidth())
+        self.sb_pointsX.setSizePolicy(sizePolicy1)
+        self.sb_pointsX.setMinimumSize(QSize(68, 0))
+
+        self.gridLayout.addWidget(self.sb_pointsX, 1, 2, 1, 1)
+
+        self.lbl_areaY = QLabel(map_measure)
+        self.lbl_areaY.setObjectName(u"lbl_areaY")
+        self.lbl_areaY.setFont(font)
+
+        self.gridLayout.addWidget(self.lbl_areaY, 2, 0, 1, 1)
+
+        self.sb_stepY = QuantSpinBox(map_measure)
+        self.sb_stepY.setObjectName(u"sb_stepY")
+        sizePolicy1.setHeightForWidth(self.sb_stepY.sizePolicy().hasHeightForWidth())
+        self.sb_stepY.setSizePolicy(sizePolicy1)
+        self.sb_stepY.setMinimumSize(QSize(0, 0))
+        self.sb_stepY.setDecimals(2)
+
+        self.gridLayout.addWidget(self.sb_stepY, 2, 3, 1, 1)
+
+        self.rb_locksize = QRadioButton(map_measure)
+        self.rb_locksize.setObjectName(u"rb_locksize")
+        sizePolicy2 = QSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        sizePolicy2.setHorizontalStretch(0)
+        sizePolicy2.setVerticalStretch(0)
+        sizePolicy2.setHeightForWidth(self.rb_locksize.sizePolicy().hasHeightForWidth())
+        self.rb_locksize.setSizePolicy(sizePolicy2)
+
+        self.gridLayout.addWidget(self.rb_locksize, 3, 1, 1, 1)
+
+
+        self.verticalLayout.addLayout(self.gridLayout)
+
+        self.line = QFrame(map_measure)
+        self.line.setObjectName(u"line")
+        self.line.setFrameShape(QFrame.HLine)
+        self.line.setFrameShadow(QFrame.Sunken)
+
+        self.verticalLayout.addWidget(self.line)
+
+        self.horizontalLayout = QHBoxLayout()
+        self.horizontalLayout.setObjectName(u"horizontalLayout")
+        self.horizontalLayout.setContentsMargins(0, -1, -1, -1)
+        self.btn_start = QPushButton(map_measure)
+        self.btn_start.setObjectName(u"btn_start")
         self.btn_start.setFont(font)
         icon = QIcon()
         icon.addFile(u":/icons/qt_resources/control.png", QSize(), QIcon.Normal, QIcon.Off)
         self.btn_start.setIcon(icon)
-        self.btn_stop = QPushButton(Form)
-        self.btn_stop.setObjectName(u"btn_stop")
-        self.btn_stop.setGeometry(QRect(190, 420, 31, 23))
+
+        self.horizontalLayout.addWidget(self.btn_start)
+
+        self.btn_pause = QPushButton(map_measure)
+        self.btn_pause.setObjectName(u"btn_pause")
         icon1 = QIcon()
-        icon1.addFile(u":/icons/qt_resources/control-stop-square.png", QSize(), QIcon.Normal, QIcon.Off)
-        self.btn_stop.setIcon(icon1)
-        self.le_result = QLineEdit(Form)
-        self.le_result.setObjectName(u"le_result")
-        self.le_result.setGeometry(QRect(430, 210, 341, 20))
-        self.scan = MplCanvas(Form)
-        self.scan.setObjectName(u"scan")
-        self.scan.setGeometry(QRect(430, 270, 350, 301))
-        sizePolicy = QSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.scan.sizePolicy().hasHeightForWidth())
-        self.scan.setSizePolicy(sizePolicy)
-        self.lbl_cur_pos = QLabel(Form)
-        self.lbl_cur_pos.setObjectName(u"lbl_cur_pos")
-        self.lbl_cur_pos.setGeometry(QRect(100, 60, 97, 20))
-        sizePolicy1 = QSizePolicy(QSizePolicy.Minimum, QSizePolicy.Preferred)
-        sizePolicy1.setHorizontalStretch(0)
-        sizePolicy1.setVerticalStretch(0)
-        sizePolicy1.setHeightForWidth(self.lbl_cur_pos.sizePolicy().hasHeightForWidth())
-        self.lbl_cur_pos.setSizePolicy(sizePolicy1)
-        self.lbl_cur_pos.setFont(font)
-        self.lbl_cur_pos.setAlignment(Qt.AlignCenter)
-        self.btn_start_2 = QPushButton(Form)
-        self.btn_start_2.setObjectName(u"btn_start_2")
-        self.btn_start_2.setGeometry(QRect(110, 420, 31, 23))
+        icon1.addFile(u":/icons/qt_resources/control-pause.png", QSize(), QIcon.Normal, QIcon.Off)
+        self.btn_pause.setIcon(icon1)
+
+        self.horizontalLayout.addWidget(self.btn_pause)
+
+        self.btn_restart = QPushButton(map_measure)
+        self.btn_restart.setObjectName(u"btn_restart")
         icon2 = QIcon()
-        icon2.addFile(u":/icons/qt_resources/control-pause.png", QSize(), QIcon.Normal, QIcon.Off)
-        self.btn_start_2.setIcon(icon2)
-        self.btn_start_3 = QPushButton(Form)
-        self.btn_start_3.setObjectName(u"btn_start_3")
-        self.btn_start_3.setGeometry(QRect(150, 420, 31, 23))
+        icon2.addFile(u":/icons/qt_resources/arrow-circle-225-left.png", QSize(), QIcon.Normal, QIcon.Off)
+        self.btn_restart.setIcon(icon2)
+
+        self.horizontalLayout.addWidget(self.btn_restart)
+
+        self.btn_stop = QPushButton(map_measure)
+        self.btn_stop.setObjectName(u"btn_stop")
         icon3 = QIcon()
-        icon3.addFile(u":/icons/qt_resources/arrow-circle-225-left.png", QSize(), QIcon.Normal, QIcon.Off)
-        self.btn_start_3.setIcon(icon3)
-        self.line = QFrame(Form)
-        self.line.setObjectName(u"line")
-        self.line.setGeometry(QRect(110, 220, 118, 3))
-        self.line.setFrameShape(QFrame.HLine)
-        self.line.setFrameShadow(QFrame.Sunken)
-        self.lbl_cur_pos_2 = QLabel(Form)
-        self.lbl_cur_pos_2.setObjectName(u"lbl_cur_pos_2")
-        self.lbl_cur_pos_2.setGeometry(QRect(130, 230, 97, 20))
-        sizePolicy1.setHeightForWidth(self.lbl_cur_pos_2.sizePolicy().hasHeightForWidth())
-        self.lbl_cur_pos_2.setSizePolicy(sizePolicy1)
-        self.lbl_cur_pos_2.setFont(font)
-        self.lbl_cur_pos_2.setAlignment(Qt.AlignCenter)
-        self.comboBox = QComboBox(Form)
-        self.comboBox.setObjectName(u"comboBox")
-        self.comboBox.setGeometry(QRect(160, 290, 69, 22))
-        self.comboBox.setFrame(True)
-        self.label_4 = QLabel(Form)
-        self.label_4.setObjectName(u"label_4")
-        self.label_4.setGeometry(QRect(80, 290, 81, 20))
-        self.label_5 = QLabel(Form)
-        self.label_5.setObjectName(u"label_5")
-        self.label_5.setGeometry(QRect(80, 320, 81, 20))
-        self.comboBox_2 = QComboBox(Form)
-        self.comboBox_2.setObjectName(u"comboBox_2")
-        self.comboBox_2.setGeometry(QRect(160, 320, 69, 22))
-        self.comboBox_2.setFrame(True)
-        self.checkBox = QCheckBox(Form)
-        self.checkBox.setObjectName(u"checkBox")
-        self.checkBox.setGeometry(QRect(170, 260, 16, 17))
-        self.label_6 = QLabel(Form)
-        self.label_6.setObjectName(u"label_6")
-        self.label_6.setGeometry(QRect(80, 260, 81, 20))
-        self.comboBox_3 = QComboBox(Form)
-        self.comboBox_3.setObjectName(u"comboBox_3")
-        self.comboBox_3.setGeometry(QRect(160, 350, 69, 22))
-        self.comboBox_3.setFrame(True)
-        self.label_7 = QLabel(Form)
-        self.label_7.setObjectName(u"label_7")
-        self.label_7.setGeometry(QRect(80, 350, 81, 20))
-        self.line_2 = QFrame(Form)
-        self.line_2.setObjectName(u"line_2")
-        self.line_2.setGeometry(QRect(100, 390, 118, 3))
-        self.line_2.setFrameShape(QFrame.HLine)
-        self.line_2.setFrameShadow(QFrame.Sunken)
-        self.line_3 = QFrame(Form)
+        icon3.addFile(u":/icons/qt_resources/control-stop-square.png", QSize(), QIcon.Normal, QIcon.Off)
+        self.btn_stop.setIcon(icon3)
+
+        self.horizontalLayout.addWidget(self.btn_stop)
+
+
+        self.verticalLayout.addLayout(self.horizontalLayout)
+
+        self.horizontalLayout_2 = QHBoxLayout()
+        self.horizontalLayout_2.setObjectName(u"horizontalLayout_2")
+        self.lbl_estdur = QLabel(map_measure)
+        self.lbl_estdur.setObjectName(u"lbl_estdur")
+
+        self.horizontalLayout_2.addWidget(self.lbl_estdur)
+
+        self.le_estdur = QLineEdit(map_measure)
+        self.le_estdur.setObjectName(u"le_estdur")
+        self.le_estdur.setEnabled(True)
+        sizePolicy1.setHeightForWidth(self.le_estdur.sizePolicy().hasHeightForWidth())
+        self.le_estdur.setSizePolicy(sizePolicy1)
+        self.le_estdur.setMaximumSize(QSize(81, 16777215))
+        self.le_estdur.setReadOnly(True)
+
+        self.horizontalLayout_2.addWidget(self.le_estdur)
+
+        self.lbl_dur = QLabel(map_measure)
+        self.lbl_dur.setObjectName(u"lbl_dur")
+
+        self.horizontalLayout_2.addWidget(self.lbl_dur)
+
+        self.le_dur = QLineEdit(map_measure)
+        self.le_dur.setObjectName(u"le_dur")
+        self.le_dur.setEnabled(True)
+        sizePolicy1.setHeightForWidth(self.le_dur.sizePolicy().hasHeightForWidth())
+        self.le_dur.setSizePolicy(sizePolicy1)
+        self.le_dur.setMaximumSize(QSize(81, 16777215))
+        self.le_dur.setReadOnly(True)
+
+        self.horizontalLayout_2.addWidget(self.le_dur)
+
+
+        self.verticalLayout.addLayout(self.horizontalLayout_2)
+
+        self.line_3 = QFrame(map_measure)
         self.line_3.setObjectName(u"line_3")
-        self.line_3.setGeometry(QRect(100, 470, 118, 3))
         self.line_3.setFrameShape(QFrame.HLine)
         self.line_3.setFrameShadow(QFrame.Sunken)
-        self.widget = QWidget(Form)
-        self.widget.setObjectName(u"widget")
-        self.widget.setGeometry(QRect(0, 90, 210, 86))
-        self.gridLayout = QGridLayout(self.widget)
-        self.gridLayout.setObjectName(u"gridLayout")
-        self.gridLayout.setContentsMargins(0, 0, 0, 0)
-        self.label = QLabel(self.widget)
-        self.label.setObjectName(u"label")
 
-        self.gridLayout.addWidget(self.label, 0, 1, 1, 1)
+        self.verticalLayout.addWidget(self.line_3)
 
-        self.label_2 = QLabel(self.widget)
-        self.label_2.setObjectName(u"label_2")
+        self.lbl_params = QLabel(map_measure)
+        self.lbl_params.setObjectName(u"lbl_params")
+        sizePolicy.setHeightForWidth(self.lbl_params.sizePolicy().hasHeightForWidth())
+        self.lbl_params.setSizePolicy(sizePolicy)
+        self.lbl_params.setFont(font)
+        self.lbl_params.setAlignment(Qt.AlignCenter)
 
-        self.gridLayout.addWidget(self.label_2, 0, 2, 1, 1)
+        self.verticalLayout.addWidget(self.lbl_params)
 
-        self.label_3 = QLabel(self.widget)
-        self.label_3.setObjectName(u"label_3")
+        self.formLayout = QFormLayout()
+        self.formLayout.setObjectName(u"formLayout")
+        self.formLayout.setContentsMargins(0, -1, -1, -1)
+        self.lbl_speed = QLabel(map_measure)
+        self.lbl_speed.setObjectName(u"lbl_speed")
 
-        self.gridLayout.addWidget(self.label_3, 0, 3, 1, 1)
+        self.formLayout.setWidget(0, QFormLayout.LabelRole, self.lbl_speed)
 
-        self.label_8 = QLabel(self.widget)
-        self.label_8.setObjectName(u"label_8")
-        self.label_8.setFont(font)
+        self.sb_speed = QuantSpinBox(map_measure)
+        self.sb_speed.setObjectName(u"sb_speed")
+        sizePolicy1.setHeightForWidth(self.sb_speed.sizePolicy().hasHeightForWidth())
+        self.sb_speed.setSizePolicy(sizePolicy1)
+        self.sb_speed.setMinimumSize(QSize(0, 0))
+        self.sb_speed.setDecimals(2)
+        self.sb_speed.setValue(2.000000000000000)
 
-        self.gridLayout.addWidget(self.label_8, 1, 0, 1, 1)
+        self.formLayout.setWidget(0, QFormLayout.FieldRole, self.sb_speed)
 
-        self.sb_x_new_pos = QuantSpinBox(self.widget)
-        self.sb_x_new_pos.setObjectName(u"sb_x_new_pos")
-        sizePolicy2 = QSizePolicy(QSizePolicy.Minimum, QSizePolicy.Fixed)
-        sizePolicy2.setHorizontalStretch(0)
-        sizePolicy2.setVerticalStretch(0)
-        sizePolicy2.setHeightForWidth(self.sb_x_new_pos.sizePolicy().hasHeightForWidth())
-        self.sb_x_new_pos.setSizePolicy(sizePolicy2)
-        self.sb_x_new_pos.setMinimumSize(QSize(0, 0))
-        self.sb_x_new_pos.setDecimals(2)
+        self.lbl_astep = QLabel(map_measure)
+        self.lbl_astep.setObjectName(u"lbl_astep")
 
-        self.gridLayout.addWidget(self.sb_x_new_pos, 1, 1, 1, 1)
+        self.formLayout.setWidget(1, QFormLayout.LabelRole, self.lbl_astep)
 
-        self.sb_x_new_pos_3 = QSpinBox(self.widget)
-        self.sb_x_new_pos_3.setObjectName(u"sb_x_new_pos_3")
-        sizePolicy2.setHeightForWidth(self.sb_x_new_pos_3.sizePolicy().hasHeightForWidth())
-        self.sb_x_new_pos_3.setSizePolicy(sizePolicy2)
-        self.sb_x_new_pos_3.setMinimumSize(QSize(0, 0))
+        self.chb_astep = QCheckBox(map_measure)
+        self.chb_astep.setObjectName(u"chb_astep")
+        self.chb_astep.setChecked(True)
 
-        self.gridLayout.addWidget(self.sb_x_new_pos_3, 1, 2, 1, 1)
+        self.formLayout.setWidget(1, QFormLayout.FieldRole, self.chb_astep)
 
-        self.sb_x_new_pos_5 = QuantSpinBox(self.widget)
-        self.sb_x_new_pos_5.setObjectName(u"sb_x_new_pos_5")
-        sizePolicy2.setHeightForWidth(self.sb_x_new_pos_5.sizePolicy().hasHeightForWidth())
-        self.sb_x_new_pos_5.setSizePolicy(sizePolicy2)
-        self.sb_x_new_pos_5.setMinimumSize(QSize(0, 0))
-        self.sb_x_new_pos_5.setDecimals(2)
+        self.lbl_scandir = QLabel(map_measure)
+        self.lbl_scandir.setObjectName(u"lbl_scandir")
 
-        self.gridLayout.addWidget(self.sb_x_new_pos_5, 1, 3, 1, 1)
+        self.formLayout.setWidget(2, QFormLayout.LabelRole, self.lbl_scandir)
 
-        self.label_9 = QLabel(self.widget)
-        self.label_9.setObjectName(u"label_9")
-        self.label_9.setFont(font)
+        self.cb_scandir = QComboBox(map_measure)
+        icon4 = QIcon()
+        icon4.addFile(u":/icons/qt_resources/SCAN_HTL.png", QSize(), QIcon.Normal, QIcon.Off)
+        self.cb_scandir.addItem(icon4, "")
+        icon5 = QIcon()
+        icon5.addFile(u":/icons/qt_resources/SCAN_HTR.png", QSize(), QIcon.Normal, QIcon.Off)
+        self.cb_scandir.addItem(icon5, "")
+        icon6 = QIcon()
+        icon6.addFile(u":/icons/qt_resources/SCAN_HBR.png", QSize(), QIcon.Normal, QIcon.Off)
+        self.cb_scandir.addItem(icon6, "")
+        icon7 = QIcon()
+        icon7.addFile(u":/icons/qt_resources/SCAN_HBL.png", QSize(), QIcon.Normal, QIcon.Off)
+        self.cb_scandir.addItem(icon7, "")
+        icon8 = QIcon()
+        icon8.addFile(u":/icons/qt_resources/SCAN_VBR.png", QSize(), QIcon.Normal, QIcon.Off)
+        self.cb_scandir.addItem(icon8, "")
+        icon9 = QIcon()
+        icon9.addFile(u":/icons/qt_resources/SCAN_VBL.png", QSize(), QIcon.Normal, QIcon.Off)
+        self.cb_scandir.addItem(icon9, "")
+        icon10 = QIcon()
+        icon10.addFile(u":/icons/qt_resources/SCAN_VTR.png", QSize(), QIcon.Normal, QIcon.Off)
+        self.cb_scandir.addItem(icon10, "")
+        icon11 = QIcon()
+        icon11.addFile(u":/icons/qt_resources/SCAN_VTL.png", QSize(), QIcon.Normal, QIcon.Off)
+        self.cb_scandir.addItem(icon11, "")
+        self.cb_scandir.setObjectName(u"cb_scandir")
+        self.cb_scandir.setFrame(True)
 
-        self.gridLayout.addWidget(self.label_9, 2, 0, 1, 1)
+        self.formLayout.setWidget(2, QFormLayout.FieldRole, self.cb_scandir)
 
-        self.sb_x_new_pos_2 = QuantSpinBox(self.widget)
-        self.sb_x_new_pos_2.setObjectName(u"sb_x_new_pos_2")
-        sizePolicy2.setHeightForWidth(self.sb_x_new_pos_2.sizePolicy().hasHeightForWidth())
-        self.sb_x_new_pos_2.setSizePolicy(sizePolicy2)
-        self.sb_x_new_pos_2.setMinimumSize(QSize(0, 0))
-        self.sb_x_new_pos_2.setDecimals(2)
+        self.lbl_sig = QLabel(map_measure)
+        self.lbl_sig.setObjectName(u"lbl_sig")
 
-        self.gridLayout.addWidget(self.sb_x_new_pos_2, 2, 1, 1, 1)
+        self.formLayout.setWidget(3, QFormLayout.LabelRole, self.lbl_sig)
 
-        self.sb_x_new_pos_4 = QSpinBox(self.widget)
-        self.sb_x_new_pos_4.setObjectName(u"sb_x_new_pos_4")
-        sizePolicy2.setHeightForWidth(self.sb_x_new_pos_4.sizePolicy().hasHeightForWidth())
-        self.sb_x_new_pos_4.setSizePolicy(sizePolicy2)
-        self.sb_x_new_pos_4.setMinimumSize(QSize(0, 0))
+        self.cb_sig = QComboBox(map_measure)
+        self.cb_sig.addItem("")
+        self.cb_sig.setObjectName(u"cb_sig")
+        self.cb_sig.setFrame(True)
 
-        self.gridLayout.addWidget(self.sb_x_new_pos_4, 2, 2, 1, 1)
+        self.formLayout.setWidget(3, QFormLayout.FieldRole, self.cb_sig)
 
-        self.sb_x_new_pos_6 = QuantSpinBox(self.widget)
-        self.sb_x_new_pos_6.setObjectName(u"sb_x_new_pos_6")
-        sizePolicy2.setHeightForWidth(self.sb_x_new_pos_6.sizePolicy().hasHeightForWidth())
-        self.sb_x_new_pos_6.setSizePolicy(sizePolicy2)
-        self.sb_x_new_pos_6.setMinimumSize(QSize(0, 0))
-        self.sb_x_new_pos_6.setDecimals(2)
+        self.lbl_scanplane = QLabel(map_measure)
+        self.lbl_scanplane.setObjectName(u"lbl_scanplane")
 
-        self.gridLayout.addWidget(self.sb_x_new_pos_6, 2, 3, 1, 1)
+        self.formLayout.setWidget(4, QFormLayout.LabelRole, self.lbl_scanplane)
 
-        self.label_10 = QLabel(self.widget)
-        self.label_10.setObjectName(u"label_10")
+        self.cb_scanplane = QComboBox(map_measure)
+        self.cb_scanplane.addItem("")
+        self.cb_scanplane.addItem("")
+        self.cb_scanplane.addItem("")
+        self.cb_scanplane.setObjectName(u"cb_scanplane")
+        self.cb_scanplane.setFrame(True)
 
-        self.gridLayout.addWidget(self.label_10, 3, 0, 1, 1)
-
-        self.radioButton_3 = QRadioButton(self.widget)
-        self.radioButton_3.setObjectName(u"radioButton_3")
-
-        self.gridLayout.addWidget(self.radioButton_3, 3, 1, 1, 1)
-
-        self.radioButton_2 = QRadioButton(self.widget)
-        self.radioButton_2.setObjectName(u"radioButton_2")
-
-        self.gridLayout.addWidget(self.radioButton_2, 3, 2, 1, 1)
-
-        self.radioButton = QRadioButton(self.widget)
-        self.radioButton.setObjectName(u"radioButton")
-
-        self.gridLayout.addWidget(self.radioButton, 3, 3, 1, 1)
+        self.formLayout.setWidget(4, QFormLayout.FieldRole, self.cb_scanplane)
 
 
-        self.retranslateUi(Form)
+        self.verticalLayout.addLayout(self.formLayout)
 
-        QMetaObject.connectSlotsByName(Form)
+        self.line_2 = QFrame(map_measure)
+        self.line_2.setObjectName(u"line_2")
+        self.line_2.setFrameShape(QFrame.HLine)
+        self.line_2.setFrameShadow(QFrame.Sunken)
+
+        self.verticalLayout.addWidget(self.line_2)
+
+        self.verticalSpacer = QSpacerItem(20, 40, QSizePolicy.Minimum, QSizePolicy.Expanding)
+
+        self.verticalLayout.addItem(self.verticalSpacer)
+
+
+        self.horizontalLayout_3.addLayout(self.verticalLayout)
+
+        self.plot_scan = MplCanvas(map_measure)
+        self.plot_scan.setObjectName(u"plot_scan")
+        sizePolicy3 = QSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        sizePolicy3.setHorizontalStretch(0)
+        sizePolicy3.setVerticalStretch(0)
+        sizePolicy3.setHeightForWidth(self.plot_scan.sizePolicy().hasHeightForWidth())
+        self.plot_scan.setSizePolicy(sizePolicy3)
+
+        self.horizontalLayout_3.addWidget(self.plot_scan)
+
+
+        self.retranslateUi(map_measure)
+
+        QMetaObject.connectSlotsByName(map_measure)
     # setupUi
 
-    def retranslateUi(self, Form):
-        Form.setWindowTitle(QCoreApplication.translate("Form", u"Form", None))
-        self.btn_start.setText(QCoreApplication.translate("Form", u"Scan", None))
+    def retranslateUi(self, map_measure):
+        map_measure.setWindowTitle(QCoreApplication.translate("map_measure", u"Form", None))
+        self.lbl_scanarea.setText(QCoreApplication.translate("map_measure", u"Scan Area", None))
+        self.rb_lockstep.setText("")
+        self.lbl_size.setText(QCoreApplication.translate("map_measure", u"Size", None))
+        self.sb_sizeX.setSuffix(QCoreApplication.translate("map_measure", u" mm", None))
+        self.lbl_lock.setText(QCoreApplication.translate("map_measure", u"Lock", None))
+        self.lbl_points.setText(QCoreApplication.translate("map_measure", u"Points", None))
+        self.lbl_step.setText(QCoreApplication.translate("map_measure", u"Step", None))
+        self.lbl_areaX.setText(QCoreApplication.translate("map_measure", u"X", None))
+        self.sb_sizeY.setSuffix(QCoreApplication.translate("map_measure", u" mm", None))
+        self.rb_lockpoints.setText("")
+        self.sb_stepX.setSuffix(QCoreApplication.translate("map_measure", u" mm", None))
+        self.lbl_areaY.setText(QCoreApplication.translate("map_measure", u"Y", None))
+        self.sb_stepY.setSuffix(QCoreApplication.translate("map_measure", u" mm", None))
+        self.rb_locksize.setText("")
+        self.btn_start.setText(QCoreApplication.translate("map_measure", u"Scan", None))
+        self.btn_pause.setText("")
+        self.btn_restart.setText("")
         self.btn_stop.setText("")
-        self.lbl_cur_pos.setText(QCoreApplication.translate("Form", u"Scan Area", None))
-        self.btn_start_2.setText("")
-        self.btn_start_3.setText("")
-        self.lbl_cur_pos_2.setText(QCoreApplication.translate("Form", u"Parameters", None))
-        self.label_4.setText(QCoreApplication.translate("Form", u"Direction", None))
-        self.label_5.setText(QCoreApplication.translate("Form", u"Signal", None))
-        self.checkBox.setText("")
-        self.label_6.setText(QCoreApplication.translate("Form", u"Auto step", None))
-        self.label_7.setText(QCoreApplication.translate("Form", u"Plane", None))
-        self.label.setText(QCoreApplication.translate("Form", u"Size", None))
-        self.label_2.setText(QCoreApplication.translate("Form", u"Points", None))
-        self.label_3.setText(QCoreApplication.translate("Form", u"Step", None))
-        self.label_8.setText(QCoreApplication.translate("Form", u"X", None))
-        self.sb_x_new_pos.setSuffix(QCoreApplication.translate("Form", u" mm", None))
-        self.sb_x_new_pos_5.setSuffix(QCoreApplication.translate("Form", u" mm", None))
-        self.label_9.setText(QCoreApplication.translate("Form", u"Y", None))
-        self.sb_x_new_pos_2.setSuffix(QCoreApplication.translate("Form", u" mm", None))
-        self.sb_x_new_pos_6.setSuffix(QCoreApplication.translate("Form", u" mm", None))
-        self.label_10.setText(QCoreApplication.translate("Form", u"Lock", None))
-        self.radioButton_3.setText("")
-        self.radioButton_2.setText("")
-        self.radioButton.setText("")
+        self.lbl_estdur.setText(QCoreApplication.translate("map_measure", u"Est time", None))
+        self.lbl_dur.setText(QCoreApplication.translate("map_measure", u"Time", None))
+        self.lbl_params.setText(QCoreApplication.translate("map_measure", u"Parameters", None))
+        self.lbl_speed.setText(QCoreApplication.translate("map_measure", u"Speed", None))
+        self.sb_speed.setSuffix(QCoreApplication.translate("map_measure", u" mm/s", None))
+        self.lbl_astep.setText(QCoreApplication.translate("map_measure", u"Auto step", None))
+        self.chb_astep.setText("")
+        self.lbl_scandir.setText(QCoreApplication.translate("map_measure", u"Direction", None))
+        self.cb_scandir.setItemText(0, QCoreApplication.translate("map_measure", u"HLT", None))
+        self.cb_scandir.setItemText(1, QCoreApplication.translate("map_measure", u"HRT", None))
+        self.cb_scandir.setItemText(2, QCoreApplication.translate("map_measure", u"HRB", None))
+        self.cb_scandir.setItemText(3, QCoreApplication.translate("map_measure", u"HLB", None))
+        self.cb_scandir.setItemText(4, QCoreApplication.translate("map_measure", u"VRB", None))
+        self.cb_scandir.setItemText(5, QCoreApplication.translate("map_measure", u"VLB", None))
+        self.cb_scandir.setItemText(6, QCoreApplication.translate("map_measure", u"VRT", None))
+        self.cb_scandir.setItemText(7, QCoreApplication.translate("map_measure", u"VLT", None))
+
+        self.lbl_sig.setText(QCoreApplication.translate("map_measure", u"Signal", None))
+        self.cb_sig.setItemText(0, QCoreApplication.translate("map_measure", u"Amplitude", None))
+
+        self.lbl_scanplane.setText(QCoreApplication.translate("map_measure", u"Plane", None))
+        self.cb_scanplane.setItemText(0, QCoreApplication.translate("map_measure", u"XY", None))
+        self.cb_scanplane.setItemText(1, QCoreApplication.translate("map_measure", u"XZ", None))
+        self.cb_scanplane.setItemText(2, QCoreApplication.translate("map_measure", u"YZ", None))
+
     # retranslateUi
 
