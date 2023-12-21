@@ -25,8 +25,8 @@ from PySide6.QtGui import (
     QContextMenuEvent
 )
 from matplotlib.figure import Figure
-from matplotlib.axes import Axes
 from matplotlib.lines import Line2D
+from matplotlib.image import AxesImage
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
 from matplotlib.backends.backend_qtagg import NavigationToolbar2QT # type: ignore
 
@@ -145,6 +145,61 @@ class MplNavCanvas(QWidget):
         layout.addWidget(self.canvas)
         layout.addWidget(self.toolbar)
         self.setLayout(layout)
+
+class MplMap(FigureCanvasQTAgg):
+    """Single plot MatPlotLib widget."""
+
+    def __init__(self, parent = None):
+        self.fig = Figure()
+        self.fig.set_tight_layout(True)
+        self.axes = self.fig.add_subplot()
+        self.data: np.ndarray|None = None
+        self.xlabel: str = ''
+        self.ylabel: str = ''
+        self.xunits: str = ''
+        self.yunits: str = ''
+        self.xstep: float|None = None
+        self.ystep: float|None = None
+        self._plot_ref: AxesImage|None = None
+        super().__init__(self.fig)
+
+    def contextMenuEvent(self, event: QContextMenuEvent) -> None:
+        """Context menu."""
+
+        context = QMenu(self)
+        save_data = QAction('Export data to *.txt', self)
+        context.addAction(save_data)
+        save_data.triggered.connect(self._save_data)
+        context.exec(event.globalPos())
+
+    def _save_data(self) -> None:
+        """Save data from current plot."""
+
+        path = os.getcwd()
+        initial_dir = os.path.join(path, 'measuring results')
+        filename = QFileDialog.getSaveFileName(
+            self,
+            caption='Choose a file',
+            dir=initial_dir,
+            filter='text file (*.txt)'
+        )[0]
+        if filename:
+            logger.warning('Save for map data not implemented!')
+            return
+            if self.xdata is not None and self.ydata is not None:
+                data = np.column_stack((self.xdata,self.ydata))
+                header = ''
+                if self.xlabel is not None:
+                    header = self.xlabel
+                if self.ylabel is not None:
+                    header = header + '\n' + self.ylabel
+                np.savetxt(
+                    fname = filename,
+                    X = data,
+                    header = header
+                )
+            else:
+                logger.warning('Attempt to export empty data!')
 
 class QuantSpinBox(QDoubleSpinBox):
 

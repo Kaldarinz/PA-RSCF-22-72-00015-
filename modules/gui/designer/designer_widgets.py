@@ -194,7 +194,7 @@ class PointMeasureWidget(QWidget,point_measure_widget_ui.Ui_Form):
             self.pm_monitor
         )
 
-class MapMeasureWidget(QWidget,map_measure_widget_ui.Ui_Form):
+class MapMeasureWidget(QWidget,map_measure_widget_ui.Ui_map_measure):
     """2D PhotoAcoustic measurements widget."""
 
     def __init__(self, parent: QWidget | None = None) -> None:

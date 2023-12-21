@@ -13,6 +13,7 @@ import threading
 from datetime import datetime as dt
 
 from pint.facets.plain.quantity import PlainQuantity
+from pint.errors import UndefinedUnitError as UnitError
 import numpy.typing as npt
 import numpy as np
 from pylablib.devices.Thorlabs import KinesisMotor
@@ -177,6 +178,51 @@ class OscMeasurement:
     pre_t: list[PlainQuantity] = field(default_factory=list)
     yincrement: float = np.nan
     "Data = yincrement*data_raw."
+
+@dataclass
+class MapData:
+
+    _data: np.ndarray = field(
+        default_factory = empty_ndarray,
+        compare = False
+    )
+    xstep: PlainQuantity = Q_(np.nan, 'um')
+    ystep: PlainQuantity = Q_(np.nan, 'um')
+    units: str = ''
+
+    @property
+    def data(self) -> PlainQuantity:
+        try:
+            data = Q_(self._data, self.units)
+        except UnitError:
+            logger.warning('Wrong units in MapData.')
+            return Q_(self._data, '')
+        return data
+    
+    @data.setter
+    def data(self, data: PlainQuantity|np.ndarray) -> None:
+        if isinstance(data, PlainQuantity):
+            # Check if data is iterable
+            try:
+                iter(data)
+            except TypeError:
+                logger.warning('Trying to set scalar PintQuantity for map data.')
+                return
+            # Check if data has correct dimentionality
+            if data.ndim != 2:
+                logger.warning('Wrong data dimentionality.')
+                return
+            self._data = data.m
+            self.units = f'{data.u:~.2gP}'
+        elif isinstance(data, np.ndarray):
+            # Check if data has correct dimentionality
+            if data.ndim != 2:
+                logger.warning('Wrong data dimentionality.')
+                return
+            self._data = data
+        # for wrong datatype
+        else:
+            logger.warning('Trying to set wrong data type to MapData.')
 
 
 @dataclass
