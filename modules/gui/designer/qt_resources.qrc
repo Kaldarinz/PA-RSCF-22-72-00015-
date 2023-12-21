@@ -1,5 +1,13 @@
 <RCC>
   <qresource prefix="icons">
+    <file>qt_resources/SCAN_VBL.png</file>
+    <file>qt_resources/SCAN_VBR.png</file>
+    <file>qt_resources/SCAN_VTR.png</file>
+    <file>qt_resources/SCAN_VTL.png</file>
+    <file>qt_resources/SCAN_HTR.png</file>
+    <file>qt_resources/SCAN_HBR.png</file>
+    <file>qt_resources/SCAN_HBL.png</file>
+    <file>qt_resources/SCAN_HTL.png</file>
     <file>qt_resources/abacus.png</file>
     <file>qt_resources/acorn.png</file>
     <file>qt_resources/address-book.png</file>
