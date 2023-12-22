@@ -743,7 +743,7 @@ class Window(QMainWindow,Ui_MainWindow,):
             'pick_event',
             lambda event: self.pick_event(
                 view.plot_curve.canvas,
-                event
+                event # type: ignore
             )
         )
 

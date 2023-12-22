@@ -17,7 +17,8 @@ from PySide6.QtWidgets import (
     QPushButton,
     QHBoxLayout,
     QVBoxLayout,
-    QLabel
+    QLabel,
+    QDoubleSpinBox
 )
 from PySide6.QtGui import (
     QPixmap
@@ -57,7 +58,8 @@ from ...utils import (
 )
 
 from ..widgets import (
-    MplCanvas
+    MplCanvas,
+    QuantSpinBox
 )
 
 logger = logging.getLogger(__name__)
@@ -200,6 +202,59 @@ class MapMeasureWidget(QWidget,map_measure_widget_ui.Ui_map_measure):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setupUi(self)
+
+        # Set default range
+        self.plot_scan.set_scanrange(Q_(25, 'mm'), Q_(25, 'mm'))
+
+        # Set default selection
+        self.plot_scan.set_selarea(Q_(11, 'mm'), Q_(11, 'mm'), Q_(4, 'mm'), Q_(4, 'mm'))
+
+        self.connect_signals_slots()
+
+    def connect_signals_slots(self):
+        """Connect signals and slots."""
+
+        # Scan size changed
+        self.sb_sizeX.editingFinished.connect(
+            lambda: self._upd_size(self.sb_sizeX)
+        )
+        self.sb_sizeX.stepChanged.connect(
+            lambda: self._upd_size(self.sb_sizeX)
+        )
+        # Scan size changed
+        self.sb_sizeY.editingFinished.connect(
+            lambda: self._upd_size(self.sb_sizeY)
+        )
+        self.sb_sizeY.stepChanged.connect(
+            lambda: self._upd_size(self.sb_sizeY)
+        )
+
+    @Slot(QuantSpinBox, float)
+    def _upd_size(self, sb: QuantSpinBox) -> None:
+        """Slot to update scan size."""
+
+        new_val = Q_(sb.value(), sb.suffix())
+        if sb.objectName().endswith('X'):
+            ret_val = self.plot_scan.set_selarea(width = new_val)
+            if ret_val is not None:
+                ret_val = ret_val[2]
+            else:
+                return
+        elif sb.objectName().endswith('Y'):
+            ret_val = self.plot_scan.set_selarea(height = new_val)
+            if ret_val is not None:
+                ret_val = ret_val[3]
+            else:
+                return
+        else:
+            logger.error('Wrong coller of upd_size')
+            return
+            
+        if ret_val != new_val:
+            sb.blockSignals(True)
+            sb.setValue(ret_val)
+            sb.blockSignals(False)
+
 
 class PowerMeterMonitor(QWidget,pm_monitor_ui.Ui_Form):
     """Power meter monitor.

@@ -41,7 +41,6 @@
        </property>
        <property name="font">
         <font>
-         <weight>75</weight>
          <bold>true</bold>
         </font>
        </property>
@@ -92,6 +91,12 @@
          <property name="decimals">
           <number>2</number>
          </property>
+         <property name="maximum">
+          <double>25.000000000000000</double>
+         </property>
+         <property name="value">
+          <double>4.000000000000000</double>
+         </property>
         </widget>
        </item>
        <item row="3" column="0">
@@ -119,7 +124,6 @@
         <widget class="QLabel" name="lbl_areaX">
          <property name="font">
           <font>
-           <weight>75</weight>
            <bold>true</bold>
           </font>
          </property>
@@ -147,6 +151,12 @@
          </property>
          <property name="decimals">
           <number>2</number>
+         </property>
+         <property name="maximum">
+          <double>25.000000000000000</double>
+         </property>
+         <property name="value">
+          <double>4.000000000000000</double>
          </property>
         </widget>
        </item>
@@ -215,7 +225,6 @@
         <widget class="QLabel" name="lbl_areaY">
          <property name="font">
           <font>
-           <weight>75</weight>
            <bold>true</bold>
           </font>
          </property>
@@ -277,7 +286,6 @@
         <widget class="QPushButton" name="btn_start">
          <property name="font">
           <font>
-           <weight>75</weight>
            <bold>true</bold>
           </font>
          </property>
@@ -404,7 +412,6 @@
        </property>
        <property name="font">
         <font>
-         <weight>75</weight>
          <bold>true</bold>
         </font>
        </property>
@@ -629,7 +636,7 @@
     </layout>
    </item>
    <item>
-    <widget class="MplCanvas" name="plot_scan" native="true">
+    <widget class="MplMap" name="plot_scan" native="true">
      <property name="sizePolicy">
       <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
        <horstretch>0</horstretch>
@@ -642,15 +649,15 @@
  </widget>
  <customwidgets>
   <customwidget>
-   <class>MplCanvas</class>
-   <extends>QWidget</extends>
-   <header>..widgets</header>
-   <container>1</container>
-  </customwidget>
-  <customwidget>
    <class>QuantSpinBox</class>
    <extends>QDoubleSpinBox</extends>
    <header>..widgets</header>
+  </customwidget>
+  <customwidget>
+   <class>MplMap</class>
+   <extends>QWidget</extends>
+   <header>..widgets</header>
+   <container>1</container>
   </customwidget>
  </customwidgets>
  <resources>

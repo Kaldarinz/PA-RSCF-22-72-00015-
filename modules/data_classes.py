@@ -224,7 +224,6 @@ class MapData:
         else:
             logger.warning('Trying to set wrong data type to MapData.')
 
-
 @dataclass
 class EnergyMeasurement:
     """Energy measurement from power meter."""

@@ -3,7 +3,7 @@
 ################################################################################
 ## Form generated from reading UI file 'map_measure_widget.ui'
 ##
-## Created by: Qt User Interface Compiler version 6.6.0
+## Created by: Qt User Interface Compiler version 6.6.1
 ##
 ## WARNING! All changes made in this file will be lost when recompiling UI file!
 ################################################################################
@@ -20,7 +20,7 @@ from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QFormLayout,
     QLineEdit, QPushButton, QRadioButton, QSizePolicy,
     QSpacerItem, QSpinBox, QVBoxLayout, QWidget)
 
-from ..widgets import (MplCanvas, QuantSpinBox)
+from ..widgets import (MplMap, QuantSpinBox)
 from . import qt_resources_rc
 
 class Ui_map_measure(object):
@@ -70,6 +70,8 @@ class Ui_map_measure(object):
         self.sb_sizeX.setSizePolicy(sizePolicy1)
         self.sb_sizeX.setMinimumSize(QSize(0, 0))
         self.sb_sizeX.setDecimals(2)
+        self.sb_sizeX.setMaximum(25.000000000000000)
+        self.sb_sizeX.setValue(4.000000000000000)
 
         self.gridLayout.addWidget(self.sb_sizeX, 1, 1, 1, 1)
 
@@ -100,6 +102,8 @@ class Ui_map_measure(object):
         self.sb_sizeY.setSizePolicy(sizePolicy1)
         self.sb_sizeY.setMinimumSize(QSize(0, 0))
         self.sb_sizeY.setDecimals(2)
+        self.sb_sizeY.setMaximum(25.000000000000000)
+        self.sb_sizeY.setValue(4.000000000000000)
 
         self.gridLayout.addWidget(self.sb_sizeY, 2, 1, 1, 1)
 
@@ -365,7 +369,7 @@ class Ui_map_measure(object):
 
         self.horizontalLayout_3.addLayout(self.verticalLayout)
 
-        self.plot_scan = MplCanvas(map_measure)
+        self.plot_scan = MplMap(map_measure)
         self.plot_scan.setObjectName(u"plot_scan")
         sizePolicy3 = QSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         sizePolicy3.setHorizontalStretch(0)
