@@ -10,7 +10,6 @@ from PySide6.QtWidgets import (
     QPushButton
 )
 from matplotlib.backends.backend_qtagg import NavigationToolbar2QT # type: ignore
-from InquirerPy import inquirer
 from pint.facets.plain.quantity import PlainQuantity
 import numpy as np
 
@@ -20,15 +19,6 @@ from .gui.widgets import (
 )
 
 logger = logging.getLogger(__name__)
-
-def confirm_action(message: str='') -> bool:
-    """CLI confirm action."""
-
-    if not message:
-        message = 'Are you sure?'
-    confirm = inquirer.confirm(message=message).execute()
-    logger.debug(f'"{message}" = {confirm}')
-    return confirm
 
 def upd_plot(
         base_widget: MplCanvas|MplNavCanvas,

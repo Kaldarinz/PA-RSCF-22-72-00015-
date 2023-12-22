@@ -29,7 +29,6 @@ from .osc_devices import (
     PowerMeter,
     PhotoAcousticSensOlymp
 )
-from .utils import confirm_action
 from modules.exceptions import (
     OscConnectError,
     OscIOError,

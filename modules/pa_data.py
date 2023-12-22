@@ -83,7 +83,6 @@ from pint.facets.plain.quantity import PlainQuantity
 import h5py
 import numpy as np
 import numpy.typing as npt
-import texteditor
 
 from . import Q_
 from .data_classes import (
@@ -96,7 +95,6 @@ from .data_classes import (
     Measurement,
     MeasuredPoint
 )
-from .utils import confirm_action
 from modules.exceptions import (
     PlotError
 )
