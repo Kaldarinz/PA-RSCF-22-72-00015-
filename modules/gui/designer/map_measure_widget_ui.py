@@ -3,7 +3,7 @@
 ################################################################################
 ## Form generated from reading UI file 'map_measure_widget.ui'
 ##
-## Created by: Qt User Interface Compiler version 6.6.1
+## Created by: Qt User Interface Compiler version 6.6.0
 ##
 ## WARNING! All changes made in this file will be lost when recompiling UI file!
 ################################################################################
@@ -30,10 +30,8 @@ class Ui_map_measure(object):
         map_measure.resize(924, 639)
         self.horizontalLayout_3 = QHBoxLayout(map_measure)
         self.horizontalLayout_3.setObjectName(u"horizontalLayout_3")
-        self.horizontalLayout_3.setContentsMargins(0, 0, 0, 0)
         self.verticalLayout = QVBoxLayout()
         self.verticalLayout.setObjectName(u"verticalLayout")
-        self.verticalLayout.setContentsMargins(6, -1, -1, -1)
         self.lbl_scanarea = QLabel(map_measure)
         self.lbl_scanarea.setObjectName(u"lbl_scanarea")
         sizePolicy = QSizePolicy(QSizePolicy.Minimum, QSizePolicy.Preferred)
@@ -50,54 +48,21 @@ class Ui_map_measure(object):
 
         self.gridLayout = QGridLayout()
         self.gridLayout.setObjectName(u"gridLayout")
-        self.gridLayout.setContentsMargins(0, -1, -1, -1)
-        self.rb_lockstep = QRadioButton(map_measure)
-        self.rb_lockstep.setObjectName(u"rb_lockstep")
-
-        self.gridLayout.addWidget(self.rb_lockstep, 3, 3, 1, 1)
-
         self.lbl_size = QLabel(map_measure)
         self.lbl_size.setObjectName(u"lbl_size")
 
-        self.gridLayout.addWidget(self.lbl_size, 0, 1, 1, 1)
+        self.gridLayout.addWidget(self.lbl_size, 0, 2, 1, 1)
 
-        self.sb_sizeX = QuantSpinBox(map_measure)
-        self.sb_sizeX.setObjectName(u"sb_sizeX")
-        sizePolicy1 = QSizePolicy(QSizePolicy.Minimum, QSizePolicy.Fixed)
-        sizePolicy1.setHorizontalStretch(0)
-        sizePolicy1.setVerticalStretch(0)
-        sizePolicy1.setHeightForWidth(self.sb_sizeX.sizePolicy().hasHeightForWidth())
-        self.sb_sizeX.setSizePolicy(sizePolicy1)
-        self.sb_sizeX.setMinimumSize(QSize(0, 0))
-        self.sb_sizeX.setDecimals(2)
-        self.sb_sizeX.setMaximum(25.000000000000000)
-        self.sb_sizeX.setValue(4.000000000000000)
+        self.rb_lockstep = QRadioButton(map_measure)
+        self.rb_lockstep.setObjectName(u"rb_lockstep")
 
-        self.gridLayout.addWidget(self.sb_sizeX, 1, 1, 1, 1)
-
-        self.lbl_lock = QLabel(map_measure)
-        self.lbl_lock.setObjectName(u"lbl_lock")
-
-        self.gridLayout.addWidget(self.lbl_lock, 3, 0, 1, 1)
-
-        self.lbl_points = QLabel(map_measure)
-        self.lbl_points.setObjectName(u"lbl_points")
-
-        self.gridLayout.addWidget(self.lbl_points, 0, 2, 1, 1)
-
-        self.lbl_step = QLabel(map_measure)
-        self.lbl_step.setObjectName(u"lbl_step")
-
-        self.gridLayout.addWidget(self.lbl_step, 0, 3, 1, 1)
-
-        self.lbl_areaX = QLabel(map_measure)
-        self.lbl_areaX.setObjectName(u"lbl_areaX")
-        self.lbl_areaX.setFont(font)
-
-        self.gridLayout.addWidget(self.lbl_areaX, 1, 0, 1, 1)
+        self.gridLayout.addWidget(self.rb_lockstep, 3, 4, 1, 1)
 
         self.sb_sizeY = QuantSpinBox(map_measure)
         self.sb_sizeY.setObjectName(u"sb_sizeY")
+        sizePolicy1 = QSizePolicy(QSizePolicy.Minimum, QSizePolicy.Fixed)
+        sizePolicy1.setHorizontalStretch(0)
+        sizePolicy1.setVerticalStretch(0)
         sizePolicy1.setHeightForWidth(self.sb_sizeY.sizePolicy().hasHeightForWidth())
         self.sb_sizeY.setSizePolicy(sizePolicy1)
         self.sb_sizeY.setMinimumSize(QSize(0, 0))
@@ -105,7 +70,18 @@ class Ui_map_measure(object):
         self.sb_sizeY.setMaximum(25.000000000000000)
         self.sb_sizeY.setValue(4.000000000000000)
 
-        self.gridLayout.addWidget(self.sb_sizeY, 2, 1, 1, 1)
+        self.gridLayout.addWidget(self.sb_sizeY, 2, 2, 1, 1)
+
+        self.sb_sizeX = QuantSpinBox(map_measure)
+        self.sb_sizeX.setObjectName(u"sb_sizeX")
+        sizePolicy1.setHeightForWidth(self.sb_sizeX.sizePolicy().hasHeightForWidth())
+        self.sb_sizeX.setSizePolicy(sizePolicy1)
+        self.sb_sizeX.setMinimumSize(QSize(0, 0))
+        self.sb_sizeX.setDecimals(2)
+        self.sb_sizeX.setMaximum(25.000000000000000)
+        self.sb_sizeX.setValue(4.000000000000000)
+
+        self.gridLayout.addWidget(self.sb_sizeX, 1, 2, 1, 1)
 
         self.sb_pointsY = QSpinBox(map_measure)
         self.sb_pointsY.setObjectName(u"sb_pointsY")
@@ -113,12 +89,31 @@ class Ui_map_measure(object):
         self.sb_pointsY.setSizePolicy(sizePolicy1)
         self.sb_pointsY.setMinimumSize(QSize(0, 0))
 
-        self.gridLayout.addWidget(self.sb_pointsY, 2, 2, 1, 1)
+        self.gridLayout.addWidget(self.sb_pointsY, 2, 3, 1, 1)
+
+        self.lbl_areaX = QLabel(map_measure)
+        self.lbl_areaX.setObjectName(u"lbl_areaX")
+        self.lbl_areaX.setFont(font)
+
+        self.gridLayout.addWidget(self.lbl_areaX, 1, 0, 1, 1)
+
+        self.lbl_lock = QLabel(map_measure)
+        self.lbl_lock.setObjectName(u"lbl_lock")
+
+        self.gridLayout.addWidget(self.lbl_lock, 3, 0, 1, 1)
 
         self.rb_lockpoints = QRadioButton(map_measure)
         self.rb_lockpoints.setObjectName(u"rb_lockpoints")
 
-        self.gridLayout.addWidget(self.rb_lockpoints, 3, 2, 1, 1)
+        self.gridLayout.addWidget(self.rb_lockpoints, 3, 3, 1, 1)
+
+        self.sb_pointsX = QSpinBox(map_measure)
+        self.sb_pointsX.setObjectName(u"sb_pointsX")
+        sizePolicy1.setHeightForWidth(self.sb_pointsX.sizePolicy().hasHeightForWidth())
+        self.sb_pointsX.setSizePolicy(sizePolicy1)
+        self.sb_pointsX.setMinimumSize(QSize(68, 0))
+
+        self.gridLayout.addWidget(self.sb_pointsX, 1, 3, 1, 1)
 
         self.sb_stepX = QuantSpinBox(map_measure)
         self.sb_stepX.setObjectName(u"sb_stepX")
@@ -127,21 +122,29 @@ class Ui_map_measure(object):
         self.sb_stepX.setMinimumSize(QSize(0, 0))
         self.sb_stepX.setDecimals(2)
 
-        self.gridLayout.addWidget(self.sb_stepX, 1, 3, 1, 1)
+        self.gridLayout.addWidget(self.sb_stepX, 1, 4, 1, 1)
 
-        self.sb_pointsX = QSpinBox(map_measure)
-        self.sb_pointsX.setObjectName(u"sb_pointsX")
-        sizePolicy1.setHeightForWidth(self.sb_pointsX.sizePolicy().hasHeightForWidth())
-        self.sb_pointsX.setSizePolicy(sizePolicy1)
-        self.sb_pointsX.setMinimumSize(QSize(68, 0))
+        self.lbl_center = QLabel(map_measure)
+        self.lbl_center.setObjectName(u"lbl_center")
 
-        self.gridLayout.addWidget(self.sb_pointsX, 1, 2, 1, 1)
+        self.gridLayout.addWidget(self.lbl_center, 0, 1, 1, 1)
 
         self.lbl_areaY = QLabel(map_measure)
         self.lbl_areaY.setObjectName(u"lbl_areaY")
         self.lbl_areaY.setFont(font)
 
         self.gridLayout.addWidget(self.lbl_areaY, 2, 0, 1, 1)
+
+        self.sb_centerX = QuantSpinBox(map_measure)
+        self.sb_centerX.setObjectName(u"sb_centerX")
+        sizePolicy1.setHeightForWidth(self.sb_centerX.sizePolicy().hasHeightForWidth())
+        self.sb_centerX.setSizePolicy(sizePolicy1)
+        self.sb_centerX.setMinimumSize(QSize(0, 0))
+        self.sb_centerX.setDecimals(2)
+        self.sb_centerX.setMaximum(25.000000000000000)
+        self.sb_centerX.setValue(12.500000000000000)
+
+        self.gridLayout.addWidget(self.sb_centerX, 1, 1, 1, 1)
 
         self.sb_stepY = QuantSpinBox(map_measure)
         self.sb_stepY.setObjectName(u"sb_stepY")
@@ -150,7 +153,28 @@ class Ui_map_measure(object):
         self.sb_stepY.setMinimumSize(QSize(0, 0))
         self.sb_stepY.setDecimals(2)
 
-        self.gridLayout.addWidget(self.sb_stepY, 2, 3, 1, 1)
+        self.gridLayout.addWidget(self.sb_stepY, 2, 4, 1, 1)
+
+        self.sb_centerY = QuantSpinBox(map_measure)
+        self.sb_centerY.setObjectName(u"sb_centerY")
+        sizePolicy1.setHeightForWidth(self.sb_centerY.sizePolicy().hasHeightForWidth())
+        self.sb_centerY.setSizePolicy(sizePolicy1)
+        self.sb_centerY.setMinimumSize(QSize(0, 0))
+        self.sb_centerY.setDecimals(2)
+        self.sb_centerY.setMaximum(25.000000000000000)
+        self.sb_centerY.setValue(12.500000000000000)
+
+        self.gridLayout.addWidget(self.sb_centerY, 2, 1, 1, 1)
+
+        self.lbl_points = QLabel(map_measure)
+        self.lbl_points.setObjectName(u"lbl_points")
+
+        self.gridLayout.addWidget(self.lbl_points, 0, 3, 1, 1)
+
+        self.lbl_step = QLabel(map_measure)
+        self.lbl_step.setObjectName(u"lbl_step")
+
+        self.gridLayout.addWidget(self.lbl_step, 0, 4, 1, 1)
 
         self.rb_locksize = QRadioButton(map_measure)
         self.rb_locksize.setObjectName(u"rb_locksize")
@@ -159,8 +183,9 @@ class Ui_map_measure(object):
         sizePolicy2.setVerticalStretch(0)
         sizePolicy2.setHeightForWidth(self.rb_locksize.sizePolicy().hasHeightForWidth())
         self.rb_locksize.setSizePolicy(sizePolicy2)
+        self.rb_locksize.setLayoutDirection(Qt.LeftToRight)
 
-        self.gridLayout.addWidget(self.rb_locksize, 3, 1, 1, 1)
+        self.gridLayout.addWidget(self.rb_locksize, 3, 2, 1, 1)
 
 
         self.verticalLayout.addLayout(self.gridLayout)
@@ -223,7 +248,7 @@ class Ui_map_measure(object):
         self.le_estdur.setEnabled(True)
         sizePolicy1.setHeightForWidth(self.le_estdur.sizePolicy().hasHeightForWidth())
         self.le_estdur.setSizePolicy(sizePolicy1)
-        self.le_estdur.setMaximumSize(QSize(81, 16777215))
+        self.le_estdur.setMaximumSize(QSize(120, 16777215))
         self.le_estdur.setReadOnly(True)
 
         self.horizontalLayout_2.addWidget(self.le_estdur)
@@ -238,7 +263,7 @@ class Ui_map_measure(object):
         self.le_dur.setEnabled(True)
         sizePolicy1.setHeightForWidth(self.le_dur.sizePolicy().hasHeightForWidth())
         self.le_dur.setSizePolicy(sizePolicy1)
-        self.le_dur.setMaximumSize(QSize(81, 16777215))
+        self.le_dur.setMaximumSize(QSize(120, 16777215))
         self.le_dur.setReadOnly(True)
 
         self.horizontalLayout_2.addWidget(self.le_dur)
@@ -379,6 +404,27 @@ class Ui_map_measure(object):
 
         self.horizontalLayout_3.addWidget(self.plot_scan)
 
+        QWidget.setTabOrder(self.sb_centerX, self.sb_centerY)
+        QWidget.setTabOrder(self.sb_centerY, self.sb_sizeX)
+        QWidget.setTabOrder(self.sb_sizeX, self.sb_sizeY)
+        QWidget.setTabOrder(self.sb_sizeY, self.sb_pointsX)
+        QWidget.setTabOrder(self.sb_pointsX, self.sb_pointsY)
+        QWidget.setTabOrder(self.sb_pointsY, self.sb_stepX)
+        QWidget.setTabOrder(self.sb_stepX, self.sb_stepY)
+        QWidget.setTabOrder(self.sb_stepY, self.rb_locksize)
+        QWidget.setTabOrder(self.rb_locksize, self.rb_lockpoints)
+        QWidget.setTabOrder(self.rb_lockpoints, self.rb_lockstep)
+        QWidget.setTabOrder(self.rb_lockstep, self.btn_start)
+        QWidget.setTabOrder(self.btn_start, self.btn_pause)
+        QWidget.setTabOrder(self.btn_pause, self.btn_restart)
+        QWidget.setTabOrder(self.btn_restart, self.btn_stop)
+        QWidget.setTabOrder(self.btn_stop, self.le_estdur)
+        QWidget.setTabOrder(self.le_estdur, self.le_dur)
+        QWidget.setTabOrder(self.le_dur, self.sb_speed)
+        QWidget.setTabOrder(self.sb_speed, self.chb_astep)
+        QWidget.setTabOrder(self.chb_astep, self.cb_scandir)
+        QWidget.setTabOrder(self.cb_scandir, self.cb_sig)
+        QWidget.setTabOrder(self.cb_sig, self.cb_scanplane)
 
         self.retranslateUi(map_measure)
 
@@ -388,18 +434,21 @@ class Ui_map_measure(object):
     def retranslateUi(self, map_measure):
         map_measure.setWindowTitle(QCoreApplication.translate("map_measure", u"Form", None))
         self.lbl_scanarea.setText(QCoreApplication.translate("map_measure", u"Scan Area", None))
-        self.rb_lockstep.setText("")
         self.lbl_size.setText(QCoreApplication.translate("map_measure", u"Size", None))
-        self.sb_sizeX.setSuffix(QCoreApplication.translate("map_measure", u" mm", None))
-        self.lbl_lock.setText(QCoreApplication.translate("map_measure", u"Lock", None))
-        self.lbl_points.setText(QCoreApplication.translate("map_measure", u"Points", None))
-        self.lbl_step.setText(QCoreApplication.translate("map_measure", u"Step", None))
-        self.lbl_areaX.setText(QCoreApplication.translate("map_measure", u"X", None))
+        self.rb_lockstep.setText("")
         self.sb_sizeY.setSuffix(QCoreApplication.translate("map_measure", u" mm", None))
+        self.sb_sizeX.setSuffix(QCoreApplication.translate("map_measure", u" mm", None))
+        self.lbl_areaX.setText(QCoreApplication.translate("map_measure", u"X", None))
+        self.lbl_lock.setText(QCoreApplication.translate("map_measure", u"Lock", None))
         self.rb_lockpoints.setText("")
         self.sb_stepX.setSuffix(QCoreApplication.translate("map_measure", u" mm", None))
+        self.lbl_center.setText(QCoreApplication.translate("map_measure", u"Center", None))
         self.lbl_areaY.setText(QCoreApplication.translate("map_measure", u"Y", None))
+        self.sb_centerX.setSuffix(QCoreApplication.translate("map_measure", u" mm", None))
         self.sb_stepY.setSuffix(QCoreApplication.translate("map_measure", u" mm", None))
+        self.sb_centerY.setSuffix(QCoreApplication.translate("map_measure", u" mm", None))
+        self.lbl_points.setText(QCoreApplication.translate("map_measure", u"Points", None))
+        self.lbl_step.setText(QCoreApplication.translate("map_measure", u"Step", None))
         self.rb_locksize.setText("")
         self.btn_start.setText(QCoreApplication.translate("map_measure", u"Scan", None))
         self.btn_pause.setText("")

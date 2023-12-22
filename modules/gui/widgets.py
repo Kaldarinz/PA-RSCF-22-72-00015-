@@ -26,12 +26,16 @@ from PySide6.QtGui import (
     QAction,
     QContextMenuEvent
 )
+from PySide6.QtCore import (
+    Signal
+)
 from matplotlib.figure import Figure
 from matplotlib.lines import Line2D
 from matplotlib.image import AxesImage
 from matplotlib.patches import Rectangle, Patch
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
 from matplotlib.backends.backend_qtagg import NavigationToolbar2QT # type: ignore
+from matplotlib.backend_bases import MouseEvent
 
 from modules import ureg, Q_
 
@@ -152,12 +156,23 @@ class MplNavCanvas(QWidget):
 class MplMap(FigureCanvasQTAgg):
     """Single plot MatPlotLib widget."""
 
+    selection_changed = Signal()
+
     def __init__(self, parent = None):
         self.fig = Figure()
         self.fig.set_tight_layout(True) # type: ignore
         super().__init__(self.fig)
         self.axes = self.fig.add_subplot()
+
+        # Axes formatting
         self.axes.set_aspect('equal')
+        self.axes.tick_params(
+            top = True,
+            labeltop = True,
+            right = True,
+            labelright = True
+        )
+
         self.data: np.ndarray|None = None
         self.xlabel: str = 'X, []'
         self.ylabel: str = 'Y, []'
@@ -169,6 +184,12 @@ class MplMap(FigureCanvasQTAgg):
         self.ymax: float|None = None
         self._plot_ref: AxesImage|None = None
         self._sel_ref: Rectangle|None = None
+
+        # events
+        self.press_event: MouseEvent|None = None
+        self.fig.canvas.mpl_connect('button_press_event', self.on_press)
+        self.fig.canvas.mpl_connect('button_release_event', self.on_release)
+        self.fig.canvas.mpl_connect('motion_notify_event', self.on_move)
 
     def set_scanrange(
             self,
@@ -185,11 +206,15 @@ class MplMap(FigureCanvasQTAgg):
                 except DimensionalityError:
                     logger.warning('Wrong dimension in scan range.')
                 else:
-                    self.xmax = x.m
+                    self.xmax = float(x.m)
             # if label was not set
             else:
-                self.xmax = x.m
+                self.xmax = float(x.m)
                 self.xunits = f'{x.u:~.2gP}'
+
+            # update plot
+            if self.xmax is not None:
+                self.axes.set_xlim(xmax=self.xmax)
 
         if y is not None:
             # if label already set
@@ -199,15 +224,15 @@ class MplMap(FigureCanvasQTAgg):
                 except DimensionalityError:
                     logger.warning('Wrong dimension in scan range.')
                 else:
-                    self.ymax = y.m
+                    self.ymax = float(y.m)
             # if label was not set
             else:
-                self.ymax = y.m
+                self.ymax = float(y.m)
                 self.yunits = f'{y.u:~.2gP}'
 
-        # update plot
-        self.axes.set_xlim(xmax=self.xmax)
-        self.axes.set_ylim(ymax=self.ymax)
+            # update plot
+            if self.ymax is not None:
+                self.axes.set_ylim(ymax=self.ymax)
 
     def set_selarea(
             self,
@@ -233,68 +258,75 @@ class MplMap(FigureCanvasQTAgg):
         # Selection is already on plot
         if self._sel_ref is not None:
             if x0 is not None:
-                updated['x0'] = True
                 try:
-                    x0 = x0.to(self.xunits).m # type: ignore
+                    x = float(x0.to(self.xunits).m)
                 except DimensionalityError:
                     logger.error('Selected area cannot be set. Wrong units.')
                     return
-                if x0 < 0:
-                    x0 = 0
+                if x != self._sel_ref.get_x(): 
+                    updated['x0'] = True
+                if x < 0:
+                    x = 0.
             else:
-                x0 = self._sel_ref.get_x() # type: ignore
+                x = self._sel_ref.get_x()
 
             if y0 is not None:
-                updated['y0'] = True
                 try:
-                    y0 = y0.to(self.yunits).m # type: ignore
+                    y = float(y0.to(self.yunits).m)
                 except DimensionalityError:
                     logger.error('Selected area cannot be set. Wrong units.')
                     return
-                if y0 < 0:
-                    y0 = 0
+                if y != self._sel_ref.get_y():
+                    updated['y0'] = True
+                if y < 0:
+                    y = 0
             else:
-                y0 = self._sel_ref.get_y() # type: ignore
+                y = self._sel_ref.get_y()
 
             if width is not None:
                 updated['width'] = True
                 try:
-                    width = width.to(self.xunits).m # type: ignore
+                    width_m = float(width.to(self.xunits).m)
                 except DimensionalityError:
                     logger.error('Selected area cannot be set. Wrong units.')
                     return
             else:
-                width = self._sel_ref.get_width() # type: ignore
+                width_m = self._sel_ref.get_width()
 
             if height is not None:
                 updated['height'] = True
                 try:
-                    height = height.to(self.yunits).m # type: ignore
+                    height_m = float(height.to(self.yunits).m)
                 except DimensionalityError:
                     logger.error('Selected area cannot be set. Wrong units.')
                     return
             else:
-                height = self._sel_ref.get_height() # type: ignore
+                height_m = self._sel_ref.get_height()
 
             # check if new vals are correct
-            if (x0 + width) > self.xmax: # type: ignore
+            if (x + width_m) > self.xmax: # type: ignore
                 if updated['x0']:
-                    x0 = self.xmax - width # type: ignore
+                    x = self.xmax - width_m # type: ignore
                 else:
-                    width = self.xmax - x0 # type: ignore
+                    width_m = self.xmax - x # type: ignore
 
-            if (y0 + height) > self.ymax: # type: ignore
+            if (y + height_m) > self.ymax: # type: ignore
                 if updated['y0']:
-                    y0 = self.ymax = height # type: ignore
+                    y = self.ymax - height_m # type: ignore
                 else:
-                    height = self.ymax - y0 # type: ignore
+                    height_m = self.ymax - y # type: ignore
 
-            logger.info(f'New vals: {width,height}')
-            self._sel_ref.set_xy((x0, y0)) # type: ignore
-            self._sel_ref.set_width(width) # type: ignore
-            self._sel_ref.set_height(height) # type: ignore
-            self.fig.canvas.draw()
-            return (x0,y0,width,height) # type: ignore
+            # update patch
+            if updated['x0'] or updated['y0']:
+                self._sel_ref.set_xy((x, y))
+            if updated['width']:
+                self._sel_ref.set_width(width_m)
+            if updated['height']:
+                self._sel_ref.set_height(height_m)
+            if True in updated.values():
+                self.fig.canvas.draw()
+                self.selection_changed.emit()
+            return (x, y, width_m, height_m)
         # No selection is already present
         else:
             # All values should be provided for new sel area
@@ -314,6 +346,31 @@ class MplMap(FigureCanvasQTAgg):
             self._sel_ref = self.axes.add_patch(rect) # type: ignore
             self._sel_ref = cast(Rectangle, self._sel_ref)
             return (x0,y0,width,height) # type: ignore
+
+    def on_press(self, event: MouseEvent) -> None:
+        """Callback method for press event."""
+
+        if (event.inaxes == self.axes 
+            and self._sel_ref is not None 
+            and self._sel_ref.contains(event)[0]
+        ):
+            self.press_event = event
+            self.dx = event.xdata - self._sel_ref.get_x() # type: ignore
+            self.dy = event.ydata - self._sel_ref.get_y() # type: ignore
+
+    def on_release(self, event: MouseEvent) -> None:
+        """Callback method for mouse btn release."""
+
+        self.press_event = None
+
+    def on_move(self, event: MouseEvent) -> None:
+        """Callback method for mouse move."""
+
+        if self.press_event is not None and event.inaxes == self.axes:
+            self.set_selarea(
+                Q_(event.xdata - self.dx, self.xunits),
+                Q_(event.ydata - self.dy, self.yunits)
+            )
 
     @property
     def xunits(self) -> str:

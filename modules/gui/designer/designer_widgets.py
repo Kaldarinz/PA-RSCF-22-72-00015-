@@ -214,36 +214,76 @@ class MapMeasureWidget(QWidget,map_measure_widget_ui.Ui_map_measure):
     def connect_signals_slots(self):
         """Connect signals and slots."""
 
-        # Scan size changed
+        # Scan size X changed
         self.sb_sizeX.editingFinished.connect(
             lambda: self._upd_size(self.sb_sizeX)
         )
         self.sb_sizeX.stepChanged.connect(
             lambda: self._upd_size(self.sb_sizeX)
         )
-        # Scan size changed
+        # Scan size Y changed
         self.sb_sizeY.editingFinished.connect(
             lambda: self._upd_size(self.sb_sizeY)
         )
         self.sb_sizeY.stepChanged.connect(
             lambda: self._upd_size(self.sb_sizeY)
         )
+        # Scan center X changed
+        self.sb_centerX.editingFinished.connect(
+            lambda: self._upd_size(self.sb_centerX)
+        )
+        self.sb_centerX.stepChanged.connect(
+            lambda: self._upd_size(self.sb_centerX)
+        )
+        # Scan center Y changed
+        self.sb_centerY.editingFinished.connect(
+            lambda: self._upd_size(self.sb_centerY)
+        )
+        self.sb_centerY.stepChanged.connect(
+            lambda: self._upd_size(self.sb_centerY)
+        )
+        # Selected area changed from plot
+        self.plot_scan.selection_changed.connect(self._sel_changed)
 
     @Slot(QuantSpinBox, float)
     def _upd_size(self, sb: QuantSpinBox) -> None:
         """Slot to update scan size."""
 
+        # size x
         new_val = Q_(sb.value(), sb.suffix())
-        if sb.objectName().endswith('X'):
+        if sb.objectName().endswith('sizeX'):
             ret_val = self.plot_scan.set_selarea(width = new_val)
             if ret_val is not None:
                 ret_val = ret_val[2]
             else:
                 return
-        elif sb.objectName().endswith('Y'):
+        # size y
+        elif sb.objectName().endswith('sizeY'):
             ret_val = self.plot_scan.set_selarea(height = new_val)
             if ret_val is not None:
                 ret_val = ret_val[3]
+            else:
+                return
+        # center X
+        elif sb.objectName().endswith('centerX'):
+            delta = Q_(
+                self.plot_scan._sel_ref.get_width()/2,
+                self.plot_scan.xunits)
+            new_val -= delta
+            ret_val = self.plot_scan.set_selarea(x0 = new_val) + delta.m
+            if ret_val is not None:
+                ret_val = ret_val[0]
+            else:
+                return
+            # center Y
+        elif sb.objectName().endswith('centerY'):
+            delta = Q_(
+                self.plot_scan._sel_ref.get_height()/2,
+                self.plot_scan.yunits)
+            new_val -= delta
+            ret_val = self.plot_scan.set_selarea(y0 = new_val) + delta.m
+            if ret_val is not None:
+                ret_val = ret_val[1]
             else:
                 return
         else:
@@ -255,6 +295,18 @@ class MapMeasureWidget(QWidget,map_measure_widget_ui.Ui_map_measure):
             sb.setValue(ret_val)
             sb.blockSignals(False)
 
+    @Slot()
+    def _sel_changed(self) -> None:
+
+        plot_x, plot_y = self.plot_scan._sel_ref.get_xy() # type: ignore
+        plot_width = self.plot_scan._sel_ref.get_width() # type: ignore
+        plot_height = self.plot_scan._sel_ref.get_height() # type: ignore
+        cent_x = plot_x + plot_width/2
+        cent_y = plot_y + plot_height/2
+        if self.sb_centerX.value() != cent_x:
+            self.sb_centerX.setValue(cent_x)
+        if self.sb_centerY.value() != cent_y:
+            self.sb_centerY.setValue(cent_y)
 
 class PowerMeterMonitor(QWidget,pm_monitor_ui.Ui_Form):
     """Power meter monitor.
