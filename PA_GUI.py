@@ -42,7 +42,8 @@ from PySide6.QtWidgets import (
     QComboBox,
     QTreeWidgetItem,
     QFileDialog,
-    QMessageBox
+    QMessageBox,
+    QProgressDialog
 )
 from PySide6.QtGui import (
     QKeySequence,
@@ -347,6 +348,7 @@ class Window(QMainWindow,Ui_MainWindow,):
         self.p_map.btn_stop.clicked.connect(
             lambda: self.stop_worker(self.tst_worker)
         )
+        # Calculate auto step
 
         ### Data view###
         self.action_Data.toggled.connect(self.activate_data_viwer)
@@ -401,6 +403,28 @@ class Window(QMainWindow,Ui_MainWindow,):
         self._conn_jog_btn(
             self.d_motors.btn_z_right_move, 'z', '+'
         )
+
+    @Slot(QProgressDialog)
+    def calc_astep(self, pb: QProgressDialog) -> None:
+        """Calculate auto step"""
+
+        self.astep_worker = Worker(pa_logic.en_meas_fast_cont)
+        # Progress signal increase progress bar
+        self.astep_worker.signals.progess.connect(
+            lambda x: pb.setValue(pb.value() + 1)
+        )
+        # Set results
+        self.astep_worker.signals.result.connect(
+            self.p_map.set_astep
+        )
+        # if progress bar was cancelled or finished, stop measurements
+        pb.canceled.connect(
+            lambda: self.stop_worker(self.astep_worker)
+        )
+        pb.finished.connect(
+            lambda: self.stop_worker(self.astep_worker)
+        )
+
 
     def tst_map(self):
 

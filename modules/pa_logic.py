@@ -509,7 +509,7 @@ def en_meas_fast_cont(
 
     # Object for communication with lower level fucntion
     comm = Signals()
-    fkwargs = {'comm': comm}
+    # List with results
     result = []
     tkwargs = {
         'priority': priority,

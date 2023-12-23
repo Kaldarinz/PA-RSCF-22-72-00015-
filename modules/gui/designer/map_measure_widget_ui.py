@@ -28,8 +28,8 @@ class Ui_map_measure(object):
         if not map_measure.objectName():
             map_measure.setObjectName(u"map_measure")
         map_measure.resize(924, 639)
-        self.horizontalLayout_3 = QHBoxLayout(map_measure)
-        self.horizontalLayout_3.setObjectName(u"horizontalLayout_3")
+        self.horizontalLayout_4 = QHBoxLayout(map_measure)
+        self.horizontalLayout_4.setObjectName(u"horizontalLayout_4")
         self.verticalLayout = QVBoxLayout()
         self.verticalLayout.setObjectName(u"verticalLayout")
         self.lbl_scanarea = QLabel(map_measure)
@@ -289,7 +289,6 @@ class Ui_map_measure(object):
 
         self.formLayout = QFormLayout()
         self.formLayout.setObjectName(u"formLayout")
-        self.formLayout.setContentsMargins(0, -1, -1, -1)
         self.lbl_speed = QLabel(map_measure)
         self.lbl_speed.setObjectName(u"lbl_speed")
 
@@ -310,11 +309,21 @@ class Ui_map_measure(object):
 
         self.formLayout.setWidget(1, QFormLayout.LabelRole, self.lbl_astep)
 
+        self.horizontalLayout_3 = QHBoxLayout()
+        self.horizontalLayout_3.setObjectName(u"horizontalLayout_3")
         self.chb_astep = QCheckBox(map_measure)
         self.chb_astep.setObjectName(u"chb_astep")
         self.chb_astep.setChecked(True)
 
-        self.formLayout.setWidget(1, QFormLayout.FieldRole, self.chb_astep)
+        self.horizontalLayout_3.addWidget(self.chb_astep)
+
+        self.btn_astep_calc = QPushButton(map_measure)
+        self.btn_astep_calc.setObjectName(u"btn_astep_calc")
+
+        self.horizontalLayout_3.addWidget(self.btn_astep_calc)
+
+
+        self.formLayout.setLayout(1, QFormLayout.FieldRole, self.horizontalLayout_3)
 
         self.lbl_scandir = QLabel(map_measure)
         self.lbl_scandir.setObjectName(u"lbl_scandir")
@@ -392,7 +401,7 @@ class Ui_map_measure(object):
         self.verticalLayout.addItem(self.verticalSpacer)
 
 
-        self.horizontalLayout_3.addLayout(self.verticalLayout)
+        self.horizontalLayout_4.addLayout(self.verticalLayout)
 
         self.plot_scan = MplMap(map_measure)
         self.plot_scan.setObjectName(u"plot_scan")
@@ -402,7 +411,7 @@ class Ui_map_measure(object):
         sizePolicy3.setHeightForWidth(self.plot_scan.sizePolicy().hasHeightForWidth())
         self.plot_scan.setSizePolicy(sizePolicy3)
 
-        self.horizontalLayout_3.addWidget(self.plot_scan)
+        self.horizontalLayout_4.addWidget(self.plot_scan)
 
         QWidget.setTabOrder(self.sb_centerX, self.sb_centerY)
         QWidget.setTabOrder(self.sb_centerY, self.sb_sizeX)
@@ -461,6 +470,7 @@ class Ui_map_measure(object):
         self.sb_speed.setSuffix(QCoreApplication.translate("map_measure", u" mm/s", None))
         self.lbl_astep.setText(QCoreApplication.translate("map_measure", u"Auto step", None))
         self.chb_astep.setText("")
+        self.btn_astep_calc.setText(QCoreApplication.translate("map_measure", u"Calculate", None))
         self.lbl_scandir.setText(QCoreApplication.translate("map_measure", u"Direction", None))
         self.cb_scandir.setItemText(0, QCoreApplication.translate("map_measure", u"HLT", None))
         self.cb_scandir.setItemText(1, QCoreApplication.translate("map_measure", u"HRT", None))

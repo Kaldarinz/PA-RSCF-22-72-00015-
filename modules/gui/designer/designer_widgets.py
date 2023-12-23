@@ -18,7 +18,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QVBoxLayout,
     QLabel,
-    QDoubleSpinBox
+    QProgressDialog
 )
 from PySide6.QtGui import (
     QPixmap
@@ -199,6 +199,8 @@ class PointMeasureWidget(QWidget,point_measure_widget_ui.Ui_Form):
 class MapMeasureWidget(QWidget,map_measure_widget_ui.Ui_map_measure):
     """2D PhotoAcoustic measurements widget."""
 
+    calc_astepClicked = Signal(QProgressDialog)
+
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setupUi(self)
@@ -245,55 +247,93 @@ class MapMeasureWidget(QWidget,map_measure_widget_ui.Ui_map_measure):
         # Selected area changed from plot
         self.plot_scan.selection_changed.connect(self._sel_changed)
 
+    def calc_astep(self, count: int = 50) -> None:
+        """Launch auto step calculation."""
+
+        # Create progress bar dialog
+        pb = QProgressDialog(self)
+        pb.setLabelText('Calculating auto step size...')
+        pb.setMinimum(0)
+        pb.setMaximum(count)
+        # Set appear immediatelly
+        pb.setMinimumDuration(0)
+        pb.setValue(0)
+        self.calc_astepClicked.emit(pb)
+
+    @Slot()
+    def set_astep(self, data: list[EnergyMeasurement]) -> None:
+        """Set step and points."""
+
+        if len(data) < 4:
+            logger.warning(
+                'Auto step cannot be calculated. Too few data.'
+            )
+            return
+
+        delta = data[-1].datetime - data[0].datetime
+        dt = Q_(delta.seconds + delta.microseconds/1_000_000, 's')
+        speed = self.sb_speed.quantity
+        # Average time per 1 step
+        time_per_p = dt/(len(data) - 1)
+        step = speed * time_per_p
+        # Line size depends on orientation of fast scan direction
+        if self.cb_scandir.currentText().startswith('H'):
+            line_size = self.sb_sizeX.quantity
+        else:
+            line_size = self.sb_sizeY.quantity
+
+        points = int(line_size/step) + 1
+
+        ### Set calculated values
+        # Step
+        x_units = self.sb_stepX.suffix().strip()
+        self.sb_stepX.setValue(step.to(x_units))
+        y_units = self.sb_stepY.suffix().strip()
+        self.sb_stepY.setValue(step.to(y_units))
+        # Points
+        if self.cb_scandir.currentText().startswith('H'):
+            self.sb_pointsX.setValue(points)
+            self.sb_pointsY.setValue(
+               int(self.sb_sizeY.quantity/step) + 1 
+            )
+            est_dur = 1.2*(line_size + 2*self.sb_sizeY.quantity)/speed
+        else:
+            self.sb_pointsX.setValue(
+               int(self.sb_sizeX.quantity/step) + 1 
+            )
+            self.sb_pointsY.setValue(points)
+            est_dur = 1.2*(line_size + 2*self.sb_sizeX.quantity)/speed
+        # Est time
+        self.le_estdur.setText(str(est_dur))
+
     @Slot(QuantSpinBox, float)
     def _upd_size(self, sb: QuantSpinBox) -> None:
-        """Slot to update scan size."""
+        """Slot to update selected area on plot."""
 
         # size x
         new_val = Q_(sb.value(), sb.suffix())
         if sb.objectName().endswith('sizeX'):
-            ret_val = self.plot_scan.set_selarea(width = new_val)
-            if ret_val is not None:
-                ret_val = ret_val[2]
-            else:
-                return
+            self.plot_scan.set_selarea(width = new_val)
         # size y
         elif sb.objectName().endswith('sizeY'):
-            ret_val = self.plot_scan.set_selarea(height = new_val)
-            if ret_val is not None:
-                ret_val = ret_val[3]
-            else:
-                return
+            self.plot_scan.set_selarea(height = new_val)
         # center X
         elif sb.objectName().endswith('centerX'):
             delta = Q_(
                 self.plot_scan._sel_ref.get_width()/2,
                 self.plot_scan.xunits)
             new_val -= delta
-            ret_val = self.plot_scan.set_selarea(x0 = new_val) + delta.m
-            if ret_val is not None:
-                ret_val = ret_val[0]
-            else:
-                return
+            self.plot_scan.set_selarea(x0 = new_val)
             # center Y
         elif sb.objectName().endswith('centerY'):
             delta = Q_(
                 self.plot_scan._sel_ref.get_height()/2,
                 self.plot_scan.yunits)
             new_val -= delta
-            ret_val = self.plot_scan.set_selarea(y0 = new_val) + delta.m
-            if ret_val is not None:
-                ret_val = ret_val[1]
-            else:
-                return
+            self.plot_scan.set_selarea(y0 = new_val)
         else:
             logger.error('Wrong coller of upd_size')
             return
-            
-        if ret_val != new_val:
-            sb.blockSignals(True)
-            sb.setValue(ret_val)
-            sb.blockSignals(False)
 
     @Slot()
     def _sel_changed(self) -> None:
@@ -307,6 +347,10 @@ class MapMeasureWidget(QWidget,map_measure_widget_ui.Ui_map_measure):
             self.sb_centerX.setValue(cent_x)
         if self.sb_centerY.value() != cent_y:
             self.sb_centerY.setValue(cent_y)
+        if self.sb_sizeX.value() != plot_width:
+            self.sb_sizeX.setValue(plot_width)
+        if self.sb_sizeY.value() != plot_height:
+            self.sb_sizeY.setValue(plot_height)
 
 class PowerMeterMonitor(QWidget,pm_monitor_ui.Ui_Form):
     """Power meter monitor.

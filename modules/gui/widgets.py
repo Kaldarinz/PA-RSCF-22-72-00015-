@@ -207,7 +207,7 @@ class MplMap(FigureCanvasQTAgg):
                     logger.warning('Wrong dimension in scan range.')
                 else:
                     self.xmax = float(x.m)
-            # if label was not set
+            # if label was not set, then set it
             else:
                 self.xmax = float(x.m)
                 self.xunits = f'{x.u:~.2gP}'
@@ -225,7 +225,7 @@ class MplMap(FigureCanvasQTAgg):
                     logger.warning('Wrong dimension in scan range.')
                 else:
                     self.ymax = float(y.m)
-            # if label was not set
+            # if label was not set, then set it
             else:
                 self.ymax = float(y.m)
                 self.yunits = f'{y.u:~.2gP}'
@@ -244,8 +244,9 @@ class MplMap(FigureCanvasQTAgg):
         """
         Set selected area on plot.
         
-        If set was successfull return tuple with x0, y0, width, height
-        as floats.
+        If selection was changed, emit ``selectionChanged`` signal.
+        If set was successfull return tuple with ``x0``, ``y0``, 
+        ``width``, ``height`` as floats.
         """
 
         # dict for tracking which values were provided by call
@@ -257,62 +258,72 @@ class MplMap(FigureCanvasQTAgg):
         )
         # Selection is already on plot
         if self._sel_ref is not None:
+            # Get x
             if x0 is not None:
                 try:
                     x = float(x0.to(self.xunits).m)
                 except DimensionalityError:
                     logger.error('Selected area cannot be set. Wrong units.')
                     return
-                if x != self._sel_ref.get_x(): 
-                    updated['x0'] = True
                 if x < 0:
                     x = 0.
+                if x != self._sel_ref.get_x(): 
+                    updated['x0'] = True
             else:
                 x = self._sel_ref.get_x()
 
+            # Get y
             if y0 is not None:
                 try:
                     y = float(y0.to(self.yunits).m)
                 except DimensionalityError:
                     logger.error('Selected area cannot be set. Wrong units.')
                     return
+                if y < 0:
+                    y = 0.
                 if y != self._sel_ref.get_y():
                     updated['y0'] = True
-                if y < 0:
-                    y = 0
             else:
                 y = self._sel_ref.get_y()
 
+            # Get width_m
             if width is not None:
-                updated['width'] = True
                 try:
                     width_m = float(width.to(self.xunits).m)
                 except DimensionalityError:
                     logger.error('Selected area cannot be set. Wrong units.')
                     return
+                if width_m != self._sel_ref.get_width():
+                    updated['width'] = True
             else:
                 width_m = self._sel_ref.get_width()
 
+            # Get hight_m
             if height is not None:
-                updated['height'] = True
                 try:
                     height_m = float(height.to(self.yunits).m)
                 except DimensionalityError:
                     logger.error('Selected area cannot be set. Wrong units.')
                     return
+                if height_m != self._sel_ref.get_height():
+                    updated['height'] = True
             else:
                 height_m = self._sel_ref.get_height()
 
             # check if new vals are correct
             if (x + width_m) > self.xmax: # type: ignore
+                # First try to correct position if it was changed
                 if updated['x0']:
                     x = self.xmax - width_m # type: ignore
+                # Correct size, if position was not changed
                 else:
                     width_m = self.xmax - x # type: ignore
 
             if (y + height_m) > self.ymax: # type: ignore
+                # First try to correct position if it was changed
                 if updated['y0']:
                     y = self.ymax - height_m # type: ignore
+                # Correct size, if position was not changed
                 else:
                     height_m = self.ymax - y # type: ignore
 
@@ -323,10 +334,13 @@ class MplMap(FigureCanvasQTAgg):
                 self._sel_ref.set_width(width_m)
             if updated['height']:
                 self._sel_ref.set_height(height_m)
+            
+            # draw and emit signal only if something was actualy changed
             if True in updated.values():
                 self.fig.canvas.draw()
                 self.selection_changed.emit()
             return (x, y, width_m, height_m)
+        
         # No selection is already present
         else:
             # All values should be provided for new sel area
@@ -345,6 +359,8 @@ class MplMap(FigureCanvasQTAgg):
             rect = Rectangle((x0,y0), width, height, alpha = 0.7) # type: ignore
             self._sel_ref = self.axes.add_patch(rect) # type: ignore
             self._sel_ref = cast(Rectangle, self._sel_ref)
+            # Emit signal
+            self.selection_changed.emit()
             return (x0,y0,width,height) # type: ignore
 
     def on_press(self, event: MouseEvent) -> None:
@@ -393,6 +409,23 @@ class MplMap(FigureCanvasQTAgg):
         self._yunits = units
         self._update_label('y')
         self.axes.set_ylabel(self.ylabel)
+
+    @property
+    def selected_area(self) -> tuple[PlainQuantity,...]|None:
+        """
+        Currently selected area.
+        
+        Contains: ``x0``, ``y0``, ``width``, ``height``.
+        """
+
+        if self._sel_ref is None:
+            return None
+        x0 = Q_(self._sel_ref.get_x(), self.xunits)
+        y0 = Q_(self._sel_ref.get_y(), self.yunits)
+        width = Q_(self._sel_ref.get_width(), self.xunits)
+        height = Q_(self._sel_ref.get_height(), self.yunits)
+
+        return (x0, y0, width, height)
 
     def _update_label(self, axis: Literal['x','y']) -> None:
 
