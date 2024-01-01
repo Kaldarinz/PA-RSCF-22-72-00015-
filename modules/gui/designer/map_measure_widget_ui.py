@@ -3,7 +3,7 @@
 ################################################################################
 ## Form generated from reading UI file 'map_measure_widget.ui'
 ##
-## Created by: Qt User Interface Compiler version 6.6.0
+## Created by: Qt User Interface Compiler version 6.6.1
 ##
 ## WARNING! All changes made in this file will be lost when recompiling UI file!
 ################################################################################
@@ -20,7 +20,7 @@ from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QFormLayout,
     QLineEdit, QPushButton, QRadioButton, QSizePolicy,
     QSpacerItem, QSpinBox, QVBoxLayout, QWidget)
 
-from ..widgets import (MplMap, QuantSpinBox)
+from ..widgets import (PgMap, QuantSpinBox)
 from . import qt_resources_rc
 
 class Ui_map_measure(object):
@@ -403,7 +403,7 @@ class Ui_map_measure(object):
 
         self.horizontalLayout_4.addLayout(self.verticalLayout)
 
-        self.plot_scan = MplMap(map_measure)
+        self.plot_scan = PgMap(map_measure)
         self.plot_scan.setObjectName(u"plot_scan")
         sizePolicy3 = QSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         sizePolicy3.setHorizontalStretch(0)

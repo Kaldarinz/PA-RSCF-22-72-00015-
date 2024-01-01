@@ -9,12 +9,13 @@ import numpy.typing as npt
 from enum import Enum
 from modules.data_classes import Coordinate
 from modules.constants import Priority
-import modules.test_pack
+
 
 ureg = UnitRegistry(auto_reduce_dimensions=True)
 Q_ = ureg.Quantity
 
-
+x, y = Q_((1,2), 's')
+print(x)
 
 # @dataclass
 # class Test:

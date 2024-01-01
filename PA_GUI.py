@@ -18,6 +18,8 @@ import yaml
 from pint.facets.plain.quantity import PlainQuantity
 from matplotlib.backend_bases import PickEvent
 from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT
+import PySide6
+import pyqtgraph as pg
 from PySide6.QtCore import (
     Qt,
     QObject,
@@ -225,6 +227,9 @@ class Window(QMainWindow,Ui_MainWindow,):
         ### 2D measurements ###
         self.p_map = MapMeasureWidget(self.sw_central)
         self.sw_central.addWidget(self.p_map)
+
+        # init selection
+        
 
         # Scan mode selector
         cb = QComboBox()
@@ -1492,6 +1497,7 @@ class QLogHandler(logging.Handler):
 
 if __name__ == '__main__':
 
+    pg.setConfigOptions(antialias=True, background='w', foreground='k')
     app = QApplication(sys.argv)
     logger, q_log_handler = init_logs()
     win = Window()

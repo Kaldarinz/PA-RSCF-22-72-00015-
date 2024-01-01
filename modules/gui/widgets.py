@@ -8,7 +8,8 @@ from pint.facets.plain.quantity import PlainQuantity
 from pint.errors import DimensionalityError
 from PySide6.QtCore import (
     QRunnable,
-    Signal
+    Signal,
+    QRectF
 )
 from PySide6.QtWidgets import (
     QSpinBox,
@@ -29,6 +30,7 @@ from PySide6.QtGui import (
 from PySide6.QtCore import (
     Signal
 )
+import pyqtgraph as pg
 from matplotlib.figure import Figure
 from matplotlib.lines import Line2D
 from matplotlib.image import AxesImage
@@ -476,11 +478,20 @@ class MplMap(FigureCanvasQTAgg):
 
 class QuantSpinBox(QDoubleSpinBox):
     stepChanged = Signal()
+    quantSet = Signal(PlainQuantity)
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
 
         self.quantity = ureg(self.text())
+
+        # Emit signal with quantity when editing is finished
+        self.editingFinished.connect(
+            lambda: self.quantSet.emit(self.quantity)
+        )
+        self.stepChanged.connect(
+            lambda: self.quantSet.emit(self.quantity)
+        )
 
     @property
     def quantity(self) -> PlainQuantity:
@@ -524,3 +535,286 @@ class TreeInfoWidget(QTreeWidget):
         "Measurement MetaData"
         self.pmd: QTreeWidgetItem|None = None
         "PointMetaData"
+
+class PgMap(pg.PlotWidget):
+    """2d map pyqtgraph widget."""
+
+    selection_changed = Signal(object)
+
+    def __init__(self, parent = None):
+        
+        super().__init__(parent = parent)
+
+        # Set square area
+        self.setAspectLocked()
+        # Disabe axes movements
+        self.getPlotItem().setMouseEnabled(x=False, y=False)
+        # Disable autorange
+        #self.getPlotItem().enableAutoRange(False)
+
+        self.data: np.ndarray|None = None
+        self.xstep: float|None = None
+        self.ystep: float|None = None
+        self.xmax: float|None = None
+        self.ymax: float|None = None
+        self._plot_ref: pg.PlotDataItem|None = None
+        self._sel_ref: pg.RectROI|None = None
+
+    def set_scanrange(
+            self,
+            x: PlainQuantity|None = None,
+            y: PlainQuantity|None = None
+        ) -> None:
+        """Set scan range."""
+
+        if x is not None:
+            # if label already set
+            if len(self.xunits):
+                try:
+                    x = x.to(self.xunits)
+                except DimensionalityError:
+                    logger.warning('Wrong dimension in scan range.')
+                else:
+                    self.xmax = float(x.m)
+            # if label was not set, then set it
+            else:
+                self.xmax = float(x.m)
+                self.xunits = f'{x.u:~.2gP}'
+
+            # update plot
+            if self.xmax is not None:
+                self.setXRange(0, self.xmax, padding = 0.)
+
+        if y is not None:
+            # if label already set
+            if len(self.yunits):
+                try:
+                    y = y.to(self.yunits)
+                except DimensionalityError:
+                    logger.warning('Wrong dimension in scan range.')
+                else:
+                    self.ymax = float(y.m)
+            # if label was not set, then set it
+            else:
+                self.ymax = float(y.m)
+                self.yunits = f'{y.u:~.2gP}'
+
+            # update plot
+            if self.ymax is not None:
+                self.setYRange(0, self.ymax, padding = 0.)
+
+        self.plot_boundary()
+
+    def set_selarea(
+            self,
+            x0: PlainQuantity|None = None,
+            y0: PlainQuantity|None = None,
+            width: PlainQuantity|None = None,
+            height: PlainQuantity|None = None
+        ) -> tuple[float,...]|None:
+        """
+        Set selected area on plot.
+        
+        If selection was changed, emit ``selectionChanged`` signal.
+        If set was successfull return tuple with ``x0``, ``y0``, 
+        ``width``, ``height`` as floats.
+        """
+
+        # dict for tracking which values were provided by call
+        updated = dict(
+            x0 = False,
+            y0 = False,
+            width = False,
+            height = False
+        )
+        # Selection is already on plot
+        if self._sel_ref is not None:
+            # Get x
+            if x0 is not None:
+                try:
+                    x = float(x0.to(self.xunits).m)
+                except DimensionalityError:
+                    logger.error('Selected area cannot be set. Wrong units.')
+                    return
+                if x < 0:
+                    x = 0.
+                if x != self._sel_ref.pos()[0]:
+                    updated['x0'] = True
+            else:
+                x = self._sel_ref.pos()[0]
+
+            # Get y
+            if y0 is not None:
+                try:
+                    y = float(y0.to(self.yunits).m)
+                except DimensionalityError:
+                    logger.error('Selected area cannot be set. Wrong units.')
+                    return
+                if y < 0:
+                    y = 0.
+                if y != self._sel_ref.pos()[1]:
+                    updated['y0'] = True
+            else:
+                y = self._sel_ref.pos()[1]
+
+            # Get width_m
+            if width is not None:
+                try:
+                    width_m = float(width.to(self.xunits).m)
+                except DimensionalityError:
+                    logger.error('Selected area cannot be set. Wrong units.')
+                    return
+                if width_m != self._sel_ref.size()[0]:
+                    updated['width'] = True
+            else:
+                width_m = self._sel_ref.size()[0]
+
+            # Get hight_m
+            if height is not None:
+                try:
+                    height_m = float(height.to(self.yunits).m)
+                except DimensionalityError:
+                    logger.error('Selected area cannot be set. Wrong units.')
+                    return
+                if height_m != self._sel_ref.size()[1]:
+                    updated['height'] = True
+            else:
+                height_m = self._sel_ref.size()[1]
+
+            # check if new vals are correct
+            if (x + width_m) > self.xmax: # type: ignore
+                # First try to correct position if it was changed
+                if updated['x0']:
+                    x = self.xmax - width_m # type: ignore
+                # Correct size, if position was not changed
+                else:
+                    width_m = self.xmax - x # type: ignore
+
+            if (y + height_m) > self.ymax: # type: ignore
+                # First try to correct position if it was changed
+                if updated['y0']:
+                    y = self.ymax - height_m # type: ignore
+                # Correct size, if position was not changed
+                else:
+                    height_m = self.ymax - y # type: ignore
+
+            # update patch
+            if updated['x0'] or updated['y0']:
+                self._sel_ref.setPos(x, y)
+            if updated['width'] or updated['height']:
+                self._sel_ref.setSize((width_m, height_m))
+            
+            # draw and emit signal only if something was actualy changed
+            if True in updated.values():
+                self.selection_changed.emit(self.selected_area)
+            return (x, y, width_m, height_m)
+        
+        # No selection is already present
+        else:
+            # All values should be provided for new sel area
+            if None in [x0, y0, width, height]:
+                logger.error('Selected area cannot be created.')
+                return
+            # Convert to map units
+            try:
+                x0 = x0.to(self.xunits).m # type: ignore
+                y0 = y0.to(self.yunits).m # type: ignore
+                width = width.to(self.xunits).m # type: ignore
+                height = height.to(self.yunits).m # type: ignore
+            except DimensionalityError:
+                logger.error('Selected area cannot be set. Wrong units.')
+                return
+            bounds = QRectF(0, 0, self.xmax, self.ymax) # type: ignore
+            self._sel_ref = pg.RectROI(
+                (x0,y0),
+                (width, height),
+                maxBounds = bounds)
+            self._sel_ref.setPen(pg.mkPen('b', width = 3))
+            self._sel_ref.hoverPen = pg.mkPen('k', width = 3)
+            self.addItem(self._sel_ref)
+            # Emit signal
+            self._sel_ref.sigRegionChanged.connect(
+                lambda _: self.selection_changed.emit(self.selected_area)
+            )
+            return (x0,y0,width,height) # type: ignore
+
+    @property
+    def xlabel(self) -> str:
+        return self._get_label('x')
+    @xlabel.setter
+    def xlabel(self, label: str) -> None:
+        units = self._get_units('x')
+        self.getPlotItem().setLabel('bottom', label, units)
+
+    @property
+    def ylabel(self) -> str:
+        return self._get_label('y')
+    @ylabel.setter
+    def ylabel(self, label: str) -> None:
+        units = self._get_units('y')
+        self.getPlotItem().setLabel('left', label, units)
+
+    @property
+    def xunits(self) -> str:
+        return self._get_units('x')
+    @xunits.setter
+    def xunits(self, units: str) -> None:
+        label = self._get_label('x')
+        self.getPlotItem().setLabel('bottom', label, units)
+
+    @property
+    def yunits(self) -> str:
+        return self._get_units('y')
+    @yunits.setter
+    def yunits(self, units: str) -> None:
+        label = self._get_label('y')
+        self.getPlotItem().setLabel('left', label, units)
+
+
+    @property
+    def selected_area(self) -> tuple[PlainQuantity,...]|None:
+        """
+        Currently selected area.
+        
+        Contains: ``x``, ``y``, ``width``, ``height``.
+        """
+        if self._sel_ref is None:
+            return None
+        x, y = Q_(self._sel_ref.pos(), self.xunits)
+        width, height = Q_(self._sel_ref.size(), self.yunits)
+
+        return (x, y, width, height)
+    @selected_area.setter
+    def selected_area(self, area: tuple[PlainQuantity|None,...]) -> None:
+        self.set_selarea(area)
+
+    def plot_boundary(self) -> None:
+        """Plot map boundary."""
+
+        if None in [self.xmax, self.ymax]:
+            return
+        
+        boundary = pg.QtWidgets.QGraphicsRectItem(0, 0, self.xmax, self.ymax)
+        boundary.setPen(pg.mkPen('r', width = 3))
+        self.addItem(boundary)
+
+    def _get_label(self, axis: Literal['x', 'y']) -> str:
+        """Axis label getter."""
+
+        if axis == 'x':
+            axis = 'bottom'
+        else:
+            axis = 'left'
+
+        return self.getPlotItem().getAxis(axis).labelText
+    
+    def _get_units(self, axis: Literal['x', 'y']) -> str:
+        """Axis units getter."""
+
+        if axis == 'x':
+            axis = 'bottom'
+        else:
+            axis = 'left'
+
+        units = self.getPlotItem().getAxis(axis).labelUnits
+        return units

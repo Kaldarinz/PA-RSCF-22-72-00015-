@@ -205,6 +205,11 @@ class MapMeasureWidget(QWidget,map_measure_widget_ui.Ui_map_measure):
         super().__init__(parent)
         self.setupUi(self)
 
+        # Set Axis titles
+        sel_plane = self.cb_scanplane.currentText()
+        self.plot_scan.xlabel = sel_plane[0]
+        self.plot_scan.ylabel = sel_plane[1]
+
         # Set default range
         self.plot_scan.set_scanrange(Q_(25, 'mm'), Q_(25, 'mm'))
 
@@ -217,33 +222,24 @@ class MapMeasureWidget(QWidget,map_measure_widget_ui.Ui_map_measure):
         """Connect signals and slots."""
 
         # Scan size X changed
-        self.sb_sizeX.editingFinished.connect(
-            lambda: self._upd_size(self.sb_sizeX)
-        )
-        self.sb_sizeX.stepChanged.connect(
-            lambda: self._upd_size(self.sb_sizeX)
+        self.sb_sizeX.quantSet.connect(
+            lambda val: self.plot_scan.set_selarea(width = val)
         )
         # Scan size Y changed
-        self.sb_sizeY.editingFinished.connect(
-            lambda: self._upd_size(self.sb_sizeY)
-        )
-        self.sb_sizeY.stepChanged.connect(
-            lambda: self._upd_size(self.sb_sizeY)
+        self.sb_sizeY.quantSet.connect(
+            lambda val: self.plot_scan.set_selarea(height = val)
         )
         # Scan center X changed
-        self.sb_centerX.editingFinished.connect(
-            lambda: self._upd_size(self.sb_centerX)
-        )
-        self.sb_centerX.stepChanged.connect(
-            lambda: self._upd_size(self.sb_centerX)
+        self.sb_centerX.quantSet.connect(
+            lambda val: self.plot_scan.set_selarea(
+                x0 = val - self.sb_sizeX.quantity/2)
         )
         # Scan center Y changed
-        self.sb_centerY.editingFinished.connect(
-            lambda: self._upd_size(self.sb_centerY)
+        self.sb_centerY.quantSet.connect(
+            lambda val: self.plot_scan.set_selarea(
+                y0 = val - self.sb_sizeY.quantity/2)
         )
-        self.sb_centerY.stepChanged.connect(
-            lambda: self._upd_size(self.sb_centerY)
-        )
+
         # Selected area changed from plot
         self.plot_scan.selection_changed.connect(self._sel_changed)
 
@@ -306,51 +302,20 @@ class MapMeasureWidget(QWidget,map_measure_widget_ui.Ui_map_measure):
         # Est time
         self.le_estdur.setText(str(est_dur))
 
-    @Slot(QuantSpinBox, float)
-    def _upd_size(self, sb: QuantSpinBox) -> None:
-        """Slot to update selected area on plot."""
-
-        # size x
-        new_val = Q_(sb.value(), sb.suffix())
-        if sb.objectName().endswith('sizeX'):
-            self.plot_scan.set_selarea(width = new_val)
-        # size y
-        elif sb.objectName().endswith('sizeY'):
-            self.plot_scan.set_selarea(height = new_val)
-        # center X
-        elif sb.objectName().endswith('centerX'):
-            delta = Q_(
-                self.plot_scan._sel_ref.get_width()/2,
-                self.plot_scan.xunits)
-            new_val -= delta
-            self.plot_scan.set_selarea(x0 = new_val)
-            # center Y
-        elif sb.objectName().endswith('centerY'):
-            delta = Q_(
-                self.plot_scan._sel_ref.get_height()/2,
-                self.plot_scan.yunits)
-            new_val -= delta
-            self.plot_scan.set_selarea(y0 = new_val)
-        else:
-            logger.error('Wrong coller of upd_size')
-            return
-
     @Slot()
-    def _sel_changed(self) -> None:
+    def _sel_changed(self, new_sel: tuple[PlainQuantity]) -> None:
 
-        plot_x, plot_y = self.plot_scan._sel_ref.get_xy() # type: ignore
-        plot_width = self.plot_scan._sel_ref.get_width() # type: ignore
-        plot_height = self.plot_scan._sel_ref.get_height() # type: ignore
-        cent_x = plot_x + plot_width/2
-        cent_y = plot_y + plot_height/2
-        if self.sb_centerX.value() != cent_x:
-            self.sb_centerX.setValue(cent_x)
-        if self.sb_centerY.value() != cent_y:
-            self.sb_centerY.setValue(cent_y)
-        if self.sb_sizeX.value() != plot_width:
-            self.sb_sizeX.setValue(plot_width)
-        if self.sb_sizeY.value() != plot_height:
-            self.sb_sizeY.setValue(plot_height)
+        x, y, width, height = new_sel
+        cx = x + width/2
+        cy = y + height/2
+        if self.sb_centerX.quantity != cx:
+            self.sb_centerX.quantity = cx
+        if self.sb_centerY.quantity != cy:
+            self.sb_centerY.quantity = cy
+        if self.sb_sizeX.quantity != width:
+            self.sb_sizeX.quantity = width
+        if self.sb_sizeY.quantity != height:
+            self.sb_sizeY.quantity = height
 
 class PowerMeterMonitor(QWidget,pm_monitor_ui.Ui_Form):
     """Power meter monitor.
