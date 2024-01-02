@@ -549,8 +549,8 @@ class PgMap(pg.PlotWidget):
         self.setAspectLocked()
         # Disabe axes movements
         self.getPlotItem().setMouseEnabled(x=False, y=False)
-        # Disable autorange
-        #self.getPlotItem().enableAutoRange(False)
+        # Hide autoscale button
+        self.getPlotItem().hideButtons()
 
         self.data: np.ndarray|None = None
         self.xstep: float|None = None

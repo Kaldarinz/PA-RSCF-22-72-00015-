@@ -206,9 +206,7 @@ class MapMeasureWidget(QWidget,map_measure_widget_ui.Ui_map_measure):
         self.setupUi(self)
 
         # Set Axis titles
-        sel_plane = self.cb_scanplane.currentText()
-        self.plot_scan.xlabel = sel_plane[0]
-        self.plot_scan.ylabel = sel_plane[1]
+        self._new_scan_plane()
 
         # Set default range
         self.plot_scan.set_scanrange(Q_(25, 'mm'), Q_(25, 'mm'))
@@ -239,9 +237,10 @@ class MapMeasureWidget(QWidget,map_measure_widget_ui.Ui_map_measure):
             lambda val: self.plot_scan.set_selarea(
                 y0 = val - self.sb_sizeY.quantity/2)
         )
-
         # Selected area changed from plot
         self.plot_scan.selection_changed.connect(self._sel_changed)
+        # Scan plane changed
+        self.cb_scanplane.currentTextChanged.connect(lambda _: self._new_scan_plane())
 
     def calc_astep(self, count: int = 50) -> None:
         """Launch auto step calculation."""
@@ -316,6 +315,14 @@ class MapMeasureWidget(QWidget,map_measure_widget_ui.Ui_map_measure):
             self.sb_sizeX.quantity = width
         if self.sb_sizeY.quantity != height:
             self.sb_sizeY.quantity = height
+
+    @Slot()
+    def _new_scan_plane(self) -> None:
+        """Slot, called when new scan plane is selected."""
+
+        sel_plane = self.cb_scanplane.currentText()
+        self.plot_scan.xlabel = sel_plane[0]
+        self.plot_scan.ylabel = sel_plane[1]
 
 class PowerMeterMonitor(QWidget,pm_monitor_ui.Ui_Form):
     """Power meter monitor.
