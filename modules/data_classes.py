@@ -267,6 +267,7 @@ class Signals:
     def __init__(self, is_running:bool = True) -> None:
         
         self.is_running = is_running
+        self.count = 0
 
 class WorkerSignals(QObject):
     """

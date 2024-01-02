@@ -354,6 +354,7 @@ class Window(QMainWindow,Ui_MainWindow,):
             lambda: self.stop_worker(self.tst_worker)
         )
         # Calculate auto step
+        self.p_map.calc_astepClicked.connect(self.calc_astep)
 
         ### Data view###
         self.action_Data.toggled.connect(self.activate_data_viwer)
@@ -411,9 +412,12 @@ class Window(QMainWindow,Ui_MainWindow,):
 
     @Slot(QProgressDialog)
     def calc_astep(self, pb: QProgressDialog) -> None:
-        """Calculate auto step"""
+        """Calculate auto step."""
 
-        self.astep_worker = Worker(pa_logic.en_meas_fast_cont)
+        self.astep_worker = Worker(
+            pa_logic.en_meas_fast_cont_emul,
+            max_count = pb.maximum()
+        )
         # Progress signal increase progress bar
         self.astep_worker.signals.progess.connect(
             lambda x: pb.setValue(pb.value() + 1)
@@ -426,9 +430,7 @@ class Window(QMainWindow,Ui_MainWindow,):
         pb.canceled.connect(
             lambda: self.stop_worker(self.astep_worker)
         )
-        pb.finished.connect(
-            lambda: self.stop_worker(self.astep_worker)
-        )
+        self.pool.start(self.astep_worker)
 
 
     def tst_map(self):

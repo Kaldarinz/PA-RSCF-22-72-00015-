@@ -241,23 +241,37 @@ class MapMeasureWidget(QWidget,map_measure_widget_ui.Ui_map_measure):
         self.plot_scan.selection_changed.connect(self._sel_changed)
         # Scan plane changed
         self.cb_scanplane.currentTextChanged.connect(lambda _: self._new_scan_plane())
+        # Auto step calculation
+        self.btn_astep_calc.clicked.connect(
+            lambda state: self.calc_astep())
 
-    def calc_astep(self, count: int = 50) -> None:
+    def calc_astep(self, count: int = 30) -> None:
         """Launch auto step calculation."""
 
         # Create progress bar dialog
         pb = QProgressDialog(self)
+        #pb.setAutoReset(False)
+        pb.setAutoClose(True)
         pb.setLabelText('Calculating auto step size...')
-        pb.setMinimum(0)
-        pb.setMaximum(count)
+        pb.setRange(0, count)
         # Set appear immediatelly
         pb.setMinimumDuration(0)
         pb.setValue(0)
         self.calc_astepClicked.emit(pb)
+        pb.show()
 
     @Slot()
     def set_astep(self, data: list[EnergyMeasurement]) -> None:
-        """Set step and points."""
+        """
+        Set auto step and points from data list.
+        
+        ``data`` should contain results of performance test of signal
+        acquisition system with at least 4 EnergyMeasurements, but
+        for better precision it is better to provide 30-50 EnergyMeasurements.
+
+        The algorithm will calculate average dt between signal measurements
+        and use it to calculate step size and amount of points.
+        """
 
         if len(data) < 4:
             logger.warning(
@@ -265,6 +279,7 @@ class MapMeasureWidget(QWidget,map_measure_widget_ui.Ui_map_measure):
             )
             return
 
+        # Calculate duration of all measurements
         delta = data[-1].datetime - data[0].datetime
         dt = Q_(delta.seconds + delta.microseconds/1_000_000, 's')
         speed = self.sb_speed.quantity
@@ -281,10 +296,10 @@ class MapMeasureWidget(QWidget,map_measure_widget_ui.Ui_map_measure):
 
         ### Set calculated values
         # Step
-        x_units = self.sb_stepX.suffix().strip()
-        self.sb_stepX.setValue(step.to(x_units))
-        y_units = self.sb_stepY.suffix().strip()
-        self.sb_stepY.setValue(step.to(y_units))
+        x_units = self.sb_stepX.quantity.u
+        self.sb_stepX.quantity = step.to(x_units)
+        y_units = self.sb_stepY.quantity.u
+        self.sb_stepY.quantity = step.to(y_units)
         # Points
         if self.cb_scandir.currentText().startswith('H'):
             self.sb_pointsX.setValue(points)

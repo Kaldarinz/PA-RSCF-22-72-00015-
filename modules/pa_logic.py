@@ -499,6 +499,7 @@ def en_meas_fast_cont(
         signals: WorkerSignals,
         flags: dict[str, bool],
         priority: int = Priority.NORMAL,
+        max_count: int|None = None,
         **kwargs
     ) -> list[EnergyMeasurement]:
     """
@@ -521,11 +522,45 @@ def en_meas_fast_cont(
     t.start()
     while flags.get('is_running'):
         time.sleep(0.1)
+        # Stop if max measurements was set and the value was reached
+        if max_count is not None and comm.count >= max_count:
+            break
     comm.is_running = False
     t.join()
 
     return result
 
+def en_meas_fast_cont_emul(
+        signals: WorkerSignals,
+        flags: dict[str, bool],
+        max_count: int|None = None,
+        priority: int = Priority.NORMAL,
+        **kwargs
+    ) -> list[EnergyMeasurement]:
+    """
+    Emulator of get screen information non-stop.
+
+    Thread safe.
+    """
+
+    logger.info('Starting fast continous EnergyMeasurement emulation.')
+    rng = np.random.default_rng()
+    result = []
+    total = 0
+    while flags.get('is_running', False):
+        delay = rng.random()/10.
+        time.sleep(delay)
+        msmnt = EnergyMeasurement(
+            datetime=dt.now(),
+            energy=Q_(rng.random(),'J')
+        )
+        result.append(msmnt)
+        signals.progess.emit(msmnt)
+        total += 1
+        logger.info('EnergyMeasurement generated.')
+        if max_count is not None and total == max_count:
+            break
+    return result
 
 def __en_meas_fast_cont(
         comm: Signals,
@@ -561,6 +596,8 @@ def __en_meas_fast_cont(
         # Add first measurement
         else:
             result.append(msmnt)
+        # inform about current amount of measurements
+        comm.count = len(result)
 
 def glass_calculator(
         wavelength: PlainQuantity,
