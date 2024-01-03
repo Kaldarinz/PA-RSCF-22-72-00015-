@@ -161,6 +161,7 @@ class OscMeasurement:
     Could contain data for all channels.
     """
 
+    datetime: dt = field(compare=False)
     data_raw: list[npt.NDArray|None] = field(
         default_factory=list
     )

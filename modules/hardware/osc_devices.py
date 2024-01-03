@@ -28,12 +28,12 @@ import numpy.typing as npt
 from scipy.signal import decimate
 from pint.facets.plain.quantity import PlainQuantity
 
-from .exceptions import (
+from ..exceptions import (
     OscConnectError,
     OscIOError,
     OscValueError
 )
-from .data_classes import (
+from ..data_classes import (
     EnergyMeasurement,
     OscMeasurement
 )
@@ -211,6 +211,7 @@ class Oscilloscope:
         self._write([':RUN'])
         logger.debug('...Finishing. Measure successfull.')
         result = OscMeasurement(
+            datetime = datetime.now(),
             data_raw = self.data_raw.copy(),
             dt = (1/self.sample_rate).to('us'),
             pre_t = self.pre_t.copy(),

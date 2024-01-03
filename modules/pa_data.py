@@ -94,10 +94,14 @@ from .data_classes import (
     MeasurementMetadata,
     Measurement,
     Coordinate,
-    OscMeasurement
+    OscMeasurement,
+    EnergyMeasurement
 )
-from .osc_devices import (
-    Oscilloscope
+from .hardware.osc_devices import (
+    PowerMeter as pm
+)
+from .hardware.utils import (
+    calc_sample_en
 )
 from modules.exceptions import (
     PlotError
@@ -108,16 +112,40 @@ logger = logging.getLogger(__name__)
 class MeasuredPoint:
     """Single PA measurement."""
 
+    dt_pm: PlainQuantity
+    "Sampling interval for PM data, could differ from dt due to downsampling of PM data."
+    pa_signal: PlainQuantity = Q_(np.empty(0), 'V/mJ')
+    "Sampled PA signal in physical units"
+    pm_signal: PlainQuantity = Q_(np.empty(0), 'V')
+    "Sampled power meter signal in volts"
+    pm_info: EnergyMeasurement|None = None
+    "General information laser energy."
+    pm_energy: PlainQuantity = Q_(np.nan, 'mJ')
+    "Energy at power meter in physical units"
+    sample_en: PlainQuantity = Q_(np.nan, 'mJ')
+    "Energy at sample in physical units"
+    max_amp: PlainQuantity = Q_(np.nan, 'V/uJ')
+    "Maximum PA signal amplitude"
+    start_time: PlainQuantity = Q_(np.nan, 'us')
+    "Start of PA signal sampling interval relative to begining of laser pulse"
+    stop_time: PlainQuantity = Q_(np.nan, 'us')
+    "Stop of PA signal sampling interval relative to begining of laser pulse"
+
     def __init__(
             self,
             data: OscMeasurement,
+            wavelength: PlainQuantity,
             pa_ch_ind: int = 0,
             pm_ch_ind: int = 1,
-            pos: Coordinate = Coordinate(),
-            wavelength: PlainQuantity|None = None
+            pos: Coordinate = Coordinate()
         ) -> None:
 
+        # Direct attribute initiation
+        self.datetime = data.datetime
+        "Date and time of measurement"
         self.pa_signal_raw = data.data_raw[pa_ch_ind]
+        "Sampled PA signal in int8 format"
+        self.pm_signal_raw = data.data_raw[pm_ch_ind]
         "Sampled PA signal in int8 format"
         self.dt = data.dt
         "Sampling interval for PA data"
@@ -125,33 +153,69 @@ class MeasuredPoint:
         "Excitation laser wavelength"
         self.pos = pos
         "Coordinate of the measured point"
-        self.dt_pm: PlainQuantity = Q_(np.nan, 's')
-        "Sampling interval for PM data, could differ from dt due to downsampling of PM data."
-        self.pa_signal: PlainQuantity = Q_(np.empty(), 'V/mJ')
-        "Sampled PA signal in physical units"
-        self.pm_signal: PlainQuantity = Q_(np.empty(), 'V')
-        "Sampled power meter signal in volts"
-        self.start_time: PlainQuantity = Q_(np.nan, 'us')
-        "Start of sampling interval relative to begining of laser pulse"
-        self.stop_time: PlainQuantity = Q_(np.nan, 'us')
-        "Stop of sampling interval relative to begining of laser pulse"
-        self.pm_energy: PlainQuantity = Q_(np.nan, 'uJ')
-        "Energy at power meter in physical units"
-        self.sample_energy: PlainQuantity = Q_(np.nan, 'uJ')
-        "Energy at sample in physical units"
-        self.max_amp: PlainQuantity = Q_(np.nan, 'V/uJ')
-        "Maximum PA signal amplitude"
+        self.yincrement: PlainQuantity = Q_(data.yincrement, 'V')
+        "Scaling factor to convert raw data to volts"
+        self._pm_start = data.pre_t[pm_ch_ind]
+        self._pa_start = data.pre_t[pa_ch_ind]
+
+        # Init pm data
+        self._set_pm_data()
+
+        # Calculate energy 
+        self.pm_info = pm.energy_from_data(self.pm_signal, self.dt_pm)
+        self._set_energy()
+
+        # Set boundary conditions for PA signal relative to start of laser pulse
+        self._set_pa_offset()
 
     def _set_pm_data(self) -> None:
-        """Set dt_pm and pm_signal attributes."""
+        """Set ``dt_pm`` and ``pm_signal`` attributes."""
 
-        pass
+        # Downsample power meter data
+        pm_signal_raw, pm_decim_factor = self.decimate_data(
+            self.pm_signal_raw
+        )
+        # Calculate dt for downsampled data
+        self.dt_pm = self.dt*pm_decim_factor
+        # Convert downsampled signal to volts
+        self.pm_signal = pm_signal_raw * self.yincrement
+
+    def _set_energy(self) -> None:
+        """Set energy attributes.
+        
+        Actually set: ``pm_energy``, ``sample_energy``, ``max_amp``
+        and ``pa_signal``.
+        """
+
+        if self.pm_info is not None:
+            # Set ``pm_energy``
+            self.pm_energy = self.pm_info.energy
+            sample_en = calc_sample_en(self.wavelength, self.pm_energy)
+            if sample_en is not None:
+                # PA signal in volts
+                pa_signal_v = self.pa_signal_raw*self.yincrement
+                # Set ``sample_en``
+                self.sample_en = sample_en
+                # Set ``pa_signal``
+                self.pa_signal = pa_signal_v/sample_en
+                # Set ``max_amp``
+                self.max_amp = pa_signal_v.ptp()/sample_en
+
+    def _set_pa_offset(self) -> None:
+
+        # Calculate time from start of pm_signal to trigger position
+        pm_offset = pm.pulse_offset(self.pm_signal, self.dt_pm)
+        if pm_offset is not None:
+            # Start time of PA data relative to start of laser pulse
+            self.start_time = (self._pm_start - pm_offset) - self._pa_start
+            # Stop time of PA data relative to start of laser pulse
+            self.stop_time = self.dt*(len(self.pa_signal_raw)-1) + self.start_time
 
     @staticmethod
     def decimate_data(
-            data: npt.NDArray[np.uint8],
+            data: np.ndarray[np.int8],
             target: int = 10_000,
-        ) -> Tuple[npt.NDArray, int]:
+        ) -> tuple[np.ndarray, int]:
         """Downsample data to <target> size.
         
         Does not guarantee size of output array.
@@ -175,8 +239,6 @@ class MeasuredPoint:
             decim_factor *=rem
         logger.debug(f'...Finishing. Final size is {len(data)}')
         return data, decim_factor
-
-
 
 class PaData:
     """Class for PA data storage and manipulations"""

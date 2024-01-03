@@ -17,11 +17,20 @@ ureg = UnitRegistry(auto_reduce_dimensions=True)
 Q_ = ureg.Quantity
 rng = np.random.default_rng()
 
-t0 = datetime.now()
-for i in range(10):
-    time.sleep(rng.random()/10)
-    print((datetime.now() - t0).total_seconds())
+class tst:
+    a = Q_(np.empty(0), 's')
 
+    def __init__(self, a: PlainQuantity|None = None) -> None:
+        self.a = a
+
+    def __repr__(self) -> str:
+        return str(self.a)
+
+cls1 = tst(Q_(1,'s'))
+cls2 = tst(Q_(2,'s'))
+cls3 = tst()
+if cls3.a is None:
+    print('ok')
 # @dataclass
 # class Test:
 #     lst: list[str]

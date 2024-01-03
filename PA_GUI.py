@@ -53,7 +53,12 @@ from PySide6.QtGui import (
 )
 import numpy as np
 from modules import ureg, Q_
-from modules.pa_data import PaData
+from modules.hardware import utils as hutils
+from modules.pa_data import (
+    PaData,
+    MeasuredPoint
+)
+
 import modules.pa_logic as pa_logic
 from modules.utils import (
     upd_plot,
@@ -61,7 +66,6 @@ from modules.utils import (
 )   
 from modules.data_classes import (
     Worker,
-    MeasuredPoint,
     Measurement,
     EnergyMeasurement,
     Coordinate
@@ -304,7 +308,7 @@ class Window(QMainWindow,Ui_MainWindow,):
         # Current Sample energy value
         self.p_point.pm_monitor.le_cur_en.textChanged.connect(
             lambda val: self.p_point.le_sample_en.setText(
-                str(pa_logic.glan_calc(ureg(val)))
+                str(hutils.glan_calc(ureg(val)))
             )
         )
 
@@ -344,7 +348,7 @@ class Window(QMainWindow,Ui_MainWindow,):
         # Current Sample energy value
         self.p_curve.pm_monitor.le_cur_en.textChanged.connect(
             lambda val: self.p_curve.le_sample_en.setText(
-                str(pa_logic.glan_calc(ureg(val)))
+                str(hutils.glan_calc(ureg(val)))
             )
         )
 
@@ -1225,14 +1229,14 @@ class Window(QMainWindow,Ui_MainWindow,):
 
         # Update PM SetPoint if Sample SetPoint was set
         if caller == parent.sb_sample_sp:
-            new_sp = pa_logic.glan_calc_reverse(caller.quantity)
+            new_sp = hutils.glan_calc_reverse(caller.quantity)
             if new_sp is None:
                 logger.error('New set point cannot be calculated')
                 return
             self.set_spinbox_silent(parent.sb_pm_sp, new_sp)
         # Update Sample SetPoint if PM SetPoint was set   
         elif caller == parent.sb_pm_sp:
-            new_sp = pa_logic.glan_calc(caller.quantity)
+            new_sp = hutils.glan_calc(caller.quantity)
             if new_sp is None:
                 logger.error('New set point cannot be calculated')
                 return
