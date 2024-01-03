@@ -179,6 +179,7 @@ class Oscilloscope:
         Measure data from memory.
         
         Data is saved to ``data`` and ``data_raw`` attributes.\n
+        x
         """
 
         logger.debug('Starting measure signal from oscilloscope '
@@ -223,8 +224,17 @@ class Oscilloscope:
             read_ch2: bool=True,
             correct_bl: bool=True,
             smooth: bool=True,
-        ) -> Tuple[List[PlainQuantity|None],List[npt.NDArray[np.int8]|None]]:
-        """Measure data from screen."""
+        ) -> tuple[list[PlainQuantity|None], list[npt.NDArray[np.int8]|None]]:
+        """
+        Measure data from screen.
+        
+        Return tuple of 2 lists.
+        The first list contain measured data in physical units (PlainQuantity).
+        The second list contain raw measured data.\n
+        ``read_ch1`` and ``read_ch2`` determine which channels to read.\n
+        ``correct_bl`` applies baseline correction to measured data.\n
+        ``smooth`` applies smoothing (rolling average) to the measured data.
+        """
 
         logger.debug('Starting measure signal from oscilloscope '
                      + 'screen.')
@@ -508,35 +518,6 @@ class Oscilloscope:
         logger.debug(f'...Finishing. Success. '
                      +f'max val = {result.max()}, min val = {result.min()}.')
         return result
-
-    @staticmethod
-    def decimate_data(
-            data: npt.NDArray[np.uint8],
-            target: int = 10_000,
-        ) -> Tuple[npt.NDArray, int]:
-        """Downsample data to <target> size.
-        
-        Does not guarantee size of output array.
-        Return decimated data and decimation factor.
-        """
-
-        logger.debug(f'Starting decimation data with {len(data)} size.')
-        factor = int(len(data)/target)
-        if factor == 0:
-            logger.debug('...Terminatin. Decimation is not required.')
-            return (data, 1)
-        logger.debug(f'Decimation factor = {factor}')
-        iterations = int(math.log10(factor))
-        rem = factor//10**iterations
-        decim_factor = 1
-        for _ in range(iterations):
-            data = decimate(data, 10) # type: ignore
-            decim_factor *=10
-        if rem > 1:
-            data = decimate(data, rem) # type: ignore
-            decim_factor *=rem
-        logger.debug(f'...Finishing. Final size is {len(data)}')
-        return data, decim_factor
         
     def _read_chunk(self, start: int, dur: int
         ) -> npt.NDArray[np.int8]:
@@ -703,9 +684,9 @@ class PowerMeter:
                  threshold: float=0.01) -> None:
         """PowerMeter class for Thorlabs ES111C pyroelectric detector.
 
-        Osc is as instance of Oscilloscope class, 
-        which is used for reading data.
-        ch_id is number of channel (starting from 0) 
+        ``osc`` is as instance of ``Oscilloscope`` class, 
+        which is used for reading data.\n
+        ``ch_id`` is index of channel (starting from 0) 
         to which the detector is connected.
         """
 
@@ -755,8 +736,8 @@ class PowerMeter:
         """
         Calculate laser energy from data.
 
-        ``Step`` - time step for the data.\n
-        Data must be baseline corrected.
+        Data must be baseline corrected.\n
+        ``Step`` - time step for the data.
 
         Thread safe.
         """

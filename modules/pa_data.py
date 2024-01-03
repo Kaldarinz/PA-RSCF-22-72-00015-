@@ -69,10 +69,10 @@ PaData:
 
     """
 
-import warnings
-from typing import Iterable, Any, Tuple, TypedDict, List, TypeVar
+from typing import Iterable, Any, Tuple
 from datetime import datetime
 import time
+import math
 import os, os.path
 import logging
 from itertools import zip_longest
@@ -93,13 +93,90 @@ from .data_classes import (
     DataPoint,
     MeasurementMetadata,
     Measurement,
-    MeasuredPoint
+    Coordinate,
+    OscMeasurement
+)
+from .osc_devices import (
+    Oscilloscope
 )
 from modules.exceptions import (
     PlotError
 )
 
 logger = logging.getLogger(__name__)
+
+class MeasuredPoint:
+    """Single PA measurement."""
+
+    def __init__(
+            self,
+            data: OscMeasurement,
+            pa_ch_ind: int = 0,
+            pm_ch_ind: int = 1,
+            pos: Coordinate = Coordinate(),
+            wavelength: PlainQuantity|None = None
+        ) -> None:
+
+        self.pa_signal_raw = data.data_raw[pa_ch_ind]
+        "Sampled PA signal in int8 format"
+        self.dt = data.dt
+        "Sampling interval for PA data"
+        self.wavelength = wavelength
+        "Excitation laser wavelength"
+        self.pos = pos
+        "Coordinate of the measured point"
+        self.dt_pm: PlainQuantity = Q_(np.nan, 's')
+        "Sampling interval for PM data, could differ from dt due to downsampling of PM data."
+        self.pa_signal: PlainQuantity = Q_(np.empty(), 'V/mJ')
+        "Sampled PA signal in physical units"
+        self.pm_signal: PlainQuantity = Q_(np.empty(), 'V')
+        "Sampled power meter signal in volts"
+        self.start_time: PlainQuantity = Q_(np.nan, 'us')
+        "Start of sampling interval relative to begining of laser pulse"
+        self.stop_time: PlainQuantity = Q_(np.nan, 'us')
+        "Stop of sampling interval relative to begining of laser pulse"
+        self.pm_energy: PlainQuantity = Q_(np.nan, 'uJ')
+        "Energy at power meter in physical units"
+        self.sample_energy: PlainQuantity = Q_(np.nan, 'uJ')
+        "Energy at sample in physical units"
+        self.max_amp: PlainQuantity = Q_(np.nan, 'V/uJ')
+        "Maximum PA signal amplitude"
+
+    def _set_pm_data(self) -> None:
+        """Set dt_pm and pm_signal attributes."""
+
+        pass
+
+    @staticmethod
+    def decimate_data(
+            data: npt.NDArray[np.uint8],
+            target: int = 10_000,
+        ) -> Tuple[npt.NDArray, int]:
+        """Downsample data to <target> size.
+        
+        Does not guarantee size of output array.
+        Return decimated data and decimation factor.
+        """
+
+        logger.debug(f'Starting decimation data with {len(data)} size.')
+        factor = int(len(data)/target)
+        if factor == 0:
+            logger.debug('...Terminatin. Decimation is not required.')
+            return (data, 1)
+        logger.debug(f'Decimation factor = {factor}')
+        iterations = int(math.log10(factor))
+        rem = factor//10**iterations
+        decim_factor = 1
+        for _ in range(iterations):
+            data = decimate(data, 10) # type: ignore
+            decim_factor *=10
+        if rem > 1:
+            data = decimate(data, rem) # type: ignore
+            decim_factor *=rem
+        logger.debug(f'...Finishing. Final size is {len(data)}')
+        return data, decim_factor
+
+
 
 class PaData:
     """Class for PA data storage and manipulations"""
@@ -180,7 +257,7 @@ class PaData:
             self,
             measurement: Measurement,
             data: MeasuredPoint,
-            param_val: List[PlainQuantity]
+            param_val: list[PlainQuantity]
         ) -> None:
         """
         Add a single data point to a measuremt.

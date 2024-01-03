@@ -1,5 +1,7 @@
 from dataclasses import dataclass, field, fields
 from collections.abc import Iterable, Sequence
+from datetime import datetime
+import time
 import typing
 from pint import UnitRegistry
 from pint.facets.plain.quantity import PlainQuantity
@@ -13,9 +15,12 @@ from modules.constants import Priority
 
 ureg = UnitRegistry(auto_reduce_dimensions=True)
 Q_ = ureg.Quantity
+rng = np.random.default_rng()
 
-x, y = Q_((1,2), 's')
-print(x)
+t0 = datetime.now()
+for i in range(10):
+    time.sleep(rng.random()/10)
+    print((datetime.now() - t0).total_seconds())
 
 # @dataclass
 # class Test:

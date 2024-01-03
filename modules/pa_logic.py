@@ -4,7 +4,7 @@ PA backend.
 All calls to hardware should be performed via corresponding actors (_stage_call, _osc_call).
 """
 
-from typing import List, Tuple, Optional, cast, Literal
+from typing import List, Tuple, Optional, cast, Literal, Iterable
 from dataclasses import fields
 import logging
 import os
@@ -14,6 +14,7 @@ import math
 from threading import Thread
 from dataclasses import replace
 import time
+from datetime import timedelta
 from datetime import datetime as dt
 
 import yaml
@@ -44,7 +45,8 @@ from .data_classes import (
     Actor,
     ActorFail,
     StagesStatus,
-    Signals
+    Signals,
+    MapData
 )
 from .constants import (
     Priority
@@ -323,6 +325,45 @@ def stages_open() -> bool:
     logger.debug(f'...Finishing. stages {connected=}')
     return connected
 
+def _stage_status(
+        stage: KinesisMotor,
+        priority: int = Priority.NORMAL
+    ) -> list[str]:
+    """
+    Get status of a given stage.
+    
+    Thread safe.
+    """
+
+    status_lst = _stage_call.submit(
+            priority = priority,
+            func = stage.get_status
+        )
+    if not isinstance(status_lst, ActorFail):
+        return status_lst
+    else:
+        return ['ActorFail']
+    
+def _stage_pos(
+        stage: KinesisMotor,
+        priority: int = Priority.NORMAL
+    ) -> PlainQuantity|None:
+    """
+    Get position of a given stage.
+    
+    Thread safe.
+    """
+
+    pos = _stage_call.submit(
+            priority = priority,
+            func = stage.get_position
+        )
+    if not isinstance(pos, ActorFail):
+        result = Q_(pos, 'm')
+        return result
+    else:
+        return None
+
 def stages_status(**kwargs) -> StagesStatus:
     """
     Return status of all stages.
@@ -408,8 +449,7 @@ def stage_stop(
     """
     Stop movement along given axes.
     
-    Thread safe.\n
-    Priority is normal.
+    Thread safe.
     """
 
     stage = hardware.stages.get(axes, None)
@@ -433,6 +473,38 @@ def break_all_stages(**kwargs) -> None:
     for axes in hardware.stages.keys():
         stage_stop(axes, Priority.HIGHEST) # type: ignore
     _stage_call.reset()
+
+def wait_stage(
+        axes: Literal['x', 'y', 'z'],
+        timeout: int|None = 5,
+        priority: int = Priority.NORMAL,
+        **kwargs
+    ) -> None:
+    """
+    Wait untill given axis stage stops.
+    
+    Thread safe.
+    """
+
+    stage = hardware.stages.get(axes, None)
+    if stage is None:
+        logger.warning(f'Invalid axes ({axes}) for waiting.')
+        return
+    _stage_call.submit(
+        priority,
+        stage.wait_for_stop,
+        timeout = timeout
+    )
+
+def wait_all_stages(
+        priority = Priority.NORMAL,
+        timeout: int|None = 5,
+        **kwargs
+    ) -> None:
+    """Wait untill all stages stop."""
+
+    for axes in hardware.stages.keys():
+        wait_stage(axes, timeout)
 
 def move_to(new_pos: Coordinate, **kwargs) -> None:
     """Send motors to new position.
@@ -503,7 +575,7 @@ def en_meas_fast_cont(
         **kwargs
     ) -> list[EnergyMeasurement]:
     """
-    Get screen information non-stop.
+    Get energy measurements non-stop.
 
     Thread safe.
     """
@@ -521,7 +593,10 @@ def en_meas_fast_cont(
     t = Thread(target = _osc_call.submit, kwargs = tkwargs)
     t.start()
     while flags.get('is_running'):
-        time.sleep(0.1)
+        comm.progress.wait()
+        signals.progess.emit()
+        if comm.progress.is_set():
+            comm.progress.clear()
         # Stop if max measurements was set and the value was reached
         if max_count is not None and comm.count >= max_count:
             break
@@ -562,13 +637,203 @@ def en_meas_fast_cont_emul(
             break
     return result
 
+def signal_meas_fast_cont(
+        signals: WorkerSignals,
+        flags: dict[str, bool],
+        priority: int = Priority.NORMAL,
+        max_count: int|None = None,
+        **kwargs
+    ) -> list[MeasuredPoint]:
+    """
+    Get energy measurements non-stop.
+
+    Thread safe.
+    """
+
+    # Object for communication with lower level fucntion
+    comm = Signals()
+    # List with results
+    result = []
+    tkwargs = {
+        'priority': priority,
+        'func': __en_meas_fast_cont,
+        'comm': comm,
+        'result': result
+    }
+    t = Thread(target = _osc_call.submit, kwargs = tkwargs)
+    t.start()
+    while flags.get('is_running'):
+        comm.progress.wait()
+        signals.progess.emit()
+        if comm.progress.is_set():
+            comm.progress.clear()
+        # Stop if max measurements was set and the value was reached
+        if max_count is not None and comm.count >= max_count:
+            break
+    comm.is_running = False
+    t.join()
+
+    return result
+
+
+def scan_2d(
+        scan: MapData,
+        signals: WorkerSignals,
+        flags: dict[str, bool],
+        priority: int = Priority.NORMAL,
+        **kwargs
+    ) -> MapData:
+    """Make 2D spatial scan.
+    
+    Emit progress after each scanned line.
+    Thread safe.
+    """
+
+    ### Set fast and slow axes params
+    if scan.scan_dir.startswith('H'):
+        # Motors
+        fstage = hardware.stages.get(scan.xaxis.lower())
+        sstage = hardware.stages.get(scan.yaxis.lower())
+        # Points
+        spoints = scan.ypoints
+        # Fast axis size
+        fsize = scan.width
+        # X start point
+        if scan.scan_dir[1] == 'L':
+            fx0 = scan.x0
+        else:
+            fx0 = scan.x0 + scan.width
+        # Y axis start point and slow axis step size
+        if scan.scan_dir[2] == 'B':
+            fy0 = scan.y0
+            sstep = scan.ystep
+        else:
+            fy0 = scan.y0 + scan.height
+            sstep = -1*scan.ystep
+    else:
+        # Motors
+        fstage = hardware.stages.get(scan.yaxis.lower())
+        sstage = hardware.stages.get(scan.xaxis.lower())
+        # Points
+        spoints = scan.xpoints
+        # Fast axis size
+        fsize = scan.height
+        # X axis start point and sloaw axis step size
+        if scan.scan_dir[1] == 'L':
+            fx0 = scan.x0
+            sstep = scan.ystep
+        else:
+            fx0 = scan.x0 + scan.width
+            sstep = -1*scan.ystep
+        # Y axis start point
+        if scan.scan_dir[2] == 'B':
+            fy0 = scan.y0
+        else:
+            fy0 = scan.y0 + scan.height
+            
+    # move to starting point
+    _stage_call.submit(
+        priority = priority,
+        func = fstage.move_to,
+        position = fx0.to('m').m
+    )
+    _stage_call.submit(
+        priority = priority,
+        func = sstage.move_to,
+        position = fy0.to('m').m
+    )
+    # Wait for stages to stop at starting point
+    wait_all_stages()
+
+    # Scan loop
+    for i in range(spoints):
+        # First launch energy measurements
+        # Object for communication with lower level fucntion
+        comm_en = Signals()
+        # Lists with results
+        result_en = []
+        results_coord: list[dt, PlainQuantity] = []
+        tkwargs_en = {
+            'priority': priority,
+            'func': __en_meas_fast_cont,
+            'comm': comm_en,
+            'result': result_en
+        }
+        t_en = Thread(target = _osc_call.submit, kwargs = tkwargs_en)
+        t_en.start()
+        # Then send stage to scan the line
+        dest = (-1)**i*fsize.to('m').m
+        _stage_call.submit(
+            priority = priority,
+            func = fstage.move_by,
+            distance = dest
+        )
+        # While stage is moving, measure its position.
+        while 'active' in _stage_status(fstage):
+            new_pos = _stage_pos(fstage)
+            if new_pos is not None:
+                results_coord.append((dt.now(),new_pos))
+        # When stage stopped, cancel energy measurements
+        comm_en.is_running = False
+        t_en.join()
+        scan.raw_data[i] = (result_en, results_coord)
+        signals.progess.emit(scan.raw_data[i])
+        logger.info(f'Line scanned. {len(result_en)} points measured.')
+        # Make move along sloaw axis
+        if i < (spoints - 1):
+            _stage_call.submit(
+            priority = priority,
+            func = sstage.move_by,
+            distance = sstep
+            )
+            wait_stage(sstage)
+
+        return scan
+
+def calc_scan_coord(
+        data: tuple[list[EnergyMeasurement], list[tuple[dt,PlainQuantity]]],
+        start: PlainQuantity|None = None,
+        stop: PlainQuantity|None = None
+    ) -> list[PlainQuantity]:
+    """"
+    Calculate positions of osc signal measurements.
+    
+    ``data`` - tuple with two lists.
+    First list contain EnergyMeasurement instances,
+    second list contain tuples of datetime and positions.
+    Data can be measured before position measurements were started,
+    and can lasts longer than position. To handle this case following
+    optional params can be used. Their values will be used for time
+    before and after position measurements accordingly.\n
+    ``start`` - start coordinate of scan line.\n
+    ``stop`` - stop coordinate of scan line.\n
+    """
+
+    # Reference point for time delta is time of the first measured stage position
+    t0 = data[1][0][0]
+    # Array with time points of energy measurements
+    en_time = np.array([(x.datetime - t0).total_seconds() for x in data[0]])
+    # Array with time points of position measurements
+    pos_time = np.array([(x[0] - t0).total_seconds() for x in data[1]])
+    # Array with positions
+    coord = np.array([x[1].to('mm').m for x in data[1]])
+
+    en_coord = np.interp(
+        x = en_time,
+        xp = pos_time,
+        fp = coord,
+        left = start,
+        right = stop)
+    
+    return [Q_(x, 'mm') for x in en_coord]
+
 def __en_meas_fast_cont(
         comm: Signals,
         result: list,
-        timeout: float = 20,
+        timeout: float = 100,
     ) -> None:
     """
-    Get screen information non-stop.
+    Private function for energy measurements non-stop.
     
     ``comm`` - object for interthread communication.\n
     Measuring continue untill ``comm.is_running`` set to False,
@@ -593,9 +858,11 @@ def __en_meas_fast_cont(
         if len(result):
             if result[-1] != msmnt:
                 result.append(msmnt)
+                comm.progress.set()
         # Add first measurement
         else:
             result.append(msmnt)
+            comm.progress.set()
         # inform about current amount of measurements
         comm.count = len(result)
 

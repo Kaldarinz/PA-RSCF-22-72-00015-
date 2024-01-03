@@ -432,7 +432,6 @@ class Window(QMainWindow,Ui_MainWindow,):
         )
         self.pool.start(self.astep_worker)
 
-
     def tst_map(self):
 
         self.tst_worker = Worker(pa_logic.en_meas_fast_cont)

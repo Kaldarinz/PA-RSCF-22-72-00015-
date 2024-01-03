@@ -134,44 +134,34 @@ class Measurement:
     "MetaData of the measurement."
     data: dict[str, DataPoint] = field(default_factory = dict)
 
+@dataclass
+class Coordinate:
+    
+    x: PlainQuantity|None = None
+    y: PlainQuantity|None = None
+    z: PlainQuantity|None = None
+
+def def_pos() -> Coordinate:
+    return Coordinate()
+
 def empty_ndarray():
     return np.empty(0, dtype=np.int8)
 
 def empty_arr_quantity() -> PlainQuantity:
     return Q_(np.empty(0), 'uJ')
 
-@dataclass
-class MeasuredPoint:
-    """Single PA measurement."""
-
-    pa_signal_raw: npt.NDArray[np.uint8] = field(default_factory=empty_ndarray) # type: ignore
-    "Sampled PA signal in int8 format"
-    dt: PlainQuantity = Q_(np.nan,'s')
-    "Sampling interval for PA data"
-    dt_pm: PlainQuantity = Q_(np.nan, 's')
-    "Sampling interval for PM data, could differ from dt due to downsampling of PM data."
-    pa_signal: PlainQuantity = Q_(np.empty(0), 'V/uJ')
-    "Sampled PA signal in physical units"
-    pm_signal: PlainQuantity = Q_(np.empty(0), 'V')
-    "Sampled power meter signal in volts"
-    start_time: PlainQuantity = Q_(0, 'us')
-    "Start of sampling interval relative to begining of laser pulse"
-    stop_time: PlainQuantity = Q_(0, 'us')
-    "Stop of sampling interval relative to begining of laser pulse"
-    pm_energy: PlainQuantity = Q_(0, 'uJ')
-    "Energy at power meter in physical units"
-    sample_energy: PlainQuantity = Q_(0, 'uJ')
-    "Energy at sample in physical units"
-    max_amp: PlainQuantity = Q_(0, 'V/uJ')
-    "Maximum PA signal amplitude"
-    wavelength: PlainQuantity = Q_(0, 'nm')
-    "Excitation laser wavelength"
+def empty_arr_quantity_s() -> PlainQuantity:
+    return Q_(np.empty(0), 's')
 
 @dataclass
 class OscMeasurement:
-    """Oscilloscope measurement."""
+    """
+    Oscilloscope measurement.
+    
+    Could contain data for all channels.
+    """
 
-    data_raw: list[npt.NDArray] = field(
+    data_raw: list[npt.NDArray|None] = field(
         default_factory=list
     )
     dt: PlainQuantity = Q_(np.nan, 'us')
@@ -180,15 +170,48 @@ class OscMeasurement:
     "Data = yincrement*data_raw."
 
 @dataclass
+class EnergyMeasurement:
+    """Energy measurement from power meter."""
+
+    datetime: dt = field(compare=False)
+    signal: PlainQuantity = field(
+        default_factory=empty_arr_quantity,
+        compare = False
+    )
+    "Measured PM signal (full data)."
+    dt: PlainQuantity = Q_(np.nan, 'us')
+    istart: int = -1
+    "Index of laser pulse start."
+    istop: int = -1
+    "Index of laser pulse end."
+    energy: PlainQuantity = Q_(np.nan, 'uJ')
+    "Last measured laser energy."
+
+
+@dataclass
 class MapData:
 
     _data: np.ndarray = field(
         default_factory = empty_ndarray,
         compare = False
     )
-    xstep: PlainQuantity = Q_(np.nan, 'um')
-    ystep: PlainQuantity = Q_(np.nan, 'um')
-    units: str = ''
+    raw_data: dict = field(
+        default_factory = dict[int:tuple[list[EnergyMeasurement], list[tuple[dt,PlainQuantity]]]],
+        compare = False
+    )
+    xaxis: str = ''
+    yaxis: str = ''
+    x0: PlainQuantity = Q_(np.nan, 'mm')
+    y0: PlainQuantity = Q_(np.nan, 'mm')
+    width: PlainQuantity = Q_(np.nan, 'mm')
+    height: PlainQuantity = Q_(np.nan, 'mm')
+    xstep: PlainQuantity = Q_(np.nan, 'mm')
+    ystep: PlainQuantity = Q_(np.nan, 'mm')
+    xpoints: int = 0
+    ypoints: int = 0
+    scan_dir: str = 'HLB'
+    xunits: str = ''
+    yunits: str = ''
 
     @property
     def data(self) -> PlainQuantity:
@@ -225,31 +248,6 @@ class MapData:
             logger.warning('Trying to set wrong data type to MapData.')
 
 @dataclass
-class EnergyMeasurement:
-    """Energy measurement from power meter."""
-
-    datetime: dt = field(compare=False)
-    signal: PlainQuantity = field(
-        default_factory=empty_arr_quantity,
-        compare = False
-    )
-    "Measured PM signal (full data)."
-    dt: PlainQuantity = Q_(np.nan, 'us')
-    istart: int = -1
-    "Index of laser pulse start."
-    istop: int = -1
-    "Index of laser pulse end."
-    energy: PlainQuantity = Q_(np.nan, 'uJ')
-    "Last measured laser energy."
-
-@dataclass
-class Coordinate:
-    
-    x: PlainQuantity|None = None
-    y: PlainQuantity|None = None
-    z: PlainQuantity|None = None
-
-@dataclass
 class StagesStatus:
 
     x_open: bool|None = None
@@ -268,6 +266,7 @@ class Signals:
         
         self.is_running = is_running
         self.count = 0
+        self.progress = threading.Event()
 
 class WorkerSignals(QObject):
     """
