@@ -225,13 +225,10 @@ class Oscilloscope:
             read_ch2: bool=True,
             correct_bl: bool=True,
             smooth: bool=True,
-        ) -> tuple[list[PlainQuantity|None], list[npt.NDArray[np.int8]|None]]:
+        ) -> OscMeasurement:
         """
         Measure data from screen.
         
-        Return tuple of 2 lists.
-        The first list contain measured data in physical units (PlainQuantity).
-        The second list contain raw measured data.\n
         ``read_ch1`` and ``read_ch2`` determine which channels to read.\n
         ``correct_bl`` applies baseline correction to measured data.\n
         ``smooth`` applies smoothing (rolling average) to the measured data.
@@ -257,7 +254,14 @@ class Oscilloscope:
                 logger.debug(f'Screen data for channel {self.CH_IDS[i]} set.')
                 logger.debug(f'Signal amplitude is {self.scr_amp[i]}.')
         logger.debug('...Finishing. Screen measure successfull.')
-        result = (self.scr_data.copy(), self.scr_data_raw.copy())
+        
+        result = OscMeasurement(
+            datetime = datetime.now(),
+            data_raw = self.scr_data_raw.copy(),
+            dt = self.xincrement,
+            pre_t = [self.xincrement*self.MAX_SCR_POINTS/2]*2,
+            yincrement = Q_(self.yincrement, 'V')
+        )
         return result
 
     def _trail_correction(

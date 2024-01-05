@@ -168,6 +168,7 @@ class OscMeasurement:
     dt: PlainQuantity = Q_(np.nan, 'us')
     "Time step of ``data_raw``"
     pre_t: list[PlainQuantity] = field(default_factory=list)
+    "List with time intervals from start of sampling to trigger."
     yincrement: PlainQuantity = Q_(np.nan, 'V')
     "Data = yincrement*data_raw."
 
