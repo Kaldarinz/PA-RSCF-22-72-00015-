@@ -166,8 +166,9 @@ class OscMeasurement:
         default_factory=list
     )
     dt: PlainQuantity = Q_(np.nan, 'us')
+    "Time step of ``data_raw``"
     pre_t: list[PlainQuantity] = field(default_factory=list)
-    yincrement: float = np.nan
+    yincrement: PlainQuantity = Q_(np.nan, 'V')
     "Data = yincrement*data_raw."
 
 @dataclass
@@ -188,6 +189,23 @@ class EnergyMeasurement:
     energy: PlainQuantity = Q_(np.nan, 'uJ')
     "Last measured laser energy."
 
+
+
+class PaEnergyMeasurement(EnergyMeasurement):
+    """Energy information for PA measurement."""
+
+    def __init__(self, en_info: EnergyMeasurement, sample_en: PlainQuantity):
+        super().__init__(
+            datetime=en_info.datetime,
+            signal=en_info.signal,
+            dt=en_info.dt,
+            istart=en_info.istart,
+            istop=en_info.istop,
+            energy=en_info.energy
+        )
+
+        self.sample_en = sample_en
+        "Energy at sample."
 
 @dataclass
 class MapData:

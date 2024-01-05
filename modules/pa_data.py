@@ -95,13 +95,7 @@ from .data_classes import (
     Measurement,
     Coordinate,
     OscMeasurement,
-    EnergyMeasurement
-)
-from .hardware.osc_devices import (
-    PowerMeter as pm
-)
-from .hardware.utils import (
-    calc_sample_en
+    PaEnergyMeasurement
 )
 from modules.exceptions import (
     PlotError
@@ -118,12 +112,6 @@ class MeasuredPoint:
     "Sampled PA signal in physical units"
     pm_signal: PlainQuantity = Q_(np.empty(0), 'V')
     "Sampled power meter signal in volts"
-    pm_info: EnergyMeasurement|None = None
-    "General information laser energy."
-    pm_energy: PlainQuantity = Q_(np.nan, 'mJ')
-    "Energy at power meter in physical units"
-    sample_en: PlainQuantity = Q_(np.nan, 'mJ')
-    "Energy at sample in physical units"
     max_amp: PlainQuantity = Q_(np.nan, 'V/uJ')
     "Maximum PA signal amplitude"
     start_time: PlainQuantity = Q_(np.nan, 'us')
@@ -134,6 +122,7 @@ class MeasuredPoint:
     def __init__(
             self,
             data: OscMeasurement,
+            energy_info: PaEnergyMeasurement,
             wavelength: PlainQuantity,
             pa_ch_ind: int = 0,
             pm_ch_ind: int = 1,
@@ -155,6 +144,12 @@ class MeasuredPoint:
         "Coordinate of the measured point"
         self.yincrement: PlainQuantity = Q_(data.yincrement, 'V')
         "Scaling factor to convert raw data to volts"
+        self.pm_info = energy_info
+        "General information laser energy."
+        self.pm_energy = energy_info.energy
+        "Energy at power meter in physical units"
+        self.sample_en = energy_info.sample_en
+        "Energy at sample in physical units"
         self._pm_start = data.pre_t[pm_ch_ind]
         self._pa_start = data.pre_t[pa_ch_ind]
 
@@ -162,7 +157,6 @@ class MeasuredPoint:
         self._set_pm_data()
 
         # Calculate energy 
-        self.pm_info = pm.energy_from_data(self.pm_signal, self.dt_pm)
         self._set_energy()
 
         # Set boundary conditions for PA signal relative to start of laser pulse
@@ -171,10 +165,15 @@ class MeasuredPoint:
     def _set_pm_data(self) -> None:
         """Set ``dt_pm`` and ``pm_signal`` attributes."""
 
-        # Downsample power meter data
-        pm_signal_raw, pm_decim_factor = self.decimate_data(
-            self.pm_signal_raw
-        )
+        # Downsample power meter data if it is too long
+        if len(self.pm_signal_raw) > len(self.pa_signal_raw):
+            pm_signal_raw, pm_decim_factor = self.decimate_data(
+                self.pm_signal_raw,
+                int(len(self.pm_signal_raw)/len(self.pa_signal_raw) + 1)
+            )
+        else:
+            pm_signal_raw = self.pm_signal_raw
+            pm_decim_factor = 1
         # Calculate dt for downsampled data
         self.dt_pm = self.dt*pm_decim_factor
         # Convert downsampled signal to volts
@@ -183,28 +182,20 @@ class MeasuredPoint:
     def _set_energy(self) -> None:
         """Set energy attributes.
         
-        Actually set: ``pm_energy``, ``sample_energy``, ``max_amp``
-        and ``pa_signal``.
+        Actually set:``max_amp`` and ``pa_signal``.
         """
 
-        if self.pm_info is not None:
-            # Set ``pm_energy``
-            self.pm_energy = self.pm_info.energy
-            sample_en = calc_sample_en(self.wavelength, self.pm_energy)
-            if sample_en is not None:
-                # PA signal in volts
-                pa_signal_v = self.pa_signal_raw*self.yincrement
-                # Set ``sample_en``
-                self.sample_en = sample_en
-                # Set ``pa_signal``
-                self.pa_signal = pa_signal_v/sample_en
-                # Set ``max_amp``
-                self.max_amp = pa_signal_v.ptp()/sample_en
+        # PA signal in volts
+        pa_signal_v = self.pa_signal_raw*self.yincrement
+        # Set ``pa_signal``
+        self.pa_signal = pa_signal_v/self.sample_en
+        # Set ``max_amp``
+        self.max_amp = pa_signal_v.ptp()/self.sample_en
 
     def _set_pa_offset(self) -> None:
 
         # Calculate time from start of pm_signal to trigger position
-        pm_offset = pm.pulse_offset(self.pm_signal, self.dt_pm)
+        pm_offset = self.pm_info.dt*self.pm_info.istart
         if pm_offset is not None:
             # Start time of PA data relative to start of laser pulse
             self.start_time = (self._pm_start - pm_offset) - self._pa_start

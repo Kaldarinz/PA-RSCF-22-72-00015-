@@ -215,7 +215,7 @@ class Oscilloscope:
             data_raw = self.data_raw.copy(),
             dt = (1/self.sample_rate).to('us'),
             pre_t = self.pre_t.copy(),
-            yincrement = self.yincrement
+            yincrement = Q_(self.yincrement, 'V')
         )
         return result
 

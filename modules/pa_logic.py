@@ -24,9 +24,13 @@ from .hardware.osc_devices import (
     PhotoAcousticSensOlymp
 )
 from .hardware.glob import hardware
+from hardware.utils import (
+    calc_sample_en
+)
 from .data_classes import (
     WorkerSignals,
     EnergyMeasurement,
+    PaEnergyMeasurement,
     Coordinate,
     Actor,
     ActorFail,
@@ -871,8 +875,18 @@ def measure_point(
         logger.error('Error in measure point function.')
         return None
 
+    pm_energy = pm.energy_from_data(data.data_raw*data.yincrement, data.dt)
+    if pm_energy is None:
+        logger.error('Power meter energy cannot be obtained.')
+        return None
+    sample_en = calc_sample_en(wavelength, pm_energy.energy)
+    if sample_en is None:
+        logger.error('Sample energy cannot be calculated.')
+        return None
+    en_info = PaEnergyMeasurement(pm_energy, sample_en)
     measurement = MeasuredPoint(
         data = data,
+        energy_info = en_info,
         wavelength = wavelength,
         pa_ch_ind = pa_ch_id,
         pm_ch_ind = pm_ch_id
