@@ -4,7 +4,7 @@ PA backend.
 All calls to hardware should be performed via corresponding actors (_stage_call, _osc_call).
 """
 
-from typing import cast, Literal, Iterable
+from typing import cast, Literal, Iterable, ParamSpec, TypeVar
 import logging
 import os
 from threading import Thread
@@ -30,6 +30,7 @@ from hardware.utils import (
 from .data_classes import (
     WorkerSignals,
     EnergyMeasurement,
+    OscMeasurement,
     PaEnergyMeasurement,
     Coordinate,
     Actor,
@@ -47,6 +48,9 @@ from .constants import (
 from . import ureg, Q_
 
 logger = logging.getLogger(__name__)
+
+P = ParamSpec('P')
+T = TypeVar('T')
 
 def _init_call() -> None:
     """Start actors for serial communication with hardware."""
@@ -547,27 +551,44 @@ def en_meas_fast(
                     +f'signal len = {len(result.signal.m)}')
     return result
 
-def en_meas_fast_cont(
+def meas_cont(
+        data: Literal['en_fast', 'pa_fast'],
         signals: WorkerSignals,
         flags: dict[str, bool],
         priority: int = Priority.NORMAL,
         max_count: int|None = None,
+        timeout: float|None = 100,
         **kwargs
     ) -> list[EnergyMeasurement]:
     """
-    Get energy measurements non-stop.
+    Non-stop measurement of required information.
 
+    Intended to be called from GUI.\n
+    ``data`` - determines, which information should be measured.\n
+    ``signals`` and ``flags`` are used to interthread communication
+    with GUI and are automatically supplied.\n
+    ``priority`` set priority of the call for Actor.\n
+    ``max_count`` is optional maximum amount of measurements.\n
+    ``timeout`` is optional timeout in seconds.\n
     Thread safe.
     """
 
+    # Funstions, which provide necessary information
+    funcs = {
+        'en_fast': hardware.power_meter.get_energy_scr,
+        'pa_fast': hardware.osc.measure_scr
+    }
     # Object for communication with lower level fucntion
     comm = Signals()
     # List with results
     result = []
     tkwargs = {
         'priority': priority,
-        'func': __en_meas_fast_cont,
+        'func': __meas_cont,
+        'called_func': funcs[data],
         'comm': comm,
+        'max_count': max_count,
+        'timeout': timeout,
         'result': result
     }
     t = Thread(target = _osc_call.submit, kwargs = tkwargs)
@@ -615,44 +636,6 @@ def en_meas_fast_cont_emul(
         logger.info('EnergyMeasurement generated.')
         if max_count is not None and total == max_count:
             break
-    return result
-
-def signal_meas_fast_cont(
-        signals: WorkerSignals,
-        flags: dict[str, bool],
-        priority: int = Priority.NORMAL,
-        max_count: int|None = None,
-        **kwargs
-    ) -> list[MeasuredPoint]:
-    """
-    Get energy measurements non-stop.
-
-    Thread safe.
-    """
-
-    # Object for communication with lower level fucntion
-    comm = Signals()
-    # List with results
-    result = []
-    tkwargs = {
-        'priority': priority,
-        'func': __en_meas_fast_cont,
-        'comm': comm,
-        'result': result
-    }
-    t = Thread(target = _osc_call.submit, kwargs = tkwargs)
-    t.start()
-    while flags.get('is_running'):
-        comm.progress.wait()
-        signals.progess.emit()
-        if comm.progress.is_set():
-            comm.progress.clear()
-        # Stop if max measurements was set and the value was reached
-        if max_count is not None and comm.count >= max_count:
-            break
-    comm.is_running = False
-    t.join()
-
     return result
 
 def scan_2d(
@@ -730,11 +713,12 @@ def scan_2d(
         # Object for communication with lower level fucntion
         comm_en = Signals()
         # Lists with results
-        result_en = []
-        results_coord: list[dt, PlainQuantity] = []
+        result_en: list[OscMeasurement] = []
+        results_coord: list[tuple[dt, PlainQuantity]] = []
         tkwargs_en = {
             'priority': priority,
-            'func': __en_meas_fast_cont,
+            'func': __meas_cont,
+            'called_func': hardware.osc.measure_scr,
             'comm': comm_en,
             'result': result_en
         }
@@ -752,7 +736,7 @@ def scan_2d(
             new_pos = _stage_pos(fstage)
             if new_pos is not None:
                 results_coord.append((dt.now(),new_pos))
-        # When stage stopped, cancel energy measurements
+        # When stage stopped, cancel signal measurements
         comm_en.is_running = False
         t_en.join()
         scan.raw_data[i] = (result_en, results_coord)
@@ -806,44 +790,52 @@ def calc_scan_coord(
     
     return [Q_(x, 'mm') for x in en_coord]
 
-def __en_meas_fast_cont(
+def __meas_cont(
+        called_func: callable[P,T],
         comm: Signals,
         result: list,
-        timeout: float = 100,
+        timeout: float|None = 100,
+        max_count: int|None = None
     ) -> None:
     """
-    Private function for energy measurements non-stop.
+    Private function which call ``called_func`` non-stop.
     
+    Produce list of ``called_func`` results, which are not ``None``.\n
     ``comm`` - object for interthread communication.\n
     Measuring continue untill ``comm.is_running`` set to False,
-    or ``timeout`` expires.\n
+    or ``timeout`` expires or ``max_count`` reached.\n
     Intended to be called by actor only.
     """
 
-    pm = hardware.power_meter
-    if pm is None:
-        return
     start = time.time()
     # execution loop
     while comm.is_running:
         # exit by timeout
-        if (time.time() - start) > timeout:
+        if timeout and (time.time() - start) > timeout:
+            logger.warning(
+                'Timeout expired during fast PA signal cont measure.'
+            )
             break
-        msmnt = pm.get_energy_scr()
-        # Skip bad read
-        if msmnt == EnergyMeasurement(dt.now()):
+        msmnt = called_func()
+        # Skip bad reads
+        if msmnt is None:
             continue
         # Add only unique measurements
         if len(result):
             if result[-1] != msmnt:
                 result.append(msmnt)
+                # Inform about good measurement
                 comm.progress.set()
         # Add first measurement
         else:
             result.append(msmnt)
+            # Inform about good measurement
             comm.progress.set()
         # inform about current amount of measurements
         comm.count = len(result)
+        # Stop if max_count is set and reached
+        if max_count and comm.count == max_count:
+            break
 
 def measure_point(
         wavelength: PlainQuantity,
