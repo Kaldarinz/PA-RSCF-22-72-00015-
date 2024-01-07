@@ -4,8 +4,8 @@ Module with data classes.
 
 import sys
 from typing import Callable, TypeVar, Any, Literal
-from typing_extensions import ParamSpec
-from dataclasses import dataclass, field
+from typing_extensions import ParamSpec, Self, Type
+from dataclasses import dataclass, field, fields
 import traceback
 import logging
 import heapq
@@ -140,6 +140,90 @@ class Coordinate:
     x: PlainQuantity|None = None
     y: PlainQuantity|None = None
     z: PlainQuantity|None = None
+
+    @classmethod
+    def from_tuples(
+        cls: Type[Self],
+        coords: list[tuple[str, PlainQuantity]],
+        default: PlainQuantity|None = None
+        ) -> Self:
+        """
+        Alternative constructor from list of tuples with (Axis, value).
+        
+        ``default`` is default value for mising axes.
+        """
+
+        pos = cls()
+        for coord in coords:
+            if coord[0] in dir(pos):
+                setattr(pos, coord[0], coord[1])
+            else:
+                raise TypeError(
+                    f'Trying to set non-existing axis = {coord[0]}'
+                )
+        # Set default values for missing attributes
+        set_flds = set(coord[0] for coord in coords)
+        all_flds = set(fld.name for fld in fields(pos))
+        missing = all_flds - set_flds
+        for fld in missing:
+            setattr(pos, fld, default)
+        return pos
+    
+    def add(self, added: Self, strict: bool = True) -> None:
+        """
+        Add another coordinate to current coordinate.
+        
+        If ``strict`` is ``True``, then  if axis value of any operand
+        is None, the result is None. Otherwise if axis value of
+        any operand is not None, the result is existing value.
+        """
+
+        if not isinstance(added, type(self)):
+            return
+        
+        # Iterate over all fields
+        for fld in fields(self):
+            attr1 = getattr(self, fld.name)
+            attr2 = getattr(added, fld.name)
+            # If both fields are None, then skip it
+            if attr1 is None and attr2 is None:
+                continue
+            # If both values exist, sum them
+            elif None not in [attr1, attr2]:
+                setattr(self, fld.name, attr1 + attr2)
+            else:
+                # if only one value axist and adding is not strict, 
+                # set existing value
+                if not strict:
+                    if attr1 is None:
+                        setattr(self, fld.name, attr2)
+
+    def __add__(self, added: Self) -> Self:
+        """If value of any axis is None, result for the axis is None."""
+        if not isinstance(added, type(self)):
+            return NotImplemented
+        
+        new_coord = type(self)()
+        for fld in fields(self):
+            attr1 = getattr(self, fld.name)
+            attr2 = getattr(added, fld.name)
+            if None not in [attr1, attr2]:
+                setattr(new_coord, fld.name, attr1 + attr2)
+
+        return new_coord
+    
+    def __sub__(self, subed: Self) -> Self:
+        if not isinstance(subed, type(self)):
+            return NotImplemented
+        return self + (-subed)
+    
+    def __neg__(self) -> Self:
+        new_coord = type(self)()
+        for fld in fields(self):
+            attr = getattr(self, fld.name)
+            if attr is not None:
+                setattr(new_coord, fld.name, -attr)
+        return new_coord
 
 def def_pos() -> Coordinate:
     return Coordinate()
@@ -341,29 +425,154 @@ class MeasuredPoint:
 class ScanLine:
     """Single scan line."""
 
+    ltype: str
+    "Type of scan line"
     startp: Coordinate
     "Exact position of scan start."
     stopp: Coordinate
     "Exact position of scan stop."
-    raw_sig: list[OscMeasurement]
+    points: int
+    "Amount of regular points."
+    raw_points: int
+    "Amount of all measured points."
+    raw_sig: list[MeasuredPoint]
     "List with raw measurements."
     raw_pos: list[tuple[dt, Coordinate]]
     "List with positions, measured along scan line with timestamps."
+    data: list[MeasuredPoint]
+    "List with data points along exact scan line geometry."
+    raw_data: list[MeasuredPoint]
+    "List with data points at their measured positions."
 
+    def __init__(
+            self,
+            startp: Coordinate,
+            stopp: Coordinate,
+            points: int,
+            raw_sig: list[OscMeasurement] = [],
+            raw_pos: list[tuple[dt, Coordinate]] = [],
+            ltype: Literal['straight line'] = 'straight line'   
+        ) -> None:
+        """Default scan line constructor.
+        
+        ``startp`` - Exact position of scan start.\n
+        ``stopp`` - Exact position of scan stop.\n
+        ``raw_sig`` - optional list with measured osc signals.\n
+        ``raw_pos`` - optional list with measured scan positions.
+        """
+        
+        self.startp = startp
+        self.stopp = stopp
+        self.points = points
+        self.raw_sig = raw_sig
+        self.raw_pos = raw_pos
+        self.ltype = ltype
+        self.raw_data = []
+        self.data = []
+
+    def add_signal_points(self, osc_data: list[MeasuredPoint]) -> None:
+        """Append OscMeasurements to ``raw_sig`` list."""
+
+        self.raw_sig += osc_data
+
+    def add_pos_point(self, pos: Coordinate|None) -> None:
+        """Append position along scan line."""
+
+        if pos is not None:
+            self.raw_pos.append((dt.now(),pos))
+
+    def set_raw_data(self) -> None:
+        """Calculate ``raw_data`` attribute based on ``raw_sig`` and ``raw_pos``."""
+
+        self.raw_data = self.calc_scan_coord(
+            signals = self.raw_sig,
+            poses = self.raw_pos,
+            start = self.startp,
+            stop = self.stopp
+        )
+
+    @staticmethod
+    def calc_scan_coord(
+            signals: list[MeasuredPoint],
+            poses: list[tuple[dt,Coordinate]],
+            start: Coordinate|None = None,
+            stop: Coordinate|None = None
+        ) -> list[MeasuredPoint]:
+        """
+        Calculate positions of OscMeasurements.
+        
+        Assume that during scanning signals and coordinates were measured
+        with arbitrary time intervals (no periodicity, no parcticular
+        dependence between measurements of signal and positions).
+        For each OscMeasurement the closest positions, measured before 
+        and after the OscMeasurement are taken and position of 
+        OscMeasurement is calculated by linear interpolation between those points.
+        ``signals`` - OscMeasurements which positions should be determined.\n
+        ``poses`` - list of tuples of positions and timestamps, when
+        they were measured.\n
+        Both lists are sorted by timestamp before calculations.\n
+        Signals can be measured before position measurements were started,
+        and their measurements can lasts longer than position. To handle 
+        this case following optional params can be used. Their values 
+        will be used as start and stop position accordingly.\n
+        ``start`` - start coordinate of scan line.\n
+        ``stop`` - stop coordinate of scan line.\n
+        """
+
+        # Sort data
+        signals.sort(key = lambda x: x.datetime)
+        poses.sort(key = lambda x: x[0])
+        # Reference point for time delta is time of the first measured position
+        t0 = poses[0][0]
+        # Array with time points relative to ref of signal measurements
+        en_time = np.array([(x.datetime - t0).total_seconds() for x in signals])
+        # Array with time points relative to ref of position
+        pos_time = np.array([(x[0] - t0).total_seconds() for x in poses])
+
+        for fld in fields(Coordinate):
+            # Assume that all positions have the same non None fields
+            # and iterate only on those fields.
+            if getattr(poses[1], fld.name) is not None:
+                # Array with measured axes
+                coord = np.array([getattr(x, fld.name).to('m').m for x in poses[1]])
+                # Array with calculated axes
+                en_coord = np.interp(
+                    x = en_time,
+                    xp = pos_time,
+                    fp = coord,
+                    left = getattr(start, fld.name).to('m').m,
+                    right = getattr(stop, fld.name).to('m').m
+                )
+                # Set axes values to result
+                for i, res in enumerate(signals):
+                    setattr(res.pos, fld.name, Q_(en_coord[i], 'm'))
+            
+        return signals
+
+    @property
+    def raw_points(self) -> int:
+        return len(self.raw_data)
 
 @dataclass
 class MapData:
 
+    data: np.ndarray = field(
+        default_factory = empty_ndarray,
+        compare = False,
+    )
     _data: np.ndarray = field(
         default_factory = empty_ndarray,
-        compare = False
+        compare = False,
+        repr = False
     )
     raw_data: dict = field(
         default_factory = dict[int:tuple[list[EnergyMeasurement], list[tuple[dt,PlainQuantity]]]],
         compare = False
     )
-    xaxis: str = ''
-    yaxis: str = ''
+    xaxis: str
+    _xaxis: str = field(repr=False, default='')
+    yaxis: str
+    _yaxis: str = field(repr=False, default='')
     x0: PlainQuantity = Q_(np.nan, 'mm')
     y0: PlainQuantity = Q_(np.nan, 'mm')
     width: PlainQuantity = Q_(np.nan, 'mm')
@@ -375,6 +584,7 @@ class MapData:
     scan_dir: str = 'HLB'
     xunits: str = ''
     yunits: str = ''
+    units: str = ''
 
     @property
     def data(self) -> PlainQuantity:
@@ -410,6 +620,24 @@ class MapData:
         else:
             logger.warning('Trying to set wrong data type to MapData.')
 
+    @property
+    def xaxis(self) -> str:
+        return self._xaxis
+    @xaxis.setter
+    def xaxis(self, val: str = '') -> None:
+        if isinstance(val, property):
+            return
+        self._xaxis = val.lower()
+
+    @property
+    def yaxis(self) -> str:
+        return self._yaxis
+    @yaxis.setter
+    def yaxis(self, val: str) -> None:
+        if isinstance(val, property):
+            return
+        self._yaxis = val.lower()
+
 @dataclass
 class StagesStatus:
 
@@ -419,6 +647,12 @@ class StagesStatus:
     x_status: list[str] = field(default_factory = list)
     y_status: list[str] = field(default_factory = list)
     z_status: list[str] = field(default_factory = list)
+
+    def has_status(self, status: str) -> bool:
+        """Return True if any stage is in requested status."""
+
+        statuses = set(self.x_status + self.y_status + self.z_status)
+        return True if status.lower() in statuses else False
 
 ### Threading objects ###
 

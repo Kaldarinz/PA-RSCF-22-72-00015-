@@ -10,27 +10,21 @@ import numpy as np
 import numpy.typing as npt
 from enum import Enum
 from modules.data_classes import Coordinate
-from modules.constants import Priority
-
-
+from modules.data_classes import (
+    EnergyMeasurement,
+    PaEnergyMeasurement,
+    MeasuredPoint,
+    OscMeasurement,
+    Coordinate,
+    MapData,
+    StagesStatus,
+    ScanLine
+)
 ureg = UnitRegistry(auto_reduce_dimensions=True)
 Q_ = ureg.Quantity
 rng = np.random.default_rng()
 
-class tst:
-    a = Q_(np.empty(0), 's')
-
-    def __init__(self, a: PlainQuantity|None = None) -> None:
-        self.a = a
-
-    def __repr__(self) -> str:
-        return str(self.a)
-
-cls1 = tst(Q_(1,'s'))
-cls2 = tst(Q_(2,'s'))
-cls3 = tst()
-if cls3.a is None:
-    print('ok')
+print(ScanLine(Q_(0,'m'), Q_(1,'m'), 5))
 # @dataclass
 # class Test:
 #     lst: list[str]

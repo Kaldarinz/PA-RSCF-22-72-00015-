@@ -37,9 +37,8 @@ from .data_classes import (
     ActorFail,
     StagesStatus,
     Signals,
-    MapData
-)
-from .pa_data import (
+    MapData,
+    ScanLine,
     MeasuredPoint
 )
 from .constants import (
@@ -348,24 +347,26 @@ def _stage_pos(
     else:
         return None
 
-def stages_status(**kwargs) -> StagesStatus:
+def stages_status(
+        priority = Priority.LOW,
+        **kwargs
+    ) -> StagesStatus:
     """
     Return status of all stages.
     
     Thread safe.
-    Have low priority.
     """
 
     status = StagesStatus()
     for axes, stage in hardware.stages.items():
         status_lst = _stage_call.submit(
-            Priority.LOW,
+            priority,
             stage.get_status
         )
         if not isinstance(status_lst, ActorFail):
             setattr(status, axes + '_status', status_lst)
         is_open = _stage_call.submit(
-            Priority.LOW,
+            priority,
             stage.is_opened
         )
         if not isinstance(is_open, ActorFail):
@@ -490,11 +491,13 @@ def wait_all_stages(
     for axes in hardware.stages.keys():
         wait_stage(axes, timeout)
 
-def move_to(new_pos: Coordinate, **kwargs) -> None:
+def move_to(
+        new_pos: Coordinate,
+        priority = Priority.NORMAL,
+        **kwargs) -> None:
     """Send motors to new position.
     
     Thread safe.\n
-    Priority is normal.
     """
 
     logger.debug('Starting move_to procedure...')
@@ -503,8 +506,8 @@ def move_to(new_pos: Coordinate, **kwargs) -> None:
         if coord is not None:
             coord = coord.to('m').m
             _stage_call.submit(
-                Priority.NORMAL,
-                stage.move_to,
+                priority = priority,
+                func = stage.move_to,
                 position = coord
             )
 
@@ -642,6 +645,7 @@ def scan_2d(
         scan: MapData,
         signals: WorkerSignals,
         flags: dict[str, bool],
+        wavelength: PlainQuantity,
         priority: int = Priority.NORMAL,
         **kwargs
     ) -> MapData:
@@ -651,12 +655,15 @@ def scan_2d(
     Thread safe.
     """
 
+    # Needed for MeasuredPoint
+    pm_ch_id = int(hardware.config['power_meter']['connected_chan']) - 1
     ### Set fast and slow axes params
     if scan.scan_dir.startswith('H'):
-        # Motors
-        fstage = hardware.stages.get(scan.xaxis.lower())
-        sstage = hardware.stages.get(scan.yaxis.lower())
+        # Fast and slow axes
+        faxis = scan.xaxis
+        saxis = scan.yaxis
         # Points
+        fpoints = scan.xpoints
         spoints = scan.ypoints
         # Fast axis size
         fsize = scan.width
@@ -673,10 +680,11 @@ def scan_2d(
             fy0 = scan.y0 + scan.height
             sstep = -1*scan.ystep
     else:
-        # Motors
-        fstage = hardware.stages.get(scan.yaxis.lower())
-        sstage = hardware.stages.get(scan.xaxis.lower())
+        # Fast and slow axes
+        faxis = scan.yaxis
+        saxis = scan.xaxis
         # Points
+        fpoints = scan.xpoints
         spoints = scan.xpoints
         # Fast axis size
         fsize = scan.height
@@ -692,29 +700,38 @@ def scan_2d(
             fy0 = scan.y0
         else:
             fy0 = scan.y0 + scan.height
-            
+    fstage = hardware.stages.get(faxis)
+    sstage = hardware.stages.get(saxis)
+    # Slow step
+    sdelta = Coordinate.from_tuples(
+        [(faxis, sstep)],
+        default = Q_(0, 'm')
+    )
+    # start point for scan
+    start = Coordinate.from_tuples([
+        (scan.xaxis, fx0),
+        (scan.yaxis, fy0)
+    ])
     # move to starting point
-    _stage_call.submit(
-        priority = priority,
-        func = fstage.move_to,
-        position = fx0.to('m').m
-    )
-    _stage_call.submit(
-        priority = priority,
-        func = sstage.move_to,
-        position = fy0.to('m').m
-    )
-    # Wait for stages to stop at starting point
+    move_to(start)
     wait_all_stages()
 
+    startp = start
     # Scan loop
     for i in range(spoints):
+        # Calculate destination
+        fdelta = Coordinate.from_tuples(
+            [(faxis, (-1)**i*fsize)],
+            default = Q_(0, 'm')
+        )
+        stopp = startp + fdelta
+        # Create scan line
+        line = ScanLine(startp, stopp, fpoints)
         # First launch energy measurements
         # Object for communication with lower level fucntion
         comm_en = Signals()
-        # Lists with results
+        # List with results
         result_en: list[OscMeasurement] = []
-        results_coord: list[tuple[dt, PlainQuantity]] = []
         tkwargs_en = {
             'priority': priority,
             'func': __meas_cont,
@@ -724,71 +741,30 @@ def scan_2d(
         }
         t_en = Thread(target = _osc_call.submit, kwargs = tkwargs_en)
         t_en.start()
-        # Then send stage to scan the line
-        dest = (-1)**i*fsize.to('m').m
-        _stage_call.submit(
-            priority = priority,
-            func = fstage.move_by,
-            distance = dest
-        )
+        # Then send stages to scan the line
+        move_to(stopp)
         # While stage is moving, measure its position.
-        while 'active' in _stage_status(fstage):
-            new_pos = _stage_pos(fstage)
-            if new_pos is not None:
-                results_coord.append((dt.now(),new_pos))
+        while stages_status(Priority.NORMAL).has_status('active'):
+            line.add_pos_point(_stage_pos(fstage))
         # When stage stopped, cancel signal measurements
         comm_en.is_running = False
         t_en.join()
-        scan.raw_data[i] = (result_en, results_coord)
-        signals.progess.emit(scan.raw_data[i])
+        meas_points = [
+            meas_point_from_osc(
+                x,
+                wavelength,
+                pm_ch_id
+            ) for x in result_en
+        ]
+        line.add_signal_points(result_en)
+        signals.progess.emit(line)
         logger.info(f'Line scanned. {len(result_en)} points measured.')
-        # Make move along sloaw axis
         if i < (spoints - 1):
-            _stage_call.submit(
-            priority = priority,
-            func = sstage.move_by,
-            distance = sstep
-            )
-            wait_stage(sstage)
-
-        return scan
-
-def calc_scan_coord(
-        data: tuple[list[EnergyMeasurement], list[tuple[dt,PlainQuantity]]],
-        start: PlainQuantity|None = None,
-        stop: PlainQuantity|None = None
-    ) -> list[PlainQuantity]:
-    """"
-    Calculate positions of osc signal measurements.
-    
-    ``data`` - tuple with two lists.
-    First list contain EnergyMeasurement instances,
-    second list contain tuples of datetime and positions.
-    Data can be measured before position measurements were started,
-    and can lasts longer than position. To handle this case following
-    optional params can be used. Their values will be used for time
-    before and after position measurements accordingly.\n
-    ``start`` - start coordinate of scan line.\n
-    ``stop`` - stop coordinate of scan line.\n
-    """
-
-    # Reference point for time delta is time of the first measured stage position
-    t0 = data[1][0][0]
-    # Array with time points of energy measurements
-    en_time = np.array([(x.datetime - t0).total_seconds() for x in data[0]])
-    # Array with time points of position measurements
-    pos_time = np.array([(x[0] - t0).total_seconds() for x in data[1]])
-    # Array with positions
-    coord = np.array([x[1].to('mm').m for x in data[1]])
-
-    en_coord = np.interp(
-        x = en_time,
-        xp = pos_time,
-        fp = coord,
-        left = start,
-        right = stop)
-    
-    return [Q_(x, 'mm') for x in en_coord]
+            # Make move along slow axis
+            startp = stopp + sdelta
+            move_to(startp)
+            wait_all_stages()
+    return scan
 
 def __meas_cont(
         called_func: callable[P,T],
@@ -866,26 +842,37 @@ def measure_point(
     if isinstance(data, ActorFail):
         logger.error('Error in measure point function.')
         return None
+    measurement = meas_point_from_osc(data, wavelength, pm_ch_id)
+    logger.debug(f'{measurement.max_amp=}')
+    logger.debug('...Finishing PA point measurement.')
+    return measurement
 
-    pm_energy = pm.energy_from_data(data.data_raw*data.yincrement, data.dt)
+def meas_point_from_osc(
+        msmnt: OscMeasurement,
+        wl: PlainQuantity,
+        pm_ch_id: int
+    ) -> MeasuredPoint:
+    """Make MeasurePoint from OscMeasurement and wavelength."""
+
+    pm = hardware.power_meter
+    pm_energy = pm.energy_from_data(
+        msmnt.data_raw[pm_ch_id]*msmnt.yincrement, msmnt.dt
+    )
     if pm_energy is None:
         logger.error('Power meter energy cannot be obtained.')
         return None
-    sample_en = calc_sample_en(wavelength, pm_energy.energy)
+    sample_en = calc_sample_en(wl, pm_energy.energy)
     if sample_en is None:
         logger.error('Sample energy cannot be calculated.')
         return None
     en_info = PaEnergyMeasurement(pm_energy, sample_en)
     measurement = MeasuredPoint(
-        data = data,
+        data = msmnt,
         energy_info = en_info,
-        wavelength = wavelength,
-        pa_ch_ind = pa_ch_id,
+        wavelength = wl,
+        pa_ch_ind = int(not bool(pm_ch_id)),
         pm_ch_ind = pm_ch_id
     )
-
-    logger.debug(f'{measurement.max_amp=}')
-    logger.debug('...Finishing PA point measurement.')
     return measurement
 
 def aver_measurements(measurements: list[MeasuredPoint]) -> MeasuredPoint:
