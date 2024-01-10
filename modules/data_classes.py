@@ -215,6 +215,15 @@ class Coordinate:
 
         return np.sqrt(dist)
 
+    def direction(self, point: Self) -> Self|None:
+        """Get unit vector in the direction of ``point``."""
+
+        dist = self.dist(point)
+        # Return None if distance cannot be calculated
+        if dist.m is np.nan:
+            return None
+        return (point - self)/dist
+        
     def __add__(self, added: Self) -> Self:
         """If value of any axis is None, result for the axis is None."""
         if not isinstance(added, type(self)):
@@ -234,6 +243,22 @@ class Coordinate:
             return NotImplemented
         return self + (-subed)
     
+    def __truediv__(self, val: PlainQuantity|float) -> Self:
+        result = Coordinate()
+        for axis in ['x', 'y', 'z']:
+            ax1 = getattr(self, axis)
+            if ax1 is not None:
+                setattr(result, axis, ax1/val)
+        return result
+
+    def __mul__(self, val: PlainQuantity|float) -> Self:
+        result = Coordinate()
+        for axis in ['x', 'y', 'z']:
+            ax1 = getattr(self, axis)
+            if ax1 is not None:
+                setattr(result, axis, ax1*val)
+        return result
+
     def __neg__(self) -> Self:
         new_coord = type(self)()
         for fld in fields(self):
@@ -450,6 +475,8 @@ class ScanLine:
     "Exact position of scan stop."
     points: int
     "Amount of regular points."
+    step: Coordinate
+    "Vector step."
     raw_points: int
     "Amount of all measured points."
     raw_sig: list[MeasuredPoint]
@@ -487,6 +514,12 @@ class ScanLine:
         self.raw_data = []
         self.data = []
 
+        # Set step
+        dist = self.stopp.dist(self.startp)
+        # Unit vector in direction from start point to stop point
+        unit = self.startp.direction(self.stopp)
+        self.step = unit*dist/(self.points - 1)
+
     def add_signal_points(self, osc_data: list[MeasuredPoint]) -> None:
         """Append OscMeasurements to ``raw_sig`` list."""
 
@@ -507,6 +540,16 @@ class ScanLine:
             start = self.startp,
             stop = self.stopp
         )
+
+    def calc_grid(self) -> None:
+        """
+        Calculate regulary arranged data.
+        
+        Automatically set raw data, if was not set.
+        """
+
+        logger.warning('calc_grid not implemented!')
+        return
 
     @staticmethod
     def calc_scan_coord(

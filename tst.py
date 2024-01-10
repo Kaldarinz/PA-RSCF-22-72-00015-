@@ -24,10 +24,11 @@ ureg = pint.get_application_registry()
 Q_ = ureg.Quantity
 rng = np.random.default_rng()
 
-pos1 = Coordinate(Q_(1,'m'))
-pos2 = Coordinate.from_tuples([('x', Q_(5,'m'))])
-
-print(pos1.dist(pos2))
+pos1 = Coordinate(Q_(0,'m'), Q_(0,'m'))
+pos2 = Coordinate.from_tuples([('x', Q_(5,'m')), ('y', Q_(50,'m'))])
+a = Q_(1, 'm')
+unit = pos1.direction(pos2)
+print(unit)
 # @dataclass
 # class Test:
 #     lst: list[str]
