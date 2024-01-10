@@ -4,7 +4,14 @@ PA backend.
 All calls to hardware should be performed via corresponding actors (_stage_call, _osc_call).
 """
 
-from typing import cast, Literal, Iterable, ParamSpec, TypeVar
+from typing import (
+    cast,
+    Literal,
+    Iterable,
+    ParamSpec,
+    TypeVar,
+    Callable
+) 
 import logging
 import os
 from threading import Thread
@@ -24,7 +31,7 @@ from .hardware.osc_devices import (
     PhotoAcousticSensOlymp
 )
 from .hardware.glob import hardware
-from hardware.utils import (
+from .hardware.utils import (
     calc_sample_en
 )
 from .data_classes import (
@@ -767,7 +774,7 @@ def scan_2d(
     return scan
 
 def __meas_cont(
-        called_func: callable[P,T],
+        called_func: Callable[P,T],
         comm: Signals,
         result: list,
         timeout: float|None = 100,

@@ -95,7 +95,8 @@ from .data_classes import (
     Measurement,
     Coordinate,
     OscMeasurement,
-    PaEnergyMeasurement
+    PaEnergyMeasurement,
+    MeasuredPoint
 )
 from modules.exceptions import (
     PlotError
