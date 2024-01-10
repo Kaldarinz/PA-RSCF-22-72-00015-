@@ -397,6 +397,7 @@ class PowerMeterMonitor(QWidget,pm_monitor_ui.Ui_Form):
 
         # Update information only if Start btn is checked 
         # and widget is visible
+        logger.debug(f'add_msmnt called for {self.objectName()}')
         if (not self.btn_start.isChecked()) or (not self.isVisible()):
             return
         # Check if measurement is not empty

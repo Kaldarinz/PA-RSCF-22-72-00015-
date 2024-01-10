@@ -119,6 +119,7 @@ class Oscilloscope:
         all_instruments = rm.list_resources()
         logger.debug(f'{len(all_instruments)} VISA devices found')
         if self.OSC_ID not in all_instruments:
+            logger.debug(f'Found devices: {[dev for dev in all_instruments]}')
             logger.debug('...Terminating. Oscilloscope was not found among VISA '
                          + 'devices. Init failed')
             return False
@@ -717,9 +718,9 @@ class PowerMeter:
                 read_ch1=meas_channel[0],
                 read_ch2=meas_channel[1])
         # Get pysical quantity data for PM channel
-        pm_data = data[0][self.ch]
+        pm_data = data.data_raw[self.ch]*data.yincrement
         if pm_data is None:
-            msg = 'Data can be read from osc.'
+            msg = 'Data cannot be read from osc.'
             logger.warning(msg)
             raise OscIOError(msg)
         logger.debug('PowerMeter response obtained')

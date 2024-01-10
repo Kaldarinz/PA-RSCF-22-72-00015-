@@ -884,6 +884,7 @@ class Actor:
         """
 
         r = Result()
+        logger.debug(f'Function {func.__name__} submitted to actor')
         self._send((func, args, kwargs, r), priority)
         res = r.result()
         if isinstance(res, ActorFail):
@@ -897,7 +898,7 @@ class Actor:
         self.enabled = True
         while True:
             func, args, kwargs, r = self.recv()
-            logger.debug(f'Starting {func.__name__}')
+            logger.debug(f'Actor Starting {func.__name__}')
             try:
                 r.set_result(func(*args, **kwargs))
             except:
