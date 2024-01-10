@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field, fields
 from collections.abc import Iterable, Sequence
 from datetime import datetime
-import time
+import time, math
 import typing
 from pint import UnitRegistry
 from pint.facets.plain.quantity import PlainQuantity
@@ -20,11 +20,14 @@ from modules.data_classes import (
     StagesStatus,
     ScanLine
 )
-ureg = UnitRegistry(auto_reduce_dimensions=True)
+ureg = pint.get_application_registry()
 Q_ = ureg.Quantity
 rng = np.random.default_rng()
 
-print(ScanLine(Q_(0,'m'), Q_(1,'m'), 5))
+pos1 = Coordinate(Q_(1,'m'))
+pos2 = Coordinate.from_tuples([('x', Q_(5,'m'))])
+
+print(pos1.dist(pos2))
 # @dataclass
 # class Test:
 #     lst: list[str]

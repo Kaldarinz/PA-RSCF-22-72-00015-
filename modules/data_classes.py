@@ -198,6 +198,23 @@ class Coordinate:
                     if attr1 is None:
                         setattr(self, fld.name, attr2)
 
+    def dist(self, point: Self) -> PlainQuantity:
+        """
+        Calculate distance to ``point``.
+        
+        Only both non None axes are calculated.\n
+        If there no such pairs, magnitude of returned value is np.nan.
+        """
+
+        dist = Q_(np.nan, 'm**2')
+        for axis in ['x', 'y', 'z']:
+            ax1 = getattr(self, axis)
+            ax2 = getattr(point, axis)
+            if None not in [ax1, ax2]:
+                dist = np.nan_to_num(dist) + (ax2-ax1)**2
+
+        return np.sqrt(dist)
+
     def __add__(self, added: Self) -> Self:
         """If value of any axis is None, result for the axis is None."""
         if not isinstance(added, type(self)):
@@ -496,7 +513,8 @@ class ScanLine:
             signals: list[MeasuredPoint],
             poses: list[tuple[dt,Coordinate]],
             start: Coordinate|None = None,
-            stop: Coordinate|None = None
+            stop: Coordinate|None = None,
+            trim_edges: bool = True
         ) -> list[MeasuredPoint]:
         """
         Calculate positions of OscMeasurements.
@@ -517,15 +535,21 @@ class ScanLine:
         will be used as start and stop position accordingly.\n
         ``start`` - start coordinate of scan line.\n
         ``stop`` - stop coordinate of scan line.\n
+        ``trim_edges`` - if True, leave only 1 measurement with 
+         positions equal to ``start`` and ``stop``.
         """
 
+        logger.debug(
+            f'Starting calculation signal position for {len(signals)} '
+            + f'MeasuredPoints based on {len(poses)} coordinate measurements.'
+        )
         # Sort data
-        signals.sort(key = lambda x: x.datetime)
+        result = sorted(signals, key = lambda x: x.datetime)
         poses.sort(key = lambda x: x[0])
         # Reference point for time delta is time of the first measured position
         t0 = poses[0][0]
         # Array with time points relative to ref of signal measurements
-        en_time = np.array([(x.datetime - t0).total_seconds() for x in signals])
+        en_time = np.array([(x.datetime - t0).total_seconds() for x in result])
         # Array with time points relative to ref of position
         pos_time = np.array([(x[0] - t0).total_seconds() for x in poses])
 
@@ -544,10 +568,22 @@ class ScanLine:
                     right = getattr(stop, fld.name).to('m').m
                 )
                 # Set axes values to result
-                for i, res in enumerate(signals):
+                for i, res in enumerate(result):
                     setattr(res.pos, fld.name, Q_(en_coord[i], 'm'))
-            
-        return signals
+
+        # Remove duplicated edge values
+        dups = 0
+        if trim_edges:
+            istart = 0
+            while result[istart + 1].pos == start:
+                istart += 1
+                dups += 1
+            istop = len(result) - 1
+            while result[istop - 1].pos == stop:
+                istop -= 1
+                dups += 1
+        logger.debug(f'{dups} duplicate edge values trimmed.')
+        return result[istart:(istop + 1)]
 
     @property
     def raw_points(self) -> int:

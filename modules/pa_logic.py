@@ -810,6 +810,8 @@ def __meas_cont(
                 result.append(msmnt)
                 # Inform about good measurement
                 comm.progress.set()
+            else:
+                logger.warning('Duplicated measurement!')
         # Add first measurement
         else:
             result.append(msmnt)
