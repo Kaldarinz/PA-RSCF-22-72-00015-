@@ -26,9 +26,15 @@ rng = np.random.default_rng()
 
 pos1 = Coordinate(Q_(0,'m'), Q_(0,'m'))
 pos2 = Coordinate.from_tuples([('x', Q_(5,'m')), ('y', Q_(50,'m'))])
-a = Q_(1, 'm')
-unit = pos1.direction(pos2)
-print(unit)
+arr= [pos1,pos2]
+print(arr)
+arr[0].x = Q_(100,'m')
+print(arr)
+a = arr[0]
+a.x = Q_(200, 'm')
+print(arr)
+a = Coordinate()
+print(arr)
 # @dataclass
 # class Test:
 #     lst: list[str]

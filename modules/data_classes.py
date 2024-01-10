@@ -632,90 +632,99 @@ class ScanLine:
     def raw_points(self) -> int:
         return len(self.raw_data)
 
-@dataclass
+
 class MapData:
 
-    data: np.ndarray = field(
-        default_factory = empty_ndarray,
-        compare = False,
-    )
-    _data: np.ndarray = field(
-        default_factory = empty_ndarray,
-        compare = False,
-        repr = False
-    )
-    raw_data: dict = field(
-        default_factory = dict[int:tuple[list[EnergyMeasurement], list[tuple[dt,PlainQuantity]]]],
-        compare = False
-    )
-    xaxis: str
-    _xaxis: str = field(repr=False, default='')
-    yaxis: str
-    _yaxis: str = field(repr=False, default='')
-    x0: PlainQuantity = Q_(np.nan, 'mm')
-    y0: PlainQuantity = Q_(np.nan, 'mm')
-    width: PlainQuantity = Q_(np.nan, 'mm')
-    height: PlainQuantity = Q_(np.nan, 'mm')
-    xstep: PlainQuantity = Q_(np.nan, 'mm')
-    ystep: PlainQuantity = Q_(np.nan, 'mm')
-    xpoints: int = 0
-    ypoints: int = 0
-    scan_dir: str = 'HLB'
-    xunits: str = ''
-    yunits: str = ''
-    units: str = ''
+    def __init__(
+            self,
+            center: Coordinate,
+            width: PlainQuantity,
+            height: PlainQuantity,
+            hpoints: int,
+            vpoints: int,
+            scan_plane: Literal['XY', 'YZ', 'ZX'],
+            scan_dir: str = 'HLB'
+        ) -> None:
+
+        self.startp = center
+        "Center point of scan."
+        self.width = width
+        "Horizontal size of scan."
+        self.height = height
+        "Vertical size of scan."
+        self.data: list[ScanLine] = []
+        "All scanned lines."
+        self.hpoints = hpoints
+        "Amount of points along horizontal axis."
+        self.vpoints = vpoints
+        "Amount of points along vertical axis."
+        self._hstep: PlainQuantity = Q_(np.nan, 'mm')
+        self._vstep: PlainQuantity = Q_(np.nan, 'mm')
+        # Update step size
+        self._upd_steps()
+        self._scan_dir = ''
+        self.scan_dir = scan_dir
+
+        self._scan_plane = ''
+        self.scan_plane = scan_plane
+        self._haxis: str = 'x'
+        self._vaxis: str = 'y'
+        
+        
+        
+        xunits: str = ''
+        yunits: str = ''
+        units: str = ''
+
+    def _upd_steps(self) -> None:
+        """
+        Recalculate steps along axes.
+        
+        Method is internally called, when scan size or points are changed
+        """
 
     @property
-    def data(self) -> PlainQuantity:
-        try:
-            data = Q_(self._data, self.units)
-        except UnitError:
-            logger.warning('Wrong units in MapData.')
-            return Q_(self._data, '')
-        return data
-    
-    @data.setter
-    def data(self, data: PlainQuantity|np.ndarray) -> None:
-        if isinstance(data, PlainQuantity):
-            # Check if data is iterable
-            try:
-                iter(data)
-            except TypeError:
-                logger.warning('Trying to set scalar PintQuantity for map data.')
-                return
-            # Check if data has correct dimentionality
-            if data.ndim != 2:
-                logger.warning('Wrong data dimentionality.')
-                return
-            self._data = data.m
-            self.units = f'{data.u:~.2gP}'
-        elif isinstance(data, np.ndarray):
-            # Check if data has correct dimentionality
-            if data.ndim != 2:
-                logger.warning('Wrong data dimentionality.')
-                return
-            self._data = data
-        # for wrong datatype
-        else:
-            logger.warning('Trying to set wrong data type to MapData.')
+    def haxis(self) -> str:
+        """Actual title of horizontal axis."""
+        return self._haxis
+    @haxis.setter
+    def haxis(self, val: str = '') -> None:
+        self._haxis = val.lower()
 
     @property
-    def xaxis(self) -> str:
-        return self._xaxis
-    @xaxis.setter
-    def xaxis(self, val: str = '') -> None:
-        if isinstance(val, property):
-            return
-        self._xaxis = val.lower()
+    def haxis(self) -> str:
+        """Actual title of vertical axis."""
+        return self._haxis
+    @haxis.setter
+    def haxis(self, val: str) -> None:
+        self._haxis = val.lower()
 
     @property
-    def yaxis(self) -> str:
-        return self._yaxis
-    @yaxis.setter
-    def yaxis(self, val: str) -> None:
-        if isinstance(val, property):
-            return
-        self._yaxis = val.lower()
+    def scan_dir(self) -> str:
+        """
+        Determine direction and starting point of scan.
+        """
+        return self._scan_dir
+    @scan_dir.setter
+    def scan_dir(self, val: str) -> None:
+        self._scan_dir = val
+        # Update some stuff
+        pass
+
+    @property
+    def scan_plane(self) -> str:
+        """
+        Pair of axis along which scan is done.
+        
+        First letter is horizontal axis, second is vertical.
+        """
+        return self._scan_plane
+    @scan_plane.setter
+    def scan_plane(self, val: str) -> None:
+        self._scan_plane = val
+        # Update x and y axis
+        self.haxis = val[0]
+        self.vaxis = val[1]
 
 @dataclass
 class StagesStatus:
