@@ -134,7 +134,6 @@ class Measurement:
     "MetaData of the measurement."
     data: dict[str, DataPoint] = field(default_factory = dict)
 
-
 class Position:
     
     _FIELDS = ('x', 'y', 'z')
@@ -145,6 +144,7 @@ class Position:
             y: PlainQuantity|None = None,
             z: PlainQuantity|None = None,
         ) -> None:
+        
         self.x = x
         self.y = y 
         self.z = z
@@ -651,7 +651,6 @@ class ScanLine:
     def raw_points(self) -> int:
         return len(self.raw_data)
 
-
 class MapData:
 
     def __init__(
@@ -661,46 +660,230 @@ class MapData:
             height: PlainQuantity,
             hpoints: int,
             vpoints: int,
-            scan_plane: Literal['XY', 'YZ', 'ZX'],
+            scan_plane: Literal['XY', 'YZ', 'ZX'] = 'XY',
             scan_dir: str = 'HLB'
         ) -> None:
 
-        self.startp = center
+        self.centp = center
         "Center point of scan."
         self.width = width
-        "Horizontal size of scan."
         self.height = height
-        "Vertical size of scan."
+        self.hpoints = hpoints
+        self.vpoints = vpoints
+        self.scan_dir = scan_dir
+        self.scan_plane = scan_plane
+
         self.data: list[ScanLine] = []
         "All scanned lines."
-        self.hpoints = hpoints
-        "Amount of points along horizontal axis."
-        self.vpoints = vpoints
-        "Amount of points along vertical axis."
-        self._hstep: PlainQuantity = Q_(np.nan, 'mm')
-        self._vstep: PlainQuantity = Q_(np.nan, 'mm')
-        # Update step size
-        self._upd_steps()
-        self._scan_dir = ''
-        self.scan_dir = scan_dir
-
-        self._scan_plane = ''
-        self.scan_plane = scan_plane
-        self._haxis: str = 'x'
-        self._vaxis: str = 'y'
-        
-        
         
         xunits: str = ''
         yunits: str = ''
         units: str = ''
 
-    def _upd_steps(self) -> None:
+
+    @property
+    def startp(self) -> Position:
         """
-        Recalculate steps along axes.
+        Starting position of scan.
         
-        Method is internally called, when scan size or points are changed
+        Read only.
         """
+        startp = Position()
+
+        if self.scan_dir[1] == 'L':
+            f0 = getattr(self.centp, self.haxis) - self.width/2
+            setattr(startp, self.haxis, f0)
+        else:
+            f0 = getattr(self.centp, self.haxis) + self.width/2
+            setattr(startp, self.haxis, f0)
+        if self.scan_dir[2] == 'B':
+            s0 = getattr(self.centp, self.vaxis) - self.height/2
+            setattr(startp, self.vaxis, s0)
+        else:
+            s0 = getattr(self.centp, self.vaxis) + self.height/2
+            setattr(startp, self.vaxis, s0)
+
+        return startp
+    @startp.setter
+    def startp(self, val: Any) -> None:
+        logger.warning('start position is read only.')
+
+    @property
+    def sstep(self) -> PlainQuantity:
+        """
+        Scan step along slow axis.
+        
+        Read only.
+        """
+        sstep = Q_(np.nan, 'mm')
+        if self.scan_dir.startswith('H'):
+            if self.scan_dir[2] == 'B':
+                sstep = self.vstep
+            else:
+                sstep = -1*self.vstep
+        else:
+            if self.scan_dir[1] == 'L':
+                sstep = self.hstep
+            else:
+                sstep = -1*self.hstep
+
+        return sstep
+    @sstep.setter
+    def sstep(self, val: Any) -> None:
+        logger.warning('Slow step is read only.')
+
+    @property
+    def fsize(self) -> PlainQuantity:
+        """
+        Scan size along fast axis.
+
+        Read only.
+        """
+
+        fsize = Q_(np.nan, 'mm')
+        if self.scan_dir.startswith('H'):
+            fsize = self.width
+        else:
+            fsize = self.height
+        return fsize
+    @fsize.setter
+    def fsize(self, val: Any) -> None:
+        logger.warning('fsize is read only.')
+
+    @property
+    def fpoints(self) -> int:
+        """
+        Scan points along fast scan axis, which were set.
+        
+        Read only.
+        """
+
+        fpoints = 0
+        if self.scan_dir.startswith('H'):
+            fpoints = self.hpoints
+        else:
+            fpoints = self.vpoints
+        return fpoints
+    @fpoints.setter
+    def fpoints(self, val: Any) -> None:
+        logger.warning('fpoints is read only.')
+
+    @property
+    def spoints(self) -> int:
+        """
+        Scan points along slow scan axis, which were set.
+        
+        Read only.
+        """
+
+        spoints = 0
+        if self.scan_dir.startswith('H'):
+            spoints = self.vpoints
+        else:
+            spoints = self.hpoints
+        return spoints
+    @spoints.setter
+    def spoints(self, val: Any) -> None:
+        logger.warning('spoints is read only.')
+
+    @property
+    def saxis(self) -> str:
+        """
+        Title of slow scan axis.
+        
+        Read only.
+        """
+        saxis = ''
+        if self.scan_dir.startswith('H'):
+            saxis = self.vaxis
+        else:
+            saxis = self.haxis
+        return saxis
+    @saxis.setter
+    def saxis(self, val: Any) -> None:
+        logger.warning('saxis is read only.')
+    
+    @property
+    def faxis(self) -> str:
+        """
+        Title of fast scan axis.
+        
+        Read only.
+        """
+
+        faxis = ''
+        if self.scan_dir.startswith('H'):
+            faxis = self.haxis
+        else:
+            faxis = self.vaxis
+        return faxis
+    @faxis.setter
+    def faxis(self, val: Any) -> None:
+        logger.warning('faxis is read only.')
+
+    @property
+    def hstep(self) -> PlainQuantity:
+        """
+        Step along horizontal direction.
+        
+        Read only.
+        """
+        if self.width.m is not np.nan and self.hpoints > 1:
+            hstep = self.width/(self.hpoints - 1)
+        else:
+            hstep = Q_(np.nan, 'mm')
+        return hstep
+    @hstep.setter
+    def hstep(self, val: Any) -> None:
+        logger.warning('hstep is read only attributes and cannot be set.')
+
+    @property
+    def vstep(self) -> PlainQuantity:
+        """
+        Step along vertical direction.
+        
+        Read only.
+        """
+        if self.height.m is not np.nan and self.vpoints > 1:
+            vstep = self.height/(self.vpoints - 1)
+        else:
+            vstep = Q_(np.nan, 'mm')
+        return vstep
+    @vstep.setter
+    def vstep(self, val: Any) -> None:
+        logger.warning('vstep is read only attributes and cannot be set.')
+
+    @property
+    def width(self) -> PlainQuantity:
+        "Horizontal size of scan."
+        return self._width
+    @width.setter
+    def width(self, val: PlainQuantity) -> None:
+        self._width = val
+
+    @property
+    def height(self) -> PlainQuantity:
+        "Vertical size of scan."
+        return self._height
+    @height.setter
+    def height(self, val: PlainQuantity) -> None:
+        self._height = val
+
+    @property
+    def hpoints(self) -> int:
+        "Amount of points along horizontal axis."
+        return self._hpoints
+    @hpoints.setter
+    def hpoints(self, val: int) -> None:
+        self._hpoints = val
+
+    @property
+    def vpoints(self) -> int:
+        "Amount of points along vertical axis."
+        return self._vpoints
+    @vpoints.setter
+    def vpoints(self, val: int) -> None:
+        self._vpoints = val
 
     @property
     def haxis(self) -> str:
@@ -711,12 +894,12 @@ class MapData:
         self._haxis = val.lower()
 
     @property
-    def haxis(self) -> str:
+    def vaxis(self) -> str:
         """Actual title of vertical axis."""
-        return self._haxis
-    @haxis.setter
-    def haxis(self, val: str) -> None:
-        self._haxis = val.lower()
+        return self._vaxis
+    @vaxis.setter
+    def vaxis(self, val: str) -> None:
+        self._vaxis = val.lower()
 
     @property
     def scan_dir(self) -> str:

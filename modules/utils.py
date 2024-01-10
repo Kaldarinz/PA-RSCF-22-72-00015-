@@ -142,3 +142,25 @@ def btn_set_silent (btn: QPushButton, state: bool) -> None:
     btn.blockSignals(True)
     btn.setChecked(state)
     btn.blockSignals(False)
+
+def __own_properties(cls: type) -> list[str]:
+    return [
+        key
+        for key, value in cls.__dict__.items()
+        if isinstance(value, property)
+    ]
+
+def properties(cls: type) -> list[str]:
+    """Return list of all properties of a class."""
+    props = []
+    for kls in cls.mro():
+        props += __own_properties(kls)
+    
+    return props
+
+def propvals(instance: object) -> dict:
+    """Return values off all properties of a class."""
+
+    props = properties(type(instance))
+
+    return {prop: getattr(instance, prop) for prop in props}

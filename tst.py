@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field, fields
+from pprint import pprint
 from collections.abc import Iterable, Sequence
 from datetime import datetime
 import time, math
@@ -20,44 +21,23 @@ from modules.data_classes import (
     StagesStatus,
     ScanLine
 )
+from modules.utils import (
+    propvals
+)
 ureg = pint.get_application_registry()
 Q_ = ureg.Quantity
 rng = np.random.default_rng()
 
-pos1 = Position(Q_(0,'m'), Q_(0,'m'))
-pos2 = Position.from_tuples([('x', Q_(5,'m')), ('y', Q_(50,'m'))])
-arr= [pos1,pos2]
-print(arr)
-arr[0].x = Q_(100,'m')
-print(arr)
-a = arr[0]
-a.x = Q_(200, 'm')
-print(arr)
-a = Position()
-print(arr)
-# @dataclass
-# class Test:
-#     lst: list[str]
-#     atr: int = 0
-#     atr2: PlainQuantity = Q_(1,'s')
-#     data: int = 2
-#     # dct: dict[str, int] = {'one': 2}
+scna = MapData(
+    center=Position(Q_(4, 'mm'), Q_(6, 'mm'), Q_(10, 'mm')),
+    width = Q_(3, 'mm'),
+    height = Q_(5, 'mm'),
+    hpoints = 10,
+    vpoints = 20,
+    scan_plane='YZ',
+    scan_dir='VLB'
+)
 
-# def search(cls, val):
-#     if cls.__annotations__[val] == list[str]:
-#         print('It')
 
-# search(Test, 'lst')
-
-# cls = Test()
-#print(Test.__annotations__.keys())
-# init_dict = {}
-# for key, val in Test.__annotations__.items():
-#     print(type(val))
-#     if val is int:
-#         init_dict.update({key: 5})
-#     if val is PlainQuantity:
-#         init_dict.update({key: Q_(1,'s')})
-#     if val == npt.NDArray[np.uint16]:
-#         print('It!')
-#         init_dict.update({key:[Q_(3,'s')]})
+pprint(propvals(scna))
+scna.fsize = Q_(10, 'mm')
