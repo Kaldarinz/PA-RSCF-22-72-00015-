@@ -605,7 +605,8 @@ def meas_cont(
     t.start()
     while flags.get('is_running'):
         comm.progress.wait()
-        signals.progess.emit()
+        # Emit progress with last measured object
+        signals.progess.emit(result[-1])
         if comm.progress.is_set():
             comm.progress.clear()
         # Stop if max measurements was set and the value was reached

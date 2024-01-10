@@ -416,10 +416,16 @@ class Window(QMainWindow,Ui_MainWindow,):
 
     @Slot(QProgressDialog)
     def calc_astep(self, pb: QProgressDialog) -> None:
-        """Calculate auto step."""
+        """
+        Calculate auto step.
+        
+        This slot handles communication with hardware for autostep
+        calculation.
+        """
 
         self.astep_worker = Worker(
-            pa_logic.en_meas_fast_cont_emul,
+            pa_logic.meas_cont,
+            data = 'en_fast',
             max_count = pb.maximum()
         )
         # Progress signal increase progress bar
