@@ -134,12 +134,20 @@ class Measurement:
     "MetaData of the measurement."
     data: dict[str, DataPoint] = field(default_factory = dict)
 
-@dataclass
-class Coordinate:
+
+class Position:
     
-    x: PlainQuantity|None = None
-    y: PlainQuantity|None = None
-    z: PlainQuantity|None = None
+    _FIELDS = ('x', 'y', 'z')
+
+    def __init__(
+            self,
+            x: PlainQuantity|None = None,
+            y: PlainQuantity|None = None,
+            z: PlainQuantity|None = None,
+        ) -> None:
+        self.x = x
+        self.y = y 
+        self.z = z
 
     @classmethod
     def from_tuples(
@@ -155,7 +163,7 @@ class Coordinate:
 
         pos = cls()
         for coord in coords:
-            if coord[0] in dir(pos):
+            if coord[0] in cls._FIELDS:
                 setattr(pos, coord[0], coord[1])
             else:
                 raise TypeError(
@@ -163,8 +171,7 @@ class Coordinate:
                 )
         # Set default values for missing attributes
         set_flds = set(coord[0] for coord in coords)
-        all_flds = set(fld.name for fld in fields(pos))
-        missing = all_flds - set_flds
+        missing = set(cls._FIELDS) - set_flds
         for fld in missing:
             setattr(pos, fld, default)
         return pos
@@ -181,22 +188,22 @@ class Coordinate:
         if not isinstance(added, type(self)):
             return
         
-        # Iterate over all fields
-        for fld in fields(self):
-            attr1 = getattr(self, fld.name)
-            attr2 = getattr(added, fld.name)
+        # Iterate over all coordinates
+        for fld in self._FIELDS:
+            attr1 = getattr(self, fld)
+            attr2 = getattr(added, fld)
             # If both fields are None, then skip it
             if attr1 is None and attr2 is None:
                 continue
             # If both values exist, sum them
             elif None not in [attr1, attr2]:
-                setattr(self, fld.name, attr1 + attr2)
+                setattr(self, fld, attr1 + attr2)
             else:
                 # if only one value axist and adding is not strict, 
                 # set existing value
                 if not strict:
                     if attr1 is None:
-                        setattr(self, fld.name, attr2)
+                        setattr(self, fld, attr2)
 
     def dist(self, point: Self) -> PlainQuantity:
         """
@@ -207,7 +214,7 @@ class Coordinate:
         """
 
         dist = Q_(np.nan, 'm**2')
-        for axis in ['x', 'y', 'z']:
+        for axis in self._FIELDS:
             ax1 = getattr(self, axis)
             ax2 = getattr(point, axis)
             if None not in [ax1, ax2]:
@@ -230,11 +237,11 @@ class Coordinate:
             return NotImplemented
         
         new_coord = type(self)()
-        for fld in fields(self):
-            attr1 = getattr(self, fld.name)
-            attr2 = getattr(added, fld.name)
+        for fld in self._FIELDS:
+            attr1 = getattr(self, fld)
+            attr2 = getattr(added, fld)
             if None not in [attr1, attr2]:
-                setattr(new_coord, fld.name, attr1 + attr2)
+                setattr(new_coord, fld, attr1 + attr2)
 
         return new_coord
     
@@ -244,16 +251,16 @@ class Coordinate:
         return self + (-subed)
     
     def __truediv__(self, val: PlainQuantity|float) -> Self:
-        result = Coordinate()
-        for axis in ['x', 'y', 'z']:
+        result = Position()
+        for axis in self._FIELDS:
             ax1 = getattr(self, axis)
             if ax1 is not None:
                 setattr(result, axis, ax1/val)
         return result
 
     def __mul__(self, val: PlainQuantity|float) -> Self:
-        result = Coordinate()
-        for axis in ['x', 'y', 'z']:
+        result = Position()
+        for axis in self._FIELDS:
             ax1 = getattr(self, axis)
             if ax1 is not None:
                 setattr(result, axis, ax1*val)
@@ -261,14 +268,26 @@ class Coordinate:
 
     def __neg__(self) -> Self:
         new_coord = type(self)()
-        for fld in fields(self):
-            attr = getattr(self, fld.name)
+        for fld in self._FIELDS:
+            attr = getattr(self, fld)
             if attr is not None:
-                setattr(new_coord, fld.name, -attr)
+                setattr(new_coord, fld, -attr)
         return new_coord
 
-def def_pos() -> Coordinate:
-    return Coordinate()
+    def __repr__(self) -> str:
+
+        reprs = [self.__class__.__name__ + ':']
+        
+        for fld in self._FIELDS:
+            reprs.append(fld + ' =')
+            if fld == 'z':
+                reprs.append(str(getattr(self, fld)))
+            else:
+                reprs.append(str(getattr(self, fld)) + ',')
+        return ' '.join(reprs)
+
+def def_pos() -> Position:
+    return Position()
 
 def empty_ndarray():
     return np.empty(0, dtype=np.int8)
@@ -358,7 +377,7 @@ class MeasuredPoint:
             wavelength: PlainQuantity,
             pa_ch_ind: int = 0,
             pm_ch_ind: int = 1,
-            pos: Coordinate = Coordinate()
+            pos: Position = Position()
         ) -> None:
 
         # Direct attribute initiation
@@ -469,19 +488,19 @@ class ScanLine:
 
     ltype: str
     "Type of scan line"
-    startp: Coordinate
+    startp: Position
     "Exact position of scan start."
-    stopp: Coordinate
+    stopp: Position
     "Exact position of scan stop."
     points: int
     "Amount of regular points."
-    step: Coordinate
+    step: Position
     "Vector step."
     raw_points: int
     "Amount of all measured points."
     raw_sig: list[MeasuredPoint]
     "List with raw measurements."
-    raw_pos: list[tuple[dt, Coordinate]]
+    raw_pos: list[tuple[dt, Position]]
     "List with positions, measured along scan line with timestamps."
     data: list[MeasuredPoint]
     "List with data points along exact scan line geometry."
@@ -490,11 +509,11 @@ class ScanLine:
 
     def __init__(
             self,
-            startp: Coordinate,
-            stopp: Coordinate,
+            startp: Position,
+            stopp: Position,
             points: int,
             raw_sig: list[OscMeasurement] = [],
-            raw_pos: list[tuple[dt, Coordinate]] = [],
+            raw_pos: list[tuple[dt, Position]] = [],
             ltype: Literal['straight line'] = 'straight line'   
         ) -> None:
         """Default scan line constructor.
@@ -525,7 +544,7 @@ class ScanLine:
 
         self.raw_sig += osc_data
 
-    def add_pos_point(self, pos: Coordinate|None) -> None:
+    def add_pos_point(self, pos: Position|None) -> None:
         """Append position along scan line."""
 
         if pos is not None:
@@ -554,9 +573,9 @@ class ScanLine:
     @staticmethod
     def calc_scan_coord(
             signals: list[MeasuredPoint],
-            poses: list[tuple[dt,Coordinate]],
-            start: Coordinate|None = None,
-            stop: Coordinate|None = None,
+            poses: list[tuple[dt,Position]],
+            start: Position|None = None,
+            stop: Position|None = None,
             trim_edges: bool = True
         ) -> list[MeasuredPoint]:
         """
@@ -596,7 +615,7 @@ class ScanLine:
         # Array with time points relative to ref of position
         pos_time = np.array([(x[0] - t0).total_seconds() for x in poses])
 
-        for fld in fields(Coordinate):
+        for fld in fields(Position):
             # Assume that all positions have the same non None fields
             # and iterate only on those fields.
             if getattr(poses[1], fld.name) is not None:
@@ -637,7 +656,7 @@ class MapData:
 
     def __init__(
             self,
-            center: Coordinate,
+            center: Position,
             width: PlainQuantity,
             height: PlainQuantity,
             hpoints: int,

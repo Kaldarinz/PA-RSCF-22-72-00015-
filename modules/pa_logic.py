@@ -39,7 +39,7 @@ from .data_classes import (
     EnergyMeasurement,
     OscMeasurement,
     PaEnergyMeasurement,
-    Coordinate,
+    Position,
     Actor,
     ActorFail,
     StagesStatus,
@@ -380,7 +380,7 @@ def stages_status(
             setattr(status, axes + '_open', is_open)
     return status
 
-def stages_position(**kwargs) -> Coordinate:
+def stages_position(**kwargs) -> Position:
     """
     Get position of all stages.
     
@@ -388,7 +388,7 @@ def stages_position(**kwargs) -> Coordinate:
     Have low priority.
     """
 
-    coord = Coordinate()
+    coord = Position()
     for axes, stage in hardware.stages.items():
         pos = _stage_call.submit(
             Priority.LOW,
@@ -499,7 +499,7 @@ def wait_all_stages(
         wait_stage(axes, timeout)
 
 def move_to(
-        new_pos: Coordinate,
+        new_pos: Position,
         priority = Priority.NORMAL,
         **kwargs) -> None:
     """Send motors to new position.
@@ -711,12 +711,12 @@ def scan_2d(
     fstage = hardware.stages.get(faxis)
     sstage = hardware.stages.get(saxis)
     # Slow step
-    sdelta = Coordinate.from_tuples(
+    sdelta = Position.from_tuples(
         [(faxis, sstep)],
         default = Q_(0, 'm')
     )
     # start point for scan
-    start = Coordinate.from_tuples([
+    start = Position.from_tuples([
         (scan.xaxis, fx0),
         (scan.yaxis, fy0)
     ])
@@ -728,7 +728,7 @@ def scan_2d(
     # Scan loop
     for i in range(spoints):
         # Calculate destination
-        fdelta = Coordinate.from_tuples(
+        fdelta = Position.from_tuples(
             [(faxis, (-1)**i*fsize)],
             default = Q_(0, 'm')
         )

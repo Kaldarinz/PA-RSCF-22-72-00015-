@@ -68,7 +68,7 @@ from modules.data_classes import (
     Worker,
     Measurement,
     EnergyMeasurement,
-    Coordinate
+    Position
 )
 from modules.constants import (
     DetailedSignals,
@@ -1380,8 +1380,8 @@ class Window(QMainWindow,Ui_MainWindow,):
         worker_home = Worker(pa_logic.home)
         self.pool.start(worker_home)
 
-    @Slot(Coordinate)
-    def moveto_stage(self, pos: Coordinate) -> None:
+    @Slot(Position)
+    def moveto_stage(self, pos: Position) -> None:
         """Move stages to new position."""
 
         worker_moveto = Worker(pa_logic.move_to, pos)

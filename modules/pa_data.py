@@ -93,7 +93,7 @@ from .data_classes import (
     DataPoint,
     MeasurementMetadata,
     Measurement,
-    Coordinate,
+    Position,
     OscMeasurement,
     PaEnergyMeasurement,
     MeasuredPoint

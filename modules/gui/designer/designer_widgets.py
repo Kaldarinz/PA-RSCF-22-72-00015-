@@ -44,7 +44,7 @@ from ... import Q_
 from ...pa_data import Measurement
 from ...data_classes import (
     DataPoint,
-    Coordinate,
+    Position,
     StagesStatus,
     EnergyMeasurement
 )
@@ -510,8 +510,8 @@ class MotorView(QDockWidget, motor_control_ui.Ui_DockWidget):
             fmt = self.fmt
         )
 
-    @Slot(Coordinate)
-    def set_position(self, position: Coordinate) -> None:
+    @Slot(Position)
+    def set_position(self, position: Position) -> None:
         """Update current coordinate."""
 
         if position is None:
@@ -627,10 +627,10 @@ class MotorView(QDockWidget, motor_control_ui.Ui_DockWidget):
             icon.setPixmap(self.pixmap_dc)
             lbl.setText('Disconnected')
 
-    def current_pos(self) -> Coordinate:
+    def current_pos(self) -> Position:
         """Get position to send stages."""
 
-        pos = Coordinate()
+        pos = Position()
         pos.x = Q_(self.sb_x_new_pos.value(), 'mm')
         pos.y = Q_(self.sb_y_new_pos.value(), 'mm')
         pos.z = Q_(self.sb_z_new_pos.value(), 'mm')
