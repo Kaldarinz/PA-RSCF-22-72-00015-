@@ -135,7 +135,7 @@ class Measurement:
     data: dict[str, DataPoint] = field(default_factory = dict)
 
 class Position:
-    
+    """Cartesian position."""
     _FIELDS = ('x', 'y', 'z')
 
     def __init__(
@@ -163,14 +163,14 @@ class Position:
 
         pos = cls()
         for coord in coords:
-            if coord[0] in cls._FIELDS:
-                setattr(pos, coord[0], coord[1])
+            if coord[0].lower() in cls._FIELDS:
+                setattr(pos, coord[0].lower(), coord[1])
             else:
                 raise TypeError(
                     f'Trying to set non-existing axis = {coord[0]}'
                 )
         # Set default values for missing attributes
-        set_flds = set(coord[0] for coord in coords)
+        set_flds = set(coord[0].lower() for coord in coords)
         missing = set(cls._FIELDS) - set_flds
         for fld in missing:
             setattr(pos, fld, default)
@@ -482,30 +482,8 @@ class MeasuredPoint:
         logger.debug(f'...Finishing. Final size is {len(data)}')
         return data, decim_factor
 
-@dataclass(init=False)
 class ScanLine:
     """Single scan line."""
-
-    ltype: str
-    "Type of scan line"
-    startp: Position
-    "Exact position of scan start."
-    stopp: Position
-    "Exact position of scan stop."
-    points: int
-    "Amount of regular points."
-    step: Position
-    "Vector step."
-    raw_points: int
-    "Amount of all measured points."
-    raw_sig: list[MeasuredPoint]
-    "List with raw measurements."
-    raw_pos: list[tuple[dt, Position]]
-    "List with positions, measured along scan line with timestamps."
-    data: list[MeasuredPoint]
-    "List with data points along exact scan line geometry."
-    raw_data: list[MeasuredPoint]
-    "List with data points at their measured positions."
 
     def __init__(
             self,
@@ -520,45 +498,30 @@ class ScanLine:
         
         ``startp`` - Exact position of scan start.\n
         ``stopp`` - Exact position of scan stop.\n
+        ``points`` - Amount of regular points.\n
         ``raw_sig`` - optional list with measured osc signals.\n
-        ``raw_pos`` - optional list with measured scan positions.
+        ``raw_pos`` - optional list with measured scan positions.\n
+        ``ltype`` - optional shape of the scan line.\n
         """
         
         self.startp = startp
+        "Exact position of scan start."
         self.stopp = stopp
+        "Exact position of scan stop."
         self.points = points
+        "Amount of regular points."
         self.raw_sig = raw_sig
+        "List with raw measurements."
         self.raw_pos = raw_pos
+        "List with positions, measured along scan line with timestamps."
         self.ltype = ltype
-        self.raw_data = []
-        self.data = []
-
-        # Set step
-        dist = self.stopp.dist(self.startp)
-        # Unit vector in direction from start point to stop point
-        unit = self.startp.direction(self.stopp)
-        self.step = unit*dist/(self.points - 1)
-
-    def add_signal_points(self, osc_data: list[MeasuredPoint]) -> None:
-        """Append OscMeasurements to ``raw_sig`` list."""
-
-        self.raw_sig += osc_data
+        "Type of scan line"
 
     def add_pos_point(self, pos: Position|None) -> None:
         """Append position along scan line."""
 
         if pos is not None:
             self.raw_pos.append((dt.now(),pos))
-
-    def set_raw_data(self) -> None:
-        """Calculate ``raw_data`` attribute based on ``raw_sig`` and ``raw_pos``."""
-
-        self.raw_data = self.calc_scan_coord(
-            signals = self.raw_sig,
-            poses = self.raw_pos,
-            start = self.startp,
-            stop = self.stopp
-        )
 
     def calc_grid(self) -> None:
         """
@@ -648,8 +611,65 @@ class ScanLine:
         return result[istart:(istop + 1)]
 
     @property
+    def raw_data(self) -> list[MeasuredPoint]:
+        """
+        List with data points at their measured positions.
+        
+        Read only.
+        """
+        return self.calc_scan_coord(
+            signals = self.raw_sig,
+            poses = self.raw_pos,
+            start = self.startp,
+            stop = self.stopp
+        )
+    @raw_data.setter
+    def raw_data(self, val: Any) -> None:
+        logger.warning('Raw scan data is read only.')
+
+    @property
+    def data(self) -> list[MeasuredPoint]:
+        """
+        List with data points along exact scan line geometry.
+        
+        Read only.
+        """
+        logger.warning('Scan line data not implemented.')
+        return []
+    @data.setter
+    def data(self, val: Any) -> None:
+        logger.warning('Scan data is read only.')
+
+    @property
     def raw_points(self) -> int:
+        """
+        Amount of all measured points.
+
+        Read only.
+        """
         return len(self.raw_data)
+    @raw_points.setter
+    def raw_points(self, val: Any) -> None:
+        logger.warning(
+            'Amount of raw points along scan line is read only.'
+        )
+
+    @property
+    def step(self) -> Position:
+        """
+        Regular scan step.
+        
+        Read only.
+        """
+        # Set step
+        dist = self.startp.dist(self.stopp)
+        # Unit vector in direction from start point to stop point
+        unit = self.startp.direction(self.stopp)
+        step = unit*dist/(self.points - 1)
+        return step
+    @step.setter
+    def step(self, val: Any) -> None:
+        logging.warning('Scan line step is read only.')
 
 class MapData:
 
@@ -675,11 +695,47 @@ class MapData:
 
         self.data: list[ScanLine] = []
         "All scanned lines."
-        
-        xunits: str = ''
-        yunits: str = ''
-        units: str = ''
 
+    def add_line(self) -> ScanLine|None:
+        """
+        Create empty line and add it to ``data``.
+        
+        Return reference to the created scan line.
+        """
+
+        if len(self.data) >= self.spoints:
+            logger.warning(
+                'Cannot add new line. Maximum scan lines reached.'
+            )
+            return
+
+        # Calculate displacement from scan starting point to
+        # to starting and ending points of new line
+        delta_start = Position.from_tuples(
+            [
+                (self.faxis, (1 - (-1)**len(self.data))*self.fsize/2),
+                (self.saxis, self.sstep*len(self.data))
+            ],
+            default = Q_(0, 'mm') 
+        )
+        delta_stop = Position.from_tuples(
+            [
+                (self.faxis, (1 + (-1)**len(self.data))*self.fsize/2),
+                (self.saxis, self.sstep*len(self.data))
+            ],
+            default = Q_(0, 'mm') 
+        )
+        # Generate start and stop points of new line
+        line_start = self.startp + delta_start
+        line_stop = self.startp + delta_stop
+
+        new_line = ScanLine(
+            startp = line_start,
+            stopp = line_stop,
+            points = self.fpoints
+        )
+        self.data.append(new_line)
+        return new_line
 
     @property
     def startp(self) -> Position:
@@ -887,31 +943,46 @@ class MapData:
 
     @property
     def haxis(self) -> str:
-        """Actual title of horizontal axis."""
-        return self._haxis
+        """
+        Actual title of horizontal axis.
+        
+        Read only.\n
+        Automatically calculated from ``scan_plane``.
+        """
+        return self.scan_plane[0].lower()
     @haxis.setter
     def haxis(self, val: str = '') -> None:
-        self._haxis = val.lower()
+        logger.warning('haxis is read only.')
 
     @property
     def vaxis(self) -> str:
-        """Actual title of vertical axis."""
-        return self._vaxis
+        """
+        Actual title of vertical axis.
+        
+        Read only.\n
+        Automatically calculated from ``scan_plane``.
+        """
+        return self.scan_plane[1].lower()
     @vaxis.setter
     def vaxis(self, val: str) -> None:
-        self._vaxis = val.lower()
+        logger.warning('vaxis is read only.')
 
     @property
     def scan_dir(self) -> str:
         """
-        Determine direction and starting point of scan.
+        3-letter direction and starting point of scan.
+
+        First letter ['H'|'V"] - horizontal or vertical direction of
+        fast scan axis.\n
+        Second letter ['L'|'R'] - horizontal position of starting point
+        (left or right).\n
+        Third letter ['B'|'T'] - vertical position of starting point
+        (bottom or top).
         """
         return self._scan_dir
     @scan_dir.setter
     def scan_dir(self, val: str) -> None:
         self._scan_dir = val
-        # Update some stuff
-        pass
 
     @property
     def scan_plane(self) -> str:
@@ -924,9 +995,6 @@ class MapData:
     @scan_plane.setter
     def scan_plane(self, val: str) -> None:
         self._scan_plane = val
-        # Update x and y axis
-        self.haxis = val[0]
-        self.vaxis = val[1]
 
 @dataclass
 class StagesStatus:

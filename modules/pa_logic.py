@@ -380,7 +380,9 @@ def stages_status(
             setattr(status, axes + '_open', is_open)
     return status
 
-def stages_position(**kwargs) -> Position:
+def stages_position(
+        priority = Priority.LOW,
+        **kwargs) -> Position:
     """
     Get position of all stages.
     
@@ -391,7 +393,7 @@ def stages_position(**kwargs) -> Position:
     coord = Position()
     for axes, stage in hardware.stages.items():
         pos = _stage_call.submit(
-            Priority.LOW,
+            priority,
             stage.get_position
         )
         if not isinstance(pos, ActorFail):
@@ -663,78 +665,16 @@ def scan_2d(
     Thread safe.
     """
 
-    # Needed for MeasuredPoint
-    pm_ch_id = int(hardware.config['power_meter']['connected_chan']) - 1
-    ### Set fast and slow axes params
-    if scan.scan_dir.startswith('H'):
-        # Fast and slow axes
-        faxis = scan.xaxis
-        saxis = scan.yaxis
-        # Points
-        fpoints = scan.xpoints
-        spoints = scan.ypoints
-        # Fast axis size
-        fsize = scan.width
-        # X start point
-        if scan.scan_dir[1] == 'L':
-            fx0 = scan.x0
-        else:
-            fx0 = scan.x0 + scan.width
-        # Y axis start point and slow axis step size
-        if scan.scan_dir[2] == 'B':
-            fy0 = scan.y0
-            sstep = scan.ystep
-        else:
-            fy0 = scan.y0 + scan.height
-            sstep = -1*scan.ystep
-    else:
-        # Fast and slow axes
-        faxis = scan.yaxis
-        saxis = scan.xaxis
-        # Points
-        fpoints = scan.xpoints
-        spoints = scan.xpoints
-        # Fast axis size
-        fsize = scan.height
-        # X axis start point and sloaw axis step size
-        if scan.scan_dir[1] == 'L':
-            fx0 = scan.x0
-            sstep = scan.ystep
-        else:
-            fx0 = scan.x0 + scan.width
-            sstep = -1*scan.ystep
-        # Y axis start point
-        if scan.scan_dir[2] == 'B':
-            fy0 = scan.y0
-        else:
-            fy0 = scan.y0 + scan.height
-    fstage = hardware.stages.get(faxis)
-    sstage = hardware.stages.get(saxis)
-    # Slow step
-    sdelta = Position.from_tuples(
-        [(faxis, sstep)],
-        default = Q_(0, 'm')
-    )
-    # start point for scan
-    start = Position.from_tuples([
-        (scan.xaxis, fx0),
-        (scan.yaxis, fy0)
-    ])
-    # move to starting point
-    move_to(start)
-    wait_all_stages()
-
-    startp = start
     # Scan loop
-    for i in range(spoints):
-        # Calculate destination
-        fdelta = Position.from_tuples(
-            [(faxis, (-1)**i*fsize)],
-            default = Q_(0, 'm')
-        )
-        stopp = startp + fdelta
+    for _ in range(scan.spoints):
         # Create scan line
-        line = ScanLine(startp, stopp, fpoints)
+        line = scan.add_line()
+        if line is None:
+            logger.error('Unexpected end of scan.')
+            return scan
+        # move to line  starting point
+        move_to(line.startp)
+        wait_all_stages()
         # First launch energy measurements
         # Object for communication with lower level fucntion
         comm_en = Signals()
@@ -750,28 +690,21 @@ def scan_2d(
         t_en = Thread(target = _osc_call.submit, kwargs = tkwargs_en)
         t_en.start()
         # Then send stages to scan the line
-        move_to(stopp)
+        move_to(line.stopp)
         # While stage is moving, measure its position.
-        while stages_status(Priority.NORMAL).has_status('active'):
-            line.add_pos_point(_stage_pos(fstage))
+        while stages_status(priority).has_status('active'):
+            line.add_pos_point(stages_position(priority))
         # When stage stopped, cancel signal measurements
         comm_en.is_running = False
         t_en.join()
+        # Convert OscMeasurements to MeasuredPoints
         meas_points = [
-            meas_point_from_osc(
-                x,
-                wavelength,
-                pm_ch_id
-            ) for x in result_en
+            meas_point_from_osc(x, wavelength) for x in result_en
         ]
-        line.add_signal_points(result_en)
+        # Add measured points to scan line
+        line.raw_sig = meas_points
         signals.progess.emit(line)
         logger.info(f'Line scanned. {len(result_en)} points measured.')
-        if i < (spoints - 1):
-            # Make move along slow axis
-            startp = stopp + sdelta
-            move_to(startp)
-            wait_all_stages()
     return scan
 
 def __meas_cont(
@@ -780,7 +713,7 @@ def __meas_cont(
         result: list,
         timeout: float|None = 100,
         max_count: int|None = None
-    ) -> None:
+    ) -> list[T]:
     """
     Private function which call ``called_func`` non-stop.
     
@@ -859,12 +792,12 @@ def measure_point(
 
 def meas_point_from_osc(
         msmnt: OscMeasurement,
-        wl: PlainQuantity,
-        pm_ch_id: int
+        wl: PlainQuantity
     ) -> MeasuredPoint:
     """Make MeasurePoint from OscMeasurement and wavelength."""
 
     pm = hardware.power_meter
+    pm_ch_id = int(hardware.config['power_meter']['connected_chan']) - 1
     pm_energy = pm.energy_from_data(
         msmnt.data_raw[pm_ch_id]*msmnt.yincrement, msmnt.dt
     )

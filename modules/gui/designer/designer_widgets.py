@@ -46,7 +46,8 @@ from ...data_classes import (
     DataPoint,
     Position,
     StagesStatus,
-    EnergyMeasurement
+    EnergyMeasurement,
+    MapData
 )
 from ...constants import (
     DetailedSignals
@@ -200,6 +201,7 @@ class MapMeasureWidget(QWidget,map_measure_widget_ui.Ui_map_measure):
     """2D PhotoAcoustic measurements widget."""
 
     calc_astepClicked = Signal(QProgressDialog)
+    scan_started = Signal(MapData)
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -230,12 +232,12 @@ class MapMeasureWidget(QWidget,map_measure_widget_ui.Ui_map_measure):
         # Scan center X changed
         self.sb_centerX.quantSet.connect(
             lambda val: self.plot_scan.set_selarea(
-                x0 = val - self.sb_sizeX.quantity/2)
+                left = val - self.sb_sizeX.quantity/2)
         )
         # Scan center Y changed
         self.sb_centerY.quantSet.connect(
             lambda val: self.plot_scan.set_selarea(
-                y0 = val - self.sb_sizeY.quantity/2)
+                bottom = val - self.sb_sizeY.quantity/2)
         )
         # Selected area changed from plot
         self.plot_scan.selection_changed.connect(self._sel_changed)
@@ -244,6 +246,25 @@ class MapMeasureWidget(QWidget,map_measure_widget_ui.Ui_map_measure):
         # Auto step calculation
         self.btn_astep_calc.clicked.connect(
             lambda state: self.calc_astep())
+        # Scan
+        self.btn_start.clicked.connect(self.scan)
+
+    def scan(self) -> None:
+        """Launch scanning by emitting ``scan_started``."""
+
+        scan = MapData(
+            center = self.center,
+            width = self.sb_sizeX.quantity,
+            height = self.sb_sizeY.quantity,
+            hpoints = self.sb_pointsX.value(),
+            vpoints = self.sb_pointsY.value(),
+            scan_plane = self.cb_scanplane.currentText(),
+            scan_dir = self.cb_scandir.currentText()
+        )
+        # Load scan data to plot
+        self.plot_scan.set_data(scan)
+        # Emit signal to start actual scanning from main window
+        self.scan_started.emit(scan)
 
     def calc_astep(self, count: int = 30) -> None:
         """Launch auto step calculation."""
@@ -336,8 +357,24 @@ class MapMeasureWidget(QWidget,map_measure_widget_ui.Ui_map_measure):
         """Slot, called when new scan plane is selected."""
 
         sel_plane = self.cb_scanplane.currentText()
-        self.plot_scan.xlabel = sel_plane[0]
-        self.plot_scan.ylabel = sel_plane[1]
+        self.plot_scan.hlabel = sel_plane[0]
+        self.plot_scan.vlabel = sel_plane[1]
+
+    @property
+    def center(self) -> Position:
+        """Position of scan center."""
+
+        # Get titles of horizontal and vertical axes
+        haxis = self.cb_scanplane.currentText()[0]
+        vaxis = self.cb_scanplane.currentText()[1]
+        # Get values of horizontal and vertical coordinates
+        hcoord = self.sb_centerX.quantity
+        vcoord = self.sb_centerY.quantity
+        # Generate position
+        center = Position.from_tuples([
+            (haxis, hcoord), (vaxis, vcoord)
+        ])
+        return center
 
 class PowerMeterMonitor(QWidget,pm_monitor_ui.Ui_Form):
     """Power meter monitor.
