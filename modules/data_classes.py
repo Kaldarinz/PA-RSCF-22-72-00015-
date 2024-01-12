@@ -681,7 +681,8 @@ class MapData:
             hpoints: int,
             vpoints: int,
             scan_plane: Literal['XY', 'YZ', 'ZX'] = 'XY',
-            scan_dir: str = 'HLB'
+            scan_dir: str = 'HLB',
+            wavelength: PlainQuantity = Q_(100, 'nm')
         ) -> None:
 
         self.centp = center
@@ -692,6 +693,8 @@ class MapData:
         self.vpoints = vpoints
         self.scan_dir = scan_dir
         self.scan_plane = scan_plane
+        self.wavelength = wavelength
+        "Excitation wavelength."
 
         self.data: list[ScanLine] = []
         "All scanned lines."
@@ -736,6 +739,47 @@ class MapData:
         )
         self.data.append(new_line)
         return new_line
+
+    @property
+    def raw_data(self) -> list[list[MeasuredPoint|None]]:
+        """
+        2D array of measured PA signal.
+
+        The first index is horizontal axis, the second is vertical.
+        Indexing starts ar left bottom corner of scan.
+        As amount of points along fast scan axis can vary from line
+        to line, size of the array in this direction corresponds to
+        the longest scan line in ``data``. Size along slow scan axis
+        is ``spoints``. Default value of not scanned points is 
+        ``None``.\n
+        """
+        raw_data = []
+        # calculate sizes of the array
+        if self.scan_dir[0] == 'H':
+            arr_hsize = self.fpoints_raw_max
+            arr_vsize = self.spoints
+        else:
+            arr_hsize = self.spoints
+            arr_vsize = self.fpoints_raw_max
+
+            for line in self.data:
+                next_line = line.raw_data.copy()
+                # Append necessary amount of None to match maxsize
+                length = line.raw_points + 1
+                while length < arr_vsize:
+                    next_line.append(None)
+                    length += 1
+                # Reverse line if it was started from top
+                if self.scan_dir[2] == 'T':
+                    next_line.reverse()
+                raw_data.append(next_line)
+            # Append lines filled with None to match maxsize
+            scanned_lines = len(self.data) + 1
+            while scanned_lines < len(self.data):
+                raw_data.append([None]*arr_vsize)
+            # Reverse result if scanning was from right to left
+            if self.scan_dir[1] == 'R':
+                raw_data.reverse()
 
     @property
     def startp(self) -> Position:
@@ -823,6 +867,22 @@ class MapData:
     @fpoints.setter
     def fpoints(self, val: Any) -> None:
         logger.warning('fpoints is read only.')
+
+    @property
+    def fpoints_raw_max(self) -> int:
+        """
+        Maximum amount of fast scan points among all scan lines.
+        
+        Read only.
+        """
+        points = 0
+        for line in self.data:
+            if line.raw_points > points:
+                points = line.raw_points
+        return points
+    @fpoints_raw_max.setter
+    def fpoints_raw_max(self, val: Any) -> None:
+        logger.warning('fpoints_raw_max is read only.')
 
     @property
     def spoints(self) -> int:
@@ -927,7 +987,7 @@ class MapData:
 
     @property
     def hpoints(self) -> int:
-        "Amount of points along horizontal axis."
+        "Amount of points along horizontal axis, which were set."
         return self._hpoints
     @hpoints.setter
     def hpoints(self, val: int) -> None:
@@ -935,7 +995,7 @@ class MapData:
 
     @property
     def vpoints(self) -> int:
-        "Amount of points along vertical axis."
+        "Amount of points along vertical axis, which were set."
         return self._vpoints
     @vpoints.setter
     def vpoints(self, val: int) -> None:

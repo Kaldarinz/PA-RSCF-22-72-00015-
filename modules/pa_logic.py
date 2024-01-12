@@ -655,7 +655,6 @@ def scan_2d(
         scan: MapData,
         signals: WorkerSignals,
         flags: dict[str, bool],
-        wavelength: PlainQuantity,
         priority: int = Priority.NORMAL,
         **kwargs
     ) -> MapData:
@@ -699,7 +698,7 @@ def scan_2d(
         t_en.join()
         # Convert OscMeasurements to MeasuredPoints
         meas_points = [
-            meas_point_from_osc(x, wavelength) for x in result_en
+            meas_point_from_osc(x, scan.wavelength) for x in result_en
         ]
         # Add measured points to scan line
         line.raw_sig = meas_points

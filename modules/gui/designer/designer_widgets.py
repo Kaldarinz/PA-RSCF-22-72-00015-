@@ -252,6 +252,7 @@ class MapMeasureWidget(QWidget,map_measure_widget_ui.Ui_map_measure):
     def scan(self) -> None:
         """Launch scanning by emitting ``scan_started``."""
 
+        # Create MapData object
         scan = MapData(
             center = self.center,
             width = self.sb_sizeX.quantity,
@@ -259,7 +260,8 @@ class MapMeasureWidget(QWidget,map_measure_widget_ui.Ui_map_measure):
             hpoints = self.sb_pointsX.value(),
             vpoints = self.sb_pointsY.value(),
             scan_plane = self.cb_scanplane.currentText(),
-            scan_dir = self.cb_scandir.currentText()
+            scan_dir = self.cb_scandir.currentText(),
+            wavelength = self.sb_wl.quantity
         )
         # Load scan data to plot
         self.plot_scan.set_data(scan)

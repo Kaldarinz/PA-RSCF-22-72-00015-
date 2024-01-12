@@ -28,7 +28,8 @@ from PySide6.QtGui import (
     QContextMenuEvent
 )
 from PySide6.QtCore import (
-    Signal
+    Signal,
+    Slot
 )
 import pyqtgraph as pg
 from matplotlib.figure import Figure
@@ -40,7 +41,8 @@ from matplotlib.backends.backend_qtagg import NavigationToolbar2QT # type: ignor
 from matplotlib.backend_bases import MouseEvent
 
 from ..data_classes import (
-    MapData
+    MapData,
+    ScanLine
 )
 from modules import ureg, Q_
 
@@ -761,11 +763,18 @@ class PgMap(pg.PlotWidget):
             self.removeItem(self._sel_ref)
             self._sel_ref = None
 
-        # Set range
+        # Set scan range
         self.set_scanrange(
             width = data.width,
             height = data.height
         )
+
+    @Slot(ScanLine)
+    def upd_scan(
+        self,
+        line: ScanLine|None = None
+    ) -> None:
+        """Update plot."""
 
     @property
     def hlabel(self) -> str:

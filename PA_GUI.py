@@ -68,7 +68,8 @@ from modules.data_classes import (
     Worker,
     Measurement,
     EnergyMeasurement,
-    Position
+    Position,
+    MapData
 )
 from modules.constants import (
     DetailedSignals,
@@ -420,6 +421,14 @@ class Window(QMainWindow,Ui_MainWindow,):
             self.d_motors.btn_z_right_move, 'z', '+'
         )
 
+    @Slot(MapData)
+    def measure_map(self, scan: MapData) -> None:
+        """Start 2D scanning."""
+
+        scan_worker = Worker(pa_logic.scan_2d, scan = scan)
+        scan_worker.signals.progess.connect(self.p_map.plot_scan.upd_scan)
+        self.pool.start(scan_worker)
+        
     @Slot(QProgressDialog)
     def calc_astep(self, pb: QProgressDialog) -> None:
         """

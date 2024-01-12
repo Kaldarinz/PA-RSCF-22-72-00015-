@@ -28,19 +28,18 @@ ureg = pint.get_application_registry()
 Q_ = ureg.Quantity
 rng = np.random.default_rng()
 
-a ='tst'
 
-dct = dict(a = 'oh')
-print(dct[a])
-# scna = MapData(
-#     center=Position(Q_(4, 'mm'), Q_(6, 'mm'), Q_(10, 'mm')),
-#     width = Q_(3, 'mm'),
-#     height = Q_(5, 'mm'),
-#     hpoints = 10,
-#     vpoints = 20,
-#     scan_plane='XY',
-#     scan_dir='VLB'
-# )
+scna = MapData(
+    center=Position(Q_(4, 'mm'), Q_(6, 'mm'), Q_(10, 'mm')),
+    width = Q_(3, 'mm'),
+    height = Q_(5, 'mm'),
+    hpoints = 10,
+    vpoints = 20,
+    scan_plane='XY',
+    scan_dir='VLB'
+)
+
+a: npt.NDArray[MapData]
 
 # pprint(propvals(scna))
 

@@ -386,6 +386,21 @@ class Ui_map_measure(object):
 
         self.formLayout.setWidget(4, QFormLayout.FieldRole, self.cb_scanplane)
 
+        self.lbl_wl = QLabel(map_measure)
+        self.lbl_wl.setObjectName(u"lbl_wl")
+
+        self.formLayout.setWidget(5, QFormLayout.LabelRole, self.lbl_wl)
+
+        self.sb_wl = QuantSpinBox(map_measure)
+        self.sb_wl.setObjectName(u"sb_wl")
+        self.sb_wl.setDecimals(0)
+        self.sb_wl.setMinimum(200.000000000000000)
+        self.sb_wl.setMaximum(2000.000000000000000)
+        self.sb_wl.setSingleStep(10.000000000000000)
+        self.sb_wl.setValue(700.000000000000000)
+
+        self.formLayout.setWidget(5, QFormLayout.FieldRole, self.sb_wl)
+
 
         self.verticalLayout.addLayout(self.formLayout)
 
@@ -489,5 +504,7 @@ class Ui_map_measure(object):
         self.cb_scanplane.setItemText(1, QCoreApplication.translate("map_measure", u"XZ", None))
         self.cb_scanplane.setItemText(2, QCoreApplication.translate("map_measure", u"YZ", None))
 
+        self.lbl_wl.setText(QCoreApplication.translate("map_measure", u"Wavelength", None))
+        self.sb_wl.setSuffix(QCoreApplication.translate("map_measure", u" nm", None))
     # retranslateUi
 
