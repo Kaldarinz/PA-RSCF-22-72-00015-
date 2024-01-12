@@ -384,13 +384,19 @@ class Window(QMainWindow,Ui_MainWindow,):
         )
         # Buttons
         # Home
-        self.d_motors.btn_home.clicked.connect(self.home_stage)
+        self.d_motors.btn_home.clicked.connect(
+            lambda: self.start_worker(pa_logic.home)
+        )
         # Move to
         self.d_motors.btn_go.clicked.connect(
-            lambda: self.moveto_stage(self.d_motors.current_pos())
+            lambda: self.start_worker(
+                pa_logic.move_to,
+                new_pos = self.d_motors.current_pos())
         )
         # Break al stages
-        self.d_motors.btn_stop.clicked.connect(self.break_stages)
+        self.d_motors.btn_stop.clicked.connect(
+            lambda: self.start_worker(pa_logic.break_all_stages)
+        )
         # Jog
         # X direction
         self._conn_jog_btn(
@@ -463,10 +469,14 @@ class Window(QMainWindow,Ui_MainWindow,):
         """Connect signals for jog button."""
 
         btn.pressed.connect(
-            lambda: self.jog_stage(axes = axes, direction = direction)
+            lambda: self.start_worker(
+                pa_logic.stage_jog,
+                axes = axes,
+                direction = direction
+                )
         )
         btn.released.connect(
-            lambda: self.stop_stage(axes = axes)
+            lambda: self.start_worker(pa_logic.stage_stop, axes = axes)
         )
 
     @Slot()
@@ -1363,44 +1373,6 @@ class Window(QMainWindow,Ui_MainWindow,):
         )
         self.pool.start(status_worker)
 
-    def jog_stage(
-            self,
-            axes: Literal['x', 'y', 'z'],
-            direction: Literal['+', '-']
-        ) -> None:
-        """Jog stage in a given direction."""
-
-        worker_jog = Worker(pa_logic.stage_jog, axes, direction)
-        self.pool.start(worker_jog)
-
-    @Slot()
-    def home_stage(self) -> None:
-        """Home all stages."""
-
-        worker_home = Worker(pa_logic.home)
-        self.pool.start(worker_home)
-
-    @Slot(Position)
-    def moveto_stage(self, pos: Position) -> None:
-        """Move stages to new position."""
-
-        worker_moveto = Worker(pa_logic.move_to, pos)
-        self.pool.start(worker_moveto)
-
-    @Slot()
-    def stop_stage(self, axes: Literal['x', 'y' , 'z']) -> None:
-        """Stop stage."""
-
-        worker_stop = Worker(pa_logic.stage_stop, axes)
-        self.pool.start(worker_stop)
-
-    @Slot()
-    def break_stages(self) -> None:
-        """Break all stages."""
-
-        worker_break = Worker(pa_logic.break_all_stages)
-        self.pool.start(worker_break)
-
     def init_pm_monitor(
             self,
             monitor: PowerMeterMonitor
@@ -1408,6 +1380,21 @@ class Window(QMainWindow,Ui_MainWindow,):
         """Initialize power meter monitor."""
 
         self.energy_measured.connect(monitor.add_msmnt)
+
+    def start_worker(
+            self,
+            func: Callable,
+            *args,
+            **kwargs
+    ) -> None:
+        """
+        Execute ``func`` in a separate thread.
+
+        This usually used for sending simple hardware commands.
+        """
+
+        worker = Worker(func, *args, **kwargs)
+        self.pool.start(worker)
 
     def stop_worker(self, worker: Worker|None) -> None:
         """Stop and delete worker."""
