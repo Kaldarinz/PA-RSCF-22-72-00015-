@@ -28,20 +28,36 @@ ureg = pint.get_application_registry()
 Q_ = ureg.Quantity
 rng = np.random.default_rng()
 
+def get_coord(axis: str):
+    arr = np.empty(shape=raw_data.shape, dtype=object)
+    arr[:] = None
+    units = None
+    for index in np.ndindex(raw_data.shape):
+        point = raw_data[index]
+        if point is not None:
+            arr[index] = getattr(point, axis).to_base_units().m
+            if units is None:
+                units = getattr(point, axis).to_base_units().u
+    return Q_(arr, units)
 
-scna = MapData(
-    center=Position(Q_(4, 'mm'), Q_(6, 'mm'), Q_(10, 'mm')),
-    width = Q_(3, 'mm'),
-    height = Q_(5, 'mm'),
-    hpoints = 10,
-    vpoints = 20,
-    scan_plane='XY',
-    scan_dir='VLB'
-)
+raw_data = np.empty((5,5), dtype=object)
+for i in range(5):
+    for j in range(5):
+        raw_data[i,j] = Position(Q_(i, 'm'), Q_(j, 'mm'))
 
-a: npt.NDArray[MapData]
+coords = get_coord('y')
+print(coords.to())
+# scna = MapData(
+#     center=Position(Q_(4, 'mm'), Q_(6, 'mm'), Q_(10, 'mm')),
+#     width = Q_(3, 'mm'),
+#     height = Q_(5, 'mm'),
+#     hpoints = 10,
+#     vpoints = 20,
+#     scan_plane='XY',
+#     scan_dir='VLT'
+# )
 
 # pprint(propvals(scna))
 
 # new_line = scna.add_line()
-# print(new_line.step)
+# print(scna.raw_data.shape)

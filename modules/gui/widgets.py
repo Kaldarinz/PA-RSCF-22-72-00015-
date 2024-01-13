@@ -774,7 +774,15 @@ class PgMap(pg.PlotWidget):
         self,
         line: ScanLine|None = None
     ) -> None:
-        """Update plot."""
+        """Update scan."""
+
+        # Convert units
+        x, y, z = self.data.get_plot_data()
+        x_arr = x.to(self.hunits).m
+        y_arr = y.to(self.vunits).m
+        z_arr = z.m
+        # Plot data
+        self._plot_ref.setData(x = x_arr, y = y_arr, z = z_arr)
 
     @property
     def hlabel(self) -> str:

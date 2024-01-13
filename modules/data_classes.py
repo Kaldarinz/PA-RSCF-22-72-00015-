@@ -3,7 +3,7 @@ Module with data classes.
 """
 
 import sys
-from typing import Callable, TypeVar, Any, Literal
+from typing import Callable, TypeVar, Any, Literal, cast
 from typing_extensions import ParamSpec, Self, Type
 from dataclasses import dataclass, field, fields
 import traceback
@@ -568,6 +568,8 @@ class ScanLine:
             f'Starting calculation signal position for {len(signals)} '
             + f'MeasuredPoints based on {len(poses)} coordinate measurements.'
         )
+        if not len(signals) or not len(poses):
+            return []
         # Sort data
         result = sorted(signals, key = lambda x: x.datetime)
         poses.sort(key = lambda x: x[0])
@@ -740,8 +742,54 @@ class MapData:
         self.data.append(new_line)
         return new_line
 
+    def get_plot_data(
+            self, signal: str
+        ) -> tuple[PlainQuantity, PlainQuantity, PlainQuantity]:
+        """
+        Prepare data for plotting.
+        
+        Indexing: data[x,y].\n
+        Return tuple of 3 Pint quantities, which are 2D arrays: first 
+        value contains position of scan points along horizontal axis,
+        second - positions along vertical axis, third values of required
+        signal.
+        """
+
+        raw_data = self.raw_data
+        def get_coord(axis: str):
+            arr = np.empty(shape=raw_data.shape, dtype=object)
+            arr[:] = None
+            units = None
+            for index in np.ndindex(raw_data.shape):
+                point = raw_data[index]
+                point = cast(MeasuredPoint|None, point)
+                if point is not None:
+                    arr[index] = getattr(point.pos, axis).to_base_units().m
+                    if units is None:
+                        units = getattr(point.pos, axis).to_base_units().u
+            return Q_(arr, units)
+        
+        def get_signal(signal: str):
+            arr = np.empty(shape=raw_data.shape, dtype=object)
+            arr[:] = None
+            units = None
+            for index in np.ndindex(raw_data.shape):
+                point = raw_data[index]
+                point = cast(MeasuredPoint|None, point)
+                if point is not None:
+                    # Assume that signal attribute is PlainQuantity
+                    arr[index] = getattr(point, signal).to_base_units().m
+                    if units is None:
+                        units = getattr(point, signal).to_base_units().u
+            return Q_(arr, units)
+        
+        x = get_coord('x')
+        y = get_coord('y')
+        z = get_signal(signal)
+        return (x,y,z)
+    
     @property
-    def raw_data(self) -> list[list[MeasuredPoint|None]]:
+    def raw_data(self) -> np.ndarray:
         """
         2D array of measured PA signal.
 
@@ -753,33 +801,37 @@ class MapData:
         is ``spoints``. Default value of not scanned points is 
         ``None``.\n
         """
-        raw_data = []
-        # calculate sizes of the array
-        if self.scan_dir[0] == 'H':
-            arr_hsize = self.fpoints_raw_max
-            arr_vsize = self.spoints
-        else:
-            arr_hsize = self.spoints
-            arr_vsize = self.fpoints_raw_max
 
-            for line in self.data:
-                next_line = line.raw_data.copy()
-                # Append necessary amount of None to match maxsize
-                length = line.raw_points + 1
-                while length < arr_vsize:
-                    next_line.append(None)
-                    length += 1
-                # Reverse line if it was started from top
-                if self.scan_dir[2] == 'T':
-                    next_line.reverse()
-                raw_data.append(next_line)
-            # Append lines filled with None to match maxsize
-            scanned_lines = len(self.data) + 1
-            while scanned_lines < len(self.data):
-                raw_data.append([None]*arr_vsize)
-            # Reverse result if scanning was from right to left
+        raw_data = []
+        # Fill array with existing data
+        for i in range(len(self.data)):
+            line = self.data[i]
+            raw_data.append(
+                line.raw_data + [None]*(self.fpoints_raw_max - line.raw_points)
+                )
+        # Fill remaining with None
+        for i in range(self.spoints - len(self.data)):
+            raw_data.append([None]*self.fpoints_raw_max)
+
+        # Format array to raw_data[x][y]
+        if self.scan_dir[0] == 'H':
+            # Reverse scan lines if start point on the right
+            if self.scan_dir[1] == 'R':
+                raw_data = [line[::-1] for line in raw_data]
+            # Transpose for horizontal fast axis
+            raw_data = [list(x) for x in zip(*raw_data)]
+            # Reverse line order if started from top
+            if self.scan_dir[2] == 'T':
+                raw_data.reverse()
+        # Array format is already raw_data[x][y] for vertical fast scan
+        else:
+            # Reverse line order if scanned from right
             if self.scan_dir[1] == 'R':
                 raw_data.reverse()
+            # Reverse scan lines if scanned from top
+            if self.scan_dir[2] == 'T':
+                raw_data = [line[::-1] for line in raw_data]
+        return np.array(raw_data, dtype=object)
 
     @property
     def startp(self) -> Position:
