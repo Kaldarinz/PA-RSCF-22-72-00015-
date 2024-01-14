@@ -107,7 +107,7 @@ logger = logging.getLogger(__name__)
 class PaData:
     """Class for PA data storage and manipulations"""
 
-    VERSION = 1.2
+    VERSION = 1.3
 
     def __init__(self) -> None:
 
@@ -190,6 +190,7 @@ class PaData:
         
         ``measurement`` - Measurement instance, to which data point should be added.
         ``data`` - Measured PA data.
+        ``param_val`` - List of values, which define this point in its measurement. 
         """
 
         logger.debug('Starting datapoint addition to file...')
@@ -212,7 +213,7 @@ class PaData:
             # in 0D case param value can be missing
             if exist_params:
                 param_val = [x.to(y.u) for x,y in zip(param_val,exist_params)]
-            # get data from any axisting datapoint
+            # get data from any existing datapoint
             exist_data = next(iter(measurement.data.values())).raw_data.data
             if exist_data.u != data.pa_signal.u:
                 logger.debug(f'Changing units of data from {data.pa_signal.u} '
@@ -221,7 +222,9 @@ class PaData:
         
         metadata = PointMetadata(
             pm_en = data.pm_energy,
-            sample_en = data.sample_energy,
+            sample_en = data.sample_en,
+            wavelength = data.wavelength,
+            pos = data.pos,
             param_val = param_val.copy()
         )
         
@@ -434,6 +437,10 @@ class PaData:
                             key + '_u': units
                         }
                     )
+                # Spetial case for Position
+                elif isinstance(val, Position):
+                    result.update(val.serialize())
+                # Otherwise it should be basic type
                 else:
                     result.update({key: val})
         return result
@@ -458,7 +465,13 @@ class PaData:
                 else:
                     item = None
             elif val is PlainQuantity:
-                item = Q_(source[key], source[key + '_u'])
+                try:
+                    item = Q_(source[key], source[key + '_u'])
+                except:
+                    logger.warning('Error in data loading.')
+                    item = None
+            elif val is Position:
+                item = Position.from_dict(source)
             else:
                 item = source[key]
             if item is not None:
@@ -534,9 +547,7 @@ class PaData:
         logger.debug('load procedure is starting...')
         logger.debug(f'{filename=}')
         with h5py.File(filename, 'r') as file:
-            
             #load file metadata
-            
             general = file.attrs
             if 'version' not in general:
                 logger.warning('File has old structure and cannot be loaded.')

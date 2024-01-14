@@ -34,6 +34,207 @@ logger = logging.getLogger(__name__)
 P = ParamSpec('P')
 T = TypeVar('T')
 
+class Position:
+    """Cartesian position."""
+    _FIELDS = ('x', 'y', 'z')
+
+    def __init__(
+            self,
+            x: PlainQuantity|None = None,
+            y: PlainQuantity|None = None,
+            z: PlainQuantity|None = None,
+        ) -> None:
+        
+        self.x = x
+        self.y = y 
+        self.z = z
+
+    @classmethod
+    def from_tuples(
+        cls: Type[Self],
+        coords: list[tuple[str, PlainQuantity]],
+        default: PlainQuantity|None = None
+        ) -> Self:
+        """
+        Alternative constructor from list of tuples with (Axis, value).
+        
+        ``default`` is default value for mising axes.
+        """
+
+        pos = cls()
+        for coord in coords:
+            if coord[0].lower() in cls._FIELDS:
+                setattr(pos, coord[0].lower(), coord[1])
+            else:
+                raise TypeError(
+                    f'Trying to set non-existing axis = {coord[0]}'
+                )
+        # Set default values for missing attributes
+        set_flds = set(coord[0].lower() for coord in coords)
+        missing = set(cls._FIELDS) - set_flds
+        for fld in missing:
+            setattr(pos, fld, default)
+        return pos
+    
+    @classmethod
+    def from_dict(
+        cls: Type[Self],
+        data: dict,
+        default: PlainQuantity|None = None
+        ) -> Self:
+        """
+        Alternative constructor from dict of base types.
+        
+        Each coordinate is defined by 2 values: one for magnitude,
+        and another for units. Example {'x': 1, 'x_u': 'mm'} define
+        position with ``x = 1 mm``.\n
+        ``default`` is default value for mising axes.
+        """
+
+        pos = cls()
+        set_flds = set()
+        for coord in cls._FIELDS:
+            units = coord + '_u'
+            try:
+                val = Q_(data[coord], data[units])
+            except:
+                pass
+            else:
+                setattr(pos, coord, val)
+                set_flds.add(coord)
+        # Set default values for missing attributes
+        missing = set(cls._FIELDS) - set_flds
+        for fld in missing:
+            setattr(pos, fld, default)
+        return pos
+
+    def add(self, added: Self, strict: bool = True) -> None:
+        """
+        Add another coordinate to current coordinate.
+        
+        If ``strict`` is ``True``, then  if axis value of any operand
+        is None, the result is None. Otherwise if axis value of
+        any operand is not None, the result is existing value.
+        """
+
+        if not isinstance(added, type(self)):
+            return
+        
+        # Iterate over all coordinates
+        for fld in self._FIELDS:
+            attr1 = getattr(self, fld)
+            attr2 = getattr(added, fld)
+            # If both fields are None, then skip it
+            if attr1 is None and attr2 is None:
+                continue
+            # If both values exist, sum them
+            elif None not in [attr1, attr2]:
+                setattr(self, fld, attr1 + attr2)
+            else:
+                # if only one value axist and adding is not strict, 
+                # set existing value
+                if not strict:
+                    if attr1 is None:
+                        setattr(self, fld, attr2)
+
+    def dist(self, point: Self) -> PlainQuantity:
+        """
+        Calculate distance to ``point``.
+        
+        Only both non None axes are calculated.\n
+        If there no such pairs, magnitude of returned value is np.nan.
+        """
+
+        dist = Q_(np.nan, 'm**2')
+        for axis in self._FIELDS:
+            ax1 = getattr(self, axis)
+            ax2 = getattr(point, axis)
+            if None not in [ax1, ax2]:
+                dist = np.nan_to_num(dist) + (ax2-ax1)**2
+
+        return np.sqrt(dist)
+
+    def direction(self, point: Self) -> Self|None:
+        """Get unit vector in the direction of ``point``."""
+
+        dist = self.dist(point)
+        # Return None if distance cannot be calculated
+        if dist.m is np.nan:
+            return None
+        return (point - self)/dist
+
+    def serialize(self) -> dict:
+        """
+        Serialize instance to base types.
+        
+        Only not None coordinates are saved.
+        """
+
+        result = {}
+        for fld in self._FIELDS:
+            attr = getattr(self, fld)
+            if attr is not None:
+                magnitude = attr.m
+                units = str(attr.u)
+                result.update({fld: magnitude})
+                result.update({fld + '_u': units})
+        return result
+
+    def __add__(self, added: Self) -> Self:
+        """If value of any axis is None, result for the axis is None."""
+        if not isinstance(added, type(self)):
+            return NotImplemented
+        
+        new_coord = type(self)()
+        for fld in self._FIELDS:
+            attr1 = getattr(self, fld)
+            attr2 = getattr(added, fld)
+            if None not in [attr1, attr2]:
+                setattr(new_coord, fld, attr1 + attr2)
+
+        return new_coord
+    
+    def __sub__(self, subed: Self) -> Self:
+        if not isinstance(subed, type(self)):
+            return NotImplemented
+        return self + (-subed)
+    
+    def __truediv__(self, val: PlainQuantity|float) -> Self:
+        result = Position()
+        for axis in self._FIELDS:
+            ax1 = getattr(self, axis)
+            if ax1 is not None:
+                setattr(result, axis, ax1/val)
+        return result
+
+    def __mul__(self, val: PlainQuantity|float) -> Self:
+        result = Position()
+        for axis in self._FIELDS:
+            ax1 = getattr(self, axis)
+            if ax1 is not None:
+                setattr(result, axis, ax1*val)
+        return result
+
+    def __neg__(self) -> Self:
+        new_coord = type(self)()
+        for fld in self._FIELDS:
+            attr = getattr(self, fld)
+            if attr is not None:
+                setattr(new_coord, fld, -attr)
+        return new_coord
+
+    def __repr__(self) -> str:
+
+        reprs = [self.__class__.__name__ + ':']
+        
+        for fld in self._FIELDS:
+            reprs.append(fld + ' =')
+            if fld == 'z':
+                reprs.append(str(getattr(self, fld)))
+            else:
+                reprs.append(str(getattr(self, fld)) + ',')
+        return ' '.join(reprs)
+
 @dataclass
 class FileMetadata:
     """General attributes of a file."""
@@ -95,6 +296,10 @@ class PointMetadata:
     'laser energy measured by power meter in glass reflection'
     sample_en: PlainQuantity
     'laser energy at sample'
+    wavelength: PlainQuantity = Q_(np.nan, 'nm')
+    'Excitation wavelength'
+    pos: Position = field(default_factory=lambda: Position())
+    'Position, at which point was measured'
     param_val: list[PlainQuantity] = field(default_factory=list)
     'value of independent parameters'
 
@@ -133,158 +338,6 @@ class Measurement:
     attrs: MeasurementMetadata
     "MetaData of the measurement."
     data: dict[str, DataPoint] = field(default_factory = dict)
-
-class Position:
-    """Cartesian position."""
-    _FIELDS = ('x', 'y', 'z')
-
-    def __init__(
-            self,
-            x: PlainQuantity|None = None,
-            y: PlainQuantity|None = None,
-            z: PlainQuantity|None = None,
-        ) -> None:
-        
-        self.x = x
-        self.y = y 
-        self.z = z
-
-    @classmethod
-    def from_tuples(
-        cls: Type[Self],
-        coords: list[tuple[str, PlainQuantity]],
-        default: PlainQuantity|None = None
-        ) -> Self:
-        """
-        Alternative constructor from list of tuples with (Axis, value).
-        
-        ``default`` is default value for mising axes.
-        """
-
-        pos = cls()
-        for coord in coords:
-            if coord[0].lower() in cls._FIELDS:
-                setattr(pos, coord[0].lower(), coord[1])
-            else:
-                raise TypeError(
-                    f'Trying to set non-existing axis = {coord[0]}'
-                )
-        # Set default values for missing attributes
-        set_flds = set(coord[0].lower() for coord in coords)
-        missing = set(cls._FIELDS) - set_flds
-        for fld in missing:
-            setattr(pos, fld, default)
-        return pos
-    
-    def add(self, added: Self, strict: bool = True) -> None:
-        """
-        Add another coordinate to current coordinate.
-        
-        If ``strict`` is ``True``, then  if axis value of any operand
-        is None, the result is None. Otherwise if axis value of
-        any operand is not None, the result is existing value.
-        """
-
-        if not isinstance(added, type(self)):
-            return
-        
-        # Iterate over all coordinates
-        for fld in self._FIELDS:
-            attr1 = getattr(self, fld)
-            attr2 = getattr(added, fld)
-            # If both fields are None, then skip it
-            if attr1 is None and attr2 is None:
-                continue
-            # If both values exist, sum them
-            elif None not in [attr1, attr2]:
-                setattr(self, fld, attr1 + attr2)
-            else:
-                # if only one value axist and adding is not strict, 
-                # set existing value
-                if not strict:
-                    if attr1 is None:
-                        setattr(self, fld, attr2)
-
-    def dist(self, point: Self) -> PlainQuantity:
-        """
-        Calculate distance to ``point``.
-        
-        Only both non None axes are calculated.\n
-        If there no such pairs, magnitude of returned value is np.nan.
-        """
-
-        dist = Q_(np.nan, 'm**2')
-        for axis in self._FIELDS:
-            ax1 = getattr(self, axis)
-            ax2 = getattr(point, axis)
-            if None not in [ax1, ax2]:
-                dist = np.nan_to_num(dist) + (ax2-ax1)**2
-
-        return np.sqrt(dist)
-
-    def direction(self, point: Self) -> Self|None:
-        """Get unit vector in the direction of ``point``."""
-
-        dist = self.dist(point)
-        # Return None if distance cannot be calculated
-        if dist.m is np.nan:
-            return None
-        return (point - self)/dist
-        
-    def __add__(self, added: Self) -> Self:
-        """If value of any axis is None, result for the axis is None."""
-        if not isinstance(added, type(self)):
-            return NotImplemented
-        
-        new_coord = type(self)()
-        for fld in self._FIELDS:
-            attr1 = getattr(self, fld)
-            attr2 = getattr(added, fld)
-            if None not in [attr1, attr2]:
-                setattr(new_coord, fld, attr1 + attr2)
-
-        return new_coord
-    
-    def __sub__(self, subed: Self) -> Self:
-        if not isinstance(subed, type(self)):
-            return NotImplemented
-        return self + (-subed)
-    
-    def __truediv__(self, val: PlainQuantity|float) -> Self:
-        result = Position()
-        for axis in self._FIELDS:
-            ax1 = getattr(self, axis)
-            if ax1 is not None:
-                setattr(result, axis, ax1/val)
-        return result
-
-    def __mul__(self, val: PlainQuantity|float) -> Self:
-        result = Position()
-        for axis in self._FIELDS:
-            ax1 = getattr(self, axis)
-            if ax1 is not None:
-                setattr(result, axis, ax1*val)
-        return result
-
-    def __neg__(self) -> Self:
-        new_coord = type(self)()
-        for fld in self._FIELDS:
-            attr = getattr(self, fld)
-            if attr is not None:
-                setattr(new_coord, fld, -attr)
-        return new_coord
-
-    def __repr__(self) -> str:
-
-        reprs = [self.__class__.__name__ + ':']
-        
-        for fld in self._FIELDS:
-            reprs.append(fld + ' =')
-            if fld == 'z':
-                reprs.append(str(getattr(self, fld)))
-            else:
-                reprs.append(str(getattr(self, fld)) + ',')
-        return ' '.join(reprs)
 
 def def_pos() -> Position:
     return Position()
@@ -760,8 +813,7 @@ class MapData:
             arr = np.empty(shape=raw_data.shape, dtype=object)
             arr[:] = None
             units = None
-            for index in np.ndindex(raw_data.shape):
-                point = raw_data[index]
+            for index, point in np.ndenumerate(raw_data):
                 point = cast(MeasuredPoint|None, point)
                 if point is not None:
                     arr[index] = getattr(point.pos, axis).to_base_units().m
@@ -773,8 +825,7 @@ class MapData:
             arr = np.empty(shape=raw_data.shape, dtype=object)
             arr[:] = None
             units = None
-            for index in np.ndindex(raw_data.shape):
-                point = raw_data[index]
+            for index, point in np.ndenumerate(raw_data):
                 point = cast(MeasuredPoint|None, point)
                 if point is not None:
                     # Assume that signal attribute is PlainQuantity

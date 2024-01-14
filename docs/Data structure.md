@@ -51,6 +51,14 @@
 
 ## Version history
 
+# version 1.2
+1. Added `wavelength` and `pos` fields to `PointMetadata`.
+   1. `wavelength` field is excitation wavelength.
+   2. `pos` field is position, at which point was measured.
+
+# version 1.2
+1. Data files can now contain several measurements.
+
 # version 1.1
 / - <root group>
 |.attrs
