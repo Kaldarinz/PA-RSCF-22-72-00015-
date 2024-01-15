@@ -664,16 +664,20 @@ def scan_2d(
     Thread safe.
     """
 
+    logger.info('Starting scanning procedure.')
     # Scan loop
     for _ in range(scan.spoints):
         # Create scan line
         line = scan.add_line()
+        logger.info(f'{id(line)=}, {len(line.raw_pos)}')
         if line is None:
             logger.error('Unexpected end of scan.')
             return scan
         # move to line  starting point
+        logger.info('Moving to scan start position.')
         move_to(line.startp)
         wait_all_stages()
+        logger.info('At scan start position.')
         # First launch energy measurements
         # Object for communication with lower level fucntion
         comm_en = Signals()
@@ -696,6 +700,7 @@ def scan_2d(
         # When stage stopped, cancel signal measurements
         comm_en.is_running = False
         t_en.join()
+        logger.info('Line scanned. Start converting OscMeas to MeasPoint')
         # Convert OscMeasurements to MeasuredPoints
         meas_points = [
             meas_point_from_osc(x, scan.wavelength) for x in result_en
@@ -703,7 +708,7 @@ def scan_2d(
         # Add measured points to scan line
         line.raw_sig = meas_points
         signals.progess.emit(line)
-        logger.info(f'Line scanned. {len(result_en)} points measured.')
+        logger.info(f'Scanned {line}.')
     return scan
 
 def __meas_cont(
@@ -727,18 +732,22 @@ def __meas_cont(
     # execution loop
     while comm.is_running:
         # exit by timeout
-        if timeout and (time.time() - start) > timeout:
+        if timeout and (t := (time.time() - start)) > timeout:
             logger.warning(
                 'Timeout expired during fast PA signal cont measure.'
             )
             break
+        logger.debug(f'Prepare to measure {comm.count} at {t=}')
         msmnt = called_func()
         # Skip bad reads
         if msmnt is None:
             continue
         # Add only unique measurements
         if len(result):
-            if result[-1] != msmnt:
+            logger.debug('About to compare')
+            logger.debug(f'{type(msmnt)=}')
+            logger.debug(f'{type(result[-1])=}')
+            if not (result[-1] == msmnt):
                 result.append(msmnt)
                 # Inform about good measurement
                 comm.progress.set()
@@ -753,7 +762,9 @@ def __meas_cont(
         comm.count = len(result)
         # Stop if max_count is set and reached
         if max_count and comm.count == max_count:
+            logger.debug(f'{max_count=} reached')
             break
+    logger.debug('Finishing __meas_count...')
 
 def measure_point(
         wavelength: PlainQuantity,

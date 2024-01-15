@@ -371,6 +371,26 @@ class OscMeasurement:
     yincrement: PlainQuantity = Q_(np.nan, 'V')
     "Data = yincrement*data_raw."
 
+    def __eq__(self, __value: Type[Self]) -> bool:
+        """Only check equality of `data_raw` attribute."""
+
+        logger.debug('Starting equality check of OscMeasurement')
+        # Check if some data is present in both operands
+        if len(self.data_raw) and len(__value.data_raw):
+            # Compare each measured signal
+            cnt = 0
+            for d1, d2 in zip(self.data_raw, __value.data_raw):
+                if not (d1 is None or d2 is None):
+                   if np.allclose(d1, d2):
+                       cnt += 1
+                elif d1 is None and d2 is None:
+                    cnt += 1
+            if cnt == len(self.data_raw):
+                logger.debug('compare to True')
+                return True
+        logger.debug('Compare to False')
+        return False
+
 @dataclass
 class EnergyMeasurement:
     """Energy measurement from power meter."""
@@ -633,23 +653,23 @@ class ScanLine:
         # Array with time points relative to ref of position
         pos_time = np.array([(x[0] - t0).total_seconds() for x in poses])
 
-        for fld in fields(Position):
-            # Assume that all positions have the same non None fields
+        for fld in Position._FIELDS:
+            # Assume that all positions have the same non-None fields
             # and iterate only on those fields.
-            if getattr(poses[1], fld.name) is not None:
+            if getattr(start, fld) is not None:
                 # Array with measured axes
-                coord = np.array([getattr(x, fld.name).to('m').m for x in poses[1]])
+                coord = np.array([getattr(x[1], fld).to('m').m for x in poses])
                 # Array with calculated axes
                 en_coord = np.interp(
                     x = en_time,
                     xp = pos_time,
                     fp = coord,
-                    left = getattr(start, fld.name).to('m').m,
-                    right = getattr(stop, fld.name).to('m').m
+                    left = getattr(start, fld).to('m').m,
+                    right = getattr(stop, fld).to('m').m
                 )
                 # Set axes values to result
                 for i, res in enumerate(result):
-                    setattr(res.pos, fld.name, Q_(en_coord[i], 'm'))
+                    setattr(res.pos, fld, Q_(en_coord[i], 'm'))
 
         # Remove duplicated edge values
         dups = 0
@@ -725,6 +745,17 @@ class ScanLine:
     @step.setter
     def step(self, val: Any) -> None:
         logging.warning('Scan line step is read only.')
+
+    def __str__(self) -> str:
+        
+        reprs = [self.__class__.__name__ + ':']
+        reprs.append('Points with pos =')
+        reprs.append(str(self.raw_points))
+        reprs.append('Measured PA signals =')
+        reprs.append(str(len(self.raw_sig)))
+        reprs.append('Pos points =')
+        reprs.append(str(len(self.raw_pos)))
+        return ' '.join(reprs)
 
 class MapData:
 

@@ -776,8 +776,10 @@ class PgMap(pg.PlotWidget):
     ) -> None:
         """Update scan."""
 
+        logger.info(f'Scanned {line}')
         # Convert units
-        x, y, z = self.data.get_plot_data()
+        x, y, z = self.data.get_plot_data('max_amp')
+        logger.info(f'{x=}')
         x_arr = x.to(self.hunits).m
         y_arr = y.to(self.vunits).m
         z_arr = z.m

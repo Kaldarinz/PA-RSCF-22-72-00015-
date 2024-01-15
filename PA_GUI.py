@@ -354,10 +354,9 @@ class Window(QMainWindow,Ui_MainWindow,):
         )
 
         ### 2D measurements ###
-        self.p_map.btn_start.clicked.connect(self.tst_map)
-        self.p_map.btn_stop.clicked.connect(
-            lambda: self.stop_worker(self.tst_worker)
-        )
+        # Scan
+        self.p_map.scan_started.connect(self.measure_map)
+
         # Calculate auto step
         self.p_map.calc_astepClicked.connect(self.calc_astep)
 
@@ -425,6 +424,7 @@ class Window(QMainWindow,Ui_MainWindow,):
     def measure_map(self, scan: MapData) -> None:
         """Start 2D scanning."""
 
+        logger.info('measure_map slot called.')
         scan_worker = Worker(pa_logic.scan_2d, scan = scan)
         scan_worker.signals.progess.connect(self.p_map.plot_scan.upd_scan)
         self.pool.start(scan_worker)

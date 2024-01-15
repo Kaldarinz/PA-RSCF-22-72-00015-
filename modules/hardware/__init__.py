@@ -1,8 +1,7 @@
-from pint import UnitRegistry
+import pint
 import logging
 
 logger = logging.getLogger(__name__)
 
-ureg = UnitRegistry(auto_reduce_dimensions=True) # type: ignore
-ureg.default_format = '~.2gP'
+ureg = pint.get_application_registry()
 Q_ = ureg.Quantity
