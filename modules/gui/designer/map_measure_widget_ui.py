@@ -411,6 +411,11 @@ class Ui_map_measure(object):
 
         self.verticalLayout.addWidget(self.line_2)
 
+        self.btn_tst = QPushButton(map_measure)
+        self.btn_tst.setObjectName(u"btn_tst")
+
+        self.verticalLayout.addWidget(self.btn_tst)
+
         self.verticalSpacer = QSpacerItem(20, 40, QSizePolicy.Minimum, QSizePolicy.Expanding)
 
         self.verticalLayout.addItem(self.verticalSpacer)
@@ -506,5 +511,6 @@ class Ui_map_measure(object):
 
         self.lbl_wl.setText(QCoreApplication.translate("map_measure", u"Wavelength", None))
         self.sb_wl.setSuffix(QCoreApplication.translate("map_measure", u" nm", None))
+        self.btn_tst.setText(QCoreApplication.translate("map_measure", u"Test", None))
     # retranslateUi
 

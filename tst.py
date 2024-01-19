@@ -29,11 +29,9 @@ ureg = pint.get_application_registry()
 Q_ = ureg.Quantity
 rng = np.random.default_rng()
 
-a = np.generic()
-
-pmd = PointMetadata(Q_(10, 'uJ'), Q_(100, 'uJ'), pos=Position(Q_(1,'mm'),Q_(5,'m')))
-for key,val in pmd.__annotations__.items():
-    print(f'{key}: {val}')
+a = np.array([1,2, None])
+q = Q_(a, 'm')
+print(q.to('cm'))
 # scna = MapData(
 #     center=Position(Q_(4, 'mm'), Q_(6, 'mm'), Q_(10, 'mm')),
 #     width = Q_(3, 'mm'),

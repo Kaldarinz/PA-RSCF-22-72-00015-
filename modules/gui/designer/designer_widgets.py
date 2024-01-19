@@ -249,6 +249,9 @@ class MapMeasureWidget(QWidget,map_measure_widget_ui.Ui_map_measure):
         # Scan
         self.btn_start.clicked.connect(self.scan)
 
+        # Test
+        self.btn_tst.clicked.connect(self.scan)
+
     def scan(self) -> None:
         """Launch scanning by emitting ``scan_started``."""
 

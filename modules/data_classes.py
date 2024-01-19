@@ -10,12 +10,14 @@ import traceback
 import logging
 import heapq
 import threading
+import math
 from datetime import datetime as dt
 
 from pint.facets.plain.quantity import PlainQuantity
 from pint.errors import UndefinedUnitError as UnitError
 import numpy.typing as npt
 import numpy as np
+from scipy.signal import decimate
 from pylablib.devices.Thorlabs import KinesisMotor
 from PySide6.QtCore import (
     QObject,
@@ -851,7 +853,7 @@ class MapData:
         raw_data = self.raw_data
         def get_coord(axis: str):
             arr = np.empty(shape=raw_data.shape, dtype=object)
-            arr[:] = None
+            arr[:] = np.nan
             units = None
             for index, point in np.ndenumerate(raw_data):
                 point = cast(MeasuredPoint|None, point)
@@ -863,7 +865,7 @@ class MapData:
         
         def get_signal(signal: str):
             arr = np.empty(shape=raw_data.shape, dtype=object)
-            arr[:] = None
+            arr[:] = np.nan
             units = None
             for index, point in np.ndenumerate(raw_data):
                 point = cast(MeasuredPoint|None, point)

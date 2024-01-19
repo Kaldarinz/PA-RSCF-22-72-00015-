@@ -784,7 +784,10 @@ class PgMap(pg.PlotWidget):
         y_arr = y.to(self.vunits).m
         z_arr = z.m
         # Plot data
-        self._plot_ref.setData(x = x_arr, y = y_arr, z = z_arr)
+        if self._plot_ref is None:
+            self._plot_ref = pg.PColorMeshItem(x = x_arr, y = y_arr, z = z_arr)
+        else:
+            self._plot_ref.setData(x = x_arr, y = y_arr, z = z_arr)
 
     @property
     def hlabel(self) -> str:
