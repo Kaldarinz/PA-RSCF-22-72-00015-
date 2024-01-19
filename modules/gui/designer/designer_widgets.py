@@ -77,7 +77,7 @@ class DataViewer(QWidget, data_viewer_ui.Ui_Form):
 
     data_changed = Signal(bool)
 
-    def __init__(self, parent: QWidget | None = None) -> None:
+    def __init__(self, parent: QWidget | None=None) -> None:
         super().__init__(parent)
         self.setupUi(self)
         self.p_1d = CurveView(self)
@@ -115,7 +115,7 @@ class DataViewer(QWidget, data_viewer_ui.Ui_Form):
 class LoggerWidget(QDockWidget, log_dock_widget_ui.Ui_d_log):
     """Logger dock widget."""
 
-    def __init__(self, parent: QWidget | None = None) -> None:
+    def __init__(self, parent: QWidget | None=None) -> None:
         super().__init__(parent)
         self.setupUi(self)
 
@@ -125,7 +125,7 @@ class CurveMeasureWidget(QWidget,curve_measure_widget_ui.Ui_Form):
     cur_p_changed = Signal()
     "Signal change of current data point."
 
-    def __init__(self, parent: QWidget | None = None) -> None:
+    def __init__(self, parent: QWidget | None=None) -> None:
         super().__init__(parent)
         self.setupUi(self)
 
@@ -187,7 +187,7 @@ class CurveMeasureWidget(QWidget,curve_measure_widget_ui.Ui_Form):
 class PointMeasureWidget(QWidget,point_measure_widget_ui.Ui_Form):
     """0D PhotoAcoustic measurements widget."""
 
-    def __init__(self, parent: QWidget | None = None) -> None:
+    def __init__(self, parent: QWidget | None=None) -> None:
         super().__init__(parent)
         self.setupUi(self)
 
@@ -203,7 +203,7 @@ class MapMeasureWidget(QWidget,map_measure_widget_ui.Ui_map_measure):
     calc_astepClicked = Signal(QProgressDialog)
     scan_started = Signal(MapData)
 
-    def __init__(self, parent: QWidget | None = None) -> None:
+    def __init__(self, parent: QWidget | None=None) -> None:
         super().__init__(parent)
         self.setupUi(self)
 
@@ -268,7 +268,7 @@ class MapMeasureWidget(QWidget,map_measure_widget_ui.Ui_map_measure):
         # Emit signal to start actual scanning from main window
         self.scan_started.emit(scan)
 
-    def calc_astep(self, count: int = 30) -> None:
+    def calc_astep(self, count: int=30) -> None:
         """Launch auto step calculation."""
 
         # Create progress bar dialog
@@ -387,9 +387,9 @@ class PowerMeterMonitor(QWidget,pm_monitor_ui.Ui_Form):
 
     def __init__(
             self,
-            parent: QWidget|None = None,
-            tune_width: int = 50,
-            aver: int = 10  
+            parent: QWidget | None=None,
+            tune_width: int=50,
+            aver: int=10  
         ) -> None:
         """
         Initialization of Power meter monitor.
@@ -485,21 +485,21 @@ class PowerMeterMonitor(QWidget,pm_monitor_ui.Ui_Form):
 class CurveView(QWidget,curve_data_view_ui.Ui_Form):
     """Plots for 1D data."""
 
-    def __init__(self, parent: QWidget | None = None) -> None:
+    def __init__(self, parent: QWidget | None=None) -> None:
         super().__init__(parent)
         self.setupUi(self)
         
 class PointView(QWidget, point_data_view_ui.Ui_Form):
     """Plots for 1D data."""
 
-    def __init__(self, parent: QWidget | None = None) -> None:
+    def __init__(self, parent: QWidget | None=None) -> None:
         super().__init__(parent)
         self.setupUi(self)
 
 class MotorView(QDockWidget, motor_control_ui.Ui_DockWidget):
     """Mechanical positioning widget."""
 
-    def __init__(self, parent: QWidget | None = None) -> None:
+    def __init__(self, parent: QWidget | None=None) -> None:
         super().__init__(parent)
         self.setupUi(self)
 
@@ -650,7 +650,7 @@ class MotorView(QDockWidget, motor_control_ui.Ui_DockWidget):
 
     def _upd_axes_status(
             self,
-            is_opened: bool|None,
+            is_opened: bool | None,
             status: list[str],
             icon: QLabel,
             lbl: QLabel

@@ -23,12 +23,12 @@ logger = logging.getLogger(__name__)
 def upd_plot(
         base_widget: MplCanvas|MplNavCanvas,
         ydata: Iterable,
-        xdata: Iterable|None = None,
-        ylabel: str|None = None,
-        xlabel: str|None = None,
-        fmt: str|None = None,
-        marker: Iterable|None = None,
-        enable_pick: bool = False
+        xdata: Iterable | None=None,
+        ylabel: str | None=None,
+        xlabel: str | None=None,
+        fmt: str | None=None,
+        marker: Iterable | None=None,
+        enable_pick: bool=False
     ) -> None:
     """
     Update a plot.

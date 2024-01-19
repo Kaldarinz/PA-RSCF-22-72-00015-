@@ -40,9 +40,9 @@ class Position:
 
     def __init__(
             self,
-            x: PlainQuantity|None = None,
-            y: PlainQuantity|None = None,
-            z: PlainQuantity|None = None,
+            x: PlainQuantity | None=None,
+            y: PlainQuantity | None=None,
+            z: PlainQuantity | None=None,
         ) -> None:
         
         self.x = x
@@ -53,7 +53,7 @@ class Position:
     def from_tuples(
         cls: Type[Self],
         coords: list[tuple[str, PlainQuantity]],
-        default: PlainQuantity|None = None
+        default: PlainQuantity | None=None
         ) -> Self:
         """
         Alternative constructor from list of tuples with (Axis, value).
@@ -80,7 +80,7 @@ class Position:
     def from_dict(
         cls: Type[Self],
         data: dict,
-        default: PlainQuantity|None = None
+        default: PlainQuantity | None=None
         ) -> Self:
         """
         Alternative constructor from dict of base types.
@@ -108,7 +108,7 @@ class Position:
             setattr(pos, fld, default)
         return pos
 
-    def add(self, added: Self, strict: bool = True) -> None:
+    def add(self, added: Self, strict: bool=True) -> None:
         """
         Add another coordinate to current coordinate.
         
@@ -360,7 +360,7 @@ class OscMeasurement:
     """
 
     datetime: dt = field(compare=False)
-    data_raw: list[npt.NDArray|None] = field(
+    data_raw: list[npt.NDArray | None] = field(
         default_factory=list
     )
     "List with raw data from osc channels."
@@ -448,9 +448,9 @@ class MeasuredPoint:
             data: OscMeasurement,
             energy_info: PaEnergyMeasurement,
             wavelength: PlainQuantity,
-            pa_ch_ind: int = 0,
-            pm_ch_ind: int = 1,
-            pos: Position = Position()
+            pa_ch_ind: int=0,
+            pm_ch_ind: int=1,
+            pos: Position | None=None
         ) -> None:
 
         # Direct attribute initiation
@@ -464,8 +464,11 @@ class MeasuredPoint:
         "Sampling interval for PA data"
         self.wavelength = wavelength
         "Excitation laser wavelength"
-        self.pos = pos
-        "Coordinate of the measured point"
+        if pos is None:
+            self.pos = Position()
+            "Coordinate of the measured point"
+        else:
+            self.pos = pos
         self.yincrement: PlainQuantity = Q_(data.yincrement, 'V')
         "Scaling factor to convert raw data to volts"
         self.pm_info = energy_info
@@ -529,7 +532,7 @@ class MeasuredPoint:
     @staticmethod
     def decimate_data(
             data: np.ndarray[np.int8],
-            target: int = 10_000,
+            target: int=10_000,
         ) -> tuple[np.ndarray, int]:
         """Downsample data to <target> size.
         
@@ -563,9 +566,9 @@ class ScanLine:
             startp: Position,
             stopp: Position,
             points: int,
-            raw_sig: list[OscMeasurement] = [],
-            raw_pos: list[tuple[dt, Position]] = [],
-            ltype: Literal['straight line'] = 'straight line'   
+            raw_sig: list[OscMeasurement] | None=None,
+            raw_pos: list[tuple[dt, Position]] | None=None,
+            ltype: Literal['straight line']='straight line'   
         ) -> None:
         """Default scan line constructor.
         
@@ -583,14 +586,20 @@ class ScanLine:
         "Exact position of scan stop."
         self.points = points
         "Amount of regular points."
-        self.raw_sig = raw_sig
-        "List with raw measurements."
-        self.raw_pos = raw_pos
-        "List with positions, measured along scan line with timestamps."
+        if raw_sig is None:
+            self.raw_sig = []
+            "List with raw measurements."
+        else:
+            self.raw_sig = raw_sig
+        if raw_pos is None:
+            self.raw_pos = []
+            "List with positions, measured along scan line with timestamps."
+        else:
+            self.raw_pos = raw_pos
         self.ltype = ltype
         "Type of scan line"
 
-    def add_pos_point(self, pos: Position|None) -> None:
+    def add_pos_point(self, pos: Position | None) -> None:
         """Append position along scan line."""
 
         if pos is not None:
@@ -610,9 +619,9 @@ class ScanLine:
     def calc_scan_coord(
             signals: list[MeasuredPoint],
             poses: list[tuple[dt,Position]],
-            start: Position|None = None,
-            stop: Position|None = None,
-            trim_edges: bool = True
+            start: Position | None=None,
+            stop: Position | None=None,
+            trim_edges: bool=True
         ) -> list[MeasuredPoint]:
         """
         Calculate positions of OscMeasurements.
@@ -766,9 +775,9 @@ class MapData:
             height: PlainQuantity,
             hpoints: int,
             vpoints: int,
-            scan_plane: Literal['XY', 'YZ', 'ZX'] = 'XY',
-            scan_dir: str = 'HLB',
-            wavelength: PlainQuantity = Q_(100, 'nm')
+            scan_plane: Literal['XY', 'YZ', 'ZX']='XY',
+            scan_dir: str='HLB',
+            wavelength: PlainQuantity=Q_(100, 'nm')
         ) -> None:
 
         self.centp = center
@@ -1211,7 +1220,7 @@ class StagesStatus:
 class Signals:
     """Object for communication between threads."""
 
-    def __init__(self, is_running:bool = True) -> None:
+    def __init__(self, is_running: bool=True) -> None:
         
         self.is_running = is_running
         self.count = 0
@@ -1383,7 +1392,7 @@ class Actor:
 
     def close(
             self,
-            close_func: Callable|None = None
+            close_func: Callable | None=None
         ) -> None:
         """
         Close request.
@@ -1430,7 +1439,7 @@ class Actor:
             func: Callable[P, T],
             *args: Any,
             **kwargs: Any
-            ) -> T|ActorFail:
+            ) -> T | ActorFail:
         """
         Submit a function for serail processing.
         

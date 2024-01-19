@@ -157,7 +157,7 @@ class Window(QMainWindow,Ui_MainWindow,):
 
     def __init__(
             self,
-            parent: QMainWindow|None = None,
+            parent: QMainWindow | None=None,
         ) -> None:
         super().__init__(parent)
         self.setupUi(self)
@@ -808,7 +808,7 @@ class Window(QMainWindow,Ui_MainWindow,):
 
     def set_cb_detail_view(
             self,
-            parent: PointView|CurveView
+            parent: PointView | CurveView
         ) -> None:
         """
         Set combobox with signals for detail view.
@@ -894,7 +894,7 @@ class Window(QMainWindow,Ui_MainWindow,):
         # point attributes
         self.upd_point_info()
 
-    def upd_point_info(self, new_text: str|None = None) -> None:
+    def upd_point_info(self, new_text: str | None=None) -> None:
         """Update plot and text information about current datapoint."""
 
         if new_text is not None:
@@ -951,8 +951,8 @@ class Window(QMainWindow,Ui_MainWindow,):
             self,
             widget:MplCanvas,
             event: PickEvent,
-            parent: CurveView|None = None,
-            measurement: Measurement|None = None):
+            parent: CurveView | None=None,
+            measurement: Measurement | None=None):
         """Callback method for processing data picking on plot."""
 
         if self.data_viwer.measurement is None:
@@ -1079,7 +1079,7 @@ class Window(QMainWindow,Ui_MainWindow,):
 
     def measure(
             self,
-            mode_widget: CurveMeasureWidget|PointMeasureWidget
+            mode_widget: CurveMeasureWidget | PointMeasureWidget
         ) -> None:
         """Measure a point for 1D PA measurement."""
 
@@ -1099,8 +1099,8 @@ class Window(QMainWindow,Ui_MainWindow,):
 
     def verify_measurement(
             self,
-            parent: CurveMeasureWidget|PointMeasureWidget,
-            data: MeasuredPoint|None
+            parent: CurveMeasureWidget | PointMeasureWidget,
+            data: MeasuredPoint | None
         ) -> None:
         """
         Verify a measurement.
@@ -1248,7 +1248,7 @@ class Window(QMainWindow,Ui_MainWindow,):
 
     def upd_sp(
             self,
-            parent: PointMeasureWidget|CurveMeasureWidget,
+            parent: PointMeasureWidget | CurveMeasureWidget,
             caller: QuantSpinBox) -> None:
         """Update Set Point data."""
 
@@ -1405,7 +1405,7 @@ class Window(QMainWindow,Ui_MainWindow,):
         worker = Worker(func, *args, **kwargs)
         self.pool.start(worker)
 
-    def stop_worker(self, worker: Worker|None) -> None:
+    def stop_worker(self, worker: Worker | None) -> None:
         """Stop and delete worker."""
 
 
@@ -1419,7 +1419,7 @@ class Window(QMainWindow,Ui_MainWindow,):
     def pause_worker(
             self,
             is_paused: bool,
-            worker: Worker|None
+            worker: Worker | None
         ) -> None:
         """Pause or resume worker."""
 
@@ -1446,8 +1446,8 @@ class Window(QMainWindow,Ui_MainWindow,):
         return result
 
     def confirm_action(self,
-            title: str = 'Confirm',
-            message: str = 'Are you sure?'
+            title: str='Confirm',
+            message: str='Are you sure?'
         ) -> bool:
         """Dialog to confirm an action."""
 

@@ -259,7 +259,7 @@ class PaData:
         self.changed = True
         logger.debug('...Finishing data point addition to file.')
 
-    def _get_cur_time (self) -> str:
+    def _get_cur_time(self) -> str:
         """Return timestamp of current time."""
         
         cur_time = time.time()
@@ -663,7 +663,7 @@ class PaData:
             msmnt.data.update({ds_name:dp})
         
     @staticmethod
-    def _build_name(n: int, name: str = 'point') -> str:
+    def _build_name(n: int, name: str='point') -> str:
         """
         Build and return name.
         
@@ -684,8 +684,8 @@ class PaData:
     def param_data_plot(
             self,
             msmnt: Measurement,
-            dtype: str = 'filt_data',
-            value: str = 'max_amp'
+            dtype: str='filt_data',
+            value: str='max_amp'
         ) -> tuple[npt.NDArray, npt.NDArray, str, str]:
         """Get main data for plotting.
         
@@ -729,8 +729,8 @@ class PaData:
             msmnt: Measurement,
             index: int,
             dtype: str,
-            dstart: PlainQuantity|None = None,
-            dstop: PlainQuantity|None = None
+            dstart: PlainQuantity | None=None,
+            dstop: PlainQuantity | None=None
         ) -> tuple[npt.NDArray, npt.NDArray, str, str]:
         """
         Get point data for plotting.
@@ -752,8 +752,8 @@ class PaData:
     @staticmethod
     def _point_data(
             ds: BaseData|ProcessedData,
-            dstart: PlainQuantity|None = None,
-            dstop: PlainQuantity|None = None
+            dstart: PlainQuantity | None=None,
+            dstop: PlainQuantity | None=None
         ) -> tuple[npt.NDArray, npt.NDArray, str, str]:
         """
         Get point data for plotting.
@@ -835,7 +835,7 @@ class PaData:
             msmnt: Measurement,
             data_type: str, 
             value: str
-        ) -> PlainQuantity|None:
+        ) -> PlainQuantity | None:
         """
         Return ``value`` for each dataPoint in a given measurement.
         
@@ -875,7 +875,7 @@ class PaData:
             data: BaseData,
             low: PlainQuantity=Q_(1, 'MHz'),
             high: PlainQuantity=Q_(10, 'MHz')
-        ) -> tuple[ProcessedData,ProcessedData]:
+        ) -> tuple[ProcessedData, ProcessedData]:
         """
         Perform bandpass filtration.
         

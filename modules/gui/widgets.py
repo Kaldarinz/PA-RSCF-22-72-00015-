@@ -51,7 +51,7 @@ logger = logging.getLogger(__name__)
 class MplCanvas(FigureCanvasQTAgg):
     """Single plot MatPlotLib widget."""
 
-    def __init__(self, parent = None):
+    def __init__(self, parent=None):
         self.fig = Figure()
         self.fig.set_tight_layout(True) # type: ignore
         self.axes = self.fig.add_subplot()
@@ -150,7 +150,7 @@ class MplCanvas(FigureCanvasQTAgg):
 class MplNavCanvas(QWidget):
     """MPL plot with navigation toolbar."""
 
-    def __init__(self, parent: QWidget | None = None) -> None:
+    def __init__(self, parent: QWidget | None=None) -> None:
         super().__init__(parent)
 
         self.canvas = MplCanvas()
@@ -165,7 +165,7 @@ class MplMap(FigureCanvasQTAgg):
 
     selection_changed = Signal()
 
-    def __init__(self, parent = None):
+    def __init__(self, parent=None):
         self.fig = Figure()
         self.fig.set_tight_layout(True) # type: ignore
         super().__init__(self.fig)
@@ -200,8 +200,8 @@ class MplMap(FigureCanvasQTAgg):
 
     def set_scanrange(
             self,
-            x: PlainQuantity|None = None,
-            y: PlainQuantity|None = None
+            x: PlainQuantity | None=None,
+            y: PlainQuantity | None=None
         ) -> None:
         """Set scan range."""
 
@@ -243,10 +243,10 @@ class MplMap(FigureCanvasQTAgg):
 
     def set_selarea(
             self,
-            x0: PlainQuantity|None = None,
-            y0: PlainQuantity|None = None,
-            width: PlainQuantity|None = None,
-            height: PlainQuantity|None = None
+            x0: PlainQuantity | None=None,
+            y0: PlainQuantity | None=None,
+            width: PlainQuantity | None=None,
+            height: PlainQuantity | None=None
         ) -> tuple[float,...]|None:
         """
         Set selected area on plot.
@@ -485,7 +485,7 @@ class QuantSpinBox(QDoubleSpinBox):
     stepChanged = Signal()
     quantSet = Signal(PlainQuantity)
 
-    def __init__(self, parent: QWidget | None = None) -> None:
+    def __init__(self, parent: QWidget | None=None) -> None:
         super().__init__(parent)
 
         self.quantity = ureg(self.text())
@@ -531,7 +531,7 @@ class StandartItem(QStandardItem):
 class TreeInfoWidget(QTreeWidget):
     """Have additional attributes to store metadata."""
 
-    def __init__(self, parent = None) -> None:
+    def __init__(self, parent=None) -> None:
         super().__init__(parent)
 
         self.fmd: QTreeWidgetItem
@@ -546,7 +546,7 @@ class PgMap(pg.PlotWidget):
 
     selection_changed = Signal(object)
 
-    def __init__(self, parent = None):
+    def __init__(self, parent=None):
         
         super().__init__(parent = parent)
 
@@ -570,8 +570,8 @@ class PgMap(pg.PlotWidget):
 
     def set_scanrange(
             self,
-            width: PlainQuantity|None = None,
-            height: PlainQuantity|None = None
+            width: PlainQuantity | None=None,
+            height: PlainQuantity | None=None
         ) -> None:
         """Set displayed map area."""
 
@@ -612,10 +612,10 @@ class PgMap(pg.PlotWidget):
 
     def set_selarea(
             self,
-            left: PlainQuantity|None = None,
-            bottom: PlainQuantity|None = None,
-            width: PlainQuantity|None = None,
-            height: PlainQuantity|None = None
+            left: PlainQuantity | None=None,
+            bottom: PlainQuantity | None=None,
+            width: PlainQuantity | None=None,
+            height: PlainQuantity | None=None
         ) -> tuple[PlainQuantity,...]|None:
         """
         Set selected area on plot.
@@ -772,7 +772,7 @@ class PgMap(pg.PlotWidget):
     @Slot(ScanLine)
     def upd_scan(
         self,
-        line: ScanLine|None = None
+        line: ScanLine | None=None
     ) -> None:
         """Update scan."""
 

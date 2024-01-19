@@ -239,7 +239,7 @@ def init_stages() -> bool:
     logger.debug(f'...Finishing. Stages {connected=}')
     return connected
 
-def osc_open(priority:int = Priority.NORMAL) -> bool|None:
+def osc_open(priority: int=Priority.NORMAL) -> bool|None:
     """
     Check connection to oscilloscope.
     
@@ -254,7 +254,7 @@ def osc_open(priority:int = Priority.NORMAL) -> bool|None:
         return None
     return is_open
 
-def init_osc(priority:int = Priority.NORMAL) -> bool:
+def init_osc(priority: int=Priority.NORMAL) -> bool:
     """Initialize oscilloscope.
 
     Return true if connection is already established or
@@ -317,7 +317,7 @@ def stages_open() -> bool:
 
 def _stage_status(
         stage: KinesisMotor,
-        priority: int = Priority.NORMAL
+        priority: int=Priority.NORMAL
     ) -> list[str]:
     """
     Get status of a given stage.
@@ -336,7 +336,7 @@ def _stage_status(
     
 def _stage_pos(
         stage: KinesisMotor,
-        priority: int = Priority.NORMAL
+        priority: int=Priority.NORMAL
     ) -> PlainQuantity|None:
     """
     Get position of a given stage.
@@ -355,7 +355,7 @@ def _stage_pos(
         return None
 
 def stages_status(
-        priority = Priority.LOW,
+        priority: int=Priority.LOW,
         **kwargs
     ) -> StagesStatus:
     """
@@ -381,7 +381,7 @@ def stages_status(
     return status
 
 def stages_position(
-        priority = Priority.LOW,
+        priority: int=Priority.LOW,
         **kwargs) -> Position:
     """
     Get position of all stages.
@@ -437,7 +437,7 @@ def stage_jog(
 
 def stage_stop(
         axes: Literal['x', 'y', 'z'],
-        priority: int = Priority.NORMAL,
+        priority: int=Priority.NORMAL,
         **kwargs
     ) -> None:
     """
@@ -470,8 +470,8 @@ def break_all_stages(**kwargs) -> None:
 
 def wait_stage(
         axes: Literal['x', 'y', 'z'],
-        timeout: int|None = 5,
-        priority: int = Priority.NORMAL,
+        timeout: int | None=5,
+        priority: int=Priority.NORMAL,
         **kwargs
     ) -> None:
     """
@@ -491,18 +491,18 @@ def wait_stage(
     )
 
 def wait_all_stages(
-        priority = Priority.NORMAL,
-        timeout: int|None = 5,
+        priority: int=Priority.NORMAL,
+        timeout: int | None=5,
         **kwargs
     ) -> None:
     """Wait untill all stages stop."""
 
     for axes in hardware.stages.keys():
-        wait_stage(axes, timeout)
+        wait_stage(axes, timeout, priority)
 
 def move_to(
         new_pos: Position,
-        priority = Priority.NORMAL,
+        priority: int=Priority.NORMAL,
         **kwargs) -> None:
     """Send motors to new position.
     
@@ -538,7 +538,7 @@ def home(**kwargs) -> None:
         )
 
 def en_meas_fast(
-        priority:int = Priority.LOW,
+        priority: int=Priority.LOW,
         **kwargs
     ) -> EnergyMeasurement:
     """
@@ -567,9 +567,9 @@ def meas_cont(
         data: Literal['en_fast', 'pa_fast'],
         signals: WorkerSignals,
         flags: dict[str, bool],
-        priority: int = Priority.NORMAL,
-        max_count: int|None = None,
-        timeout: float|None = 100,
+        priority: int=Priority.NORMAL,
+        max_count: int | None=None,
+        timeout: float | None=100,
         **kwargs
     ) -> list[EnergyMeasurement]:
     """
@@ -622,8 +622,8 @@ def meas_cont(
 def en_meas_fast_cont_emul(
         signals: WorkerSignals,
         flags: dict[str, bool],
-        max_count: int|None = None,
-        priority: int = Priority.NORMAL,
+        max_count: int | None=None,
+        priority: int=Priority.NORMAL,
         **kwargs
     ) -> list[EnergyMeasurement]:
     """
@@ -655,7 +655,7 @@ def scan_2d(
         scan: MapData,
         signals: WorkerSignals,
         flags: dict[str, bool],
-        priority: int = Priority.NORMAL,
+        priority: int=Priority.NORMAL,
         **kwargs
     ) -> MapData:
     """Make 2D spatial scan.
@@ -715,8 +715,8 @@ def __meas_cont(
         called_func: Callable[P,T],
         comm: Signals,
         result: list,
-        timeout: float|None = 100,
-        max_count: int|None = None
+        timeout: float | None=100,
+        max_count: int | None=None
     ) -> list[T]:
     """
     Private function which call ``called_func`` non-stop.
@@ -768,7 +768,7 @@ def __meas_cont(
 
 def measure_point(
         wavelength: PlainQuantity,
-        priority: int = Priority.NORMAL,
+        priority: int=Priority.NORMAL,
         **kwargs
     ) -> MeasuredPoint|None:
     """
