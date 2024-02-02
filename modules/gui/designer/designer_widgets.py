@@ -262,12 +262,12 @@ class MapMeasureWidget(QWidget,map_measure_widget_ui.Ui_map_measure):
             height = self.sb_sizeY.quantity,
             hpoints = self.sb_pointsX.value(),
             vpoints = self.sb_pointsY.value(),
-            scan_plane = self.cb_scanplane.currentText(),
+            scan_plane = self.cb_scanplane.currentText(), # type: ignore
             scan_dir = self.cb_scandir.currentText(),
             wavelength = self.sb_wl.quantity
         )
         # Load scan data to plot
-        self.plot_scan.set_data(scan)
+        self.plot_scan.set_data(data=scan)
         # Emit signal to start actual scanning from main window
         self.scan_started.emit(scan)
 

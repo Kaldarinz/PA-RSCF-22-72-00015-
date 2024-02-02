@@ -425,6 +425,7 @@ class Window(QMainWindow,Ui_MainWindow,):
         """Start 2D scanning."""
 
         logger.info('measure_map slot called.')
+        # Emulation
         scan_worker = Worker(pa_logic.scan_2d_emul, scan = scan)
         scan_worker.signals.progess.connect(self.p_map.plot_scan.upd_scan)
         self.pool.start(scan_worker)

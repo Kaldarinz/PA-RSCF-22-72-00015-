@@ -712,71 +712,6 @@ def scan_2d(
         logger.info(f'Scanned {line}.')
     return scan
 
-def scan_2d_emul(
-        scan: MapData,
-        signals: WorkerSignals,
-        flags: dict[str, bool],
-        priority: int=Priority.NORMAL,
-        **kwargs
-    ) -> MapData:
-    """Make 2D spatial scan.
-    
-    Emit progress after each scanned line.
-    Thread safe.
-    """
-
-    logger.info('Starting emulation of scanning procedure.')
-
-    speed = Q_(1, 'mm/s')
-
-    # Scan loop
-    for _ in range(scan.spoints):
-        # Create scan line
-        line = scan.add_line()
-        if line is None:
-            logger.error('Unexpected end of scan.')
-            return scan
-        # move to line  starting point
-        logger.info('Moving to scan start position.')
-        time.sleep(rng.random()/2)
-        logger.info('At scan start position.')
-        # First launch energy measurements
-        # Object for communication with lower level fucntion
-        comm_en = Signals()
-        # List with results
-        result_en: list[OscMeasurement] = []
-        tkwargs_en = {
-            'step': 0.2,
-            'comm': comm_en,
-            'result': result_en
-        }
-        t_en = Thread(target = pa_fast_cont_emul, kwargs = tkwargs_en)
-        t_en.start()
-        # Then send stages to scan the line
-        scan_dist = line.stopp.dist(line.startp)
-        scan_time = scan_dist/speed.to('s').m
-        # While stage is moving, measure its position.
-        t0 = time.time()
-        while (cur_t:=time.time()-t0) < scan_time:
-            unit = line.startp.direction(line.stopp)
-            cur_pos = line.startp + unit*scan_dist*cur_t/scan_time
-            line.add_pos_point(cur_pos)
-            time.sleep(0.05)
-        # When stage stopped, cancel signal measurements
-        comm_en.is_running = False
-        t_en.join()
-        logger.info('Line scanned. Start converting OscMeas to MeasPoint')
-        # Convert OscMeasurements to MeasuredPoints
-        meas_points = [
-            meas_point_from_osc(x, scan.wavelength) for x in result_en
-        ]
-        # Add measured points to scan line
-        line.raw_sig = meas_points
-        signals.progess.emit(line)
-        logger.info(f'Scanned {line}.')
-    return scan
-
-
 def __meas_cont(
         called_func: Callable[P,T],
         comm: Signals,
@@ -866,11 +801,14 @@ def measure_point(
 def meas_point_from_osc(
         msmnt: OscMeasurement,
         wl: PlainQuantity
-    ) -> MeasuredPoint:
+    ) -> MeasuredPoint | None:
     """Make MeasurePoint from OscMeasurement and wavelength."""
 
     pm = hardware.power_meter
     pm_ch_id = int(hardware.config['power_meter']['connected_chan']) - 1
+    if pm is None:
+        logger.error('Measure point cannot be calculated. Pm is not connected.')
+        return None
     pm_energy = pm.energy_from_data(
         msmnt.data_raw[pm_ch_id]*msmnt.yincrement, msmnt.dt
     )
@@ -931,10 +869,84 @@ def aver_measurements(measurements: list[MeasuredPoint]) -> MeasuredPoint:
 
 ### Emulation functions
 
+def scan_2d_emul(
+        scan: MapData,
+        signals: WorkerSignals,
+        flags: dict[str, bool],
+        priority: int=Priority.NORMAL,
+        **kwargs
+    ) -> MapData:
+    """Emulate 2D spatial scan.
+    
+    Emit progress after each scanned line.
+    Thread safe.
+    """
+
+    logger.info('Starting emulation of scanning procedure.')
+
+    # Scan speed. Currently it is hardwritten here.
+    speed = Q_(1, 'mm/s')
+
+    # Scan loop
+    for _ in range(scan.spoints):
+        # Create scan line
+        line = scan.add_line()
+        if line is None:
+            logger.error('Unexpected end of scan.')
+            return scan
+        # move to line  starting point
+        logger.info('Moving to scan start position.')
+        time.sleep(rng.random()/2)
+        logger.info('At scan start position.')
+        
+        # First launch energy measurements in a separate thread
+
+        # Object for communication with lower level fucntion
+        comm_en = Signals()
+        # List with results
+        result_en: list[OscMeasurement] = []
+        tkwargs_en = {
+            'step': 0.2,
+            'comm': comm_en,
+            'result': result_en
+        }
+        t_en = Thread(target = pa_fast_cont_emul, kwargs = tkwargs_en)
+        t_en.start()
+
+        # Give some time to obtain first energy measurement
+        time.sleep(0.01)
+        # Then send stages to scan the line
+        scan_dist = line.stopp.dist(line.startp)
+        scan_time = (scan_dist/speed).to('s').m
+        # While stage is moving, measure its position.
+        t0 = time.time()
+        while (cur_t:=time.time()-t0) < scan_time:
+            # unit vector in direction of stop point
+            unit = line.startp.direction(line.stopp)
+            if unit is None:
+                logger.error('Cannot get direction to stop point.')
+                return scan
+            cur_pos = line.startp + unit*scan_dist*cur_t/scan_time
+            line.add_pos_point(cur_pos)
+            time.sleep(0.1*rng.random() + 0.01)
+        # When stage stopped, cancel signal measurements
+        comm_en.is_running = False
+        t_en.join()
+        logger.info('Line scanned. Start converting OscMeas to MeasPoint')
+        # Convert OscMeasurements to MeasuredPoints
+        meas_points = [
+            meas_point_from_osc(x, scan.wavelength) for x in result_en
+        ]
+        # Add measured points to scan line
+        line.raw_sig = meas_points # type: ignore
+        signals.progess.emit(line)
+        logger.info(f'Scanned {line}.')
+    return scan
+
 def pa_fast_cont_emul(
         step: float,
         comm: Signals,
-        result: list,
+        result: list[OscMeasurement],
         timeout: float | None=100,
         max_count: int | None=None
         ) -> list[OscMeasurement]:
@@ -955,6 +967,7 @@ def pa_fast_cont_emul(
     )
     pm_signal = np.loadtxt(os.path.join(path, 'pm_fast.txt'))
     pa_signal = np.loadtxt(os.path.join(path, 'pa_fast_norm.txt'))
+    
     start = time.time()
     # execution loop
     while comm.is_running:
@@ -966,14 +979,11 @@ def pa_fast_cont_emul(
             break
         logger.debug(f'Prepare to emul measure {comm.count} at {t=}')
         time.sleep(rng.random()*2*step)
+        
         # Generate Measurement
-        raw_data = [None,None]
-        raw_data.insert(
-            pm_ch_id,
-            pm_signal[:,1]*(0.2*rng.random()+0.8))
-        raw_data.insert(
-            pa_ch_id,
-            pa_signal[:,1]*rng.random())
+        raw_data: list[np.ndarray|None] = [None,None]
+        raw_data[pm_ch_id] = pm_signal[:,1]*(0.4*rng.random()+0.8)
+        raw_data[pa_ch_id] = pa_signal[:,1]*rng.random()
         msmnt = OscMeasurement(
             datetime = dt.now(),
             data_raw = raw_data,
@@ -981,22 +991,16 @@ def pa_fast_cont_emul(
             pre_t = [Q_(0, 'us'), Q_(0, 'us')],
             yincrement = Q_(1, 'V')  
         )
-        # Add only unique measurements
-        if len(result):
-            if not (result[-1] == msmnt):
-                result.append(msmnt)
-                # Inform about good measurement
-                comm.progress.set()
-            else:
-                logger.warning('Duplicated measurement!')
-        # Add first measurement
-        else:
-            result.append(msmnt)
-            # Inform about good measurement
-            comm.progress.set()
+
+        # Add  measurement
+        result.append(msmnt)
+        # Inform about good measurement
+        comm.progress.set()
         # inform about current amount of measurements
         comm.count = len(result)
         # Stop if max_count is set and reached
         if max_count and comm.count == max_count:
             logger.debug(f'{max_count=} reached')
             break
+
+    return result

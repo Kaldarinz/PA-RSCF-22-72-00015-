@@ -88,6 +88,7 @@ class Ui_map_measure(object):
         sizePolicy1.setHeightForWidth(self.sb_pointsY.sizePolicy().hasHeightForWidth())
         self.sb_pointsY.setSizePolicy(sizePolicy1)
         self.sb_pointsY.setMinimumSize(QSize(0, 0))
+        self.sb_pointsY.setValue(10)
 
         self.gridLayout.addWidget(self.sb_pointsY, 2, 3, 1, 1)
 
@@ -112,6 +113,7 @@ class Ui_map_measure(object):
         sizePolicy1.setHeightForWidth(self.sb_pointsX.sizePolicy().hasHeightForWidth())
         self.sb_pointsX.setSizePolicy(sizePolicy1)
         self.sb_pointsX.setMinimumSize(QSize(68, 0))
+        self.sb_pointsX.setValue(10)
 
         self.gridLayout.addWidget(self.sb_pointsX, 1, 3, 1, 1)
 

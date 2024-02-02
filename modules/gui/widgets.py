@@ -551,11 +551,14 @@ class PgMap(pg.PlotWidget):
         super().__init__(parent = parent)
 
         # Set square area
-        self.setAspectLocked()
+        self.setAspectLocked() # type: ignore
+        if (plot_item:=self.getPlotItem()) is None:
+            logger.error('Cannot init PgMap. plot_item is None.')
+            return
         # Disabe axes movements
-        self.getPlotItem().setMouseEnabled(x=False, y=False)
+        plot_item.setMouseEnabled(x=False, y=False)
         # Hide autoscale button
-        self.getPlotItem().hideButtons()
+        plot_item.hideButtons()
 
         self.data: MapData|None = None
         """Data to display."""
@@ -777,8 +780,11 @@ class PgMap(pg.PlotWidget):
         """Update scan."""
 
         logger.info(f'Scanned {line}')
+        if self.data is None:
+            logger.error('Scan line cannot be drawn. Data is None.')
+            return
         # Convert units
-        x, y, z = self.data.get_plot_data('max_amp')
+        x, y, z = self.data.get_plot_data(signal='max_amp')
         logger.info(f'{x=}')
         x_arr = x.to(self.hunits).m
         y_arr = y.to(self.vunits).m

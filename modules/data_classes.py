@@ -1220,13 +1220,28 @@ class StagesStatus:
 ### Threading objects ###
 
 class Signals:
-    """Object for communication between threads."""
+    """
+    Object for communication between threads.
+    
+    It is intended to be an argument for a function, which run infinite
+    loop in a separate thread.
+
+    Attributes
+    ----------
+    `is_running`: `bool` - flag to stop execution of the function.\n
+    `count`: `int` - counter of successfull loop executions.\n
+    `progress`: `threading.Event` - an event, which is set after each
+    successfull loop execution. 
+    """
 
     def __init__(self, is_running: bool=True) -> None:
         
         self.is_running = is_running
-        self.count = 0
+        "Flag to stop a thread from outside."
+        self.count: int = 0
+        "Counter of successfull loop executions."
         self.progress = threading.Event()
+        "Event, indicating successfull loop execution."
 
 class WorkerSignals(QObject):
     """
