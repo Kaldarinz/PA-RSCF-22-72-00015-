@@ -36,8 +36,59 @@ logger = logging.getLogger(__name__)
 P = ParamSpec('P')
 T = TypeVar('T')
 
+class Direction:
+    """
+    Abstract unitless direction from one point to another.
+    
+    Has unit numerical 'length'.
+    """
+
+    _FIELDS = ('x', 'y', 'z')
+    x: float | None = None
+    y: float | None = None
+    z: float | None = None
+
+    def __init__(
+            self,
+            a: 'Position',
+            b: 'Position | None'=None
+        ) -> None:
+        """ Default class constructor.
+        
+        When initialized with single argument, results point along this
+        position. If two arguments are supplied, the result points from
+        the first position to the second.
+        """
+
+        # Single attribute case
+        if b is None:
+            length = a.value()
+            vect = a
+        # Two attributes case
+        else:
+            length = a.dist(b)
+            # Return None if distance cannot be calculated
+            if length.m is np.nan:
+                return None
+            vect = b - a
+
+        for fld in self._FIELDS:
+            if (coord:=getattr(vect, fld)) is not None:
+                dir_val = (coord/length).to_base_units().m
+                setattr(self, fld, dir_val)
+
+    def __mul__(self, val: PlainQuantity) -> 'Position':
+        """Produce a vector with `val` length."""
+
+        res = Position()
+        for fld in self._FIELDS:
+            if (coord:=getattr(self, fld)) is not None:
+                coord_val = coord*val
+                setattr(res, fld, coord_val)
+        return res
+    
 class Position:
-    """Cartesian position."""
+    """Cartesian coordinate representation of a vector."""
     _FIELDS = ('x', 'y', 'z')
 
     def __init__(
@@ -110,6 +161,15 @@ class Position:
             setattr(pos, fld, default)
         return pos
 
+    def value(self) -> PlainQuantity:
+        """Sqrt of squares of non-None coordinates."""
+        
+        val = Q_(np.nan, 'm**2')
+        for axis in self._FIELDS:
+            if ax:=getattr(self, axis) is not None:
+                val = np.nan_to_num(val) + (ax)**2 # type: ignore
+        return np.sqrt(val) # type: ignore
+
     def add(self, added: Self, strict: bool=True) -> None:
         """
         Add another coordinate to current coordinate.
@@ -152,18 +212,14 @@ class Position:
             ax1 = getattr(self, axis)
             ax2 = getattr(point, axis)
             if None not in [ax1, ax2]:
-                dist = np.nan_to_num(dist) + (ax2-ax1)**2
+                dist = np.nan_to_num(dist) + (ax2-ax1)**2 # type: ignore
 
-        return np.sqrt(dist)
+        return np.sqrt(dist) # type: ignore
 
-    def direction(self, point: Self) -> Self|None:
+    def direction(self, point: Self) -> Direction:
         """Get unit vector in the direction of ``point``."""
 
-        dist = self.dist(point)
-        # Return None if distance cannot be calculated
-        if dist.m is np.nan:
-            return None
-        return (point - self)/dist
+        return Direction(self, point)
 
     def serialize(self) -> dict:
         """
@@ -199,21 +255,19 @@ class Position:
     def __sub__(self, subed: Self) -> Self:
         if not isinstance(subed, type(self)):
             return NotImplemented
-        return self + (-subed)
+        return self + (-subed) # type: ignore
     
-    def __truediv__(self, val: PlainQuantity|float) -> Self:
-        result = Position()
+    def __truediv__(self, val: float) -> Self:
+        result = type(self)()
         for axis in self._FIELDS:
-            ax1 = getattr(self, axis)
-            if ax1 is not None:
+            if (ax1:=getattr(self, axis)) is not None:
                 setattr(result, axis, ax1/val)
         return result
 
-    def __mul__(self, val: PlainQuantity|float) -> Self:
-        result = Position()
+    def __mul__(self, val: float) -> Self:
+        result = type(self)()
         for axis in self._FIELDS:
-            ax1 = getattr(self, axis)
-            if ax1 is not None:
+            if (ax1:=getattr(self, axis)) is not None:
                 setattr(result, axis, ax1*val)
         return result
 
@@ -634,6 +688,9 @@ class ScanLine:
         For each OscMeasurement the closest positions, measured before 
         and after the OscMeasurement are taken and position of 
         OscMeasurement is calculated by linear interpolation between those points.
+        
+        Attributes
+        ----------
         ``signals`` - OscMeasurements which positions should be determined.\n
         ``poses`` - list of tuples of positions and timestamps, when
         they were measured.\n
@@ -645,7 +702,11 @@ class ScanLine:
         ``start`` - start coordinate of scan line.\n
         ``stop`` - stop coordinate of scan line.\n
         ``trim_edges`` - if True, leave only 1 measurement with 
-         positions equal to ``start`` and ``stop``.
+        positions equal to ``start`` and ``stop``.
+         
+        Return
+        ------
+        New list with measured points having calcualted positions.
         """
 
         logger.debug(
@@ -668,7 +729,7 @@ class ScanLine:
             # Assume that all positions have the same non-None fields
             # and iterate only on those fields.
             if getattr(start, fld) is not None:
-                # Array with measured axes
+                # Values of measured coordinates
                 coord = np.array([getattr(x[1], fld).to('m').m for x in poses])
                 # Array with calculated axes
                 en_coord = np.interp(
@@ -800,7 +861,12 @@ class MapData:
         """
         Create empty line and add it to ``data``.
         
-        Return reference to the created scan line.
+        Assume that scan pattern is snake-like, i.e. start and stop
+        points alternate between consequent lines.
+
+        Return
+        ------
+        Reference to the created scan line.
         """
 
         if len(self.data) >= self.spoints:
@@ -844,16 +910,24 @@ class MapData:
         Prepare data for plotting.
         
         Indexing: data[x,y].\n
-        Return tuple of 3 Pint quantities, which are 2D arrays: first 
+        Return
+        ------
+        Tuple of 3 Pint quantities, which are 2D arrays: first 
         value contains position of scan points along horizontal axis,
         second - positions along vertical axis, third values of required
-        signal.
+        signal.\n
+        Size of the third array is one less for each dimension.
+        Extra point for coordinates are duplicated fast axis coordinates
+        of the first scan line and duplicated slow axis coordinates of 
+        first point in each scanned line.
         """
 
+        # Copy raw_data property to local variable
         raw_data = self.raw_data
-        def get_coord(axis: str):
-            arr = np.empty(shape=raw_data.shape, dtype=object)
-            arr[:] = np.nan
+
+        def get_coord(axis: Literal['x', 'y']):
+            # Coordinate array
+            arr = np.zeros(shape=(raw_data.shape[0]+1, raw_data.shape[1]+1))
             units = None
             for index, point in np.ndenumerate(raw_data):
                 point = cast(MeasuredPoint|None, point)
@@ -881,10 +955,10 @@ class MapData:
         z = get_signal(signal)
         return (x,y,z)
     
-    @property
-    def raw_data(self) -> np.ndarray:
+    
+    def get_raw_points(self, add_zero_points: bool=False) -> np.ndarray:
         """
-        2D array of measured PA signal.
+        2D array of measured points.
 
         The first index is horizontal axis, the second is vertical.
         Indexing starts ar left bottom corner of scan.
@@ -893,17 +967,27 @@ class MapData:
         the longest scan line in ``data``. Size along slow scan axis
         is ``spoints``. Default value of not scanned points is 
         ``None``.\n
+
+        Attributes
+        ----------
+        `add_zero_points` if `True` duplicate initial scan points so that
+        size of the resulting array will be increased by one for each
+        dimension.
         """
 
-        raw_data = []
+        raw_data: list[list[MeasuredPoint|None]] = []
         # Fill array with existing data
-        for i in range(len(self.data)):
-            line = self.data[i]
+        # Duplicate first line if necessary
+        if add_zero_points:
+            raw_data.append(
+                self.data[0].raw_data + [None]*(self.fpoints_raw_max - self.data[0].raw_points)
+                )
+        for line in (self.data):
             raw_data.append(
                 line.raw_data + [None]*(self.fpoints_raw_max - line.raw_points)
                 )
         # Fill remaining with None
-        for i in range(self.spoints - len(self.data)):
+        for _ in range(self.spoints - len(self.data)):
             raw_data.append([None]*self.fpoints_raw_max)
 
         # Format array to raw_data[x][y]
@@ -954,23 +1038,25 @@ class MapData:
         logger.warning('start position is read only.')
 
     @property
-    def sstep(self) -> PlainQuantity:
+    def sstep(self) -> Position:
         """
         Scan step along slow axis.
         
         Read only.
         """
-        sstep = Q_(np.nan, 'mm')
+        sstep = Position()
         if self.scan_dir.startswith('H'):
+            setattr(sstep, self.haxis, Q_(0, 'm'))
             if self.scan_dir[2] == 'B':
-                sstep = self.vstep
+                setattr(sstep, self.vaxis, self.vstep)
             else:
-                sstep = -1*self.vstep
+                setattr(sstep, self.vaxis, -1*self.vstep)
         else:
+            setattr(sstep, self.vaxis, Q_(0, 'm'))
             if self.scan_dir[1] == 'L':
-                sstep = self.hstep
+                setattr(sstep, self.haxis, self.hstep)
             else:
-                sstep = -1*self.hstep
+                setattr(sstep, self.haxis, -1*self.hstep)
 
         return sstep
     @sstep.setter
