@@ -889,15 +889,15 @@ def scan_2d_emul(
 
     # Scan loop
     for _ in range(scan.spoints):
+        # move to line  starting point
+        logger.info('Moving to scan start position.')
+        time.sleep(rng.random()/2)
+        logger.info('At scan start position.')
         # Create scan line
         line = scan.add_line()
         if line is None:
             logger.error('Unexpected end of scan.')
             return scan
-        # move to line  starting point
-        logger.info('Moving to scan start position.')
-        time.sleep(rng.random()/2)
-        logger.info('At scan start position.')
         
         # First launch energy measurements in a separate thread
 

@@ -779,19 +779,24 @@ class PgMap(pg.PlotWidget):
     ) -> None:
         """Update scan."""
 
-        logger.info(f'Scanned {line}')
         if self.data is None:
             logger.error('Scan line cannot be drawn. Data is None.')
             return
         # Convert units
         x, y, z = self.data.get_plot_data(signal='max_amp')
-        logger.info(f'{x=}')
         x_arr = x.to(self.hunits).m
         y_arr = y.to(self.vunits).m
         z_arr = z.m
+        logger.info(f'{x_arr.shape=};{y_arr.shape=};{z_arr.shape=}')
+        logger.info(f'{x_arr=}')
+        logger.info(f'{y_arr=}')
+        logger.info(f'{z_arr=}')
         # Plot data
         if self._plot_ref is None:
+            logger.info('Initiatin scan.')
             self._plot_ref = pg.PColorMeshItem(x = x_arr, y = y_arr, z = z_arr)
+            self.getPlotItem().addItem(self._plot_ref)
+            self._plot_ref.setData(x = x_arr, y = y_arr, z = z_arr)
         else:
             self._plot_ref.setData(x = x_arr, y = y_arr, z = z_arr)
 

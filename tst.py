@@ -20,7 +20,8 @@ from modules.data_classes import (
     MapData,
     StagesStatus,
     ScanLine,
-    PointMetadata
+    PointMetadata,
+    Direction
 )
 from modules.utils import (
     propvals
@@ -29,20 +30,14 @@ ureg = pint.get_application_registry()
 Q_ = ureg.Quantity
 rng = np.random.default_rng()
 
-a = np.array([1,2, None])
-q = Q_(a, 'm')
-print(q.to('cm'))
-# scna = MapData(
-#     center=Position(Q_(4, 'mm'), Q_(6, 'mm'), Q_(10, 'mm')),
-#     width = Q_(3, 'mm'),
-#     height = Q_(5, 'mm'),
-#     hpoints = 10,
-#     vpoints = 20,
-#     scan_plane='XY',
-#     scan_dir='VLT'
-# )
+scan = MapData(
+    center=Position(Q_(1,'m'),Q_(2,'m'),Q_(3,'m')),
+    width=Q_(5,'m'),
+    height=Q_(3,'m'),
+    hpoints=10,
+    vpoints=5
+)
 
-# pprint(propvals(scna))
-
-# new_line = scna.add_line()
-# print(scna.raw_data.shape)
+scan.add_line()
+print(scan.get_raw_points())
+#x,y,z = scan.get_plot_data('max_amp')
