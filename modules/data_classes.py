@@ -13,6 +13,7 @@ import threading
 import math
 from datetime import datetime as dt
 import copy
+import time
 
 from pint.facets.plain.quantity import PlainQuantity
 from pint.errors import UndefinedUnitError as UnitError
@@ -867,6 +868,11 @@ class MapData:
         self.data: list[ScanLine] = []
         "All scanned lines."
 
+        self._raw_points_sig: list[list[MeasuredPoint]] = []
+        "len is amount of cashed lines for signal."
+        self._raw_points_coord: list[list[MeasuredPoint]] = []
+        "len is amount of cashed lines for coordinates."
+
     def add_line(self) -> ScanLine|None:
         """
         Create empty line and add it to ``data``.
@@ -894,7 +900,7 @@ class MapData:
         line_start = self.startp + delta_start
         line_stop = self.startp + delta_stop
 
-        logger.info(f'New line created with start {line_start}')
+        logger.debug(f'New line created with start {line_start}')
 
         new_line = ScanLine(
             startp = line_start,
@@ -923,6 +929,7 @@ class MapData:
         first point in each scanned line.
         """
 
+        tstart = time.time()
         # Get arrays with measured points
         coord_data = self.get_raw_points(add_zero_points=True)
         signal_data = self.get_raw_points()
@@ -930,16 +937,6 @@ class MapData:
         def get_coord(axis: Literal['h', 'v']):
             coords = np.zeros_like(coord_data)
             if axis == 'h':
-                # Horizontal axis
-                # h_start = getattr(self.startp, self.haxis)
-                # h_start = cast(PlainQuantity, h_start)
-                # h_start_m = h_start.to_base_units().m
-                # h_stop = h_start + (self.hpoints - 1)*self.hstep
-                # h_stop_m = h_stop.to_base_units().m # type: ignore
-                # h_vals = np.linspace(h_start_m, h_stop_m, coord_data.shape[1])
-                # print(f'{axis=};{h_vals.shape=}')
-                # coords = np.repeat(h_vals[np.newaxis,:], coord_data.shape[0], 0)
-                # print(f'{axis=};{coords.shape=}')
                 units = None
                 for index, point in np.ndenumerate(coord_data):
                     point = cast(MeasuredPoint, point)
@@ -948,16 +945,6 @@ class MapData:
                     if units is None:
                         units = getattr(pos, self.haxis).to_base_units().u
             else:
-                # Vertical axis
-                # v_start = getattr(self.startp, self.vaxis)
-                # v_start = cast(PlainQuantity, v_start)
-                # v_start_m = v_start.to_base_units().m
-                # v_stop = v_start + (self.vpoints - 1)*self.vstep
-                # v_stop_m = v_stop.to_base_units().m # type: ignore
-                # v_vals = np.linspace(v_start_m, v_stop_m, coord_data.shape[0])[:, np.newaxis]
-                # print(f'{axis=};{v_vals.shape}')
-                # coords = np.repeat(v_vals, coord_data.shape[1], 1)
-                # print(f'{axis=};{coords.shape}')
                 units = None
                 for index, point in np.ndenumerate(coord_data):
                     point = cast(MeasuredPoint, point)
@@ -982,13 +969,14 @@ class MapData:
         x = get_coord('h')
         y = get_coord('v')
         z = get_signal(signal)
+        logger.info(f'get_plot_data executed in {(time.time() - tstart):.3}')
         return (x,y,z)
      
     def get_raw_points(self, add_zero_points: bool=False) -> np.ndarray:
         """
         2D array containing deep copy of measured points.
 
-        The first index is horizontal axis, the second is vertical.
+        The first index is vertical axis, the second is horizontal.
         Indexing starts ar left bottom corner of scan.
         As amount of points along fast scan axis can vary from line
         to line, size of the array in this direction corresponds to
@@ -1003,42 +991,76 @@ class MapData:
         dimension.
         """
 
-        # Create a deep copy of data
-        data = copy.deepcopy(self.data)
-        # Array for result
-        raw_data: list[list[MeasuredPoint]] = []
+        tstart = time.time()
+        perfc = dict()
+        icashed = len(self._raw_points_sig)
+        # Create a deep copy of new data
+        data = copy.deepcopy(self.data[icashed:])
+        perfc.update({'data copy': time.time()-tstart})
+        tcur = time.time()
+        # New lines can have more points than old,
+        # therefore copy last point necessary amount of times
+        max_fpoints = self.fpoints_raw_max
+        for i, line in enumerate(self._raw_points_sig):
+            while (j:=max_fpoints- len(line)) > 0:
+                line.append(copy.deepcopy(line[-1]))
+                self._raw_points_coord[i+1].append(
+                    copy.deepcopy(self._raw_points_coord[i+1][-1])
+                )
+                if i == 0:
+                    self._raw_points_coord[0].append(
+                        copy.deepcopy(self._raw_points_coord[0][-1])
+                    )
+                j -= 1
+        perfc.update({'old data update': time.time() - tcur})
+        tcur = time.time()
         # Fill array with existing data
-        for i, line in enumerate(data):
-            logger.info(f'Starting proc line {i}, which have {line.raw_points} points')
+        for line in data:
             line_points = copy.deepcopy(line.raw_data)
             # To match line size last point in each line is duplicated
             # required times
-            last_point = copy.deepcopy(line_points[-1])
-            while (j:=self.fpoints_raw_max - len(line_points)) > 0:
-                line_points.append(copy.deepcopy(last_point))
+            while (j:=max_fpoints - len(line_points)) > 0:
+                line_points.append(copy.deepcopy(line_points[-1]))
                 j -= 1
+            line_points.sort(key=lambda x: getattr(x.pos, self.faxis))
+            self._raw_points_sig.append(copy.deepcopy(line_points))
+            perfc.update({'add line to sig': time.time() - tcur})
+            tcur = time.time()
             # For plotting data duplicate first scan line and shift
             # other lines by one slow scan step
-            if add_zero_points:
-                # For each line the first position is starting point of
-                # that line
-                first_point = copy.deepcopy(line_points[0])
-                first_point.pos = line.startp
-                line_points.insert(0, first_point)
-                if i == 0:
-                    raw_data.append(copy.deepcopy(line_points))
-                for point in line_points:
-                    point.pos = point.pos + self.sstep
-            raw_data.append(copy.deepcopy(line_points))
+            # For each line the first position is starting point of
+            # that line
+            first_point = copy.deepcopy(line_points[0])
+            first_point.pos = line.startp
+            line_points.insert(0, first_point)
+            if icashed == 0:
+                self._raw_points_coord.append(copy.deepcopy(line_points))
+            for point in line_points:
+                point.pos = point.pos + self.sstep
             # Sort points within each scan line
-            raw_data[-1].sort(key=lambda x: getattr(x.pos, self.faxis))
-        # Sort lines
-        raw_data.sort(key=lambda x: getattr(x[0].pos, self.saxis))
+            line_points.sort(key=lambda x: getattr(x.pos, self.faxis))
+            self._raw_points_coord.append(line_points)
+            perfc.update({'add line to coord': time.time() - tcur})
+            tcur = time.time()
+        # Sort data
+        self._raw_points_sig.sort(key=lambda x: getattr(x[0].pos, self.saxis))
+        self._raw_points_coord.sort(key=lambda x: getattr(x[0].pos, self.saxis))
+        perfc.update({'sort between lines': time.time() - tcur})
+        tcur = time.time()
+        if add_zero_points:
+            res = copy.deepcopy(self._raw_points_coord)
+        else:
+            res = copy.deepcopy(self._raw_points_sig)
         # Transpose data if fast scan axis is vertical
         if self.scan_dir[0] == 'V':
-            raw_data = [list(x) for x in zip(*raw_data)]
-  
-        return np.array(raw_data, dtype=object)
+            res = [list(x) for x in zip(*res)]
+
+        # tot = time.time() - tstart
+        # logger.info(f'get_raw_points in {(tot):.3}')
+        # for key, val in perfc.items():
+        #     logger.info(f'{key}: {val/tot*100:.2f} %')
+        logger.debug(f'{np.array(res, dtype=object).shape=}')
+        return np.array(res, dtype=object)
 
     @property
     def startp(self) -> Position:

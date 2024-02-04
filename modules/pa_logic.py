@@ -932,7 +932,7 @@ def scan_2d_emul(
         # When stage stopped, cancel signal measurements
         comm_en.is_running = False
         t_en.join()
-        logger.info('Line scanned. Start converting OscMeas to MeasPoint')
+        logger.debug('Line scanned. Start converting OscMeas to MeasPoint')
         # Convert OscMeasurements to MeasuredPoints
         meas_points = [
             meas_point_from_osc(x, scan.wavelength) for x in result_en
