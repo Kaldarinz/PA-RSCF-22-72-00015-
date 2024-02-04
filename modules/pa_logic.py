@@ -890,9 +890,9 @@ def scan_2d_emul(
     # Scan loop
     for _ in range(scan.spoints):
         # move to line  starting point
-        logger.info('Moving to scan start position.')
-        time.sleep(rng.random()/2)
-        logger.info('At scan start position.')
+        #logger.info('Moving to scan start position.')
+        time.sleep(0.5)
+        #logger.info('At scan start position.')
         # Create scan line
         line = scan.add_line()
         if line is None:

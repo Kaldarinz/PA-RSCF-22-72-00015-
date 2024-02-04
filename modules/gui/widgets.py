@@ -45,7 +45,7 @@ from ..data_classes import (
     ScanLine
 )
 from modules import ureg, Q_
-
+rng = np.random.default_rng()
 logger = logging.getLogger(__name__)
 
 class MplCanvas(FigureCanvasQTAgg):
@@ -541,7 +541,7 @@ class TreeInfoWidget(QTreeWidget):
         self.pmd: QTreeWidgetItem|None = None
         "PointMetaData"
 
-class PgMap(pg.PlotWidget):
+class PgMap(pg.GraphicsLayoutWidget):
     """2d map pyqtgraph widget."""
 
     selection_changed = Signal(object)
@@ -549,16 +549,14 @@ class PgMap(pg.PlotWidget):
     def __init__(self, parent=None):
         
         super().__init__(parent = parent)
-
+        
+        self.plot_item = self.addPlot(0, 0, title="Scanning data")
         # Set square area
-        self.setAspectLocked() # type: ignore
-        if (plot_item:=self.getPlotItem()) is None:
-            logger.error('Cannot init PgMap. plot_item is None.')
-            return
+        self.plot_item.setAspectLocked() # type: ignore
         # Disabe axes movements
-        plot_item.setMouseEnabled(x=False, y=False)
+        self.plot_item.setMouseEnabled(x=False, y=False)
         # Hide autoscale button
-        plot_item.hideButtons()
+        self.plot_item.hideButtons()
 
         self.data: MapData|None = None
         """Data to display."""
@@ -566,7 +564,7 @@ class PgMap(pg.PlotWidget):
         "Width of the displayed map area."
         self.height: PlainQuantity = Q_(np.nan, 'mm')
         "Height of the displayed map area."
-        self._plot_ref: pg.PColorMeshItem|None = None
+        self._plot_ref: pg.PColorMeshItem | None = None
         "Reference to plotted data, which could be irregular map."
         self._sel_ref: pg.RectROI|None = None
         "Selected area for scanning."
@@ -592,7 +590,7 @@ class PgMap(pg.PlotWidget):
 
             # update plot
             if self.width.m is not np.nan:
-                self.setXRange(0, self.width.m, padding = 0.)
+                self.plot_item.setXRange(0, self.width.m, padding = 0.)
 
         if height is not None:
             # if label already set
@@ -608,7 +606,7 @@ class PgMap(pg.PlotWidget):
 
             # update plot
             if self.height.m is not np.nan:
-                self.setYRange(0, self.height.m, padding = 0.)
+                self.plot_item.setYRange(0, self.height.m, padding = 0.)
 
         logger.info(f'Plot size set to ({self.width}:{self.height})')
         self._plot_boundary()
@@ -750,7 +748,7 @@ class PgMap(pg.PlotWidget):
                 removable = True)
             self._sel_ref.setPen(pg.mkPen('b', width = 3))
             self._sel_ref.hoverPen = pg.mkPen('k', width = 3)
-            self.addItem(self._sel_ref)
+            self.plot_item.addItem(self._sel_ref)
             # Emit signal
             self._sel_ref.sigRegionChanged.connect(
                 lambda _: self.selection_changed.emit(self.selected_area)
@@ -763,7 +761,7 @@ class PgMap(pg.PlotWidget):
         self.data = data
         # Remove selection
         if self._sel_ref is not None:
-            self.removeItem(self._sel_ref)
+            self.plot_item.removeItem(self._sel_ref)
             self._sel_ref = None
 
         # Set scan range
@@ -772,6 +770,23 @@ class PgMap(pg.PlotWidget):
             height = data.height
         )
 
+    def test(self) -> None:
+
+        x, y, width, height = (0,0,4,4) # type: ignore
+        xpts = 10
+        ypts = 5
+
+        x_val = np.linspace(x, x + width, xpts) + np.zeros((ypts,1))
+        y_val = np.linspace(y, y + height, ypts)[:,np.newaxis] + np.zeros(xpts)
+        z_val = rng.random((ypts-1,xpts-1))
+        logger.info(f'{x_val.shape=};{y_val.shape=};{z_val.shape=}')
+        logger.info(f'{z_val=}')
+        if self._plot_ref is None:
+            self._plot_ref = pg.PColorMeshItem(x_val, y_val, z_val)
+            self.plot_item.addItem(self._plot_ref)
+        else:
+            self._plot_ref.setData(x_val, y_val, z_val)
+        
     @Slot(ScanLine)
     def upd_scan(
         self,
@@ -788,49 +803,42 @@ class PgMap(pg.PlotWidget):
         y_arr = y.to(self.vunits).m
         z_arr = z.m
         logger.info(f'{x_arr.shape=};{y_arr.shape=};{z_arr.shape=}')
-        logger.info(f'{x_arr=}')
-        logger.info(f'{y_arr=}')
-        logger.info(f'{z_arr=}')
         # Plot data
-        if self._plot_ref is None:
-            logger.info('Initiatin scan.')
-            self._plot_ref = pg.PColorMeshItem(x = x_arr, y = y_arr, z = z_arr)
-            self.getPlotItem().addItem(self._plot_ref)
-            self._plot_ref.setData(x = x_arr, y = y_arr, z = z_arr)
-        else:
-            self._plot_ref.setData(x = x_arr, y = y_arr, z = z_arr)
+        self.plot_item.removeItem(self._plot_ref)
+        self._plot_ref = pg.PColorMeshItem(x_arr, y_arr, z_arr)
+        self.plot_item.addItem(self._plot_ref)
 
     @property
     def hlabel(self) -> str:
         "Horizontal plot label, do not include units."
-        return self.getPlotItem().getAxis('bottom').labelText
+        return self.plot_item.getAxis('bottom').labelText
     @hlabel.setter
     def hlabel(self, label: str) -> None:
-        self.getPlotItem().setLabel('bottom', label, self.hunits)
+        self.plot_item.setLabel('bottom', label, self.hunits)
 
     @property
     def vlabel(self) -> str:
         """Vertical plot label, do not include units."""
-        return self.getPlotItem().getAxis('left').labelText
+        return self.plot_item.getAxis('left').labelText
     @vlabel.setter
     def vlabel(self, label: str) -> None:
-        self.getPlotItem().setLabel('left', label, self.vunits)
+        self.plot_item.setLabel('left', label, self.vunits)
 
     @property
     def hunits(self) -> str:
         """Units of horizontal axis."""
-        return self.getPlotItem().getAxis('bottom').labelUnits
+        return self.plot_item.getAxis('bottom').labelUnits
     @hunits.setter
     def hunits(self, units: str) -> None:
-        self.getPlotItem().setLabel('bottom', self.hlabel, units)
+        self.plot_item.setLabel('bottom', self.hlabel, units)
 
     @property
     def vunits(self) -> str:
         """Units of vertical axis."""
-        return self.getPlotItem().getAxis('left').labelUnits
+        return self.plot_item.getAxis('left').labelUnits
     @vunits.setter
     def vunits(self, units: str) -> None:
-        self.getPlotItem().setLabel('left', self.vlabel, units)
+        self.plot_item.setLabel('left', self.vlabel, units)
 
     @property
     def selected_area(self) -> tuple[PlainQuantity,...]|None:
@@ -862,4 +870,4 @@ class PgMap(pg.PlotWidget):
             self.height.to(self.vunits).m
         )
         boundary.setPen(pg.mkPen('r', width = 3))
-        self.addItem(boundary)
+        self.plot_item.addItem(boundary)

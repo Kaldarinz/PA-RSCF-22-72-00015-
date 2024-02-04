@@ -290,9 +290,15 @@ class Position:
         for fld in self._FIELDS:
             reprs.append(fld + ' =')
             if fld == 'z':
-                reprs.append(str(getattr(self, fld)))
+                if (val:=getattr(self, fld)) is not None:
+                    reprs.append(str(val.to('mm')))
+                else:
+                    reprs.append(str(val))
             else:
-                reprs.append(str(getattr(self, fld)) + ',')
+                if (val:=getattr(self, fld)) is not None:
+                    reprs.append(str(val.to('mm')) + ',')
+                else:
+                    reprs.append(str(val) + ',')
         return ' '.join(reprs)
 
 @dataclass
@@ -888,6 +894,8 @@ class MapData:
         line_start = self.startp + delta_start
         line_stop = self.startp + delta_stop
 
+        logger.info(f'New line created with start {line_start}')
+
         new_line = ScanLine(
             startp = line_start,
             stopp = line_stop,
@@ -918,46 +926,45 @@ class MapData:
         # Get arrays with measured points
         coord_data = self.get_raw_points(add_zero_points=True)
         signal_data = self.get_raw_points()
-
+        logger.debug(f'{self.blp=}')
         def get_coord(axis: Literal['h', 'v']):
+            coords = np.zeros_like(coord_data)
             if axis == 'h':
                 # Horizontal axis
-                h_start = getattr(self.startp, self.haxis)
-                h_start = cast(PlainQuantity, h_start)
-                h_start_m = h_start.to_base_units().m
-                h_stop = h_start + (self.hpoints - 1)*self.hstep
-                h_stop_m = h_stop.to_base_units().m # type: ignore
-                h_vals = np.linspace(h_start_m, h_stop_m, coord_data.shape[1])
-                print(f'{axis=};{h_vals.shape=}')
-                coords = np.repeat(h_vals[np.newaxis,:], coord_data.shape[0], 0)
-                print(f'{axis=};{coords.shape=}')
+                # h_start = getattr(self.startp, self.haxis)
+                # h_start = cast(PlainQuantity, h_start)
+                # h_start_m = h_start.to_base_units().m
+                # h_stop = h_start + (self.hpoints - 1)*self.hstep
+                # h_stop_m = h_stop.to_base_units().m # type: ignore
+                # h_vals = np.linspace(h_start_m, h_stop_m, coord_data.shape[1])
+                # print(f'{axis=};{h_vals.shape=}')
+                # coords = np.repeat(h_vals[np.newaxis,:], coord_data.shape[0], 0)
+                # print(f'{axis=};{coords.shape=}')
                 units = None
                 for index, point in np.ndenumerate(coord_data):
-                    point = cast(MeasuredPoint|None, point)
-                    if point is not None:
-                        pos = point.pos - self.blp
-                        coords[index] = getattr(pos, self.haxis).to_base_units().m
-                        if units is None:
-                            units = getattr(pos, self.haxis).to_base_units().u
+                    point = cast(MeasuredPoint, point)
+                    pos = point.pos - self.blp
+                    coords[index] = getattr(pos, self.haxis).to_base_units().m
+                    if units is None:
+                        units = getattr(pos, self.haxis).to_base_units().u
             else:
                 # Vertical axis
-                v_start = getattr(self.startp, self.vaxis)
-                v_start = cast(PlainQuantity, v_start)
-                v_start_m = v_start.to_base_units().m
-                v_stop = v_start + (self.vpoints - 1)*self.vstep
-                v_stop_m = v_stop.to_base_units().m # type: ignore
-                v_vals = np.linspace(v_start_m, v_stop_m, coord_data.shape[0])[:, np.newaxis]
-                print(f'{axis=};{v_vals.shape}')
-                coords = np.repeat(v_vals, coord_data.shape[1], 1)
-                print(f'{axis=};{coords.shape}')
+                # v_start = getattr(self.startp, self.vaxis)
+                # v_start = cast(PlainQuantity, v_start)
+                # v_start_m = v_start.to_base_units().m
+                # v_stop = v_start + (self.vpoints - 1)*self.vstep
+                # v_stop_m = v_stop.to_base_units().m # type: ignore
+                # v_vals = np.linspace(v_start_m, v_stop_m, coord_data.shape[0])[:, np.newaxis]
+                # print(f'{axis=};{v_vals.shape}')
+                # coords = np.repeat(v_vals, coord_data.shape[1], 1)
+                # print(f'{axis=};{coords.shape}')
                 units = None
                 for index, point in np.ndenumerate(coord_data):
-                    point = cast(MeasuredPoint|None, point)
-                    if point is not None:
-                        pos = point.pos - self.blp
-                        coords[index] = getattr(pos, self.vaxis).to_base_units().m
-                        if units is None:
-                            units = getattr(pos, self.vaxis).to_base_units().u
+                    point = cast(MeasuredPoint, point)
+                    pos = point.pos - self.blp
+                    coords[index] = getattr(pos, self.vaxis).to_base_units().m
+                    if units is None:
+                        units = getattr(pos, self.vaxis).to_base_units().u
             return Q_(coords, units)
         
         def get_signal(signal: str):
@@ -998,70 +1005,39 @@ class MapData:
 
         # Create a deep copy of data
         data = copy.deepcopy(self.data)
-        if add_zero_points:
-            fpoints_max = self.fpoints_raw_max + 1
-        else:
-            fpoints_max = self.fpoints_raw_max
-        for line in data:
-            print(f'Getting raw points {line}')
-        raw_data: list[list[MeasuredPoint|None]] = []
+        # Array for result
+        raw_data: list[list[MeasuredPoint]] = []
         # Fill array with existing data
-        # Duplicate first line if necessary
-        if add_zero_points:
-            raw_data.append(
-                copy.deepcopy(data[0].raw_data)
-                + [None]*(fpoints_max - data[0].raw_points - 1)
-                )
-            first_point = copy.deepcopy(raw_data[0][0])
-            first_point.pos = copy.deepcopy(data[0].startp) # type: ignore
-            raw_data[0].insert(0, first_point)
-        for line in data:
+        for i, line in enumerate(data):
+            logger.info(f'Starting proc line {i}, which have {line.raw_points} points')
+            line_points = copy.deepcopy(line.raw_data)
+            # To match line size last point in each line is duplicated
+            # required times
+            last_point = copy.deepcopy(line_points[-1])
+            while (j:=self.fpoints_raw_max - len(line_points)) > 0:
+                line_points.append(copy.deepcopy(last_point))
+                j -= 1
+            # For plotting data duplicate first scan line and shift
+            # other lines by one slow scan step
             if add_zero_points:
-                # raw_data is property and we need to copy in into local
-                line_points = copy.deepcopy(line.raw_data)
-                # For each line duplicate fisrt point and set its
-                # position to line starting point
+                # For each line the first position is starting point of
+                # that line
                 first_point = copy.deepcopy(line_points[0])
-                first_point.pos = copy.deepcopy(line.startp)
+                first_point.pos = line.startp
                 line_points.insert(0, first_point)
-                # Positions of all points are shifted up one slow step
-                logger.info(f'{line_points[0].pos=}')
-                logger.info(f'{self.sstep=}')
+                if i == 0:
+                    raw_data.append(copy.deepcopy(line_points))
                 for point in line_points:
                     point.pos = point.pos + self.sstep
-                logger.info(f'After {line_points[0].pos=}')
-            else:
-                line_points = copy.deepcopy(line.raw_data)
-            raw_data.append(
-                line_points
-                + [None]*(fpoints_max - len(line_points))
-                )
-
-        # Fill remaining with None
-        # for _ in range(self.spoints - len(self.data)):
-        #     raw_data.append([None]*fpoints_max)
-        logger.info(f'{len(raw_data)=}')
-        for line in raw_data:
-            print(f'{len(line)=}')
-        # Format array to raw_data[x][y]
-        if self.scan_dir[0] == 'H':
-            # Reverse scan lines if start point on the right
-            if self.scan_dir[1] == 'R':
-                raw_data = [line[::-1] for line in raw_data]
-            # Transpose for horizontal fast axis
-            # raw_data = [list(x) for x in zip(*raw_data)]
-            # Reverse line order if started from top
-            if self.scan_dir[2] == 'T':
-                raw_data.reverse()
-        # Array format is already raw_data[x][y] for vertical fast scan
-        else:
-            # Reverse line order if scanned from right
-            if self.scan_dir[1] == 'R':
-                raw_data.reverse()
-            # Reverse scan lines if scanned from top
-            if self.scan_dir[2] == 'T':
-                raw_data = [line[::-1] for line in raw_data]
-        logger.info(f'Raw points shape {np.array(raw_data, dtype=object).shape}')
+            raw_data.append(copy.deepcopy(line_points))
+            # Sort points within each scan line
+            raw_data[-1].sort(key=lambda x: getattr(x.pos, self.faxis))
+        # Sort lines
+        raw_data.sort(key=lambda x: getattr(x[0].pos, self.saxis))
+        # Transpose data if fast scan axis is vertical
+        if self.scan_dir[0] == 'V':
+            raw_data = [list(x) for x in zip(*raw_data)]
+  
         return np.array(raw_data, dtype=object)
 
     @property
@@ -1269,7 +1245,7 @@ class MapData:
         Read only.
         """
         if self.width.m is not np.nan and self.hpoints > 1:
-            hstep = self.width/(self.hpoints - 1)
+            hstep = self.width/(self.hpoints)
         else:
             hstep = Q_(np.nan, 'mm')
         return hstep
@@ -1285,7 +1261,7 @@ class MapData:
         Read only.
         """
         if self.height.m is not np.nan and self.vpoints > 1:
-            vstep = self.height/(self.vpoints - 1)
+            vstep = self.height/(self.vpoints)
         else:
             vstep = Q_(np.nan, 'mm')
         return vstep
