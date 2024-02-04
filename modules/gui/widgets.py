@@ -803,6 +803,9 @@ class PgMap(pg.GraphicsLayoutWidget):
         y_arr = y.to(self.vunits).m
         z_arr = z.m
         logger.info(f'{x_arr.shape=};{y_arr.shape=};{z_arr.shape=}')
+        # logger.info(f'{x_arr=}')
+        # logger.info(f'{y_arr=}')
+        # logger.info(f'{z_arr=}')
         # Plot data
         self.plot_item.removeItem(self._plot_ref)
         self._plot_ref = pg.PColorMeshItem(x_arr, y_arr, z_arr)

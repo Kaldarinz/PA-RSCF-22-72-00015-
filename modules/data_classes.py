@@ -872,6 +872,8 @@ class MapData:
         "len is amount of cashed lines for signal."
         self._raw_points_coord: list[list[MeasuredPoint]] = []
         "len is amount of cashed lines for coordinates."
+        self._plot_coords: list[list[Position]] = []
+        self._plot_sigs: list[list[MeasuredPoint]] = []
 
     def add_line(self) -> ScanLine|None:
         """
@@ -930,25 +932,24 @@ class MapData:
         """
 
         tstart = time.time()
-        # Get arrays with measured points
-        coord_data = self.get_raw_points(add_zero_points=True)
-        signal_data = self.get_raw_points()
+        coord_data = self.get_plot_coords()
+        signal_data = self.get_plot_points()
         logger.debug(f'{self.blp=}')
         def get_coord(axis: Literal['h', 'v']):
             coords = np.zeros_like(coord_data)
             if axis == 'h':
                 units = None
-                for index, point in np.ndenumerate(coord_data):
-                    point = cast(MeasuredPoint, point)
-                    pos = point.pos - self.blp
+                for index, pos in np.ndenumerate(coord_data):
+                    pos = cast(Position, pos)
+                    pos = pos - self.blp
                     coords[index] = getattr(pos, self.haxis).to_base_units().m
                     if units is None:
                         units = getattr(pos, self.haxis).to_base_units().u
             else:
                 units = None
-                for index, point in np.ndenumerate(coord_data):
-                    point = cast(MeasuredPoint, point)
-                    pos = point.pos - self.blp
+                for index, pos in np.ndenumerate(coord_data):
+                    pos = cast(Position, pos)
+                    pos = pos - self.blp
                     coords[index] = getattr(pos, self.vaxis).to_base_units().m
                     if units is None:
                         units = getattr(pos, self.vaxis).to_base_units().u
@@ -971,8 +972,62 @@ class MapData:
         z = get_signal(signal)
         logger.info(f'get_plot_data executed in {(time.time() - tstart):.3}')
         return (x,y,z)
-     
-    def get_raw_points(self, add_zero_points: bool=False) -> np.ndarray:
+    
+    def get_plot_coords(self) -> np.ndarray:
+        """
+        Get positions for uneven pixel corners.
+
+        """
+
+        tstart = time.time()
+        # Amount of cashed scan lines
+        icashed = int(len(self._plot_coords)/2)
+        # Create a deep copy of new data
+        data = copy.deepcopy(self.data[icashed:])
+        # New lines can have more points than old,
+        # therefore copy last point necessary amount of times
+        max_fpoints = self.fpoints_raw_max
+        for line in self._plot_coords:
+            while (j:=max_fpoints- len(line) + 1) > 0:
+                line.append(copy.copy(line[-1]))
+                j -= 1
+        # Fill array with existing data
+        for line in data:
+            line_pos = [point.pos for point in line.raw_data]
+            # The last pos is stop point of the line
+            line_pos[-1] = line.stopp
+            # To match line size last pos in each line is duplicated
+            # required times
+            while (j:=max_fpoints - len(line_pos)) > 0:
+                line_pos.append(copy.copy(line_pos[-1]))
+                j -= 1
+            # Add start point in the begining
+            line_pos.insert(0, line.startp)
+            # The same sorting should be applied in get_plot_points
+            line_pos.sort(key = lambda x: getattr(x, self.faxis).to_base_units())
+            # Add line poses
+            self._plot_coords.append(copy.deepcopy(line_pos))
+            # Shift all points by slow step
+            print(line_pos[0])
+            line_pos = [pos + self.sstep for pos in line_pos]
+            # for pos in line_pos:
+            #     pos = pos + self.sstep
+            #     print(f'{self.sstep=}')
+            print(f'after {line_pos[0]}')
+            # Add shifted line poses
+            self._plot_coords.append(line_pos)
+        # Transpose data if fast scan axis is vertical
+        if self.scan_dir[0] == 'V':
+            res = [list(x) for x in zip(*copy.deepcopy(self._plot_coords))]
+        else:
+            res = copy.deepcopy(self._plot_coords)
+
+        tot = time.time() - tstart
+        logger.info(f'Done get_plot_coords in {(tot):.3}')
+        logger.info(f'{np.array(res, dtype=object).shape=}')
+        return np.array(res, dtype=object)
+
+    def get_plot_points(self, add_zero_points: bool=False) -> np.ndarray:
         """
         2D array containing deep copy of measured points.
 
@@ -992,74 +1047,39 @@ class MapData:
         """
 
         tstart = time.time()
-        perfc = dict()
-        icashed = len(self._raw_points_sig)
+        if len(self._plot_sigs) == 0:
+            self._plot_sigs.append(copy.deepcopy(self.data[0].raw_data))
+        # Amount of cashed scan lines
+        icashed = int((len(self._plot_sigs) + 1)/2)
         # Create a deep copy of new data
         data = copy.deepcopy(self.data[icashed:])
-        perfc.update({'data copy': time.time()-tstart})
-        tcur = time.time()
         # New lines can have more points than old,
         # therefore copy last point necessary amount of times
         max_fpoints = self.fpoints_raw_max
-        for i, line in enumerate(self._raw_points_sig):
+        for line in self._plot_sigs:
             while (j:=max_fpoints- len(line)) > 0:
                 line.append(copy.deepcopy(line[-1]))
-                self._raw_points_coord[i+1].append(
-                    copy.deepcopy(self._raw_points_coord[i+1][-1])
-                )
-                if i == 0:
-                    self._raw_points_coord[0].append(
-                        copy.deepcopy(self._raw_points_coord[0][-1])
-                    )
                 j -= 1
-        perfc.update({'old data update': time.time() - tcur})
-        tcur = time.time()
         # Fill array with existing data
         for line in data:
-            line_points = copy.deepcopy(line.raw_data)
-            # To match line size last point in each line is duplicated
+            line_points = line.raw_data
+            # To match line size last pos in each line is duplicated
             # required times
             while (j:=max_fpoints - len(line_points)) > 0:
                 line_points.append(copy.deepcopy(line_points[-1]))
                 j -= 1
-            line_points.sort(key=lambda x: getattr(x.pos, self.faxis))
-            self._raw_points_sig.append(copy.deepcopy(line_points))
-            perfc.update({'add line to sig': time.time() - tcur})
-            tcur = time.time()
-            # For plotting data duplicate first scan line and shift
-            # other lines by one slow scan step
-            # For each line the first position is starting point of
-            # that line
-            first_point = copy.deepcopy(line_points[0])
-            first_point.pos = line.startp
-            line_points.insert(0, first_point)
-            if icashed == 0:
-                self._raw_points_coord.append(copy.deepcopy(line_points))
-            for point in line_points:
-                point.pos = point.pos + self.sstep
-            # Sort points within each scan line
-            line_points.sort(key=lambda x: getattr(x.pos, self.faxis))
-            self._raw_points_coord.append(line_points)
-            perfc.update({'add line to coord': time.time() - tcur})
-            tcur = time.time()
-        # Sort data
-        self._raw_points_sig.sort(key=lambda x: getattr(x[0].pos, self.saxis))
-        self._raw_points_coord.sort(key=lambda x: getattr(x[0].pos, self.saxis))
-        perfc.update({'sort between lines': time.time() - tcur})
-        tcur = time.time()
-        if add_zero_points:
-            res = copy.deepcopy(self._raw_points_coord)
-        else:
-            res = copy.deepcopy(self._raw_points_sig)
-        # Transpose data if fast scan axis is vertical
+            # The same sorting should be applied in get_plot_coords
+            line_points.sort(key = lambda x: getattr(x.pos, self.faxis))
+            self._plot_sigs.append(line_points)
+            self._plot_sigs.append(line_points)
         if self.scan_dir[0] == 'V':
-            res = [list(x) for x in zip(*res)]
+            res = [list(x) for x in zip(*copy.deepcopy(self._plot_sigs))]
+        else:
+            res = copy.deepcopy(self._plot_sigs)
 
-        # tot = time.time() - tstart
-        # logger.info(f'get_raw_points in {(tot):.3}')
-        # for key, val in perfc.items():
-        #     logger.info(f'{key}: {val/tot*100:.2f} %')
-        logger.debug(f'{np.array(res, dtype=object).shape=}')
+        tot = time.time() - tstart
+        logger.info(f'Done get_plot_points in {(tot):.3}')
+        logger.info(f'{np.array(res, dtype=object).shape=}')
         return np.array(res, dtype=object)
 
     @property

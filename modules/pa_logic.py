@@ -983,7 +983,7 @@ def pa_fast_cont_emul(
         # Generate Measurement
         raw_data: list[np.ndarray|None] = [None,None]
         raw_data[pm_ch_id] = pm_signal[:,1]*(0.4*rng.random()+0.8)
-        raw_data[pa_ch_id] = pa_signal[:,1]*rng.random()
+        raw_data[pa_ch_id] = pa_signal[:,1]*(rng.random()+0.5)*(comm.count + 1)
         msmnt = OscMeasurement(
             datetime = dt.now(),
             data_raw = raw_data,
