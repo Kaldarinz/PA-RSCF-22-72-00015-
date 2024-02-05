@@ -126,7 +126,7 @@ class Position:
                 )
         # Set default values for missing attributes
         set_flds = set(coord[0].lower() for coord in coords)
-        missing = set(cls._FIELDS) - set_flds
+        missing = set(cls._FIELDS) - set_flds # type: ignore
         for fld in missing:
             setattr(pos, fld, default)
         return pos
@@ -559,6 +559,9 @@ class MeasuredPoint:
     def _set_pm_data(self) -> None:
         """Set ``dt_pm`` and ``pm_signal`` attributes."""
 
+        if self.pm_signal_raw is None or self.pa_signal_raw is None:
+            logger.warning('Power meter data cannot be set. Data is missing.')
+            return None
         # Downsample power meter data if it is too long
         if len(self.pm_signal_raw) > len(self.pa_signal_raw):
             pm_signal_raw, pm_decim_factor = self.decimate_data(
@@ -593,8 +596,11 @@ class MeasuredPoint:
         if pm_offset is not None:
             # Start time of PA data relative to start of laser pulse
             self.start_time = (self._pm_start - pm_offset) - self._pa_start
+            if self.pa_signal_raw is None:
+                logger.warning('PA signal is missing. Offset was not calculated.')
+                return None
             # Stop time of PA data relative to start of laser pulse
-            self.stop_time = self.dt*(len(self.pa_signal_raw)-1) + self.start_time
+            self.stop_time = self.dt*(len(self.pa_signal_raw)-1) + self.start_time # type: ignore
 
     @staticmethod
     def decimate_data(

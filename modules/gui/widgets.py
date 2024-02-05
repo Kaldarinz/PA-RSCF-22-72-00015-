@@ -568,6 +568,8 @@ class PgMap(pg.GraphicsLayoutWidget):
         "Reference to plotted data, which could be irregular map."
         self._sel_ref: pg.RectROI|None = None
         "Selected area for scanning."
+        self._bar: pg.ColorBarItem | None = None
+        "Reference to color bar."
 
     def set_scanrange(
             self,
@@ -807,9 +809,21 @@ class PgMap(pg.GraphicsLayoutWidget):
         # logger.info(f'{y_arr=}')
         # logger.info(f'{z_arr=}')
         # Plot data
+        # New scanned line changes shape of data, therefore we have to
+        # create new PColorMeshItem
         self.plot_item.removeItem(self._plot_ref)
         self._plot_ref = pg.PColorMeshItem(x_arr, y_arr, z_arr)
         self.plot_item.addItem(self._plot_ref)
+        # Add colorbar
+        if self._bar is not None:
+            self.removeItem(self._bar)
+            self._bar = None
+        self._bar = pg.ColorBarItem(
+            label = 'Signal amplitude',
+            interactive=False,
+            rounding=0.1) # type: ignore
+        self._bar.setImageItem([self._plot_ref])
+        self.addItem(self._bar, 0, 1)
 
     @property
     def hlabel(self) -> str:
