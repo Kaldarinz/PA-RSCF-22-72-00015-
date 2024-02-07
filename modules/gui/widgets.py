@@ -484,6 +484,7 @@ class MplMap(FigureCanvasQTAgg):
 class QuantSpinBox(QDoubleSpinBox):
     stepChanged = Signal()
     quantSet = Signal(PlainQuantity)
+    "Emitted when enter button or arrows is pressed. Or sb lost focus."
 
     def __init__(self, parent: QWidget | None=None) -> None:
         super().__init__(parent)
@@ -497,6 +498,10 @@ class QuantSpinBox(QDoubleSpinBox):
         self.stepChanged.connect(
             lambda: self.quantSet.emit(self.quantity)
         )
+
+    def set_quantity(self, val: PlainQuantity) -> None:
+        """Setter method for quantity."""
+        self.quantity = val
 
     @property
     def quantity(self) -> PlainQuantity:

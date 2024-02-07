@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>924</width>
-    <height>639</height>
+    <width>1073</width>
+    <height>832</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -487,29 +487,52 @@
         </widget>
        </item>
        <item row="0" column="1">
-        <widget class="QuantSpinBox" name="sb_speed">
-         <property name="sizePolicy">
-          <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
-           <horstretch>0</horstretch>
-           <verstretch>0</verstretch>
-          </sizepolicy>
-         </property>
-         <property name="minimumSize">
-          <size>
-           <width>0</width>
-           <height>0</height>
-          </size>
-         </property>
-         <property name="suffix">
-          <string> mm/s</string>
-         </property>
-         <property name="decimals">
-          <number>2</number>
-         </property>
-         <property name="value">
-          <double>2.000000000000000</double>
-         </property>
-        </widget>
+        <layout class="QHBoxLayout" name="horizontalLayout_5">
+         <item>
+          <widget class="QuantSpinBox" name="sb_speed">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+           <property name="minimumSize">
+            <size>
+             <width>0</width>
+             <height>0</height>
+            </size>
+           </property>
+           <property name="suffix">
+            <string> mm/s</string>
+           </property>
+           <property name="decimals">
+            <number>2</number>
+           </property>
+           <property name="maximum">
+            <double>40.000000000000000</double>
+           </property>
+           <property name="value">
+            <double>2.000000000000000</double>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QuantSpinBox" name="sb_cur_speed">
+           <property name="frame">
+            <bool>true</bool>
+           </property>
+           <property name="readOnly">
+            <bool>true</bool>
+           </property>
+           <property name="buttonSymbols">
+            <enum>QAbstractSpinBox::NoButtons</enum>
+           </property>
+           <property name="maximum">
+            <double>999.990000000000009</double>
+           </property>
+          </widget>
+         </item>
+        </layout>
        </item>
        <item row="1" column="0">
         <widget class="QLabel" name="lbl_astep">
@@ -776,7 +799,6 @@
   <tabstop>btn_stop</tabstop>
   <tabstop>le_estdur</tabstop>
   <tabstop>le_dur</tabstop>
-  <tabstop>sb_speed</tabstop>
   <tabstop>chb_astep</tabstop>
   <tabstop>cb_scandir</tabstop>
   <tabstop>cb_sig</tabstop>

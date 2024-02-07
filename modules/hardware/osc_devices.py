@@ -384,7 +384,7 @@ class Oscilloscope:
             raw_data = self.__osc.read_raw()
             stop = time.time()
             delta = stop - start
-            logger.debug(f'Reading from osc took: {delta*1000:.1f} s.')
+            logger.debug(f'Reading from osc took: {delta*1000:.1f} ms.')
         except pv.errors.VisaIOError:
             self.not_found = True
             err_msg = 'Read from osc failed.'

@@ -15,10 +15,11 @@ from PySide6.QtGui import (QBrush, QColor, QConicalGradient, QCursor,
     QFont, QFontDatabase, QGradient, QIcon,
     QImage, QKeySequence, QLinearGradient, QPainter,
     QPalette, QPixmap, QRadialGradient, QTransform)
-from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QFormLayout,
-    QFrame, QGridLayout, QHBoxLayout, QLabel,
-    QLineEdit, QPushButton, QRadioButton, QSizePolicy,
-    QSpacerItem, QSpinBox, QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (QAbstractSpinBox, QApplication, QCheckBox, QComboBox,
+    QFormLayout, QFrame, QGridLayout, QHBoxLayout,
+    QLabel, QLineEdit, QPushButton, QRadioButton,
+    QSizePolicy, QSpacerItem, QSpinBox, QVBoxLayout,
+    QWidget)
 
 from ..widgets import (PgMap, QuantSpinBox)
 from . import qt_resources_rc
@@ -27,7 +28,7 @@ class Ui_map_measure(object):
     def setupUi(self, map_measure):
         if not map_measure.objectName():
             map_measure.setObjectName(u"map_measure")
-        map_measure.resize(924, 639)
+        map_measure.resize(1073, 832)
         self.horizontalLayout_4 = QHBoxLayout(map_measure)
         self.horizontalLayout_4.setObjectName(u"horizontalLayout_4")
         self.verticalLayout = QVBoxLayout()
@@ -296,15 +297,30 @@ class Ui_map_measure(object):
 
         self.formLayout.setWidget(0, QFormLayout.LabelRole, self.lbl_speed)
 
+        self.horizontalLayout_5 = QHBoxLayout()
+        self.horizontalLayout_5.setObjectName(u"horizontalLayout_5")
         self.sb_speed = QuantSpinBox(map_measure)
         self.sb_speed.setObjectName(u"sb_speed")
         sizePolicy1.setHeightForWidth(self.sb_speed.sizePolicy().hasHeightForWidth())
         self.sb_speed.setSizePolicy(sizePolicy1)
         self.sb_speed.setMinimumSize(QSize(0, 0))
         self.sb_speed.setDecimals(2)
+        self.sb_speed.setMaximum(40.000000000000000)
         self.sb_speed.setValue(2.000000000000000)
 
-        self.formLayout.setWidget(0, QFormLayout.FieldRole, self.sb_speed)
+        self.horizontalLayout_5.addWidget(self.sb_speed)
+
+        self.sb_cur_speed = QuantSpinBox(map_measure)
+        self.sb_cur_speed.setObjectName(u"sb_cur_speed")
+        self.sb_cur_speed.setFrame(True)
+        self.sb_cur_speed.setReadOnly(True)
+        self.sb_cur_speed.setButtonSymbols(QAbstractSpinBox.NoButtons)
+        self.sb_cur_speed.setMaximum(999.990000000000009)
+
+        self.horizontalLayout_5.addWidget(self.sb_cur_speed)
+
+
+        self.formLayout.setLayout(0, QFormLayout.FieldRole, self.horizontalLayout_5)
 
         self.lbl_astep = QLabel(map_measure)
         self.lbl_astep.setObjectName(u"lbl_astep")
@@ -451,8 +467,7 @@ class Ui_map_measure(object):
         QWidget.setTabOrder(self.btn_restart, self.btn_stop)
         QWidget.setTabOrder(self.btn_stop, self.le_estdur)
         QWidget.setTabOrder(self.le_estdur, self.le_dur)
-        QWidget.setTabOrder(self.le_dur, self.sb_speed)
-        QWidget.setTabOrder(self.sb_speed, self.chb_astep)
+        QWidget.setTabOrder(self.le_dur, self.chb_astep)
         QWidget.setTabOrder(self.chb_astep, self.cb_scandir)
         QWidget.setTabOrder(self.cb_scandir, self.cb_sig)
         QWidget.setTabOrder(self.cb_sig, self.cb_scanplane)

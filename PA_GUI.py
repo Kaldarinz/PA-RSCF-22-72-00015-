@@ -360,6 +360,15 @@ class Window(QMainWindow,Ui_MainWindow,):
         # Calculate auto step
         self.p_map.calc_astepClicked.connect(self.calc_astep)
 
+        # Set scan speed
+        self.p_map.sb_speed.quantSet.connect(
+            lambda speed: self.start_cb_worker(
+                self.p_map.sb_cur_speed.set_quantity,
+                pa_logic.set_stages_speed,
+                speed
+            )
+        )
+
         ### Data view###
         self.action_Data.toggled.connect(self.activate_data_viwer)
         self.action_Open.triggered.connect(self.open_file)
@@ -426,7 +435,7 @@ class Window(QMainWindow,Ui_MainWindow,):
 
         logger.info('measure_map slot called.')
         # Emulation
-        scan_worker = Worker(pa_logic.scan_2d_emul, scan = scan)
+        scan_worker = Worker(pa_logic.scan_2d, scan = scan)
         scan_worker.signals.progess.connect(self.p_map.plot_scan.upd_scan)
         self.pool.start(scan_worker)
         
@@ -1370,18 +1379,16 @@ class Window(QMainWindow,Ui_MainWindow,):
             return
         
         # Update position information
-        pos_worker = Worker(pa_logic.stages_position)
-        pos_worker.signals.result.connect(
-            self.d_motors.set_position
+        self.start_cb_worker(
+            self.d_motors.set_position,
+            pa_logic.stages_position
         )
-        self.pool.start(pos_worker)
 
         # Update status information
-        status_worker = Worker(pa_logic.stages_status)
-        status_worker.signals.result.connect(
-            self.d_motors.upd_status
+        self.start_cb_worker(
+            self.d_motors.upd_status,
+            pa_logic.stages_status
         )
-        self.pool.start(status_worker)
 
     def init_pm_monitor(
             self,
@@ -1390,6 +1397,24 @@ class Window(QMainWindow,Ui_MainWindow,):
         """Initialize power meter monitor."""
 
         self.energy_measured.connect(monitor.add_msmnt)
+
+    def start_cb_worker(
+            self,
+            callback: Callable,
+            func: Callable,
+            *args,
+            **kwargs
+    ) -> None:
+        """
+        Execute `func` in a separate thread, return value to `callback`.
+
+        `callback` function is called when `func` emit `results` signal.
+        Value returned by `results` is sent as `callback` arguments.
+        """
+
+        worker = Worker(func, *args, **kwargs)
+        worker.signals.result.connect(callback)
+        self.pool.start(worker)
 
     def start_worker(
             self,

@@ -881,9 +881,9 @@ class MapData:
         self._plot_coords: list[list[Position]] = []
         self._plot_sigs: list[list[MeasuredPoint]] = []
 
-    def add_line(self) -> ScanLine|None:
+    def create_line(self) -> ScanLine|None:
         """
-        Create empty line and add it to ``data``.
+        Create empty line.
         
         Assume that scan pattern is snake-like, i.e. start and stop
         points alternate between consequent lines.
@@ -915,8 +915,16 @@ class MapData:
             stopp = line_stop,
             points = self.fpoints
         )
-        self.data.append(new_line)
-        return new_line
+        return new_line 
+
+    def add_line(self, line: ScanLine) -> None:
+        """
+        Add `line` to scan.
+        
+        Line is actually appended to `data` attribute.
+        """
+
+        self.data.append(line)
 
     def get_plot_data(
             self, signal: str

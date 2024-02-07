@@ -356,6 +356,26 @@ def _stage_pos(
     else:
         return None
 
+def set_stages_speed(
+        speed: PlainQuantity,
+        priority: int=Priority.NORMAL,
+        **kwargs
+    ) -> PlainQuantity:
+
+    logger.debug(f'Start setting stage speed to {speed}')
+    set_speed = Q_(np.nan, 'm/s')
+    for axes, stage in hardware.stages.items():
+        vel_params = _stage_call.submit(
+            priority,
+            stage.setup_velocity,
+            max_velocity = speed.to('m/s').m
+        )
+        if isinstance(vel_params, ActorFail):
+            return Q_(np.nan, 'm/s')
+        set_speed = Q_(vel_params.max_velocity, 'm/s')
+        logger.debug(f'New {axes} stage speed is {set_speed}.')
+    return set_speed
+
 def stages_status(
         priority: int=Priority.LOW,
         **kwargs
@@ -670,7 +690,7 @@ def scan_2d(
     # Scan loop
     for _ in range(scan.spoints):
         # Create scan line
-        line = scan.add_line()
+        line = scan.create_line()
         if line is None:
             logger.error('Unexpected end of scan.')
             return scan
@@ -708,6 +728,8 @@ def scan_2d(
         ]
         # Add measured points to scan line
         line.raw_sig = meas_points
+        # Add scanned line to scan
+        scan.add_line(line)
         signals.progess.emit(line)
         logger.info(f'Scanned {line}.')
     return scan
@@ -894,7 +916,7 @@ def scan_2d_emul(
         time.sleep(0.5)
         #logger.info('At scan start position.')
         # Create scan line
-        line = scan.add_line()
+        line = scan.create_line()
         if line is None:
             logger.error('Unexpected end of scan.')
             return scan
@@ -939,6 +961,7 @@ def scan_2d_emul(
         ]
         # Add measured points to scan line
         line.raw_sig = meas_points # type: ignore
+        scan.add_line(line)
         signals.progess.emit(line)
         logger.info(f'Scanned {line}.')
     return scan
