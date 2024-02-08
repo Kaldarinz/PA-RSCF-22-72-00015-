@@ -44,10 +44,11 @@ from .data_classes import (
     Actor,
     ActorFail,
     StagesStatus,
-    Signals,
+    ThreadSignals,
     MapData,
     ScanLine,
-    MeasuredPoint
+    MeasuredPoint,
+    WorkerFlags
 )
 from .constants import (
     Priority
@@ -588,7 +589,7 @@ def en_meas_fast(
 def meas_cont(
         data: Literal['en_fast', 'pa_fast'],
         signals: WorkerSignals,
-        flags: dict[str, bool],
+        flags: WorkerFlags,
         priority: int=Priority.NORMAL,
         max_count: int | None=None,
         timeout: float | None=100,
@@ -598,22 +599,30 @@ def meas_cont(
     Non-stop measurement of required information.
 
     Intended to be called from GUI.\n
+    Thread safe.\n
+    Attributes
+    ----------
     ``data`` - determines, which information should be measured.\n
     ``signals`` and ``flags`` are used to interthread communication
     with GUI and are automatically supplied.\n
     ``priority`` set priority of the call for Actor.\n
-    ``max_count`` is optional maximum amount of measurements.\n
-    ``timeout`` is optional timeout in seconds.\n
-    Thread safe.
+    ``max_count`` optional maximum amount of measurements.\n
+    ``timeout`` optional timeout in seconds.\n
+    Return
+    ------
+    List with measured signals.
     """
 
+    if hardware.power_meter is None:
+        logger.warning('Power meter is not connected')
+        return []
     # Funstions, which provide necessary information
     funcs = {
         'en_fast': hardware.power_meter.get_energy_scr,
         'pa_fast': hardware.osc.measure_scr
     }
     # Object for communication with lower level fucntion
-    comm = Signals()
+    comm = ThreadSignals()
     # List with results
     result = []
     tkwargs = {
@@ -627,7 +636,7 @@ def meas_cont(
     }
     t = Thread(target = _osc_call.submit, kwargs = tkwargs)
     t.start()
-    while flags.get('is_running'):
+    while flags['is_running']:
         comm.progress.wait()
         # Emit progress with last measured object
         signals.progess.emit(result[-1])
@@ -676,7 +685,7 @@ def en_meas_fast_cont_emul(
 def scan_2d(
         scan: MapData,
         signals: WorkerSignals,
-        flags: dict[str, bool],
+        flags: WorkerFlags,
         priority: int=Priority.NORMAL,
         **kwargs
     ) -> MapData:
@@ -701,7 +710,7 @@ def scan_2d(
         logger.info('At scan start position.')
         # First launch energy measurements
         # Object for communication with lower level fucntion
-        comm_en = Signals()
+        comm_en = ThreadSignals()
         # List with results
         result_en: list[OscMeasurement] = []
         tkwargs_en = {
@@ -717,8 +726,17 @@ def scan_2d(
         move_to(line.stopp)
         # While stage is moving, measure its position.
         while stages_status(priority).has_status('active'):
+            # If scan was cancelled
+            if not flags['is_running']:
+                # Stop stage movements
+                break_all_stages()
+                # Stop signal measurements
+                comm_en.is_running = False
+                t_en.join()
+                # Return what was scanned so far
+                return scan
             line.add_pos_point(stages_position(priority))
-        # When stage stopped, cancel signal measurements
+        # Cancel signal measurements
         comm_en.is_running = False
         t_en.join()
         logger.info('Line scanned. Start converting OscMeas to MeasPoint')
@@ -736,7 +754,7 @@ def scan_2d(
 
 def __meas_cont(
         called_func: Callable[P,T],
-        comm: Signals,
+        comm: ThreadSignals,
         result: list,
         timeout: float | None=100,
         max_count: int | None=None
@@ -924,7 +942,7 @@ def scan_2d_emul(
         # First launch energy measurements in a separate thread
 
         # Object for communication with lower level fucntion
-        comm_en = Signals()
+        comm_en = ThreadSignals()
         # List with results
         result_en: list[OscMeasurement] = []
         tkwargs_en = {
@@ -968,7 +986,7 @@ def scan_2d_emul(
 
 def pa_fast_cont_emul(
         step: float,
-        comm: Signals,
+        comm: ThreadSignals,
         result: list[OscMeasurement],
         timeout: float | None=100,
         max_count: int | None=None

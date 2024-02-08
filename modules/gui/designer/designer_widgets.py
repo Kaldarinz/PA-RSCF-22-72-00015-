@@ -1,5 +1,6 @@
 """
-Classes with initaited widgets, built in Qt Designer.
+Widgets, built in Qt Designer, and used as a relatively big parts of
+the progamm.
 """
 import logging
 from collections import deque
@@ -47,7 +48,9 @@ from ...data_classes import (
     Position,
     StagesStatus,
     EnergyMeasurement,
-    MapData
+    MapData,
+    Worker,
+    WorkerFlags
 )
 from ...constants import (
     DetailedSignals
@@ -202,6 +205,7 @@ class MapMeasureWidget(QWidget,map_measure_widget_ui.Ui_map_measure):
 
     calc_astepClicked = Signal(QProgressDialog)
     scan_started = Signal(MapData)
+    scan_worker: Worker | None = None
 
     def __init__(self, parent: QWidget | None=None) -> None:
         super().__init__(parent)
@@ -215,6 +219,13 @@ class MapMeasureWidget(QWidget,map_measure_widget_ui.Ui_map_measure):
 
         # Set default selection
         self.plot_scan.set_selarea(Q_(11, 'mm'), Q_(11, 'mm'), Q_(4, 'mm'), Q_(4, 'mm'))
+
+        # Set enable state for axis controls
+        self._new_dir()
+
+        # Set default vals
+        self.sb_cur_speed.quantity = Q_(0, 'm/s')
+        self.sb_tpp.quantity = Q_(0, 's')
 
         self.connect_signals_slots()
 
@@ -243,9 +254,10 @@ class MapMeasureWidget(QWidget,map_measure_widget_ui.Ui_map_measure):
         self.plot_scan.selection_changed.connect(self._sel_changed)
         # Scan plane changed
         self.cb_scanplane.currentTextChanged.connect(lambda _: self._new_scan_plane())
+        # Scan direction changed
+        self.cb_scandir.currentTextChanged.connect( lambda _: self._new_dir())
         # Auto step calculation
-        self.btn_astep_calc.clicked.connect(
-            lambda state: self.calc_astep())
+        self.btn_astep_calc.clicked.connect(lambda _: self.calc_astep())
         # Scan
         self.btn_start.clicked.connect(self.scan)
 
@@ -271,6 +283,15 @@ class MapMeasureWidget(QWidget,map_measure_widget_ui.Ui_map_measure):
         # Emit signal to start actual scanning from main window
         self.scan_started.emit(scan)
 
+    @Slot()
+    def stop_scan(self) -> None:
+        """Stop current scan."""
+
+        if self.scan_worker is None:
+            return
+        # Stop actual measurement
+        self.scan_worker.flags['is_running'] = False
+
     def calc_astep(self, count: int=30) -> None:
         """Launch auto step calculation."""
 
@@ -283,6 +304,7 @@ class MapMeasureWidget(QWidget,map_measure_widget_ui.Ui_map_measure):
         # Set appear immediatelly
         pb.setMinimumDuration(0)
         pb.setValue(0)
+        # Emit signal to launch worker for measuring.
         self.calc_astepClicked.emit(pb)
         pb.show()
 
@@ -297,6 +319,7 @@ class MapMeasureWidget(QWidget,map_measure_widget_ui.Ui_map_measure):
 
         The algorithm will calculate average dt between signal measurements
         and use it to calculate step size and amount of points.
+        Calculated dt is set to sb_tpp spinbox.
         """
 
         if len(data) < 4:
@@ -307,7 +330,12 @@ class MapMeasureWidget(QWidget,map_measure_widget_ui.Ui_map_measure):
 
         # Calculate duration of all measurements
         delta = data[-1].datetime - data[0].datetime
-        dt = Q_(delta.seconds + delta.microseconds/1_000_000, 's')
+        # Multiplication by 2 is current implementation detail.
+        # Currently signal is measured from only one channel during
+        # the test. But actuall PA measurements will require both 
+        # channels, which are similar in all params hence multiplication
+        # by 2.
+        dt = Q_(delta.total_seconds()*2, 's')
         speed = self.sb_speed.quantity
         # Average time per 1 step
         time_per_p = dt/(len(data) - 1)
@@ -321,6 +349,8 @@ class MapMeasureWidget(QWidget,map_measure_widget_ui.Ui_map_measure):
         points = int(line_size/step) + 1
 
         ### Set calculated values
+        # dt
+        self.sb_tpp.quantity = time_per_p
         # Step
         x_units = self.sb_stepX.quantity.u
         self.sb_stepX.quantity = step.to(x_units)
@@ -364,6 +394,28 @@ class MapMeasureWidget(QWidget,map_measure_widget_ui.Ui_map_measure):
         sel_plane = self.cb_scanplane.currentText()
         self.plot_scan.hlabel = sel_plane[0]
         self.plot_scan.vlabel = sel_plane[1]
+        # Labels for scan area
+        self.lbl_areaX.setText(sel_plane[0])
+        self.lbl_areaY.setText(sel_plane[1])
+
+    @Slot()
+    def _new_dir(self) -> None:
+        """Callback for new scan direction."""
+        
+        # Check if auto step calculation is enabled
+        if not self.chb_astep.isChecked():
+            return
+        # Set enable state for axis controls
+        if self.cb_scandir.currentText()[0] == 'H':
+            self.sb_pointsX.setEnabled(False)
+            self.sb_stepX.setEnabled(False)
+            self.sb_pointsY.setEnabled(True)
+            self.sb_stepY.setEnabled(True)
+        else:
+            self.sb_pointsX.setEnabled(True)
+            self.sb_stepX.setEnabled(True)
+            self.sb_pointsY.setEnabled(False)
+            self.sb_stepY.setEnabled(False)
 
     @property
     def center(self) -> Position:

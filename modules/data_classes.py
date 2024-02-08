@@ -3,7 +3,7 @@ Module with data classes.
 """
 
 import sys
-from typing import Callable, TypeVar, Any, Literal, cast
+from typing import Callable, TypeVar, Any, Literal, cast, TypedDict
 from typing_extensions import ParamSpec, Self, Type
 from dataclasses import dataclass, field, fields
 import traceback
@@ -1430,7 +1430,11 @@ class StagesStatus:
 
 ### Threading objects ###
 
-class Signals:
+class WorkerFlags(TypedDict):
+    is_running: bool
+    pause: bool
+
+class ThreadSignals:
     """
     Object for communication between threads.
     
@@ -1482,15 +1486,18 @@ class Worker(QRunnable):
         self.args = args
         self.kwargs = kwargs
         self.signals = WorkerSignals()
+        self.flags = WorkerFlags(
+                {
+                'is_running': True,
+                'pause': False
+            }
+        )
 
         #allow signals emit from func
         self.kwargs['signals'] = self.signals
 
         #for sending data to running func
-        self.kwargs['flags'] = {
-            'is_running': True,
-            'pause': False
-        }
+        self.kwargs['flags'] = self.flags
 
     @Slot()
     def run(self) -> None:

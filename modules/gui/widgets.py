@@ -1,3 +1,7 @@
+"""
+Base widgets, which are used as parts in other widgets.
+"""
+
 from typing import Iterable, Literal, cast
 import os
 import logging
@@ -514,7 +518,7 @@ class QuantSpinBox(QDoubleSpinBox):
     def quantity(self, val: PlainQuantity) -> None:
 
         # For editable it leads to problems with units
-        if self.isReadOnly():
+        if self.isReadOnly() and val.m is not np.nan:
             val = val.to_compact()
         self.setSuffix(' ' + f'{val.u:~.2gP}')
         self.setValue(float(val.m))

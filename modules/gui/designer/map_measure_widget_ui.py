@@ -251,7 +251,7 @@ class Ui_map_measure(object):
         self.le_estdur.setEnabled(True)
         sizePolicy1.setHeightForWidth(self.le_estdur.sizePolicy().hasHeightForWidth())
         self.le_estdur.setSizePolicy(sizePolicy1)
-        self.le_estdur.setMaximumSize(QSize(120, 16777215))
+        self.le_estdur.setMaximumSize(QSize(100, 16777215))
         self.le_estdur.setReadOnly(True)
 
         self.horizontalLayout_2.addWidget(self.le_estdur)
@@ -266,7 +266,7 @@ class Ui_map_measure(object):
         self.le_dur.setEnabled(True)
         sizePolicy1.setHeightForWidth(self.le_dur.sizePolicy().hasHeightForWidth())
         self.le_dur.setSizePolicy(sizePolicy1)
-        self.le_dur.setMaximumSize(QSize(120, 16777215))
+        self.le_dur.setMaximumSize(QSize(100, 16777215))
         self.le_dur.setReadOnly(True)
 
         self.horizontalLayout_2.addWidget(self.le_dur)
@@ -331,14 +331,29 @@ class Ui_map_measure(object):
         self.horizontalLayout_3.setObjectName(u"horizontalLayout_3")
         self.chb_astep = QCheckBox(map_measure)
         self.chb_astep.setObjectName(u"chb_astep")
+        self.chb_astep.setCheckable(True)
         self.chb_astep.setChecked(True)
 
         self.horizontalLayout_3.addWidget(self.chb_astep)
 
         self.btn_astep_calc = QPushButton(map_measure)
         self.btn_astep_calc.setObjectName(u"btn_astep_calc")
+        self.btn_astep_calc.setMinimumSize(QSize(110, 0))
 
         self.horizontalLayout_3.addWidget(self.btn_astep_calc)
+
+        self.lbl_tpp = QLabel(map_measure)
+        self.lbl_tpp.setObjectName(u"lbl_tpp")
+
+        self.horizontalLayout_3.addWidget(self.lbl_tpp)
+
+        self.sb_tpp = QuantSpinBox(map_measure)
+        self.sb_tpp.setObjectName(u"sb_tpp")
+        self.sb_tpp.setReadOnly(True)
+        self.sb_tpp.setButtonSymbols(QAbstractSpinBox.NoButtons)
+        self.sb_tpp.setDecimals(3)
+
+        self.horizontalLayout_3.addWidget(self.sb_tpp)
 
 
         self.formLayout.setLayout(1, QFormLayout.FieldRole, self.horizontalLayout_3)
@@ -501,13 +516,16 @@ class Ui_map_measure(object):
         self.btn_restart.setText("")
         self.btn_stop.setText("")
         self.lbl_estdur.setText(QCoreApplication.translate("map_measure", u"Est time", None))
-        self.lbl_dur.setText(QCoreApplication.translate("map_measure", u"Time", None))
+        self.lbl_dur.setText(QCoreApplication.translate("map_measure", u"Scan time", None))
         self.lbl_params.setText(QCoreApplication.translate("map_measure", u"Parameters", None))
         self.lbl_speed.setText(QCoreApplication.translate("map_measure", u"Speed", None))
         self.sb_speed.setSuffix(QCoreApplication.translate("map_measure", u" mm/s", None))
+        self.sb_cur_speed.setSuffix(QCoreApplication.translate("map_measure", u" m/s", None))
         self.lbl_astep.setText(QCoreApplication.translate("map_measure", u"Auto step", None))
         self.chb_astep.setText("")
         self.btn_astep_calc.setText(QCoreApplication.translate("map_measure", u"Calculate", None))
+        self.lbl_tpp.setText(QCoreApplication.translate("map_measure", u"Time per point", None))
+        self.sb_tpp.setSuffix(QCoreApplication.translate("map_measure", u" s", None))
         self.lbl_scandir.setText(QCoreApplication.translate("map_measure", u"Direction", None))
         self.cb_scandir.setItemText(0, QCoreApplication.translate("map_measure", u"HLT", None))
         self.cb_scandir.setItemText(1, QCoreApplication.translate("map_measure", u"HRT", None))

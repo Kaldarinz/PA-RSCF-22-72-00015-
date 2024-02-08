@@ -449,7 +449,7 @@ class Window(QMainWindow,Ui_MainWindow,):
         """
 
         self.astep_worker = Worker(
-            pa_logic.meas_cont,
+            func = pa_logic.meas_cont,
             data = 'en_fast',
             max_count = pb.maximum()
         )

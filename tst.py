@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field, fields
+from typing import TypedDict
 from pprint import pprint
 from collections.abc import Iterable, Sequence
 from datetime import datetime
@@ -30,7 +31,9 @@ ureg = pint.get_application_registry()
 Q_ = ureg.Quantity
 rng = np.random.default_rng()
 
-a = [Q_(10,'mm'), Q_(1,'m')]
-a.sort()
+class WorkerFlags(TypedDict):
+    is_running: bool
+    pause: bool
+
+a = WorkerFlags({'is_running': True, 'pause': False})
 print(a)
-#x,y,z = scan.get_plot_data('max_amp')
