@@ -1508,7 +1508,7 @@ class Worker(QRunnable):
         except:
             exctype, value = sys.exc_info()[:2]
             logger.warning(
-                'An error occured while trying to launch '
+                'An error occured while trying to launch worker'
                 + f'{self.func.__name__}: {exctype}, {value}')
             self.signals.error.emit(
                 (exctype, value, traceback.format_exc())

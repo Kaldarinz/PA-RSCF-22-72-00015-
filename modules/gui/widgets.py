@@ -23,7 +23,8 @@ from PySide6.QtWidgets import (
     QMenu,
     QFileDialog,
     QWidget,
-    QVBoxLayout
+    QVBoxLayout,
+    QGraphicsRectItem
 )
 from PySide6.QtGui import (
     QStandardItem,
@@ -569,6 +570,12 @@ class PgMap(pg.GraphicsLayoutWidget):
 
         self.data: MapData|None = None
         """Data to display."""
+        self.hcoords: npt.NDArray | None = None
+        """2D array with horizontal axis coords of scanned points."""
+        self.vcoords: npt.NDArray | None = None
+        """2D array with vertical axis coords of scanned points."""
+        self.signal: npt.NDArray | None = None
+        """2D array with values of scanned points."""
         self.width: PlainQuantity = Q_(np.nan, 'mm')
         "Width of the displayed map area."
         self.height: PlainQuantity = Q_(np.nan, 'mm')
@@ -579,6 +586,8 @@ class PgMap(pg.GraphicsLayoutWidget):
         "Selected area for scanning."
         self._bar: pg.ColorBarItem | None = None
         "Reference to color bar."
+        self._boundary_ref: QGraphicsRectItem | None = None
+        "Reference to boundary."
 
     def set_scanrange(
             self,
@@ -841,18 +850,17 @@ class PgMap(pg.GraphicsLayoutWidget):
             return
         # Convert units
         x, y, z = self.data.get_plot_data(signal='max_amp')
-        x_arr = x.to(self.hunits).m
-        y_arr = y.to(self.vunits).m
-        z_arr = z.m
-        logger.info(f'{x_arr.shape=};{y_arr.shape=};{z_arr.shape=}')
-        # logger.info(f'{x_arr=}')
-        # logger.info(f'{y_arr=}')
-        # logger.info(f'{z_arr=}')
+        self.hcoords = x.to(self.hunits).m
+        self.vcoords = y.to(self.vunits).m
+        self.signal = z.m
         # Plot data
         # New scanned line changes shape of data, therefore we have to
         # create new PColorMeshItem
         self.plot_item.removeItem(self._plot_ref)
-        self._plot_ref = pg.PColorMeshItem(x_arr, y_arr, z_arr)
+        self._plot_ref = pg.PColorMeshItem(
+            self.hcoords,
+            self.vcoords,
+            self.signal)
         self.plot_item.addItem(self._plot_ref)
         # Add colorbar
         if self._bar is not None:
@@ -864,6 +872,35 @@ class PgMap(pg.GraphicsLayoutWidget):
             rounding=0.1) # type: ignore
         self._bar.setImageItem([self._plot_ref])
         self.addItem(self._bar, 0, 1)
+
+    @Slot()
+    def set_abs_scan_pos(self) -> None:
+
+        if self.data is None:
+            logger.warning('Scan cannot be shifted. Data is missing.')
+            return
+        
+        # Calculate shifts for both axes
+        dx = getattr(self.data.blp, self.hlabel.lower())
+        dx = dx.to(self.hunits).m
+
+        dy = getattr(self.data.blp, self.vlabel.lower())
+        dy = dy.to(self.vunits).m
+
+        logger.info(f'{dx=}; {dy=}')
+        self.hcoords += dx
+        self.vcoords += dy
+
+        if self._plot_ref is None:
+            logger.warning(
+                'Scan cannot be shifted. Plot reference is mising.'
+            )
+            return
+        self._plot_ref.setData(
+            self.hcoords,
+            self.vcoords,
+            self.signal
+        )
 
     @property
     def hlabel(self) -> str:
@@ -920,11 +957,11 @@ class PgMap(pg.GraphicsLayoutWidget):
         if None in [self.width, self.height]:
             return
         
-        boundary = pg.QtWidgets.QGraphicsRectItem(
+        self._boundary = QGraphicsRectItem(
             0,
             0,
             self.width.to(self.hunits).m,
             self.height.to(self.vunits).m
         )
-        boundary.setPen(pg.mkPen('r', width = 3))
-        self.plot_item.addItem(boundary)
+        self._boundary.setPen(pg.mkPen('r', width = 3))
+        self.plot_item.addItem(self._boundary)

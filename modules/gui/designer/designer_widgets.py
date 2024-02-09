@@ -263,10 +263,8 @@ class MapMeasureWidget(QWidget,map_measure_widget_ui.Ui_map_measure):
         self.btn_plot_area_sel.toggled.connect(
             self.plot_scan.set_selarea_vis
         )
-        # Set maximum plot size
-        self.btn_plot_full_area.pressed.connect(
-            lambda: self.plot_scan.set_scanrange(self.XMAX, self.YMAX)
-        )
+        # Set maximum plot size visible
+        self.btn_plot_full_area.pressed.connect(self.set_max_plot_area)
         # Scan plane changed
         self.cb_scanplane.currentTextChanged.connect(
             lambda _: self._new_scan_plane()
@@ -388,6 +386,12 @@ class MapMeasureWidget(QWidget,map_measure_widget_ui.Ui_map_measure):
             est_dur = 1.2*(line_size + 2*self.sb_sizeX.quantity)/speed
         # Est time
         self.le_estdur.setText(str(est_dur))
+
+    @Slot()
+    def set_max_plot_area(self) -> None:
+
+        self.plot_scan.set_scanrange(self.XMAX, self.YMAX)
+        self.plot_scan.set_abs_scan_pos()
 
     @Slot()
     def _sel_changed(self, new_sel: tuple[PlainQuantity]) -> None:
