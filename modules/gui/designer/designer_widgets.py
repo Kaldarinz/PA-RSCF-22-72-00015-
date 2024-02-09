@@ -211,14 +211,21 @@ class MapMeasureWidget(QWidget,map_measure_widget_ui.Ui_map_measure):
         super().__init__(parent)
         self.setupUi(self)
 
+        # max scan range
+        self.XMAX = Q_(25, 'mm')
+        self.YMAX = Q_(25, 'mm')
+
         # Set Axis titles
         self._new_scan_plane()
 
         # Set default range
-        self.plot_scan.set_scanrange(Q_(25, 'mm'), Q_(25, 'mm'))
+        self.plot_scan.set_scanrange(self.XMAX, self.YMAX)
 
         # Set default selection
-        self.plot_scan.set_selarea(Q_(11, 'mm'), Q_(11, 'mm'), Q_(4, 'mm'), Q_(4, 'mm'))
+        self.plot_scan.set_def_selarea()
+        # We should manually call this slot, since it is not yet connected
+        self._sel_changed(self.plot_scan.selected_area)
+        #self.plot_scan.set_selarea(Q_(11, 'mm'), Q_(11, 'mm'), Q_(4, 'mm'), Q_(4, 'mm'))
 
         # Set enable state for axis controls
         self._new_dir()
@@ -252,17 +259,27 @@ class MapMeasureWidget(QWidget,map_measure_widget_ui.Ui_map_measure):
         )
         # Selected area changed from plot
         self.plot_scan.selection_changed.connect(self._sel_changed)
+        # Toogle selected area visibility
+        self.btn_plot_area_sel.toggled.connect(
+            self.plot_scan.set_selarea_vis
+        )
+        # Set maximum plot size
+        self.btn_plot_full_area.pressed.connect(
+            lambda: self.plot_scan.set_scanrange(self.XMAX, self.YMAX)
+        )
         # Scan plane changed
-        self.cb_scanplane.currentTextChanged.connect(lambda _: self._new_scan_plane())
+        self.cb_scanplane.currentTextChanged.connect(
+            lambda _: self._new_scan_plane()
+        )
         # Scan direction changed
         self.cb_scandir.currentTextChanged.connect( lambda _: self._new_dir())
         # Auto step calculation
         self.btn_astep_calc.clicked.connect(lambda _: self.calc_astep())
         # Scan
         self.btn_start.clicked.connect(self.scan)
-
-        # Test
-        self.btn_tst.clicked.connect(self.plot_scan.test)
+        # Stop scan
+        self.btn_stop.clicked.connect(self.stop_scan)
+        
 
     def scan(self) -> None:
         """Launch scanning by emitting ``scan_started``."""

@@ -559,7 +559,7 @@ class PgMap(pg.GraphicsLayoutWidget):
         
         super().__init__(parent = parent)
         
-        self.plot_item = self.addPlot(0, 0, title="Scanning data")
+        self.plot_item = self.addPlot(0, 0, title="Scan area")
         # Set square area
         self.plot_item.setAspectLocked() # type: ignore
         # Disabe axes movements
@@ -766,6 +766,54 @@ class PgMap(pg.GraphicsLayoutWidget):
             )
             return self.selected_area # type: ignore
 
+    def set_def_selarea(self) -> tuple[PlainQuantity,...]:
+        """
+        Set default selected area on plot.
+        
+        The area is half size of scan range and positioned at the center.
+        """
+
+        x = self.width.m/2
+        y = self.height.m/2
+        width = self.width.m/2
+        height = self.height.m/2
+
+        # If No selection is already present
+        if self._sel_ref is None:
+            bounds = QRectF(0, 0, self.width.m, self.height.m) # type: ignore
+            self._sel_ref = pg.RectROI(
+                (x/2,y/2),
+                (width, height),
+                maxBounds = bounds,
+                removable = True)
+            self._sel_ref.setPen(pg.mkPen('b', width = 3))
+            self._sel_ref.hoverPen = pg.mkPen('k', width = 3)
+            self.plot_item.addItem(self._sel_ref)
+            # connect signal
+            self._sel_ref.sigRegionChanged.connect(
+                lambda _: self.selection_changed.emit(self.selected_area)
+            )
+            
+        # If selection was already present, try to resize it
+        else:
+            self._sel_ref.setSize(size=(width, height), center = (x, y))
+        
+        # Emit signal
+        self.selection_changed.emit(self.selected_area)
+        return self.selected_area # type: ignore
+
+    def set_selarea_vis(self, state: bool) -> None:
+        """
+        Toggle visibility of the selected area.
+        
+        If selection did not exist, create default selection.
+        """
+
+        if self._sel_ref is not None:
+            self._sel_ref.setVisible(state)
+        else:
+            self.set_def_selarea()
+
     def set_data(self, data: MapData) -> None:
         """Set scan data, which will lead to start displaying scan."""
 
@@ -780,23 +828,6 @@ class PgMap(pg.GraphicsLayoutWidget):
             width = data.width,
             height = data.height
         )
-
-    def test(self) -> None:
-
-        x, y, width, height = (0,0,4,4) # type: ignore
-        xpts = 10
-        ypts = 5
-
-        x_val = np.linspace(x, x + width, xpts) + np.zeros((ypts,1))
-        y_val = np.linspace(y, y + height, ypts)[:,np.newaxis] + np.zeros(xpts)
-        z_val = rng.random((ypts-1,xpts-1))
-        logger.info(f'{x_val.shape=};{y_val.shape=};{z_val.shape=}')
-        logger.info(f'{z_val=}')
-        if self._plot_ref is None:
-            self._plot_ref = pg.PColorMeshItem(x_val, y_val, z_val)
-            self.plot_item.addItem(self._plot_ref)
-        else:
-            self._plot_ref.setData(x_val, y_val, z_val)
         
     @Slot(ScanLine)
     def upd_scan(

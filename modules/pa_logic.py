@@ -912,7 +912,7 @@ def aver_measurements(measurements: list[MeasuredPoint]) -> MeasuredPoint:
 def scan_2d_emul(
         scan: MapData,
         signals: WorkerSignals,
-        flags: dict[str, bool],
+        flags: WorkerFlags,
         priority: int=Priority.NORMAL,
         **kwargs
     ) -> MapData:
@@ -961,6 +961,10 @@ def scan_2d_emul(
         # While stage is moving, measure its position.
         t0 = time.time()
         while (cur_t:=time.time()-t0) < scan_time:
+            if not flags['is_running']:
+                comm_en.is_running = False
+                t_en.join()
+                return scan
             # unit vector in direction of stop point
             unit = line.startp.direction(line.stopp)
             if unit is None:

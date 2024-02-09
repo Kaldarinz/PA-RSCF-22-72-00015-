@@ -17,9 +17,9 @@ from PySide6.QtGui import (QBrush, QColor, QConicalGradient, QCursor,
     QPalette, QPixmap, QRadialGradient, QTransform)
 from PySide6.QtWidgets import (QAbstractSpinBox, QApplication, QCheckBox, QComboBox,
     QFormLayout, QFrame, QGridLayout, QHBoxLayout,
-    QLabel, QLineEdit, QPushButton, QRadioButton,
-    QSizePolicy, QSpacerItem, QSpinBox, QVBoxLayout,
-    QWidget)
+    QLabel, QLayout, QLineEdit, QPushButton,
+    QRadioButton, QSizePolicy, QSpacerItem, QSpinBox,
+    QVBoxLayout, QWidget)
 
 from ..widgets import (PgMap, QuantSpinBox)
 from . import qt_resources_rc
@@ -29,10 +29,11 @@ class Ui_map_measure(object):
         if not map_measure.objectName():
             map_measure.setObjectName(u"map_measure")
         map_measure.resize(1073, 832)
-        self.horizontalLayout_4 = QHBoxLayout(map_measure)
-        self.horizontalLayout_4.setObjectName(u"horizontalLayout_4")
+        self.horizontalLayout_6 = QHBoxLayout(map_measure)
+        self.horizontalLayout_6.setObjectName(u"horizontalLayout_6")
         self.verticalLayout = QVBoxLayout()
         self.verticalLayout.setObjectName(u"verticalLayout")
+        self.verticalLayout.setSizeConstraint(QLayout.SetDefaultConstraint)
         self.lbl_scanarea = QLabel(map_measure)
         self.lbl_scanarea.setObjectName(u"lbl_scanarea")
         sizePolicy = QSizePolicy(QSizePolicy.Minimum, QSizePolicy.Preferred)
@@ -193,6 +194,77 @@ class Ui_map_measure(object):
 
         self.verticalLayout.addLayout(self.gridLayout)
 
+        self.horizontalLayout_4 = QHBoxLayout()
+        self.horizontalLayout_4.setObjectName(u"horizontalLayout_4")
+        self.label_2 = QLabel(map_measure)
+        self.label_2.setObjectName(u"label_2")
+        sizePolicy3 = QSizePolicy(QSizePolicy.Maximum, QSizePolicy.Preferred)
+        sizePolicy3.setHorizontalStretch(0)
+        sizePolicy3.setVerticalStretch(0)
+        sizePolicy3.setHeightForWidth(self.label_2.sizePolicy().hasHeightForWidth())
+        self.label_2.setSizePolicy(sizePolicy3)
+
+        self.horizontalLayout_4.addWidget(self.label_2)
+
+        self.btn_plot_full_area = QPushButton(map_measure)
+        self.btn_plot_full_area.setObjectName(u"btn_plot_full_area")
+        sizePolicy4 = QSizePolicy(QSizePolicy.Maximum, QSizePolicy.Fixed)
+        sizePolicy4.setHorizontalStretch(0)
+        sizePolicy4.setVerticalStretch(0)
+        sizePolicy4.setHeightForWidth(self.btn_plot_full_area.sizePolicy().hasHeightForWidth())
+        self.btn_plot_full_area.setSizePolicy(sizePolicy4)
+        icon = QIcon()
+        icon.addFile(u":/icons/qt_resources/map.png", QSize(), QIcon.Normal, QIcon.Off)
+        self.btn_plot_full_area.setIcon(icon)
+
+        self.horizontalLayout_4.addWidget(self.btn_plot_full_area)
+
+        self.btn_plot_clear = QPushButton(map_measure)
+        self.btn_plot_clear.setObjectName(u"btn_plot_clear")
+        sizePolicy4.setHeightForWidth(self.btn_plot_clear.sizePolicy().hasHeightForWidth())
+        self.btn_plot_clear.setSizePolicy(sizePolicy4)
+        icon1 = QIcon()
+        icon1.addFile(u":/icons/qt_resources/map--minus.png", QSize(), QIcon.Normal, QIcon.Off)
+        self.btn_plot_clear.setIcon(icon1)
+
+        self.horizontalLayout_4.addWidget(self.btn_plot_clear)
+
+        self.btn_plot_fit = QPushButton(map_measure)
+        self.btn_plot_fit.setObjectName(u"btn_plot_fit")
+        sizePolicy4.setHeightForWidth(self.btn_plot_fit.sizePolicy().hasHeightForWidth())
+        self.btn_plot_fit.setSizePolicy(sizePolicy4)
+        icon2 = QIcon()
+        icon2.addFile(u":/icons/qt_resources/map-resize.png", QSize(), QIcon.Normal, QIcon.Off)
+        self.btn_plot_fit.setIcon(icon2)
+
+        self.horizontalLayout_4.addWidget(self.btn_plot_fit)
+
+        self.line_4 = QFrame(map_measure)
+        self.line_4.setObjectName(u"line_4")
+        self.line_4.setFrameShape(QFrame.VLine)
+        self.line_4.setFrameShadow(QFrame.Sunken)
+
+        self.horizontalLayout_4.addWidget(self.line_4)
+
+        self.btn_plot_area_sel = QPushButton(map_measure)
+        self.btn_plot_area_sel.setObjectName(u"btn_plot_area_sel")
+        sizePolicy4.setHeightForWidth(self.btn_plot_area_sel.sizePolicy().hasHeightForWidth())
+        self.btn_plot_area_sel.setSizePolicy(sizePolicy4)
+        icon3 = QIcon()
+        icon3.addFile(u":/icons/qt_resources/selection-resize.png", QSize(), QIcon.Normal, QIcon.Off)
+        self.btn_plot_area_sel.setIcon(icon3)
+        self.btn_plot_area_sel.setCheckable(True)
+        self.btn_plot_area_sel.setChecked(True)
+
+        self.horizontalLayout_4.addWidget(self.btn_plot_area_sel)
+
+        self.horizontalSpacer = QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum)
+
+        self.horizontalLayout_4.addItem(self.horizontalSpacer)
+
+
+        self.verticalLayout.addLayout(self.horizontalLayout_4)
+
         self.line = QFrame(map_measure)
         self.line.setObjectName(u"line")
         self.line.setFrameShape(QFrame.HLine)
@@ -206,33 +278,33 @@ class Ui_map_measure(object):
         self.btn_start = QPushButton(map_measure)
         self.btn_start.setObjectName(u"btn_start")
         self.btn_start.setFont(font)
-        icon = QIcon()
-        icon.addFile(u":/icons/qt_resources/control.png", QSize(), QIcon.Normal, QIcon.Off)
-        self.btn_start.setIcon(icon)
+        icon4 = QIcon()
+        icon4.addFile(u":/icons/qt_resources/control.png", QSize(), QIcon.Normal, QIcon.Off)
+        self.btn_start.setIcon(icon4)
 
         self.horizontalLayout.addWidget(self.btn_start)
 
         self.btn_pause = QPushButton(map_measure)
         self.btn_pause.setObjectName(u"btn_pause")
-        icon1 = QIcon()
-        icon1.addFile(u":/icons/qt_resources/control-pause.png", QSize(), QIcon.Normal, QIcon.Off)
-        self.btn_pause.setIcon(icon1)
+        icon5 = QIcon()
+        icon5.addFile(u":/icons/qt_resources/control-pause.png", QSize(), QIcon.Normal, QIcon.Off)
+        self.btn_pause.setIcon(icon5)
 
         self.horizontalLayout.addWidget(self.btn_pause)
 
         self.btn_restart = QPushButton(map_measure)
         self.btn_restart.setObjectName(u"btn_restart")
-        icon2 = QIcon()
-        icon2.addFile(u":/icons/qt_resources/arrow-circle-225-left.png", QSize(), QIcon.Normal, QIcon.Off)
-        self.btn_restart.setIcon(icon2)
+        icon6 = QIcon()
+        icon6.addFile(u":/icons/qt_resources/arrow-circle-225-left.png", QSize(), QIcon.Normal, QIcon.Off)
+        self.btn_restart.setIcon(icon6)
 
         self.horizontalLayout.addWidget(self.btn_restart)
 
         self.btn_stop = QPushButton(map_measure)
         self.btn_stop.setObjectName(u"btn_stop")
-        icon3 = QIcon()
-        icon3.addFile(u":/icons/qt_resources/control-stop-square.png", QSize(), QIcon.Normal, QIcon.Off)
-        self.btn_stop.setIcon(icon3)
+        icon7 = QIcon()
+        icon7.addFile(u":/icons/qt_resources/control-stop-square.png", QSize(), QIcon.Normal, QIcon.Off)
+        self.btn_stop.setIcon(icon7)
 
         self.horizontalLayout.addWidget(self.btn_stop)
 
@@ -310,6 +382,13 @@ class Ui_map_measure(object):
 
         self.horizontalLayout_5.addWidget(self.sb_speed)
 
+        self.label = QLabel(map_measure)
+        self.label.setObjectName(u"label")
+        sizePolicy3.setHeightForWidth(self.label.sizePolicy().hasHeightForWidth())
+        self.label.setSizePolicy(sizePolicy3)
+
+        self.horizontalLayout_5.addWidget(self.label)
+
         self.sb_cur_speed = QuantSpinBox(map_measure)
         self.sb_cur_speed.setObjectName(u"sb_cur_speed")
         self.sb_cur_speed.setFrame(True)
@@ -364,30 +443,30 @@ class Ui_map_measure(object):
         self.formLayout.setWidget(2, QFormLayout.LabelRole, self.lbl_scandir)
 
         self.cb_scandir = QComboBox(map_measure)
-        icon4 = QIcon()
-        icon4.addFile(u":/icons/qt_resources/SCAN_HTL.png", QSize(), QIcon.Normal, QIcon.Off)
-        self.cb_scandir.addItem(icon4, "")
-        icon5 = QIcon()
-        icon5.addFile(u":/icons/qt_resources/SCAN_HTR.png", QSize(), QIcon.Normal, QIcon.Off)
-        self.cb_scandir.addItem(icon5, "")
-        icon6 = QIcon()
-        icon6.addFile(u":/icons/qt_resources/SCAN_HBR.png", QSize(), QIcon.Normal, QIcon.Off)
-        self.cb_scandir.addItem(icon6, "")
-        icon7 = QIcon()
-        icon7.addFile(u":/icons/qt_resources/SCAN_HBL.png", QSize(), QIcon.Normal, QIcon.Off)
-        self.cb_scandir.addItem(icon7, "")
         icon8 = QIcon()
-        icon8.addFile(u":/icons/qt_resources/SCAN_VBR.png", QSize(), QIcon.Normal, QIcon.Off)
+        icon8.addFile(u":/icons/qt_resources/SCAN_HTL.png", QSize(), QIcon.Normal, QIcon.Off)
         self.cb_scandir.addItem(icon8, "")
         icon9 = QIcon()
-        icon9.addFile(u":/icons/qt_resources/SCAN_VBL.png", QSize(), QIcon.Normal, QIcon.Off)
+        icon9.addFile(u":/icons/qt_resources/SCAN_HTR.png", QSize(), QIcon.Normal, QIcon.Off)
         self.cb_scandir.addItem(icon9, "")
         icon10 = QIcon()
-        icon10.addFile(u":/icons/qt_resources/SCAN_VTR.png", QSize(), QIcon.Normal, QIcon.Off)
+        icon10.addFile(u":/icons/qt_resources/SCAN_HBR.png", QSize(), QIcon.Normal, QIcon.Off)
         self.cb_scandir.addItem(icon10, "")
         icon11 = QIcon()
-        icon11.addFile(u":/icons/qt_resources/SCAN_VTL.png", QSize(), QIcon.Normal, QIcon.Off)
+        icon11.addFile(u":/icons/qt_resources/SCAN_HBL.png", QSize(), QIcon.Normal, QIcon.Off)
         self.cb_scandir.addItem(icon11, "")
+        icon12 = QIcon()
+        icon12.addFile(u":/icons/qt_resources/SCAN_VBR.png", QSize(), QIcon.Normal, QIcon.Off)
+        self.cb_scandir.addItem(icon12, "")
+        icon13 = QIcon()
+        icon13.addFile(u":/icons/qt_resources/SCAN_VBL.png", QSize(), QIcon.Normal, QIcon.Off)
+        self.cb_scandir.addItem(icon13, "")
+        icon14 = QIcon()
+        icon14.addFile(u":/icons/qt_resources/SCAN_VTR.png", QSize(), QIcon.Normal, QIcon.Off)
+        self.cb_scandir.addItem(icon14, "")
+        icon15 = QIcon()
+        icon15.addFile(u":/icons/qt_resources/SCAN_VTL.png", QSize(), QIcon.Normal, QIcon.Off)
+        self.cb_scandir.addItem(icon15, "")
         self.cb_scandir.setObjectName(u"cb_scandir")
         self.cb_scandir.setFrame(True)
 
@@ -454,18 +533,20 @@ class Ui_map_measure(object):
         self.verticalLayout.addItem(self.verticalSpacer)
 
 
-        self.horizontalLayout_4.addLayout(self.verticalLayout)
+        self.horizontalLayout_6.addLayout(self.verticalLayout)
 
         self.plot_scan = PgMap(map_measure)
         self.plot_scan.setObjectName(u"plot_scan")
-        sizePolicy3 = QSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        sizePolicy3.setHorizontalStretch(0)
-        sizePolicy3.setVerticalStretch(0)
-        sizePolicy3.setHeightForWidth(self.plot_scan.sizePolicy().hasHeightForWidth())
-        self.plot_scan.setSizePolicy(sizePolicy3)
+        sizePolicy5 = QSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        sizePolicy5.setHorizontalStretch(0)
+        sizePolicy5.setVerticalStretch(0)
+        sizePolicy5.setHeightForWidth(self.plot_scan.sizePolicy().hasHeightForWidth())
+        self.plot_scan.setSizePolicy(sizePolicy5)
 
-        self.horizontalLayout_4.addWidget(self.plot_scan)
+        self.horizontalLayout_6.addWidget(self.plot_scan)
 
+        self.horizontalLayout_6.setStretch(0, 1)
+        self.horizontalLayout_6.setStretch(1, 9)
         QWidget.setTabOrder(self.sb_centerX, self.sb_centerY)
         QWidget.setTabOrder(self.sb_centerY, self.sb_sizeX)
         QWidget.setTabOrder(self.sb_sizeX, self.sb_sizeY)
@@ -511,6 +592,23 @@ class Ui_map_measure(object):
         self.lbl_points.setText(QCoreApplication.translate("map_measure", u"Points", None))
         self.lbl_step.setText(QCoreApplication.translate("map_measure", u"Step", None))
         self.rb_locksize.setText("")
+        self.label_2.setText(QCoreApplication.translate("map_measure", u"Visible plot area", None))
+#if QT_CONFIG(tooltip)
+        self.btn_plot_full_area.setToolTip(QCoreApplication.translate("map_measure", u"Set maximum plot size", None))
+#endif // QT_CONFIG(tooltip)
+        self.btn_plot_full_area.setText("")
+#if QT_CONFIG(tooltip)
+        self.btn_plot_clear.setToolTip(QCoreApplication.translate("map_measure", u"Clear scanned data from plot", None))
+#endif // QT_CONFIG(tooltip)
+        self.btn_plot_clear.setText("")
+#if QT_CONFIG(tooltip)
+        self.btn_plot_fit.setToolTip(QCoreApplication.translate("map_measure", u"Fit data to full plot", None))
+#endif // QT_CONFIG(tooltip)
+        self.btn_plot_fit.setText("")
+#if QT_CONFIG(tooltip)
+        self.btn_plot_area_sel.setToolTip(QCoreApplication.translate("map_measure", u"Select scan area", None))
+#endif // QT_CONFIG(tooltip)
+        self.btn_plot_area_sel.setText("")
         self.btn_start.setText(QCoreApplication.translate("map_measure", u"Scan", None))
         self.btn_pause.setText("")
         self.btn_restart.setText("")
@@ -520,6 +618,7 @@ class Ui_map_measure(object):
         self.lbl_params.setText(QCoreApplication.translate("map_measure", u"Parameters", None))
         self.lbl_speed.setText(QCoreApplication.translate("map_measure", u"Speed", None))
         self.sb_speed.setSuffix(QCoreApplication.translate("map_measure", u" mm/s", None))
+        self.label.setText(QCoreApplication.translate("map_measure", u"Cur speed", None))
         self.sb_cur_speed.setSuffix(QCoreApplication.translate("map_measure", u" m/s", None))
         self.lbl_astep.setText(QCoreApplication.translate("map_measure", u"Auto step", None))
         self.chb_astep.setText("")

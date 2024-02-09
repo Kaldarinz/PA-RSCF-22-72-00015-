@@ -435,7 +435,8 @@ class Window(QMainWindow,Ui_MainWindow,):
 
         logger.info('measure_map slot called.')
         # Emulation
-        scan_worker = Worker(pa_logic.scan_2d, scan = scan)
+        scan_worker = Worker(pa_logic.scan_2d_emul, scan = scan)
+        self.p_map.scan_worker = scan_worker
         scan_worker.signals.progess.connect(self.p_map.plot_scan.upd_scan)
         self.pool.start(scan_worker)
         
@@ -466,18 +467,6 @@ class Window(QMainWindow,Ui_MainWindow,):
             lambda: self.stop_worker(self.astep_worker)
         )
         self.pool.start(self.astep_worker)
-
-    def tst_map(self):
-
-        self.tst_worker = Worker(pa_logic.en_meas_fast_cont)
-        self.tst_worker.signals.result.connect(self.tst_line_meas)
-        self.pool.start(self.tst_worker)
-
-    def tst_line_meas(self, data: list[EnergyMeasurement]):
-
-        delta = data[-1].datetime-data[0].datetime
-        msg = str(delta.seconds + delta.microseconds/1_000_000) + ' s, points: ' + str(len(data))
-        self.p_map.le_result.setText(msg)
 
     def _conn_jog_btn(
             self,
