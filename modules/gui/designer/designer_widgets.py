@@ -211,6 +211,8 @@ class MapMeasureWidget(QWidget,map_measure_widget_ui.Ui_map_measure):
         super().__init__(parent)
         self.setupUi(self)
 
+        # Zoom state of plot
+        self._zoomed_out = False
         # max scan range
         self.XMAX = Q_(25, 'mm')
         self.YMAX = Q_(25, 'mm')
@@ -219,13 +221,12 @@ class MapMeasureWidget(QWidget,map_measure_widget_ui.Ui_map_measure):
         self._new_scan_plane()
 
         # Set default range
-        self.plot_scan.set_scanrange(self.XMAX, self.YMAX)
+        self.zoomed_out = True
 
         # Set default selection
         self.plot_scan.set_def_selarea()
         # We should manually call this slot, since it is not yet connected
         self._sel_changed(self.plot_scan.selected_area)
-        #self.plot_scan.set_selarea(Q_(11, 'mm'), Q_(11, 'mm'), Q_(4, 'mm'), Q_(4, 'mm'))
 
         # Set enable state for axis controls
         self._new_dir()
@@ -264,7 +265,7 @@ class MapMeasureWidget(QWidget,map_measure_widget_ui.Ui_map_measure):
             self.plot_scan.set_selarea_vis
         )
         # Set maximum plot size visible
-        self.btn_plot_full_area.pressed.connect(self.set_max_plot_area)
+        self.btn_plot_full_area.pressed.connect(lambda: self.set_zoomed_out(True))
         # Scan plane changed
         self.cb_scanplane.currentTextChanged.connect(
             lambda _: self._new_scan_plane()
@@ -278,7 +279,6 @@ class MapMeasureWidget(QWidget,map_measure_widget_ui.Ui_map_measure):
         # Stop scan
         self.btn_stop.clicked.connect(self.stop_scan)
         
-
     def scan(self) -> None:
         """Launch scanning by emitting ``scan_started``."""
 
@@ -306,6 +306,10 @@ class MapMeasureWidget(QWidget,map_measure_widget_ui.Ui_map_measure):
             return
         # Stop actual measurement
         self.scan_worker.flags['is_running'] = False
+        logger.info('Scanning terminated.')
+        if self.plot_scan.data is not None:
+            lines = len(self.plot_scan.data.data)
+            logger.info(f'{lines} lines scanned.')
 
     def calc_astep(self, count: int=30) -> None:
         """Launch auto step calculation."""
@@ -388,12 +392,6 @@ class MapMeasureWidget(QWidget,map_measure_widget_ui.Ui_map_measure):
         self.le_estdur.setText(str(est_dur))
 
     @Slot()
-    def set_max_plot_area(self) -> None:
-
-        self.plot_scan.set_scanrange(self.XMAX, self.YMAX)
-        self.plot_scan.set_abs_scan_pos()
-
-    @Slot()
     def _sel_changed(self, new_sel: tuple[PlainQuantity]) -> None:
 
         x, y, width, height = new_sel
@@ -438,6 +436,17 @@ class MapMeasureWidget(QWidget,map_measure_widget_ui.Ui_map_measure):
             self.sb_pointsY.setEnabled(False)
             self.sb_stepY.setEnabled(False)
 
+    def set_zoomed_out(self, state: bool) -> None:
+        """Set whether maximum scan area is visible."""
+        if self._zoomed_out:
+            return
+        
+        self._zoomed_out = state
+        self.plot_scan.abs_coords = state
+        if state:
+            self.plot_scan.set_scanrange(self.XMAX, self.YMAX)
+            self.plot_scan.set_abs_scan_pos()
+
     @property
     def center(self) -> Position:
         """Position of scan center."""
@@ -453,6 +462,17 @@ class MapMeasureWidget(QWidget,map_measure_widget_ui.Ui_map_measure):
             (haxis, hcoord), (vaxis, vcoord)
         ])
         return center
+
+    @property
+    def zoomed_out(self) -> bool:
+        """Whether maximum scan area is visible."""
+        return self._zoomed_out
+    @zoomed_out.setter
+    def zoomed_out(self, state: bool) -> None:
+        if self._zoomed_out:
+            return
+        self.plot_scan.set_scanrange(self.XMAX, self.YMAX)
+        self.plot_scan.set_abs_scan_pos()
 
 class PowerMeterMonitor(QWidget,pm_monitor_ui.Ui_Form):
     """Power meter monitor.

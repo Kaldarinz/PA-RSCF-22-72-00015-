@@ -129,11 +129,14 @@ def close_hardware(**kwargs) -> None:
     Thread safe.
     """
 
-    _stage_call.close(__close_stages)
-    _osc_call.close()
-    _stage_call.join()
-    _osc_call.join()
-    logger.info('Hardware communication terminated.')
+    try:
+        _stage_call.close(__close_stages)
+        _osc_call.close()
+        _stage_call.join()
+        _osc_call.join()
+        logger.info('Hardware communication terminated.')
+    except:
+        logger.info('No hardawe communication was start during run time.')
 
 def __close_stages() -> None:
     """

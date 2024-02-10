@@ -1093,7 +1093,7 @@ class MapData:
 
         tot = time.time() - tstart
         logger.info(f'Done get_plot_points in {(tot):.3}')
-        logger.info(f'{np.array(res, dtype=object).shape=}')
+        logger.debug(f'{np.array(res, dtype=object).shape=}')
         return np.array(res, dtype=object)
 
     @property

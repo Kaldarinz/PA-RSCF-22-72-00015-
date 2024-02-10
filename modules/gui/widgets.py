@@ -570,6 +570,8 @@ class PgMap(pg.GraphicsLayoutWidget):
 
         self.data: MapData|None = None
         """Data to display."""
+        self.abs_coords: bool = False
+        "Flag for plotting data in absolute coordinates."
         self.hcoords: npt.NDArray | None = None
         """2D array with horizontal axis coords of scanned points."""
         self.vcoords: npt.NDArray | None = None
@@ -853,13 +855,21 @@ class PgMap(pg.GraphicsLayoutWidget):
         self.hcoords = x.to(self.hunits).m
         self.vcoords = y.to(self.vunits).m
         self.signal = z.m
+        # Calc relative or abs coords
+        if self.abs_coords:
+            dh, dv = self._rel_to_abs()
+            hcoords = self.hcoords + dh
+            vcoords = self.vcoords + dv
+        else:
+            hcoords = self.hcoords
+            vcoords = self.vcoords
         # Plot data
         # New scanned line changes shape of data, therefore we have to
         # create new PColorMeshItem
         self.plot_item.removeItem(self._plot_ref)
         self._plot_ref = pg.PColorMeshItem(
-            self.hcoords,
-            self.vcoords,
+            hcoords,
+            vcoords,
             self.signal)
         self.plot_item.addItem(self._plot_ref)
         # Add colorbar
@@ -879,6 +889,40 @@ class PgMap(pg.GraphicsLayoutWidget):
         if self.data is None:
             logger.warning('Scan cannot be shifted. Data is missing.')
             return
+        # Calculate shift values
+        dx, dy = self._rel_to_abs()
+        if self.vcoords is None or self.hcoords is None:
+            logger.warning(
+                'Scan cannot be shifted. Coord array is missing.'
+        )
+            return
+        hcoords = self.hcoords + dx
+        vcoords = self.vcoords + dy
+        if self._plot_ref is None:
+            logger.warning(
+                'Scan cannot be shifted. Plot reference is mising.'
+            )
+            return
+        # Shift the data
+        self._plot_ref.setData(
+            hcoords,
+            vcoords,
+            self.signal
+        )
+
+    def _rel_to_abs(self) -> tuple[float,float]:
+        """
+        Shift from relative to absolute coordinates.
+
+        Return
+        ------
+        Tuple containing couple of floats
+        (horizontal_shift, vertical_shift).
+        """
+
+        if self.data is None:
+            logger.warning('Shift cannot be calcultaed. Data is missing.')
+            return
         
         # Calculate shifts for both axes
         dx = getattr(self.data.blp, self.hlabel.lower())
@@ -887,20 +931,7 @@ class PgMap(pg.GraphicsLayoutWidget):
         dy = getattr(self.data.blp, self.vlabel.lower())
         dy = dy.to(self.vunits).m
 
-        logger.info(f'{dx=}; {dy=}')
-        self.hcoords += dx
-        self.vcoords += dy
-
-        if self._plot_ref is None:
-            logger.warning(
-                'Scan cannot be shifted. Plot reference is mising.'
-            )
-            return
-        self._plot_ref.setData(
-            self.hcoords,
-            self.vcoords,
-            self.signal
-        )
+        return (dx, dy)
 
     @property
     def hlabel(self) -> str:

@@ -31,9 +31,4 @@ ureg = pint.get_application_registry()
 Q_ = ureg.Quantity
 rng = np.random.default_rng()
 
-class WorkerFlags(TypedDict):
-    is_running: bool
-    pause: bool
-
-a = WorkerFlags({'is_running': True, 'pause': False})
-print(a)
+pprint(vars())
