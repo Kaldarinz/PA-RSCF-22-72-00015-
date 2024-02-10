@@ -3,7 +3,7 @@ Module with data classes.
 """
 
 import sys
-from typing import Callable, TypeVar, Any, Literal, cast, TypedDict
+from typing import Callable, TypeVar, Any, Literal, cast, TypedDict, NamedTuple
 from typing_extensions import ParamSpec, Self, Type
 from dataclasses import dataclass, field, fields
 import traceback
@@ -37,6 +37,12 @@ logger = logging.getLogger(__name__)
 
 P = ParamSpec('P')
 T = TypeVar('T')
+
+class QuantRect(NamedTuple):
+    x: PlainQuantity
+    y: PlainQuantity
+    width: PlainQuantity
+    height: PlainQuantity
 
 class Direction:
     """

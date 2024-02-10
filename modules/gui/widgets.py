@@ -570,8 +570,8 @@ class PgMap(pg.GraphicsLayoutWidget):
 
         self.data: MapData|None = None
         """Data to display."""
-        self.abs_coords: bool = False
-        "Flag for plotting data in absolute coordinates."
+        self._abs_coords: bool = False
+
         self.hcoords: npt.NDArray | None = None
         """2D array with horizontal axis coords of scanned points."""
         self.vcoords: npt.NDArray | None = None
@@ -829,16 +829,16 @@ class PgMap(pg.GraphicsLayoutWidget):
         """Set scan data, which will lead to start displaying scan."""
 
         self.data = data
-        # Remove selection
-        if self._sel_ref is not None:
-            self.plot_item.removeItem(self._sel_ref)
-            self._sel_ref = None
-
         # Set scan range
         self.set_scanrange(
             width = data.width,
             height = data.height
         )
+        # Manualy remove selection to handle case, when scan is started
+        # from selection, made in other scan.
+        self._remove_sel()
+        self.selection_changed.emit(None)
+        self.abs_coords = False
         
     @Slot(ScanLine)
     def upd_scan(
@@ -884,40 +884,50 @@ class PgMap(pg.GraphicsLayoutWidget):
         self.addItem(self._bar, 0, 1)
 
     @Slot()
-    def set_abs_scan_pos(self) -> None:
+    def set_abs_scan_pos(self, state: bool) -> None:
 
         if self.data is None:
             logger.warning('Scan cannot be shifted. Data is missing.')
             return
         # Calculate shift values
-        dx, dy = self._rel_to_abs()
-        if self.vcoords is None or self.hcoords is None:
-            logger.warning(
-                'Scan cannot be shifted. Coord array is missing.'
-        )
-            return
-        hcoords = self.hcoords + dx
-        vcoords = self.vcoords + dy
+        if state:
+            dx, dy = self._rel_to_abs()
+            if self.vcoords is None or self.hcoords is None:
+                logger.warning(
+                    'Scan cannot be shifted. Coord array is missing.'
+            )
+                return
+            hcoords = self.hcoords + dx
+            vcoords = self.vcoords + dy
+        else:
+            hcoords = self.hcoords
+            vcoords = self.vcoords
+        # Shift the data
         if self._plot_ref is None:
             logger.warning(
                 'Scan cannot be shifted. Plot reference is mising.'
             )
             return
-        # Shift the data
         self._plot_ref.setData(
             hcoords,
             vcoords,
             self.signal
         )
 
-    def _rel_to_abs(self) -> tuple[float,float]:
+    def _rel_to_abs(
+            self,
+            quant: bool=False
+        ) -> tuple[float,float] | tuple[float,float] | None:
         """
         Shift from relative to absolute coordinates.
 
+        Attributes
+        ----------
+        `quant` if `True` return tuple of PlainQuantity, otherwise
+        tuple of floats.\n
         Return
         ------
-        Tuple containing couple of floats
-        (horizontal_shift, vertical_shift).
+        Tuple containing (horizontal_shift, vertical_shift).
         """
 
         if self.data is None:
@@ -926,12 +936,20 @@ class PgMap(pg.GraphicsLayoutWidget):
         
         # Calculate shifts for both axes
         dx = getattr(self.data.blp, self.hlabel.lower())
-        dx = dx.to(self.hunits).m
-
         dy = getattr(self.data.blp, self.vlabel.lower())
+        if quant:
+            return (dx, dy)
+        dx = dx.to(self.hunits).m
         dy = dy.to(self.vunits).m
 
         return (dx, dy)
+
+    def _remove_sel(self) -> None:
+        """Remove selection."""
+
+        if self._sel_ref is not None:
+            self.plot_item.removeItem(self._sel_ref)
+            self._sel_ref = None
 
     @property
     def hlabel(self) -> str:
@@ -982,17 +1000,32 @@ class PgMap(pg.GraphicsLayoutWidget):
     def selected_area(self, area: tuple[PlainQuantity|None,...]) -> None:
         self.set_selarea(area)
 
+    @property
+    def abs_coords(self) -> bool:
+        "Flag for plotting data in absolute coordinates."
+        return self._abs_coords
+    @abs_coords.setter
+    def abs_coords(self, state: bool) -> None:
+        if state != self.abs_coords:
+            self._remove_sel()
+            self.selection_changed.emit(None)
+            self._abs_coords = state
+
+
     def _plot_boundary(self) -> None:
         """Plot map boundary."""
 
         if None in [self.width, self.height]:
             return
         
-        self._boundary = QGraphicsRectItem(
+        if self._boundary_ref is not None:
+            self.plot_item.removeItem(self._boundary_ref)
+            self._boundary_ref = None
+        self._boundary_ref = QGraphicsRectItem(
             0,
             0,
             self.width.to(self.hunits).m,
             self.height.to(self.vunits).m
         )
-        self._boundary.setPen(pg.mkPen('r', width = 3))
-        self.plot_item.addItem(self._boundary)
+        self._boundary_ref.setPen(pg.mkPen('r', width = 3))
+        self.plot_item.addItem(self._boundary_ref)

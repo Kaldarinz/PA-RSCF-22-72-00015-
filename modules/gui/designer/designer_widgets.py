@@ -46,6 +46,7 @@ from ...pa_data import Measurement
 from ...data_classes import (
     DataPoint,
     Position,
+    QuantRect,
     StagesStatus,
     EnergyMeasurement,
     MapData,
@@ -221,7 +222,7 @@ class MapMeasureWidget(QWidget,map_measure_widget_ui.Ui_map_measure):
         self._new_scan_plane()
 
         # Set default range
-        self.zoomed_out = True
+        self.set_zoomed_out(True)
 
         # Set default selection
         self.plot_scan.set_def_selarea()
@@ -266,6 +267,8 @@ class MapMeasureWidget(QWidget,map_measure_widget_ui.Ui_map_measure):
         )
         # Set maximum plot size visible
         self.btn_plot_full_area.pressed.connect(lambda: self.set_zoomed_out(True))
+        # Expand scan to full plot area
+        self.btn_plot_fit.pressed.connect(lambda: self.set_zoomed_out(False))
         # Scan plane changed
         self.cb_scanplane.currentTextChanged.connect(
             lambda _: self._new_scan_plane()
@@ -392,15 +395,18 @@ class MapMeasureWidget(QWidget,map_measure_widget_ui.Ui_map_measure):
         self.le_estdur.setText(str(est_dur))
 
     @Slot()
-    def _sel_changed(self, new_sel: tuple[PlainQuantity]) -> None:
+    def _sel_changed(self, new_sel: QuantRect | None) -> None:
 
+        if new_sel is None:
+            btn_set_silent(self.btn_plot_area_sel, False)
+            return
         x, y, width, height = new_sel
         cx = x + width/2
         cy = y + height/2
         if self.sb_centerX.quantity != cx:
-            self.sb_centerX.quantity = cx
+            self.sb_centerX.quantity = cx # type: ignore
         if self.sb_centerY.quantity != cy:
-            self.sb_centerY.quantity = cy
+            self.sb_centerY.quantity = cy # type: ignore
         if self.sb_sizeX.quantity != width:
             self.sb_sizeX.quantity = width
         if self.sb_sizeY.quantity != height:
@@ -438,18 +444,26 @@ class MapMeasureWidget(QWidget,map_measure_widget_ui.Ui_map_measure):
 
     def set_zoomed_out(self, state: bool) -> None:
         """Set whether maximum scan area is visible."""
-        if self._zoomed_out:
+        if state and self._zoomed_out:
+            return
+        if not state and not self._zoomed_out:
             return
         
         self._zoomed_out = state
         self.plot_scan.abs_coords = state
         if state:
             self.plot_scan.set_scanrange(self.XMAX, self.YMAX)
-            self.plot_scan.set_abs_scan_pos()
+            self.plot_scan.set_abs_scan_pos(True)
+        else:
+            self.plot_scan.set_scanrange(
+                self.plot_scan.data.width,
+                self.plot_scan.data.height
+            )
+            self.plot_scan.set_abs_scan_pos(False)
 
     @property
     def center(self) -> Position:
-        """Position of scan center."""
+        """Absolute position of scan center."""
 
         # Get titles of horizontal and vertical axes
         haxis = self.cb_scanplane.currentText()[0]
@@ -457,6 +471,11 @@ class MapMeasureWidget(QWidget,map_measure_widget_ui.Ui_map_measure):
         # Get values of horizontal and vertical coordinates
         hcoord = self.sb_centerX.quantity
         vcoord = self.sb_centerY.quantity
+        # Covert relative coordinate to absolute
+        if not self.zoomed_out:
+            if (shift:= self.plot_scan._rel_to_abs(quant = True)) is not None:
+                hcoord += shift[0]
+                vcoord += shift[1]
         # Generate position
         center = Position.from_tuples([
             (haxis, hcoord), (vaxis, vcoord)
@@ -469,10 +488,7 @@ class MapMeasureWidget(QWidget,map_measure_widget_ui.Ui_map_measure):
         return self._zoomed_out
     @zoomed_out.setter
     def zoomed_out(self, state: bool) -> None:
-        if self._zoomed_out:
-            return
-        self.plot_scan.set_scanrange(self.XMAX, self.YMAX)
-        self.plot_scan.set_abs_scan_pos()
+        logger.warning('Zoomed out attribute is read only!')
 
 class PowerMeterMonitor(QWidget,pm_monitor_ui.Ui_Form):
     """Power meter monitor.
