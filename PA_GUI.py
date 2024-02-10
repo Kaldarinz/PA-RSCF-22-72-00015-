@@ -438,6 +438,7 @@ class Window(QMainWindow,Ui_MainWindow,):
         scan_worker = Worker(pa_logic.scan_2d_emul, scan = scan)
         self.p_map.scan_worker = scan_worker
         scan_worker.signals.progess.connect(self.p_map.plot_scan.upd_scan)
+        scan_worker.signals.finished.connect(self.p_map.scan_finished)
         self.pool.start(scan_worker)
         
     @Slot(QProgressDialog)

@@ -838,8 +838,19 @@ class PgMap(pg.GraphicsLayoutWidget):
         # from selection, made in other scan.
         self._remove_sel()
         self.selection_changed.emit(None)
-        self.abs_coords = False
-        
+
+    def clear_plot(self) -> None:
+        """CLear plot and remove data."""
+
+        if self._plot_ref is not None:
+            self.plot_item.removeItem(self._plot_ref)
+            self._plot_ref = None
+        if self._bar is not None:
+            self.removeItem(self._bar)
+            self._bar = None
+        if self.data is not None:
+            self.data = None
+
     @Slot(ScanLine)
     def upd_scan(
         self,
@@ -857,7 +868,7 @@ class PgMap(pg.GraphicsLayoutWidget):
         self.signal = z.m
         # Calc relative or abs coords
         if self.abs_coords:
-            dh, dv = self._rel_to_abs()
+            dh, dv = self._rel_to_abs() # type: ignore
             hcoords = self.hcoords + dh
             vcoords = self.vcoords + dv
         else:
@@ -866,7 +877,8 @@ class PgMap(pg.GraphicsLayoutWidget):
         # Plot data
         # New scanned line changes shape of data, therefore we have to
         # create new PColorMeshItem
-        self.plot_item.removeItem(self._plot_ref)
+        if self._plot_ref is not None:
+            self.plot_item.removeItem(self._plot_ref)
         self._plot_ref = pg.PColorMeshItem(
             hcoords,
             vcoords,
@@ -891,7 +903,7 @@ class PgMap(pg.GraphicsLayoutWidget):
             return
         # Calculate shift values
         if state:
-            dx, dy = self._rel_to_abs()
+            dx, dy = self._rel_to_abs() # type: ignore
             if self.vcoords is None or self.hcoords is None:
                 logger.warning(
                     'Scan cannot be shifted. Coord array is missing.'
@@ -917,7 +929,7 @@ class PgMap(pg.GraphicsLayoutWidget):
     def _rel_to_abs(
             self,
             quant: bool=False
-        ) -> tuple[float,float] | tuple[float,float] | None:
+        ) -> tuple[float,float] | tuple[PlainQuantity, PlainQuantity] | None:
         """
         Shift from relative to absolute coordinates.
 

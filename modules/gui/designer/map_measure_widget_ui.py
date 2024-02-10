@@ -281,6 +281,7 @@ class Ui_map_measure(object):
         icon4 = QIcon()
         icon4.addFile(u":/icons/qt_resources/control.png", QSize(), QIcon.Normal, QIcon.Off)
         self.btn_start.setIcon(icon4)
+        self.btn_start.setCheckable(True)
 
         self.horizontalLayout.addWidget(self.btn_start)
 
@@ -289,6 +290,7 @@ class Ui_map_measure(object):
         icon5 = QIcon()
         icon5.addFile(u":/icons/qt_resources/control-pause.png", QSize(), QIcon.Normal, QIcon.Off)
         self.btn_pause.setIcon(icon5)
+        self.btn_pause.setCheckable(True)
 
         self.horizontalLayout.addWidget(self.btn_pause)
 

@@ -476,6 +476,9 @@
           <iconset resource="qt_resources.qrc">
            <normaloff>:/icons/qt_resources/control.png</normaloff>:/icons/qt_resources/control.png</iconset>
          </property>
+         <property name="checkable">
+          <bool>true</bool>
+         </property>
         </widget>
        </item>
        <item>
@@ -486,6 +489,9 @@
          <property name="icon">
           <iconset resource="qt_resources.qrc">
            <normaloff>:/icons/qt_resources/control-pause.png</normaloff>:/icons/qt_resources/control-pause.png</iconset>
+         </property>
+         <property name="checkable">
+          <bool>true</bool>
          </property>
         </widget>
        </item>

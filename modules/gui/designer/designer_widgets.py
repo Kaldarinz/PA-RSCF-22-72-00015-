@@ -4,12 +4,14 @@ the progamm.
 """
 import logging
 from collections import deque
+from datetime import datetime
 
 from PySide6.QtCore import (
     Signal,
     Qt,
     QStringListModel,
-    Slot
+    Slot,
+    QTimer
 )
 from PySide6.QtWidgets import (
     QDialog,
@@ -236,6 +238,10 @@ class MapMeasureWidget(QWidget,map_measure_widget_ui.Ui_map_measure):
         self.sb_cur_speed.quantity = Q_(0, 'm/s')
         self.sb_tpp.quantity = Q_(0, 's')
 
+        # Scan timer
+        self.scan_timer: QTimer | None = None
+        self._scan_started: datetime | None = None
+
         self.connect_signals_slots()
 
     def connect_signals_slots(self):
@@ -269,6 +275,8 @@ class MapMeasureWidget(QWidget,map_measure_widget_ui.Ui_map_measure):
         self.btn_plot_full_area.pressed.connect(lambda: self.set_zoomed_out(True))
         # Expand scan to full plot area
         self.btn_plot_fit.pressed.connect(lambda: self.set_zoomed_out(False))
+        # Clear plot
+        self.btn_plot_clear.clicked.connect(self.clear_data)
         # Scan plane changed
         self.cb_scanplane.currentTextChanged.connect(
             lambda _: self._new_scan_plane()
@@ -278,28 +286,39 @@ class MapMeasureWidget(QWidget,map_measure_widget_ui.Ui_map_measure):
         # Auto step calculation
         self.btn_astep_calc.clicked.connect(lambda _: self.calc_astep())
         # Scan
-        self.btn_start.clicked.connect(self.scan)
+        self.btn_start.toggled.connect(self.scan)
         # Stop scan
         self.btn_stop.clicked.connect(self.stop_scan)
         
-    def scan(self) -> None:
+    def scan(self, state: bool) -> None:
         """Launch scanning by emitting ``scan_started``."""
 
-        # Create MapData object
-        scan = MapData(
-            center = self.center,
-            width = self.sb_sizeX.quantity,
-            height = self.sb_sizeY.quantity,
-            hpoints = self.sb_pointsX.value(),
-            vpoints = self.sb_pointsY.value(),
-            scan_plane = self.cb_scanplane.currentText(), # type: ignore
-            scan_dir = self.cb_scandir.currentText(),
-            wavelength = self.sb_wl.quantity
-        )
-        # Load scan data to plot
-        self.plot_scan.set_data(data=scan)
-        # Emit signal to start actual scanning from main window
-        self.scan_started.emit(scan)
+        if state:
+            # Set buttons state
+            self.btn_start.setEnabled(False)
+            self.btn_plot_clear.setEnabled(False)
+            # Create MapData object
+            scan = MapData(
+                center = self.center,
+                width = self.sb_sizeX.quantity,
+                height = self.sb_sizeY.quantity,
+                hpoints = self.sb_pointsX.value(),
+                vpoints = self.sb_pointsY.value(),
+                scan_plane = self.cb_scanplane.currentText(), # type: ignore
+                scan_dir = self.cb_scandir.currentText(),
+                wavelength = self.sb_wl.quantity
+            )
+            # Load scan data to plot
+            self.plot_scan.set_data(data=scan)
+            self.set_zoomed_out(False)
+            # Initiate scan timer
+            if self.scan_timer is None:    
+                self.scan_timer = QTimer(self)
+                self.scan_timer.timeout.connect(self._upd_scan_time)
+            self._scan_started = datetime.now()
+            self.scan_timer.start(100)
+            # Emit signal to start actual scanning from main window
+            self.scan_started.emit(scan)
 
     @Slot()
     def stop_scan(self) -> None:
@@ -309,10 +328,34 @@ class MapMeasureWidget(QWidget,map_measure_widget_ui.Ui_map_measure):
             return
         # Stop actual measurement
         self.scan_worker.flags['is_running'] = False
-        logger.info('Scanning terminated.')
+        
+    @Slot()
+    def scan_finished(self) -> None:
+        """Scan finished procedures."""
+
+        # Change state of buttons
+        self.btn_start.setChecked(False)
+        self.btn_start.setEnabled(True)
+        self.btn_plot_clear.setEnabled(True)
+        # Stop scan timer
+        if self.scan_timer is None:
+            logger.warning('Scan timer is missing.')
+        else:
+            self.scan_timer.stop()
         if self.plot_scan.data is not None:
             lines = len(self.plot_scan.data.data)
-            logger.info(f'{lines} lines scanned.')
+            dur = self.le_dur.text()
+            logger.info(f'{lines} lines scanned. Scan duration {dur}')
+
+        logger.info('Scanning terminated.')
+
+    @Slot()
+    def clear_data(self) -> None:
+        """Clear scanned data."""
+
+        self.plot_scan.clear_plot()
+        self.le_dur.setText('')
+        self.set_zoomed_out(True)
 
     def calc_astep(self, count: int=30) -> None:
         """Launch auto step calculation."""
@@ -460,6 +503,17 @@ class MapMeasureWidget(QWidget,map_measure_widget_ui.Ui_map_measure):
                 self.plot_scan.data.height
             )
             self.plot_scan.set_abs_scan_pos(False)
+
+    @Slot()
+    def _upd_scan_time(self) -> None:
+        """Update scan duration."""
+
+        if self._scan_started is not None:
+            dt = datetime.now() - self._scan_started
+            s, ms = str(dt).split('.')
+            self.le_dur.setText(f'{s}.{ms[:1]}')
+        else:
+            logger.warning('Scan timer cannot be updated. Start time is None.')
 
     @property
     def center(self) -> Position:
