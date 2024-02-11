@@ -293,7 +293,7 @@ class MapMeasureWidget(QWidget,map_measure_widget_ui.Ui_map_measure):
         # Auto step calculation
         self.btn_astep_calc.clicked.connect(lambda _: self.calc_astep())
         # Current speed changed
-        self.sb_cur_speed.valueChanged.connect(lambda _: self._set_est_dur())
+        self.sb_cur_speed.valueChanged.connect(lambda _: self._recalc_points())
         # Scan
         self.btn_start.toggled.connect(self.scan)
         # Stop scan
@@ -421,42 +421,13 @@ class MapMeasureWidget(QWidget,map_measure_widget_ui.Ui_map_measure):
         # channels, which are similar in all params hence multiplication
         # by 2.
         dt = Q_(delta.total_seconds()*2, 's')
-        # Force update of the current stage speed
+        # Force update of the current stage speed. Do not remove it!!!
         self.sb_speed.quantSet.emit(self.sb_speed.quantity)
-        # Get current speed
-        speed = self.sb_cur_speed.quantity
         # Average time per 1 step
         time_per_p = dt/(len(data) - 1)
-        step = speed * time_per_p
-        # Line size depends on orientation of fast scan direction
-        if self.cb_scandir.currentText().startswith('H'):
-            line_size = self.sb_sizeX.quantity
-        else:
-            line_size = self.sb_sizeY.quantity
-
-        points = int(line_size/step) + 1
-
-        ### Set calculated values
-        # dt
+        ### Set calculated value
         self.sb_tpp.quantity = time_per_p
-        # Step
-        x_units = self.sb_stepX.quantity.u
-        self.sb_stepX.quantity = step.to(x_units)
-        y_units = self.sb_stepY.quantity.u
-        self.sb_stepY.quantity = step.to(y_units)
-        # Points
-        if self.cb_scandir.currentText().startswith('H'):
-            self.sb_pointsX.setValue(points)
-            self.sb_pointsY.setValue(
-               int(self.sb_sizeY.quantity/step) + 1 
-            )
-        else:
-            self.sb_pointsX.setValue(
-               int(self.sb_sizeX.quantity/step) + 1 
-            )
-            self.sb_pointsY.setValue(points)
-        # Set estimated scan duration
-        self._set_est_dur()
+        self._recalc_points()
         # Emit signal
         self.astep_calculated.emit(True)
     
@@ -513,26 +484,55 @@ class MapMeasureWidget(QWidget,map_measure_widget_ui.Ui_map_measure):
         x, y, width, height = new_sel
         cx = x + width/2
         cy = y + height/2
-        xstep = width/(self.sb_pointsX.value() - 1)
-        ystep = height/(self.sb_pointsY.value() - 1)
-        size_changed = False
         if self.sb_centerX.quantity != cx:
             self.sb_centerX.quantity = cx # type: ignore
         if self.sb_centerY.quantity != cy:
             self.sb_centerY.quantity = cy # type: ignore
         if self.sb_sizeX.quantity != width:
             self.sb_sizeX.quantity = width
-            size_changed = True
         if self.sb_sizeY.quantity != height:
             self.sb_sizeY.quantity = height
-            size_changed = True
-        if self.sb_stepX != xstep:
-            self.sb_stepX.quantity = xstep
-        if self.sb_stepY != ystep:
-            self.sb_stepY.quantity = ystep
-        if size_changed:
-            self._set_est_dur()
-        
+
+        # Step size is determined by scan speed and ADC rate, therefore
+        # when scan size is changed, points number, but step size 
+        # should be changed.
+        self._recalc_points()
+
+    @Slot()
+    def _recalc_points(self) -> None:
+        """Recalculate amount of points."""
+
+        # Get current speed
+        speed = self.sb_cur_speed.quantity
+        if (time_per_p:=self.sb_tpp.quantity).m == 0:
+            return
+        step = speed * time_per_p
+        # Line size depends on orientation of fast scan direction
+        if self.cb_scandir.currentText().startswith('H'):
+            line_size = self.sb_sizeX.quantity
+        else:
+            line_size = self.sb_sizeY.quantity
+        # Fast axis points
+        points = int(line_size/step) + 1
+        # Step
+        x_units = self.sb_stepX.quantity.u
+        self.sb_stepX.quantity = step.to(x_units)
+        y_units = self.sb_stepY.quantity.u
+        self.sb_stepY.quantity = step.to(y_units)
+        # Points
+        if self.cb_scandir.currentText().startswith('H'):
+            self.sb_pointsX.setValue(points)
+            self.sb_pointsY.setValue(
+               int(self.sb_sizeY.quantity/step) + 1 
+            )
+        else:
+            self.sb_pointsX.setValue(
+               int(self.sb_sizeX.quantity/step) + 1 
+            )
+            self.sb_pointsY.setValue(points)
+        # Set estimated scan duration
+        self._set_est_dur()
+
     @Slot()
     def _points_set(self) -> None:
         """Update scan step, when amount of points is changed."""
@@ -544,7 +544,7 @@ class MapMeasureWidget(QWidget,map_measure_widget_ui.Ui_map_measure):
         if self.sb_stepY.quantity != ystep:
             self.sb_stepY.quantity = ystep
         # Update estimated scan duration
-        self._set_est_dur()
+        #self._set_est_dur()
 
     @Slot()
     def _new_scan_plane(self) -> None:
