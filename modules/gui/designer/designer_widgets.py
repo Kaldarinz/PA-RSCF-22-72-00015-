@@ -383,7 +383,8 @@ class MapMeasureWidget(QWidget,map_measure_widget_ui.Ui_map_measure):
         pb = QProgressDialog(self)
         #pb.setAutoReset(False)
         pb.setAutoClose(True)
-        pb.setLabelText('Calculating auto step size...')
+        pb.setLabelText('Calculating scan step size...')
+        pb.setWindowTitle('Auto step calculator')
         pb.setRange(0, count)
         # Set appear immediatelly
         pb.setMinimumDuration(0)
