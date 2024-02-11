@@ -49,7 +49,8 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtGui import (
     QKeySequence,
-    QShortcut
+    QShortcut,
+    QPixmap
 )
 import numpy as np
 from modules import ureg, Q_
@@ -142,7 +143,6 @@ class Window(QMainWindow,Ui_MainWindow,):
     def data(self) -> PaData|None:
         "PA data."
         return self._data
-    
     @data.setter
     def data(self, value: PaData|None) -> None:
         """Set new PaData and triggers data_viwer update."""
@@ -173,6 +173,20 @@ class Window(QMainWindow,Ui_MainWindow,):
         self.timer_motor.setInterval(100)
         self.timer_pm = QTimer()
         self.timer_pm.setInterval(200)
+
+        # Icons
+        self.pixmap_c = QPixmap(
+            u":/icons/qt_resources/plug-connect.png"
+        )
+        "Connected state icon."
+        self.pixmap_dc = QPixmap(
+            u":/icons/qt_resources/plug-disconnect-prohibition.png"
+        )
+        "Disconnected state icon."
+
+        # Hardware connection state
+        self.init_state: bool = False
+        "Hardware connection flag."
 
         # Initiate widgets
         self.set_widgets()
@@ -362,11 +376,7 @@ class Window(QMainWindow,Ui_MainWindow,):
 
         # Set scan speed
         self.p_map.sb_speed.quantSet.connect(
-            lambda speed: self.start_cb_worker(
-                self.p_map.sb_cur_speed.set_quantity,
-                pa_logic.set_stages_speed,
-                speed
-            )
+            self.set_scan_speed
         )
 
         ### Data view###
@@ -431,30 +441,71 @@ class Window(QMainWindow,Ui_MainWindow,):
 
     @Slot(MapData)
     def measure_map(self, scan: MapData) -> None:
-        """Start 2D scanning."""
+        """
+        Start 2D scanning.
+        
+        Implement emulation if hardware is disconnected.
+        """
 
         logger.info('measure_map slot called.')
-        # Emulation
-        scan_worker = Worker(pa_logic.scan_2d_emul, scan = scan)
+        if self.init_state:
+            scan_worker = Worker(pa_logic.scan_2d, scan = scan)
+        # Emulate scan if hardware is disconnected
+        else:
+            scan_worker = Worker(
+                pa_logic.scan_2d_emul,
+                scan = scan,
+                speed = self.p_map.sb_cur_speed.quantity
+        )
         self.p_map.scan_worker = scan_worker
         scan_worker.signals.progess.connect(self.p_map.plot_scan.upd_scan)
         scan_worker.signals.finished.connect(self.p_map.scan_finished)
         self.pool.start(scan_worker)
+
+    @Slot(PlainQuantity)
+    def set_scan_speed(self, speed: PlainQuantity) -> None:
+        """
+        Set scan stage.
         
+        Implement emulation if hardware is disconnected.
+        """
+
+        # Emulation
+        if not self.init_state:
+            self.p_map.sb_cur_speed.quantity = speed
+            return
+        # Real request otherwise
+        set_vel_worker = Worker(
+            pa_logic.set_stages_speed,
+            speed = speed
+        )
+        set_vel_worker.signals.result.connect(
+            self.p_map.sb_cur_speed.set_quantity
+        )
+
+
     @Slot(QProgressDialog)
     def calc_astep(self, pb: QProgressDialog) -> None:
         """
         Calculate auto step.
         
         This slot handles communication with hardware for autostep
-        calculation.
+        calculation.\n
+        Implement emulation if hardware is disconnected.
         """
 
-        self.astep_worker = Worker(
-            func = pa_logic.meas_cont,
-            data = 'en_fast',
-            max_count = pb.maximum()
-        )
+        # Start emulation if hardware is not init
+        if not self.init_state:
+            self.astep_worker = Worker(
+                func=pa_logic.en_meas_fast_cont_emul,
+                max_count = pb.maximum()
+            )
+        else:
+            self.astep_worker = Worker(
+                func = pa_logic.meas_cont,
+                data = 'en_fast',
+                max_count = pb.maximum()
+            )
         # Progress signal increase progress bar
         self.astep_worker.signals.progess.connect(
             lambda x: pb.setValue(pb.value() + 1)
@@ -1329,11 +1380,17 @@ class Window(QMainWindow,Ui_MainWindow,):
         """
         worker = Worker(pa_logic.init_hardware)
         self.pool.start(worker)
-        worker.signals.finished.connect(self.post_init)
+        worker.signals.result.connect(self.post_init)
 
-    def post_init(self) -> None:
+    def post_init(self, state: bool) -> None:
         """Routines to be done after initialization of hardware."""
 
+        # Update hardware connection flag
+        self.init_state = state
+        if not state:
+            self.action_Init.setIcon(self.pixmap_dc)
+            return
+        self.action_Init.setIcon(self.pixmap_c)
         # Start energy measurement cycle.
         if pa_logic.osc_open():
             if not self.timer_pm.isActive():

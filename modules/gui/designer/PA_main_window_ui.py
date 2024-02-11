@@ -3,7 +3,7 @@
 ################################################################################
 ## Form generated from reading UI file 'PA_main_window.ui'
 ##
-## Created by: Qt User Interface Compiler version 6.6.0
+## Created by: Qt User Interface Compiler version 6.6.1
 ##
 ## WARNING! All changes made in this file will be lost when recompiling UI file!
 ################################################################################
@@ -52,7 +52,7 @@ class Ui_MainWindow(object):
         self.action_Init = QAction(MainWindow)
         self.action_Init.setObjectName(u"action_Init")
         icon = QIcon()
-        icon.addFile(u":/icons/qt_resources/battery-plug.png", QSize(), QIcon.Normal, QIcon.Off)
+        icon.addFile(u":/icons/qt_resources/plug-disconnect-prohibition.png", QSize(), QIcon.Normal, QIcon.Off)
         self.action_Init.setIcon(icon)
         self.action_measure_PA = QAction(MainWindow)
         self.action_measure_PA.setObjectName(u"action_measure_PA")
@@ -107,7 +107,7 @@ class Ui_MainWindow(object):
         MainWindow.setCentralWidget(self.centralwidget)
         self.menubar = QMenuBar(MainWindow)
         self.menubar.setObjectName(u"menubar")
-        self.menubar.setGeometry(QRect(0, 0, 1033, 21))
+        self.menubar.setGeometry(QRect(0, 0, 1033, 22))
         self.menu_Data = QMenu(self.menubar)
         self.menu_Data.setObjectName(u"menu_Data")
         self.menu_Hardware = QMenu(self.menubar)

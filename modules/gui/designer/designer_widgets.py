@@ -6,6 +6,7 @@ import logging
 from collections import deque
 from datetime import datetime
 import math
+from time import sleep, time
 
 from PySide6.QtCore import (
     Signal,
@@ -208,6 +209,8 @@ class MapMeasureWidget(QWidget,map_measure_widget_ui.Ui_map_measure):
     """2D PhotoAcoustic measurements widget."""
 
     calc_astepClicked = Signal(QProgressDialog)
+    astep_calculated = Signal(bool)
+    "Emitted, when auto step is calculated. Always return `True`."
     scan_started = Signal(MapData)
     scan_worker: Worker | None = None
 
@@ -289,6 +292,8 @@ class MapMeasureWidget(QWidget,map_measure_widget_ui.Ui_map_measure):
         self.cb_scandir.currentTextChanged.connect( lambda _: self._new_dir())
         # Auto step calculation
         self.btn_astep_calc.clicked.connect(lambda _: self.calc_astep())
+        # Current speed changed
+        self.sb_cur_speed.valueChanged.connect(lambda _: self._set_est_dur())
         # Scan
         self.btn_start.toggled.connect(self.scan)
         # Stop scan
@@ -298,6 +303,16 @@ class MapMeasureWidget(QWidget,map_measure_widget_ui.Ui_map_measure):
         """Launch scanning by emitting ``scan_started``."""
 
         if state:
+            # Check if scan step was already calculated
+            if self.sb_tpp.quantity.m == 0:
+                self.calc_astep()
+                self.astep_calculated.connect(self.scan)
+                return
+            else:
+                try:
+                    self.astep_calculated.disconnect(self.scan)
+                except:
+                    pass
             # Set buttons state
             self.btn_start.setEnabled(False)
             self.btn_plot_clear.setEnabled(False)
@@ -306,8 +321,8 @@ class MapMeasureWidget(QWidget,map_measure_widget_ui.Ui_map_measure):
                 center = self.center,
                 width = self.sb_sizeX.quantity,
                 height = self.sb_sizeY.quantity,
-                hpoints = self.sb_pointsX.value(),
-                vpoints = self.sb_pointsY.value(),
+                hpoints = int(self.sb_pointsX.value()),
+                vpoints = int(self.sb_pointsY.value()),
                 scan_plane = self.cb_scanplane.currentText(), # type: ignore
                 scan_dir = self.cb_scandir.currentText(),
                 wavelength = self.sb_wl.quantity
@@ -351,7 +366,7 @@ class MapMeasureWidget(QWidget,map_measure_widget_ui.Ui_map_measure):
             dur = self.le_dur.text()
             logger.info(f'{lines} lines scanned. Scan duration {dur}')
 
-        logger.info('Scanning terminated.')
+        logger.info('Scanning finished.')
 
     @Slot()
     def clear_data(self) -> None:
@@ -361,7 +376,7 @@ class MapMeasureWidget(QWidget,map_measure_widget_ui.Ui_map_measure):
         self.le_dur.setText('')
         self.set_zoomed_out(True)
 
-    def calc_astep(self, count: int=30) -> None:
+    def calc_astep(self, count: int=30) -> QProgressDialog:
         """Launch auto step calculation."""
 
         # Create progress bar dialog
@@ -376,6 +391,7 @@ class MapMeasureWidget(QWidget,map_measure_widget_ui.Ui_map_measure):
         # Emit signal to launch worker for measuring.
         self.calc_astepClicked.emit(pb)
         pb.show()
+        return pb
 
     @Slot()
     def set_astep(self, data: list[EnergyMeasurement]) -> None:
@@ -405,7 +421,10 @@ class MapMeasureWidget(QWidget,map_measure_widget_ui.Ui_map_measure):
         # channels, which are similar in all params hence multiplication
         # by 2.
         dt = Q_(delta.total_seconds()*2, 's')
-        speed = self.sb_speed.quantity
+        # Force update of the current stage speed
+        self.sb_speed.quantSet.emit(self.sb_speed.quantity)
+        # Get current speed
+        speed = self.sb_cur_speed.quantity
         # Average time per 1 step
         time_per_p = dt/(len(data) - 1)
         step = speed * time_per_p
@@ -431,78 +450,16 @@ class MapMeasureWidget(QWidget,map_measure_widget_ui.Ui_map_measure):
             self.sb_pointsY.setValue(
                int(self.sb_sizeY.quantity/step) + 1 
             )
-            est_dur = 1.2*(line_size + 2*self.sb_sizeY.quantity)/speed
         else:
             self.sb_pointsX.setValue(
                int(self.sb_sizeX.quantity/step) + 1 
             )
             self.sb_pointsY.setValue(points)
-            est_dur = 1.2*(line_size + 2*self.sb_sizeX.quantity)/speed
-        # Est time
-        self.le_estdur.setText(str(est_dur))
-
-    @Slot()
-    def _sel_changed(self, new_sel: QuantRect | None) -> None:
-
-        # Uncheck selection button if selection is not visible
-        if new_sel is None:
-            btn_set_silent(self.btn_plot_area_sel, False)
-            return
-        # Otherwise update spin boxes
-        x, y, width, height = new_sel
-        cx = x + width/2
-        cy = y + height/2
-        xstep = width/(self.sb_pointsX.value() - 1)
-        ystep = height/(self.sb_pointsY.value() - 1)
-        if self.sb_centerX.quantity != cx:
-            self.sb_centerX.quantity = cx # type: ignore
-        if self.sb_centerY.quantity != cy:
-            self.sb_centerY.quantity = cy # type: ignore
-        if self.sb_sizeX.quantity != width:
-            self.sb_sizeX.quantity = width
-        if self.sb_sizeY.quantity != height:
-            self.sb_sizeY.quantity = height
-        if self.sb_stepX != xstep:
-            self.sb_stepX.quantity = xstep
-        if self.sb_stepY != ystep:
-            self.sb_stepY.quantity = ystep
-        
-    @Slot()
-    def _points_set(self) -> None:
-        """Update scan step, when amount of points is changed."""
-
-        xstep = self.sb_sizeX.quantity/(self.sb_pointsX.value() - 1)
-        ystep = self.sb_sizeY.quantity/(self.sb_pointsY.value() - 1)
-        if self.sb_stepX.quantity != xstep:
-            self.sb_stepX.quantity = xstep
-        if self.sb_stepY.quantity != ystep:
-            self.sb_stepY.quantity = ystep
-    @Slot()
-    def _new_scan_plane(self) -> None:
-        """Slot, called when new scan plane is selected."""
-
-        sel_plane = self.cb_scanplane.currentText()
-        self.plot_scan.hlabel = sel_plane[0]
-        self.plot_scan.vlabel = sel_plane[1]
-        # Labels for scan area
-        self.lbl_areaX.setText(sel_plane[0])
-        self.lbl_areaY.setText(sel_plane[1])
-
-    @Slot()
-    def _new_dir(self) -> None:
-        """Callback for new scan direction."""
-        
-        # Check if auto step calculation is enabled
-        if not self.chb_astep.isChecked():
-            return
-        # Set enable state for axis controls
-        if self.cb_scandir.currentText()[0] == 'H':
-            self.sb_pointsX.setEnabled(False)
-            self.sb_pointsY.setEnabled(True)
-        else:
-            self.sb_pointsX.setEnabled(True)
-            self.sb_pointsY.setEnabled(False)
-
+        # Set estimated scan duration
+        self._set_est_dur()
+        # Emit signal
+        self.astep_calculated.emit(True)
+    
     def set_zoomed_out(self, state: bool) -> None:
         """Set whether maximum scan area is visible."""
         if state and self._zoomed_out:
@@ -521,6 +478,101 @@ class MapMeasureWidget(QWidget,map_measure_widget_ui.Ui_map_measure):
                 self.plot_scan.data.height
             )
             self.plot_scan.set_abs_scan_pos(False)
+
+    def _set_est_dur(self) -> None:
+        """Set estimated duration of scan."""
+
+        if self.sb_tpp.quantity.m == 0:
+            return
+        # Get current speed
+        speed = self.sb_cur_speed.quantity
+        # Line size depends on orientation of fast scan direction
+        if self.cb_scandir.currentText().startswith('H'):
+            line_size = self.sb_sizeX.quantity
+            spoints = self.sb_pointsY.value()
+            est_dur = (line_size*spoints + self.sb_sizeY.quantity)/speed
+        else:
+            line_size = self.sb_sizeY.quantity
+            spoints = self.sb_pointsX.value()
+            est_dur = (line_size*spoints + self.sb_sizeX.quantity)/speed
+        tot_s = est_dur.to('s').m
+        hours = int(tot_s // 3600)
+        mins = int((tot_s % 3600) // 60)
+        secs = (tot_s % 3600) % 60
+        strdur = f'{hours:02d}:{mins:02d}:{secs:04.1f}'
+        self.le_estdur.setText(strdur)
+
+    @Slot()
+    def _sel_changed(self, new_sel: QuantRect | None) -> None:
+        """This slot is always called when selection is changed."""
+        # Uncheck selection button if selection is not visible
+        if new_sel is None:
+            btn_set_silent(self.btn_plot_area_sel, False)
+            return
+        # Otherwise update spin boxes
+        x, y, width, height = new_sel
+        cx = x + width/2
+        cy = y + height/2
+        xstep = width/(self.sb_pointsX.value() - 1)
+        ystep = height/(self.sb_pointsY.value() - 1)
+        size_changed = False
+        if self.sb_centerX.quantity != cx:
+            self.sb_centerX.quantity = cx # type: ignore
+        if self.sb_centerY.quantity != cy:
+            self.sb_centerY.quantity = cy # type: ignore
+        if self.sb_sizeX.quantity != width:
+            self.sb_sizeX.quantity = width
+            size_changed = True
+        if self.sb_sizeY.quantity != height:
+            self.sb_sizeY.quantity = height
+            size_changed = True
+        if self.sb_stepX != xstep:
+            self.sb_stepX.quantity = xstep
+        if self.sb_stepY != ystep:
+            self.sb_stepY.quantity = ystep
+        if size_changed:
+            self._set_est_dur()
+        
+    @Slot()
+    def _points_set(self) -> None:
+        """Update scan step, when amount of points is changed."""
+
+        xstep = self.sb_sizeX.quantity/(self.sb_pointsX.value() - 1)
+        ystep = self.sb_sizeY.quantity/(self.sb_pointsY.value() - 1)
+        if self.sb_stepX.quantity != xstep:
+            self.sb_stepX.quantity = xstep
+        if self.sb_stepY.quantity != ystep:
+            self.sb_stepY.quantity = ystep
+        # Update estimated scan duration
+        self._set_est_dur()
+
+    @Slot()
+    def _new_scan_plane(self) -> None:
+        """Slot, called when new scan plane is selected."""
+
+        sel_plane = self.cb_scanplane.currentText()
+        self.plot_scan.hlabel = sel_plane[0]
+        self.plot_scan.vlabel = sel_plane[1]
+        # Labels for scan area
+        self.lbl_areaX.setText(sel_plane[0])
+        self.lbl_areaY.setText(sel_plane[1])
+
+    @Slot()
+    def _new_dir(self) -> None:
+        """Callback for new scan direction."""
+        
+        # Update est scan duration
+        self._set_est_dur()
+        # Check if auto step calculation is enabled
+        if not self.chb_astep.isChecked():
+            return
+        # Set enable state for axis controls
+        if self.cb_scandir.currentText()[0] == 'H':
+            self.sb_pointsX.setEnabled(False)
+            self.sb_pointsY.setEnabled(True)
+        else:
+            self.sb_pointsX.setEnabled(True)
+            self.sb_pointsY.setEnabled(False)
 
     @Slot()
     def _upd_scan_time(self) -> None:

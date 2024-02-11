@@ -27,7 +27,7 @@ class Ui_map_measure(object):
     def setupUi(self, map_measure):
         if not map_measure.objectName():
             map_measure.setObjectName(u"map_measure")
-        map_measure.resize(1073, 832)
+        map_measure.resize(1269, 907)
         self.horizontalLayout_6 = QHBoxLayout(map_measure)
         self.horizontalLayout_6.setObjectName(u"horizontalLayout_6")
         self.verticalLayout = QVBoxLayout()
@@ -240,6 +240,7 @@ class Ui_map_measure(object):
         self.btn_plot_area_sel.setIcon(icon3)
         self.btn_plot_area_sel.setCheckable(True)
         self.btn_plot_area_sel.setChecked(True)
+        self.btn_plot_area_sel.setFlat(False)
 
         self.horizontalLayout_4.addWidget(self.btn_plot_area_sel)
 
@@ -360,9 +361,9 @@ class Ui_map_measure(object):
         self.horizontalLayout_5.setObjectName(u"horizontalLayout_5")
         self.sb_speed = QuantSpinBox(map_measure)
         self.sb_speed.setObjectName(u"sb_speed")
-        sizePolicy1.setHeightForWidth(self.sb_speed.sizePolicy().hasHeightForWidth())
-        self.sb_speed.setSizePolicy(sizePolicy1)
-        self.sb_speed.setMinimumSize(QSize(0, 0))
+        sizePolicy3.setHeightForWidth(self.sb_speed.sizePolicy().hasHeightForWidth())
+        self.sb_speed.setSizePolicy(sizePolicy3)
+        self.sb_speed.setMinimumSize(QSize(95, 0))
         self.sb_speed.setDecimals(2)
         self.sb_speed.setMaximum(40.000000000000000)
         self.sb_speed.setValue(2.000000000000000)
@@ -373,15 +374,20 @@ class Ui_map_measure(object):
         self.label.setObjectName(u"label")
         sizePolicy2.setHeightForWidth(self.label.sizePolicy().hasHeightForWidth())
         self.label.setSizePolicy(sizePolicy2)
+        self.label.setMinimumSize(QSize(0, 0))
 
         self.horizontalLayout_5.addWidget(self.label)
 
         self.sb_cur_speed = QuantSpinBox(map_measure)
         self.sb_cur_speed.setObjectName(u"sb_cur_speed")
+        sizePolicy1.setHeightForWidth(self.sb_cur_speed.sizePolicy().hasHeightForWidth())
+        self.sb_cur_speed.setSizePolicy(sizePolicy1)
+        self.sb_cur_speed.setMinimumSize(QSize(50, 0))
         self.sb_cur_speed.setFrame(True)
         self.sb_cur_speed.setReadOnly(True)
         self.sb_cur_speed.setButtonSymbols(QAbstractSpinBox.NoButtons)
         self.sb_cur_speed.setMaximum(999.990000000000009)
+        self.sb_cur_speed.setValue(2.000000000000000)
 
         self.horizontalLayout_5.addWidget(self.sb_cur_speed)
 
@@ -397,6 +403,8 @@ class Ui_map_measure(object):
         self.horizontalLayout_3.setObjectName(u"horizontalLayout_3")
         self.chb_astep = QCheckBox(map_measure)
         self.chb_astep.setObjectName(u"chb_astep")
+        sizePolicy3.setHeightForWidth(self.chb_astep.sizePolicy().hasHeightForWidth())
+        self.chb_astep.setSizePolicy(sizePolicy3)
         self.chb_astep.setCheckable(True)
         self.chb_astep.setChecked(True)
 
@@ -404,20 +412,27 @@ class Ui_map_measure(object):
 
         self.btn_astep_calc = QPushButton(map_measure)
         self.btn_astep_calc.setObjectName(u"btn_astep_calc")
-        self.btn_astep_calc.setMinimumSize(QSize(110, 0))
+        sizePolicy3.setHeightForWidth(self.btn_astep_calc.sizePolicy().hasHeightForWidth())
+        self.btn_astep_calc.setSizePolicy(sizePolicy3)
+        self.btn_astep_calc.setMinimumSize(QSize(50, 0))
 
         self.horizontalLayout_3.addWidget(self.btn_astep_calc)
 
         self.lbl_tpp = QLabel(map_measure)
         self.lbl_tpp.setObjectName(u"lbl_tpp")
+        sizePolicy2.setHeightForWidth(self.lbl_tpp.sizePolicy().hasHeightForWidth())
+        self.lbl_tpp.setSizePolicy(sizePolicy2)
+        self.lbl_tpp.setMinimumSize(QSize(53, 0))
 
         self.horizontalLayout_3.addWidget(self.lbl_tpp)
 
         self.sb_tpp = QuantSpinBox(map_measure)
         self.sb_tpp.setObjectName(u"sb_tpp")
+        self.sb_tpp.setMinimumSize(QSize(50, 0))
         self.sb_tpp.setReadOnly(True)
         self.sb_tpp.setButtonSymbols(QAbstractSpinBox.NoButtons)
-        self.sb_tpp.setDecimals(3)
+        self.sb_tpp.setDecimals(2)
+        self.sb_tpp.setMaximum(999.990000000000009)
 
         self.horizontalLayout_3.addWidget(self.sb_tpp)
 
@@ -596,14 +611,26 @@ class Ui_map_measure(object):
         self.lbl_estdur.setText(QCoreApplication.translate("map_measure", u"Est time", None))
         self.lbl_dur.setText(QCoreApplication.translate("map_measure", u"Scan time", None))
         self.lbl_params.setText(QCoreApplication.translate("map_measure", u"Parameters", None))
-        self.lbl_speed.setText(QCoreApplication.translate("map_measure", u"Speed", None))
+        self.lbl_speed.setText(QCoreApplication.translate("map_measure", u"Scan speed", None))
+#if QT_CONFIG(tooltip)
+        self.sb_speed.setToolTip(QCoreApplication.translate("map_measure", u"Set scan speed. Equal for all axes.", None))
+#endif // QT_CONFIG(tooltip)
         self.sb_speed.setSuffix(QCoreApplication.translate("map_measure", u" mm/s", None))
         self.label.setText(QCoreApplication.translate("map_measure", u"Cur speed", None))
+#if QT_CONFIG(tooltip)
+        self.sb_cur_speed.setToolTip(QCoreApplication.translate("map_measure", u"Currently set scan speed. Equal for all axes.", None))
+#endif // QT_CONFIG(tooltip)
         self.sb_cur_speed.setSuffix(QCoreApplication.translate("map_measure", u" m/s", None))
         self.lbl_astep.setText(QCoreApplication.translate("map_measure", u"Auto step", None))
         self.chb_astep.setText("")
+#if QT_CONFIG(tooltip)
+        self.btn_astep_calc.setToolTip(QCoreApplication.translate("map_measure", u"Measure average time between ADC measureemnts.", None))
+#endif // QT_CONFIG(tooltip)
         self.btn_astep_calc.setText(QCoreApplication.translate("map_measure", u"Calculate", None))
-        self.lbl_tpp.setText(QCoreApplication.translate("map_measure", u"Time per point", None))
+        self.lbl_tpp.setText(QCoreApplication.translate("map_measure", u"Point", None))
+#if QT_CONFIG(tooltip)
+        self.sb_tpp.setToolTip(QCoreApplication.translate("map_measure", u"Average time between scan points. Limited by ADC speed.", None))
+#endif // QT_CONFIG(tooltip)
         self.sb_tpp.setSuffix(QCoreApplication.translate("map_measure", u" s", None))
         self.lbl_scandir.setText(QCoreApplication.translate("map_measure", u"Direction", None))
         self.cb_scandir.setItemText(0, QCoreApplication.translate("map_measure", u"HLT", None))

@@ -82,12 +82,13 @@ def init_hardware(**kwargs) -> bool:
     """
 
     logger.info('Starting hardware initialization...')
-    
+    result = True
     # Start Actors to communicate with hardware
     _init_call()
     # Try init oscilloscope.
     if not init_osc():
         logger.warning('Oscilloscope cannot be loaded!')
+        result = False
     else:
         logger.info('Oscilloscope initiated.')
     
@@ -95,6 +96,7 @@ def init_hardware(**kwargs) -> bool:
     # Try init stages
     if not init_stages():
         logger.warning('Stages cannot be loaded!')
+        result = False
     
     config = hardware.config
     pm = hardware.power_meter
@@ -120,7 +122,7 @@ def init_hardware(**kwargs) -> bool:
         logger.debug('PA sensor reinitiated on the same channel')
                 
     logger.debug('...Finishing hardware initialization.')
-    return True
+    return result
 
 def close_hardware(**kwargs) -> None:
     """
@@ -375,6 +377,7 @@ def set_stages_speed(
             max_velocity = speed.to('m/s').m
         )
         if isinstance(vel_params, ActorFail):
+            logger.info(f'Velocity cannot be set to {axes} stage.')
             return Q_(np.nan, 'm/s')
         set_speed = Q_(vel_params.max_velocity, 'm/s')
         logger.debug(f'New {axes} stage speed is {set_speed}.')
@@ -653,38 +656,6 @@ def meas_cont(
 
     return result
 
-def en_meas_fast_cont_emul(
-        signals: WorkerSignals,
-        flags: dict[str, bool],
-        max_count: int | None=None,
-        priority: int=Priority.NORMAL,
-        **kwargs
-    ) -> list[EnergyMeasurement]:
-    """
-    Emulator of get screen information non-stop.
-
-    Thread safe.
-    """
-
-    logger.info('Starting fast continous EnergyMeasurement emulation.')
-    rng = np.random.default_rng()
-    result = []
-    total = 0
-    while flags.get('is_running', False):
-        delay = rng.random()/10.
-        time.sleep(delay)
-        msmnt = EnergyMeasurement(
-            datetime=dt.now(),
-            energy=Q_(rng.random(),'J')
-        )
-        result.append(msmnt)
-        signals.progess.emit(msmnt)
-        total += 1
-        logger.info('EnergyMeasurement generated.')
-        if max_count is not None and total == max_count:
-            break
-    return result
-
 def scan_2d(
         scan: MapData,
         signals: WorkerSignals,
@@ -914,6 +885,7 @@ def aver_measurements(measurements: list[MeasuredPoint]) -> MeasuredPoint:
 
 def scan_2d_emul(
         scan: MapData,
+        speed: PlainQuantity,
         signals: WorkerSignals,
         flags: WorkerFlags,
         priority: int=Priority.NORMAL,
@@ -927,14 +899,11 @@ def scan_2d_emul(
 
     logger.info('Starting emulation of scanning procedure.')
 
-    # Scan speed. Currently it is hardwritten here.
-    speed = Q_(1, 'mm/s')
-
     # Scan loop
     for _ in range(scan.spoints):
         # move to line  starting point
         #logger.info('Moving to scan start position.')
-        time.sleep(0.5)
+        time.sleep((scan.sstep.value()/speed).to('s').m)
         #logger.info('At scan start position.')
         # Create scan line
         line = scan.create_line()
@@ -949,7 +918,7 @@ def scan_2d_emul(
         # List with results
         result_en: list[OscMeasurement] = []
         tkwargs_en = {
-            'step': 0.2,
+            'step': 0.5,
             'comm': comm_en,
             'result': result_en
         }
@@ -961,6 +930,7 @@ def scan_2d_emul(
         # Then send stages to scan the line
         scan_dist = line.stopp.dist(line.startp)
         scan_time = (scan_dist/speed).to('s').m
+        logger.info(f'line {scan_time=}')
         # While stage is moving, measure its position.
         t0 = time.time()
         while (cur_t:=time.time()-t0) < scan_time:
@@ -1001,6 +971,8 @@ def pa_fast_cont_emul(
     """
     Emulate measuring PA signal.
     
+    Attributes
+    ----------
     `step` - average time between measurements in s.
     """
 
@@ -1026,7 +998,7 @@ def pa_fast_cont_emul(
             )
             break
         logger.debug(f'Prepare to emul measure {comm.count} at {t=}')
-        time.sleep(rng.random()*2*step)
+        time.sleep((rng.random()*0.2 + 0.9)*step)
         
         # Generate Measurement
         raw_data: list[np.ndarray|None] = [None,None]
@@ -1051,4 +1023,36 @@ def pa_fast_cont_emul(
             logger.debug(f'{max_count=} reached')
             break
 
+    return result
+
+def en_meas_fast_cont_emul(
+        signals: WorkerSignals,
+        flags: dict[str, bool],
+        max_count: int | None=None,
+        priority: int=Priority.NORMAL,
+        **kwargs
+    ) -> list[EnergyMeasurement]:
+    """
+    Emulator of get screen information non-stop.
+
+    Thread safe.
+    """
+
+    time_step = 0.25
+    logger.info('Starting fast continous EnergyMeasurement emulation.')
+    result = []
+    total = 0
+    while flags.get('is_running', False):
+        delay = time_step*(0.9 + 0.2*rng.random())
+        time.sleep(delay)
+        msmnt = EnergyMeasurement(
+            datetime=dt.now(),
+            energy=Q_(rng.random(),'J')
+        )
+        result.append(msmnt)
+        signals.progess.emit(msmnt)
+        total += 1
+        logger.debug('EnergyMeasurement generated.')
+        if max_count is not None and total == max_count:
+            break
     return result

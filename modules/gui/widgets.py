@@ -506,7 +506,10 @@ class QuantSpinBox(QDoubleSpinBox):
 
     def set_quantity(self, val: PlainQuantity) -> None:
         """Setter method for quantity."""
-        self.quantity = val
+        if val.m is not np.nan:
+            self.quantity = val
+        # else:
+        #     self.quantity = Q_(-1, self.suffix().strip())
 
     @property
     def quantity(self) -> PlainQuantity:
@@ -741,7 +744,7 @@ class PgMap(pg.GraphicsLayoutWidget):
                 self._sel_ref.setPos((x, y))
             if updated['width'] or updated['height']:
                 self._sel_ref.setSize((width_m, height_m))
-            
+        
             # draw and emit signal only if something was actualy changed
             if True in updated.values():
                 self.selection_changed.emit(self.selected_area)
