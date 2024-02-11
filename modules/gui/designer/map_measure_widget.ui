@@ -42,6 +42,60 @@
      </item>
      <item>
       <layout class="QGridLayout" name="gridLayout">
+       <item row="1" column="2">
+        <widget class="QuantSpinBox" name="sb_sizeX">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+         <property name="minimumSize">
+          <size>
+           <width>0</width>
+           <height>0</height>
+          </size>
+         </property>
+         <property name="suffix">
+          <string> mm</string>
+         </property>
+         <property name="decimals">
+          <number>2</number>
+         </property>
+         <property name="maximum">
+          <double>25.000000000000000</double>
+         </property>
+         <property name="value">
+          <double>4.000000000000000</double>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="3">
+        <widget class="QLabel" name="lbl_points">
+         <property name="text">
+          <string>Points</string>
+         </property>
+        </widget>
+       </item>
+       <item row="2" column="0">
+        <widget class="QLabel" name="lbl_areaY">
+         <property name="font">
+          <font>
+           <bold>true</bold>
+          </font>
+         </property>
+         <property name="text">
+          <string>Y</string>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="4">
+        <widget class="QLabel" name="lbl_step">
+         <property name="text">
+          <string>Step</string>
+         </property>
+        </widget>
+       </item>
        <item row="0" column="2">
         <widget class="QLabel" name="lbl_size">
          <property name="text">
@@ -49,10 +103,34 @@
          </property>
         </widget>
        </item>
-       <item row="3" column="4">
-        <widget class="QRadioButton" name="rb_lockstep">
-         <property name="text">
-          <string/>
+       <item row="1" column="4">
+        <widget class="QuantSpinBox" name="sb_stepX">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+         <property name="minimumSize">
+          <size>
+           <width>0</width>
+           <height>0</height>
+          </size>
+         </property>
+         <property name="readOnly">
+          <bool>true</bool>
+         </property>
+         <property name="buttonSymbols">
+          <enum>QAbstractSpinBox::NoButtons</enum>
+         </property>
+         <property name="suffix">
+          <string> mm</string>
+         </property>
+         <property name="decimals">
+          <number>2</number>
+         </property>
+         <property name="maximum">
+          <double>999.990000000000009</double>
          </property>
         </widget>
        </item>
@@ -84,8 +162,8 @@
          </property>
         </widget>
        </item>
-       <item row="1" column="2">
-        <widget class="QuantSpinBox" name="sb_sizeX">
+       <item row="2" column="4">
+        <widget class="QuantSpinBox" name="sb_stepY">
          <property name="sizePolicy">
           <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
            <horstretch>0</horstretch>
@@ -97,6 +175,12 @@
            <width>0</width>
            <height>0</height>
           </size>
+         </property>
+         <property name="readOnly">
+          <bool>true</bool>
+         </property>
+         <property name="buttonSymbols">
+          <enum>QAbstractSpinBox::NoButtons</enum>
          </property>
          <property name="suffix">
           <string> mm</string>
@@ -105,115 +189,7 @@
           <number>2</number>
          </property>
          <property name="maximum">
-          <double>25.000000000000000</double>
-         </property>
-         <property name="value">
-          <double>4.000000000000000</double>
-         </property>
-        </widget>
-       </item>
-       <item row="2" column="3">
-        <widget class="QSpinBox" name="sb_pointsY">
-         <property name="sizePolicy">
-          <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
-           <horstretch>0</horstretch>
-           <verstretch>0</verstretch>
-          </sizepolicy>
-         </property>
-         <property name="minimumSize">
-          <size>
-           <width>0</width>
-           <height>0</height>
-          </size>
-         </property>
-         <property name="value">
-          <number>10</number>
-         </property>
-        </widget>
-       </item>
-       <item row="1" column="0">
-        <widget class="QLabel" name="lbl_areaX">
-         <property name="font">
-          <font>
-           <bold>true</bold>
-          </font>
-         </property>
-         <property name="text">
-          <string>X</string>
-         </property>
-        </widget>
-       </item>
-       <item row="3" column="0">
-        <widget class="QLabel" name="lbl_lock">
-         <property name="text">
-          <string>Lock</string>
-         </property>
-        </widget>
-       </item>
-       <item row="3" column="3">
-        <widget class="QRadioButton" name="rb_lockpoints">
-         <property name="text">
-          <string/>
-         </property>
-        </widget>
-       </item>
-       <item row="1" column="3">
-        <widget class="QSpinBox" name="sb_pointsX">
-         <property name="sizePolicy">
-          <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
-           <horstretch>0</horstretch>
-           <verstretch>0</verstretch>
-          </sizepolicy>
-         </property>
-         <property name="minimumSize">
-          <size>
-           <width>68</width>
-           <height>0</height>
-          </size>
-         </property>
-         <property name="value">
-          <number>10</number>
-         </property>
-        </widget>
-       </item>
-       <item row="1" column="4">
-        <widget class="QuantSpinBox" name="sb_stepX">
-         <property name="sizePolicy">
-          <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
-           <horstretch>0</horstretch>
-           <verstretch>0</verstretch>
-          </sizepolicy>
-         </property>
-         <property name="minimumSize">
-          <size>
-           <width>0</width>
-           <height>0</height>
-          </size>
-         </property>
-         <property name="suffix">
-          <string> mm</string>
-         </property>
-         <property name="decimals">
-          <number>2</number>
-         </property>
-        </widget>
-       </item>
-       <item row="0" column="1">
-        <widget class="QLabel" name="lbl_center">
-         <property name="text">
-          <string>Center</string>
-         </property>
-        </widget>
-       </item>
-       <item row="2" column="0">
-        <widget class="QLabel" name="lbl_areaY">
-         <property name="font">
-          <font>
-           <bold>true</bold>
-          </font>
-         </property>
-         <property name="text">
-          <string>Y</string>
+          <double>999.990000000000009</double>
          </property>
         </widget>
        </item>
@@ -245,28 +221,6 @@
          </property>
         </widget>
        </item>
-       <item row="2" column="4">
-        <widget class="QuantSpinBox" name="sb_stepY">
-         <property name="sizePolicy">
-          <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
-           <horstretch>0</horstretch>
-           <verstretch>0</verstretch>
-          </sizepolicy>
-         </property>
-         <property name="minimumSize">
-          <size>
-           <width>0</width>
-           <height>0</height>
-          </size>
-         </property>
-         <property name="suffix">
-          <string> mm</string>
-         </property>
-         <property name="decimals">
-          <number>2</number>
-         </property>
-        </widget>
-       </item>
        <item row="2" column="1">
         <widget class="QuantSpinBox" name="sb_centerY">
          <property name="sizePolicy">
@@ -295,33 +249,78 @@
          </property>
         </widget>
        </item>
-       <item row="0" column="3">
-        <widget class="QLabel" name="lbl_points">
+       <item row="0" column="1">
+        <widget class="QLabel" name="lbl_center">
          <property name="text">
-          <string>Points</string>
+          <string>Center</string>
          </property>
         </widget>
        </item>
-       <item row="0" column="4">
-        <widget class="QLabel" name="lbl_step">
+       <item row="1" column="0">
+        <widget class="QLabel" name="lbl_areaX">
+         <property name="font">
+          <font>
+           <bold>true</bold>
+          </font>
+         </property>
          <property name="text">
-          <string>Step</string>
+          <string>X</string>
          </property>
         </widget>
        </item>
-       <item row="3" column="2">
-        <widget class="QRadioButton" name="rb_locksize">
+       <item row="1" column="3">
+        <widget class="QuantSpinBox" name="sb_pointsX">
          <property name="sizePolicy">
-          <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+          <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
            <horstretch>0</horstretch>
            <verstretch>0</verstretch>
           </sizepolicy>
          </property>
-         <property name="layoutDirection">
-          <enum>Qt::LeftToRight</enum>
+         <property name="minimumSize">
+          <size>
+           <width>68</width>
+           <height>0</height>
+          </size>
          </property>
-         <property name="text">
-          <string/>
+         <property name="decimals">
+          <number>0</number>
+         </property>
+         <property name="minimum">
+          <double>2.000000000000000</double>
+         </property>
+         <property name="maximum">
+          <double>1024.000000000000000</double>
+         </property>
+         <property name="value">
+          <double>10.000000000000000</double>
+         </property>
+        </widget>
+       </item>
+       <item row="2" column="3">
+        <widget class="QuantSpinBox" name="sb_pointsY">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+         <property name="minimumSize">
+          <size>
+           <width>0</width>
+           <height>0</height>
+          </size>
+         </property>
+         <property name="decimals">
+          <number>0</number>
+         </property>
+         <property name="minimum">
+          <double>2.000000000000000</double>
+         </property>
+         <property name="maximum">
+          <double>1024.000000000000000</double>
+         </property>
+         <property name="value">
+          <double>10.000000000000000</double>
          </property>
         </widget>
        </item>
@@ -970,9 +969,6 @@
   <tabstop>sb_pointsY</tabstop>
   <tabstop>sb_stepX</tabstop>
   <tabstop>sb_stepY</tabstop>
-  <tabstop>rb_locksize</tabstop>
-  <tabstop>rb_lockpoints</tabstop>
-  <tabstop>rb_lockstep</tabstop>
   <tabstop>btn_start</tabstop>
   <tabstop>btn_pause</tabstop>
   <tabstop>btn_restart</tabstop>

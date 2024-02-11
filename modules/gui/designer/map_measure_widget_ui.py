@@ -18,8 +18,7 @@ from PySide6.QtGui import (QBrush, QColor, QConicalGradient, QCursor,
 from PySide6.QtWidgets import (QAbstractSpinBox, QApplication, QCheckBox, QComboBox,
     QFormLayout, QFrame, QGridLayout, QHBoxLayout,
     QLabel, QLayout, QLineEdit, QPushButton,
-    QRadioButton, QSizePolicy, QSpacerItem, QSpinBox,
-    QVBoxLayout, QWidget)
+    QSizePolicy, QSpacerItem, QVBoxLayout, QWidget)
 
 from ..widgets import (PgMap, QuantSpinBox)
 from . import qt_resources_rc
@@ -50,32 +49,11 @@ class Ui_map_measure(object):
 
         self.gridLayout = QGridLayout()
         self.gridLayout.setObjectName(u"gridLayout")
-        self.lbl_size = QLabel(map_measure)
-        self.lbl_size.setObjectName(u"lbl_size")
-
-        self.gridLayout.addWidget(self.lbl_size, 0, 2, 1, 1)
-
-        self.rb_lockstep = QRadioButton(map_measure)
-        self.rb_lockstep.setObjectName(u"rb_lockstep")
-
-        self.gridLayout.addWidget(self.rb_lockstep, 3, 4, 1, 1)
-
-        self.sb_sizeY = QuantSpinBox(map_measure)
-        self.sb_sizeY.setObjectName(u"sb_sizeY")
+        self.sb_sizeX = QuantSpinBox(map_measure)
+        self.sb_sizeX.setObjectName(u"sb_sizeX")
         sizePolicy1 = QSizePolicy(QSizePolicy.Minimum, QSizePolicy.Fixed)
         sizePolicy1.setHorizontalStretch(0)
         sizePolicy1.setVerticalStretch(0)
-        sizePolicy1.setHeightForWidth(self.sb_sizeY.sizePolicy().hasHeightForWidth())
-        self.sb_sizeY.setSizePolicy(sizePolicy1)
-        self.sb_sizeY.setMinimumSize(QSize(0, 0))
-        self.sb_sizeY.setDecimals(2)
-        self.sb_sizeY.setMaximum(25.000000000000000)
-        self.sb_sizeY.setValue(4.000000000000000)
-
-        self.gridLayout.addWidget(self.sb_sizeY, 2, 2, 1, 1)
-
-        self.sb_sizeX = QuantSpinBox(map_measure)
-        self.sb_sizeX.setObjectName(u"sb_sizeX")
         sizePolicy1.setHeightForWidth(self.sb_sizeX.sizePolicy().hasHeightForWidth())
         self.sb_sizeX.setSizePolicy(sizePolicy1)
         self.sb_sizeX.setMinimumSize(QSize(0, 0))
@@ -85,59 +63,61 @@ class Ui_map_measure(object):
 
         self.gridLayout.addWidget(self.sb_sizeX, 1, 2, 1, 1)
 
-        self.sb_pointsY = QSpinBox(map_measure)
-        self.sb_pointsY.setObjectName(u"sb_pointsY")
-        sizePolicy1.setHeightForWidth(self.sb_pointsY.sizePolicy().hasHeightForWidth())
-        self.sb_pointsY.setSizePolicy(sizePolicy1)
-        self.sb_pointsY.setMinimumSize(QSize(0, 0))
-        self.sb_pointsY.setValue(10)
+        self.lbl_points = QLabel(map_measure)
+        self.lbl_points.setObjectName(u"lbl_points")
 
-        self.gridLayout.addWidget(self.sb_pointsY, 2, 3, 1, 1)
-
-        self.lbl_areaX = QLabel(map_measure)
-        self.lbl_areaX.setObjectName(u"lbl_areaX")
-        self.lbl_areaX.setFont(font)
-
-        self.gridLayout.addWidget(self.lbl_areaX, 1, 0, 1, 1)
-
-        self.lbl_lock = QLabel(map_measure)
-        self.lbl_lock.setObjectName(u"lbl_lock")
-
-        self.gridLayout.addWidget(self.lbl_lock, 3, 0, 1, 1)
-
-        self.rb_lockpoints = QRadioButton(map_measure)
-        self.rb_lockpoints.setObjectName(u"rb_lockpoints")
-
-        self.gridLayout.addWidget(self.rb_lockpoints, 3, 3, 1, 1)
-
-        self.sb_pointsX = QSpinBox(map_measure)
-        self.sb_pointsX.setObjectName(u"sb_pointsX")
-        sizePolicy1.setHeightForWidth(self.sb_pointsX.sizePolicy().hasHeightForWidth())
-        self.sb_pointsX.setSizePolicy(sizePolicy1)
-        self.sb_pointsX.setMinimumSize(QSize(68, 0))
-        self.sb_pointsX.setValue(10)
-
-        self.gridLayout.addWidget(self.sb_pointsX, 1, 3, 1, 1)
-
-        self.sb_stepX = QuantSpinBox(map_measure)
-        self.sb_stepX.setObjectName(u"sb_stepX")
-        sizePolicy1.setHeightForWidth(self.sb_stepX.sizePolicy().hasHeightForWidth())
-        self.sb_stepX.setSizePolicy(sizePolicy1)
-        self.sb_stepX.setMinimumSize(QSize(0, 0))
-        self.sb_stepX.setDecimals(2)
-
-        self.gridLayout.addWidget(self.sb_stepX, 1, 4, 1, 1)
-
-        self.lbl_center = QLabel(map_measure)
-        self.lbl_center.setObjectName(u"lbl_center")
-
-        self.gridLayout.addWidget(self.lbl_center, 0, 1, 1, 1)
+        self.gridLayout.addWidget(self.lbl_points, 0, 3, 1, 1)
 
         self.lbl_areaY = QLabel(map_measure)
         self.lbl_areaY.setObjectName(u"lbl_areaY")
         self.lbl_areaY.setFont(font)
 
         self.gridLayout.addWidget(self.lbl_areaY, 2, 0, 1, 1)
+
+        self.lbl_step = QLabel(map_measure)
+        self.lbl_step.setObjectName(u"lbl_step")
+
+        self.gridLayout.addWidget(self.lbl_step, 0, 4, 1, 1)
+
+        self.lbl_size = QLabel(map_measure)
+        self.lbl_size.setObjectName(u"lbl_size")
+
+        self.gridLayout.addWidget(self.lbl_size, 0, 2, 1, 1)
+
+        self.sb_stepX = QuantSpinBox(map_measure)
+        self.sb_stepX.setObjectName(u"sb_stepX")
+        sizePolicy1.setHeightForWidth(self.sb_stepX.sizePolicy().hasHeightForWidth())
+        self.sb_stepX.setSizePolicy(sizePolicy1)
+        self.sb_stepX.setMinimumSize(QSize(0, 0))
+        self.sb_stepX.setReadOnly(True)
+        self.sb_stepX.setButtonSymbols(QAbstractSpinBox.NoButtons)
+        self.sb_stepX.setDecimals(2)
+        self.sb_stepX.setMaximum(999.990000000000009)
+
+        self.gridLayout.addWidget(self.sb_stepX, 1, 4, 1, 1)
+
+        self.sb_sizeY = QuantSpinBox(map_measure)
+        self.sb_sizeY.setObjectName(u"sb_sizeY")
+        sizePolicy1.setHeightForWidth(self.sb_sizeY.sizePolicy().hasHeightForWidth())
+        self.sb_sizeY.setSizePolicy(sizePolicy1)
+        self.sb_sizeY.setMinimumSize(QSize(0, 0))
+        self.sb_sizeY.setDecimals(2)
+        self.sb_sizeY.setMaximum(25.000000000000000)
+        self.sb_sizeY.setValue(4.000000000000000)
+
+        self.gridLayout.addWidget(self.sb_sizeY, 2, 2, 1, 1)
+
+        self.sb_stepY = QuantSpinBox(map_measure)
+        self.sb_stepY.setObjectName(u"sb_stepY")
+        sizePolicy1.setHeightForWidth(self.sb_stepY.sizePolicy().hasHeightForWidth())
+        self.sb_stepY.setSizePolicy(sizePolicy1)
+        self.sb_stepY.setMinimumSize(QSize(0, 0))
+        self.sb_stepY.setReadOnly(True)
+        self.sb_stepY.setButtonSymbols(QAbstractSpinBox.NoButtons)
+        self.sb_stepY.setDecimals(2)
+        self.sb_stepY.setMaximum(999.990000000000009)
+
+        self.gridLayout.addWidget(self.sb_stepY, 2, 4, 1, 1)
 
         self.sb_centerX = QuantSpinBox(map_measure)
         self.sb_centerX.setObjectName(u"sb_centerX")
@@ -150,15 +130,6 @@ class Ui_map_measure(object):
 
         self.gridLayout.addWidget(self.sb_centerX, 1, 1, 1, 1)
 
-        self.sb_stepY = QuantSpinBox(map_measure)
-        self.sb_stepY.setObjectName(u"sb_stepY")
-        sizePolicy1.setHeightForWidth(self.sb_stepY.sizePolicy().hasHeightForWidth())
-        self.sb_stepY.setSizePolicy(sizePolicy1)
-        self.sb_stepY.setMinimumSize(QSize(0, 0))
-        self.sb_stepY.setDecimals(2)
-
-        self.gridLayout.addWidget(self.sb_stepY, 2, 4, 1, 1)
-
         self.sb_centerY = QuantSpinBox(map_measure)
         self.sb_centerY.setObjectName(u"sb_centerY")
         sizePolicy1.setHeightForWidth(self.sb_centerY.sizePolicy().hasHeightForWidth())
@@ -170,26 +141,40 @@ class Ui_map_measure(object):
 
         self.gridLayout.addWidget(self.sb_centerY, 2, 1, 1, 1)
 
-        self.lbl_points = QLabel(map_measure)
-        self.lbl_points.setObjectName(u"lbl_points")
+        self.lbl_center = QLabel(map_measure)
+        self.lbl_center.setObjectName(u"lbl_center")
 
-        self.gridLayout.addWidget(self.lbl_points, 0, 3, 1, 1)
+        self.gridLayout.addWidget(self.lbl_center, 0, 1, 1, 1)
 
-        self.lbl_step = QLabel(map_measure)
-        self.lbl_step.setObjectName(u"lbl_step")
+        self.lbl_areaX = QLabel(map_measure)
+        self.lbl_areaX.setObjectName(u"lbl_areaX")
+        self.lbl_areaX.setFont(font)
 
-        self.gridLayout.addWidget(self.lbl_step, 0, 4, 1, 1)
+        self.gridLayout.addWidget(self.lbl_areaX, 1, 0, 1, 1)
 
-        self.rb_locksize = QRadioButton(map_measure)
-        self.rb_locksize.setObjectName(u"rb_locksize")
-        sizePolicy2 = QSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
-        sizePolicy2.setHorizontalStretch(0)
-        sizePolicy2.setVerticalStretch(0)
-        sizePolicy2.setHeightForWidth(self.rb_locksize.sizePolicy().hasHeightForWidth())
-        self.rb_locksize.setSizePolicy(sizePolicy2)
-        self.rb_locksize.setLayoutDirection(Qt.LeftToRight)
+        self.sb_pointsX = QuantSpinBox(map_measure)
+        self.sb_pointsX.setObjectName(u"sb_pointsX")
+        sizePolicy1.setHeightForWidth(self.sb_pointsX.sizePolicy().hasHeightForWidth())
+        self.sb_pointsX.setSizePolicy(sizePolicy1)
+        self.sb_pointsX.setMinimumSize(QSize(68, 0))
+        self.sb_pointsX.setDecimals(0)
+        self.sb_pointsX.setMinimum(2.000000000000000)
+        self.sb_pointsX.setMaximum(1024.000000000000000)
+        self.sb_pointsX.setValue(10.000000000000000)
 
-        self.gridLayout.addWidget(self.rb_locksize, 3, 2, 1, 1)
+        self.gridLayout.addWidget(self.sb_pointsX, 1, 3, 1, 1)
+
+        self.sb_pointsY = QuantSpinBox(map_measure)
+        self.sb_pointsY.setObjectName(u"sb_pointsY")
+        sizePolicy1.setHeightForWidth(self.sb_pointsY.sizePolicy().hasHeightForWidth())
+        self.sb_pointsY.setSizePolicy(sizePolicy1)
+        self.sb_pointsY.setMinimumSize(QSize(0, 0))
+        self.sb_pointsY.setDecimals(0)
+        self.sb_pointsY.setMinimum(2.000000000000000)
+        self.sb_pointsY.setMaximum(1024.000000000000000)
+        self.sb_pointsY.setValue(10.000000000000000)
+
+        self.gridLayout.addWidget(self.sb_pointsY, 2, 3, 1, 1)
 
 
         self.verticalLayout.addLayout(self.gridLayout)
@@ -198,21 +183,21 @@ class Ui_map_measure(object):
         self.horizontalLayout_4.setObjectName(u"horizontalLayout_4")
         self.label_2 = QLabel(map_measure)
         self.label_2.setObjectName(u"label_2")
-        sizePolicy3 = QSizePolicy(QSizePolicy.Maximum, QSizePolicy.Preferred)
-        sizePolicy3.setHorizontalStretch(0)
-        sizePolicy3.setVerticalStretch(0)
-        sizePolicy3.setHeightForWidth(self.label_2.sizePolicy().hasHeightForWidth())
-        self.label_2.setSizePolicy(sizePolicy3)
+        sizePolicy2 = QSizePolicy(QSizePolicy.Maximum, QSizePolicy.Preferred)
+        sizePolicy2.setHorizontalStretch(0)
+        sizePolicy2.setVerticalStretch(0)
+        sizePolicy2.setHeightForWidth(self.label_2.sizePolicy().hasHeightForWidth())
+        self.label_2.setSizePolicy(sizePolicy2)
 
         self.horizontalLayout_4.addWidget(self.label_2)
 
         self.btn_plot_full_area = QPushButton(map_measure)
         self.btn_plot_full_area.setObjectName(u"btn_plot_full_area")
-        sizePolicy4 = QSizePolicy(QSizePolicy.Maximum, QSizePolicy.Fixed)
-        sizePolicy4.setHorizontalStretch(0)
-        sizePolicy4.setVerticalStretch(0)
-        sizePolicy4.setHeightForWidth(self.btn_plot_full_area.sizePolicy().hasHeightForWidth())
-        self.btn_plot_full_area.setSizePolicy(sizePolicy4)
+        sizePolicy3 = QSizePolicy(QSizePolicy.Maximum, QSizePolicy.Fixed)
+        sizePolicy3.setHorizontalStretch(0)
+        sizePolicy3.setVerticalStretch(0)
+        sizePolicy3.setHeightForWidth(self.btn_plot_full_area.sizePolicy().hasHeightForWidth())
+        self.btn_plot_full_area.setSizePolicy(sizePolicy3)
         icon = QIcon()
         icon.addFile(u":/icons/qt_resources/map.png", QSize(), QIcon.Normal, QIcon.Off)
         self.btn_plot_full_area.setIcon(icon)
@@ -221,8 +206,8 @@ class Ui_map_measure(object):
 
         self.btn_plot_clear = QPushButton(map_measure)
         self.btn_plot_clear.setObjectName(u"btn_plot_clear")
-        sizePolicy4.setHeightForWidth(self.btn_plot_clear.sizePolicy().hasHeightForWidth())
-        self.btn_plot_clear.setSizePolicy(sizePolicy4)
+        sizePolicy3.setHeightForWidth(self.btn_plot_clear.sizePolicy().hasHeightForWidth())
+        self.btn_plot_clear.setSizePolicy(sizePolicy3)
         icon1 = QIcon()
         icon1.addFile(u":/icons/qt_resources/map--minus.png", QSize(), QIcon.Normal, QIcon.Off)
         self.btn_plot_clear.setIcon(icon1)
@@ -231,8 +216,8 @@ class Ui_map_measure(object):
 
         self.btn_plot_fit = QPushButton(map_measure)
         self.btn_plot_fit.setObjectName(u"btn_plot_fit")
-        sizePolicy4.setHeightForWidth(self.btn_plot_fit.sizePolicy().hasHeightForWidth())
-        self.btn_plot_fit.setSizePolicy(sizePolicy4)
+        sizePolicy3.setHeightForWidth(self.btn_plot_fit.sizePolicy().hasHeightForWidth())
+        self.btn_plot_fit.setSizePolicy(sizePolicy3)
         icon2 = QIcon()
         icon2.addFile(u":/icons/qt_resources/map-resize.png", QSize(), QIcon.Normal, QIcon.Off)
         self.btn_plot_fit.setIcon(icon2)
@@ -248,8 +233,8 @@ class Ui_map_measure(object):
 
         self.btn_plot_area_sel = QPushButton(map_measure)
         self.btn_plot_area_sel.setObjectName(u"btn_plot_area_sel")
-        sizePolicy4.setHeightForWidth(self.btn_plot_area_sel.sizePolicy().hasHeightForWidth())
-        self.btn_plot_area_sel.setSizePolicy(sizePolicy4)
+        sizePolicy3.setHeightForWidth(self.btn_plot_area_sel.sizePolicy().hasHeightForWidth())
+        self.btn_plot_area_sel.setSizePolicy(sizePolicy3)
         icon3 = QIcon()
         icon3.addFile(u":/icons/qt_resources/selection-resize.png", QSize(), QIcon.Normal, QIcon.Off)
         self.btn_plot_area_sel.setIcon(icon3)
@@ -386,8 +371,8 @@ class Ui_map_measure(object):
 
         self.label = QLabel(map_measure)
         self.label.setObjectName(u"label")
-        sizePolicy3.setHeightForWidth(self.label.sizePolicy().hasHeightForWidth())
-        self.label.setSizePolicy(sizePolicy3)
+        sizePolicy2.setHeightForWidth(self.label.sizePolicy().hasHeightForWidth())
+        self.label.setSizePolicy(sizePolicy2)
 
         self.horizontalLayout_5.addWidget(self.label)
 
@@ -539,11 +524,11 @@ class Ui_map_measure(object):
 
         self.plot_scan = PgMap(map_measure)
         self.plot_scan.setObjectName(u"plot_scan")
-        sizePolicy5 = QSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        sizePolicy5.setHorizontalStretch(0)
-        sizePolicy5.setVerticalStretch(0)
-        sizePolicy5.setHeightForWidth(self.plot_scan.sizePolicy().hasHeightForWidth())
-        self.plot_scan.setSizePolicy(sizePolicy5)
+        sizePolicy4 = QSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        sizePolicy4.setHorizontalStretch(0)
+        sizePolicy4.setVerticalStretch(0)
+        sizePolicy4.setHeightForWidth(self.plot_scan.sizePolicy().hasHeightForWidth())
+        self.plot_scan.setSizePolicy(sizePolicy4)
 
         self.horizontalLayout_6.addWidget(self.plot_scan)
 
@@ -556,10 +541,7 @@ class Ui_map_measure(object):
         QWidget.setTabOrder(self.sb_pointsX, self.sb_pointsY)
         QWidget.setTabOrder(self.sb_pointsY, self.sb_stepX)
         QWidget.setTabOrder(self.sb_stepX, self.sb_stepY)
-        QWidget.setTabOrder(self.sb_stepY, self.rb_locksize)
-        QWidget.setTabOrder(self.rb_locksize, self.rb_lockpoints)
-        QWidget.setTabOrder(self.rb_lockpoints, self.rb_lockstep)
-        QWidget.setTabOrder(self.rb_lockstep, self.btn_start)
+        QWidget.setTabOrder(self.sb_stepY, self.btn_start)
         QWidget.setTabOrder(self.btn_start, self.btn_pause)
         QWidget.setTabOrder(self.btn_pause, self.btn_restart)
         QWidget.setTabOrder(self.btn_restart, self.btn_stop)
@@ -578,22 +560,18 @@ class Ui_map_measure(object):
     def retranslateUi(self, map_measure):
         map_measure.setWindowTitle(QCoreApplication.translate("map_measure", u"Form", None))
         self.lbl_scanarea.setText(QCoreApplication.translate("map_measure", u"Scan Area", None))
-        self.lbl_size.setText(QCoreApplication.translate("map_measure", u"Size", None))
-        self.rb_lockstep.setText("")
-        self.sb_sizeY.setSuffix(QCoreApplication.translate("map_measure", u" mm", None))
         self.sb_sizeX.setSuffix(QCoreApplication.translate("map_measure", u" mm", None))
-        self.lbl_areaX.setText(QCoreApplication.translate("map_measure", u"X", None))
-        self.lbl_lock.setText(QCoreApplication.translate("map_measure", u"Lock", None))
-        self.rb_lockpoints.setText("")
-        self.sb_stepX.setSuffix(QCoreApplication.translate("map_measure", u" mm", None))
-        self.lbl_center.setText(QCoreApplication.translate("map_measure", u"Center", None))
-        self.lbl_areaY.setText(QCoreApplication.translate("map_measure", u"Y", None))
-        self.sb_centerX.setSuffix(QCoreApplication.translate("map_measure", u" mm", None))
-        self.sb_stepY.setSuffix(QCoreApplication.translate("map_measure", u" mm", None))
-        self.sb_centerY.setSuffix(QCoreApplication.translate("map_measure", u" mm", None))
         self.lbl_points.setText(QCoreApplication.translate("map_measure", u"Points", None))
+        self.lbl_areaY.setText(QCoreApplication.translate("map_measure", u"Y", None))
         self.lbl_step.setText(QCoreApplication.translate("map_measure", u"Step", None))
-        self.rb_locksize.setText("")
+        self.lbl_size.setText(QCoreApplication.translate("map_measure", u"Size", None))
+        self.sb_stepX.setSuffix(QCoreApplication.translate("map_measure", u" mm", None))
+        self.sb_sizeY.setSuffix(QCoreApplication.translate("map_measure", u" mm", None))
+        self.sb_stepY.setSuffix(QCoreApplication.translate("map_measure", u" mm", None))
+        self.sb_centerX.setSuffix(QCoreApplication.translate("map_measure", u" mm", None))
+        self.sb_centerY.setSuffix(QCoreApplication.translate("map_measure", u" mm", None))
+        self.lbl_center.setText(QCoreApplication.translate("map_measure", u"Center", None))
+        self.lbl_areaX.setText(QCoreApplication.translate("map_measure", u"X", None))
         self.label_2.setText(QCoreApplication.translate("map_measure", u"Visible plot area", None))
 #if QT_CONFIG(tooltip)
         self.btn_plot_full_area.setToolTip(QCoreApplication.translate("map_measure", u"Set maximum plot size", None))

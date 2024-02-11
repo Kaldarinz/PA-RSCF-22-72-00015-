@@ -39,6 +39,7 @@ P = ParamSpec('P')
 T = TypeVar('T')
 
 class QuantRect(NamedTuple):
+    """Rectangle with quantity values of its bottom left corner, width and height."""
     x: PlainQuantity
     y: PlainQuantity
     width: PlainQuantity

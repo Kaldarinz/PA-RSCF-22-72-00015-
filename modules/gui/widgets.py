@@ -487,7 +487,7 @@ class MplMap(FigureCanvasQTAgg):
                 logger.warning('Attempt to export empty data!')
 
 class QuantSpinBox(QDoubleSpinBox):
-    stepChanged = Signal()
+    _stepChanged = Signal()
     quantSet = Signal(PlainQuantity)
     "Emitted when enter button or arrows is pressed. Or sb lost focus."
 
@@ -500,7 +500,7 @@ class QuantSpinBox(QDoubleSpinBox):
         self.editingFinished.connect(
             lambda: self.quantSet.emit(self.quantity)
         )
-        self.stepChanged.connect(
+        self._stepChanged.connect(
             lambda: self.quantSet.emit(self.quantity)
         )
 
@@ -528,7 +528,7 @@ class QuantSpinBox(QDoubleSpinBox):
         value = self.value()
         super().stepBy(step)
         if self.value() != value:
-            self.stepChanged.emit()
+            self._stepChanged.emit()
 
 class StandartItem(QStandardItem):
     """Element of TreeView."""

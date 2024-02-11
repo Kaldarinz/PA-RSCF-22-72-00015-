@@ -5,6 +5,7 @@ the progamm.
 import logging
 from collections import deque
 from datetime import datetime
+import math
 
 from PySide6.QtCore import (
     Signal,
@@ -265,6 +266,9 @@ class MapMeasureWidget(QWidget,map_measure_widget_ui.Ui_map_measure):
             lambda val: self.plot_scan.set_selarea(
                 bottom = val - self.sb_sizeY.quantity/2)
         )
+        # Scan points changed
+        self.sb_pointsX.quantSet.connect(lambda val: self._points_set())
+        self.sb_pointsY.quantSet.connect(lambda val: self._points_set())
         # Selected area changed from plot
         self.plot_scan.selection_changed.connect(self._sel_changed)
         # Toogle selected area visibility
@@ -440,12 +444,16 @@ class MapMeasureWidget(QWidget,map_measure_widget_ui.Ui_map_measure):
     @Slot()
     def _sel_changed(self, new_sel: QuantRect | None) -> None:
 
+        # Uncheck selection button if selection is not visible
         if new_sel is None:
             btn_set_silent(self.btn_plot_area_sel, False)
             return
+        # Otherwise update spin boxes
         x, y, width, height = new_sel
         cx = x + width/2
         cy = y + height/2
+        xstep = width/(self.sb_pointsX.value() - 1)
+        ystep = height/(self.sb_pointsY.value() - 1)
         if self.sb_centerX.quantity != cx:
             self.sb_centerX.quantity = cx # type: ignore
         if self.sb_centerY.quantity != cy:
@@ -454,7 +462,21 @@ class MapMeasureWidget(QWidget,map_measure_widget_ui.Ui_map_measure):
             self.sb_sizeX.quantity = width
         if self.sb_sizeY.quantity != height:
             self.sb_sizeY.quantity = height
+        if self.sb_stepX != xstep:
+            self.sb_stepX.quantity = xstep
+        if self.sb_stepY != ystep:
+            self.sb_stepY.quantity = ystep
+        
+    @Slot()
+    def _points_set(self) -> None:
+        """Update scan step, when amount of points is changed."""
 
+        xstep = self.sb_sizeX.quantity/(self.sb_pointsX.value() - 1)
+        ystep = self.sb_sizeY.quantity/(self.sb_pointsY.value() - 1)
+        if self.sb_stepX.quantity != xstep:
+            self.sb_stepX.quantity = xstep
+        if self.sb_stepY.quantity != ystep:
+            self.sb_stepY.quantity = ystep
     @Slot()
     def _new_scan_plane(self) -> None:
         """Slot, called when new scan plane is selected."""
@@ -476,14 +498,10 @@ class MapMeasureWidget(QWidget,map_measure_widget_ui.Ui_map_measure):
         # Set enable state for axis controls
         if self.cb_scandir.currentText()[0] == 'H':
             self.sb_pointsX.setEnabled(False)
-            self.sb_stepX.setEnabled(False)
             self.sb_pointsY.setEnabled(True)
-            self.sb_stepY.setEnabled(True)
         else:
             self.sb_pointsX.setEnabled(True)
-            self.sb_stepX.setEnabled(True)
             self.sb_pointsY.setEnabled(False)
-            self.sb_stepY.setEnabled(False)
 
     def set_zoomed_out(self, state: bool) -> None:
         """Set whether maximum scan area is visible."""
