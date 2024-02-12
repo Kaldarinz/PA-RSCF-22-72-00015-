@@ -142,7 +142,8 @@ class Position:
     def from_dict(
         cls: Type[Self],
         data: dict,
-        default: PlainQuantity | None=None
+        default: PlainQuantity | None=None,
+        prefix: str | None=None
         ) -> Self:
         """
         Alternative constructor from dict of base types.
@@ -150,7 +151,11 @@ class Position:
         Each coordinate is defined by 2 values: one for magnitude,
         and another for units. Example {'x': 1, 'x_u': 'mm'} define
         position with ``x = 1 mm``.\n
-        ``default`` is default value for mising axes.
+        ``default`` - optional default value for mising axes.\n
+        `prefix` - optional prefix name to be added before each
+        coordinate.\n
+        Example: `prefix = 'pos'` -> {'pos_x': 1, 'pos_x_u': 'mm'}
+        define position with ``x = 1 mm``.
         """
 
         pos = cls()
@@ -158,7 +163,12 @@ class Position:
         for coord in cls._FIELDS:
             units = coord + '_u'
             try:
-                val = Q_(data[coord], data[units])
+                if prefix is not None:
+                    val = Q_(
+                        data[prefix + '_' + coord],
+                        data[prefix + '_' + units])
+                else:    
+                    val = Q_(data[coord], data[units])
             except:
                 pass
             else:
@@ -230,7 +240,7 @@ class Position:
 
         return Direction(self, point)
 
-    def serialize(self) -> dict:
+    def serialize(self, name: str | None=None) -> dict:
         """
         Serialize instance to base types.
         
@@ -238,13 +248,18 @@ class Position:
         """
 
         result = {}
+        
         for fld in self._FIELDS:
             attr = getattr(self, fld)
             if attr is not None:
                 magnitude = attr.m
                 units = str(attr.u)
-                result.update({fld: magnitude})
-                result.update({fld + '_u': units})
+                if name is not None:
+                    result.update({name + '_' + fld: magnitude})
+                    result.update({name + '_' + fld + '_u': units})
+                else:
+                    result.update({fld: magnitude})
+                    result.update({fld + '_u': units})
         return result
 
     def __add__(self, added: Self) -> Self:
@@ -334,12 +349,10 @@ class BaseData:
 
     data: PlainQuantity
     'measured PA signal'
-    data_raw: npt.NDArray[np.uint8]
+    data_raw: npt.NDArray[np.int8]
     'measured PA signal in raw format'
-    a: float
-    'coef for coversion ``data_raw`` to ``data``: <data> = a*<data_raw> + b '
-    b: float
-    'coef for coversion ``data_raw`` to ``data``: <data> = a*<data_raw> + b '
+    yincrement: PlainQuantity
+    'Scaling factor to convert raw data to [V]: Data = yincrement*data_raw.'
     max_amp: PlainQuantity
     'max(data) - min(data)'
     x_var_step: PlainQuantity
@@ -370,6 +383,8 @@ class PointMetadata:
     'laser energy measured by power meter in glass reflection'
     sample_en: PlainQuantity
     'laser energy at sample'
+    datetime: dt
+    "Date and time of measurement."
     wavelength: PlainQuantity = Q_(np.nan, 'nm')
     'Excitation wavelength'
     pos: Position = field(default_factory=lambda: Position())
@@ -404,6 +419,23 @@ class MeasurementMetadata:
     'description of the measurement'
     max_len: int = 0
     'maximum amount of samples in a single datapoint in this measurement'
+    centp: Position = field(default_factory=lambda: Position())
+    'Center point of 2D measurement.'
+    width: PlainQuantity = Q_(np.nan, 'mm')
+    'Scan size of 2D measurement along horizontal axis.'
+    height: PlainQuantity = Q_(np.nan, 'mm')
+    'Scan size of 2D measurement along vertical axis.'
+    hpoints: int = 0
+    'Number of scan points of 2D measurement along horizontal axis.'
+    vpoints: int = 0
+    'Number of scan points of 2D measurement along vertical axis.'
+    scan_dir: str = ''
+    'Scan direction of 2D measurement.'
+    scan_plane: str = ''
+    'Scan plane of 2D measuremnt.'
+    wavelength: PlainQuantity = Q_(np.nan, 'nm')
+    'Excitation laser wavelength.'
+
 
 @dataclass
 class Measurement:
@@ -582,66 +614,117 @@ class MeasuredPoint:
     `pos`: `Position` - Coordinate of the measured point.
     """
 
-    dt_pm: PlainQuantity
-    """
-    Sampling interval for PM data, could differ from `dt` due 
-    to downsampling of PM data.
-    """
-    pa_signal: PlainQuantity = Q_(np.empty(0), 'V/mJ')
-    "Sampled PA signal in [V/mJ]."
-    pm_signal: PlainQuantity = Q_(np.empty(0), 'V')
-    "Sampled PM signal in [V]. This signal is downsampled from `pm_signal_raw`."
-    max_amp: PlainQuantity = Q_(np.nan, 'V/uJ')
-    "Maximum PA amplitude in [V/J]."
-    start_time: PlainQuantity = Q_(np.nan, 'us')
-    "Start of PA signal sampling interval relative to begining of laser pulse."
-    stop_time: PlainQuantity = Q_(np.nan, 'us')
-    "Stop of PA signal sampling interval relative to begining of laser pulse."
+    def __init__(self) -> None:
+        """
+        Create default measurement.
+        
+        This is not functional instance.\n
+        Use one of classmethods strting with `MeasuredPoint.from_` to
+        create a functional instance or set all attributes manually.
+        """
+        
+        self.dt_pm: PlainQuantity = Q_(np.nan, 'us')
+        """
+        Sampling interval for PM data, could differ from `dt` due 
+        to downsampling of PM data.
+        """
+        self.pa_signal = Q_(np.empty(0), 'V/mJ')
+        "Sampled PA signal in [V/mJ]."
+        self.pm_signal = Q_(np.empty(0), 'V')
+        "Sampled PM signal in [V]. This signal is downsampled from `pm_signal_raw`."
+        self.max_amp = Q_(np.nan, 'V/uJ')
+        "Maximum PA amplitude in [V/J]."
+        self.start_time = Q_(np.nan, 'us')
+        "Start of PA signal sampling interval relative to begining of laser pulse."
+        self.stop_time = Q_(np.nan, 'us')
+        "Stop of PA signal sampling interval relative to begining of laser pulse."
+        self.datetime = dt.now()
+        "Date and time of measurement."
+        self.pa_signal_raw = np.empty(0, dtype=np.int8)
+        "Raw PA signal."
+        self.pm_signal_raw = np.empty(0, dtype=np.int8)
+        "Raw PM signal."
+        self.dt = Q_(np.nan, 'us')
+        "Sampling interval for PA data."
+        self.wavelength = Q_(np.nan, 'nm')
+        "Excitation laser wavelength."
+        self.pos = Position()
+        "Coordinate of the measured point."
+        self.yincrement = Q_(np.nan, 'V')
+        "Scaling factor to convert raw data to [V]."
+        self.pm_energy = Q_(np.nan, 'uJ')
+        "Energy at PM in [J]."
+        self.sample_en = Q_(np.nan, 'uJ')
+        "Energy at sample in [J]."
 
-    def __init__(
-            self,
+    @classmethod
+    def from_msmnts(
+            cls: Type[Self],
             data: OscMeasurement,
             energy_info: PaEnergyMeasurement,
             wavelength: PlainQuantity,
             pa_ch_ind: int=0,
             pm_ch_ind: int=1,
             pos: Position | None=None
-        ) -> None:
+        ) -> Self:
 
+        new = cls()
         # Direct attribute initiation
-        self.datetime = data.datetime
-        "Date and time of measurement."
-        self.pa_signal_raw = data.data_raw[pa_ch_ind]
-        "Raw PA signal."
-        self.pm_signal_raw = data.data_raw[pm_ch_ind]
-        "Raw PM signal."
-        self.dt = data.dt
-        "Sampling interval for PA data."
-        self.wavelength = wavelength
-        "Excitation laser wavelength."
-        if pos is None:
-            self.pos = Position()
-            "Coordinate of the measured point."
-        else:
-            self.pos = pos
-        self.yincrement = data.yincrement
-        "Scaling factor to convert raw data to [V]."
-        self.pm_energy = energy_info.energy
-        "Energy at PM in [J]."
-        self.sample_en = energy_info.sample_en
-        "Energy at sample in [J]."
-        self._pm_info = energy_info
-        self._pm_start = data.pre_t[pm_ch_ind]
-        self._pa_start = data.pre_t[pa_ch_ind]
+        new.datetime = data.datetime
+        new.pa_signal_raw = data.data_raw[pa_ch_ind]
+        new.pm_signal_raw = data.data_raw[pm_ch_ind]
+        new.dt = data.dt
+        new.wavelength = wavelength
+        if pos is not None:
+            new.pos = pos
+        new.yincrement = data.yincrement
+        new.pm_energy = energy_info.energy
+        new.sample_en = energy_info.sample_en
 
         # Init pm data
-        self._set_pm_data()
-
+        new._set_pm_data()
         # Calculate energy 
-        self._set_energy()
+        new._set_energy()
+        # Calculate time from start of pm_signal to trigger position
+        _pm_start = data.pre_t[pm_ch_ind]
+        _pa_start = data.pre_t[pa_ch_ind]
+        pm_offset = energy_info.dt*energy_info.istart
+        if pm_offset is not None:
+            # Start time of PA data relative to start of laser pulse
+            new.start_time = (_pm_start - pm_offset) - _pa_start
+            if new.pa_signal_raw is None:
+                logger.warning('PA signal is missing. Offset was not calculated.')
+            # Stop time of PA data relative to start of laser pulse
+            new.stop_time = new.dt*(len(new.pa_signal_raw)-1) + new.start_time # type: ignore
+        return new
 
-        # Set boundary conditions for PA signal relative to start of laser pulse
-        self._set_pa_offset()
+    @classmethod
+    def from_datapoint(
+        cls: Type[Self],
+        dp: DataPoint
+        ) -> Self:
+        """
+        Create class instance from `DataPoint`.
+        
+        Intended for loading data from file.
+        """
+
+        new = cls()
+
+        new.pa_signal = dp.raw_data.data
+        new.max_amp = dp.raw_data.max_amp
+        new.start_time = dp.raw_data.x_var_start
+        new.stop_time = dp.raw_data.x_var_stop
+        new.datetime = dp.attrs.datetime
+        new.pa_signal_raw = dp.raw_data.data_raw
+        new.dt = dp.raw_data.x_var_step
+        new.wavelength = dp.attrs.wavelength
+        new.pos = dp.attrs.pos
+        new.yincrement = dp.raw_data.yincrement
+        new.pm_energy = dp.attrs.pm_en
+        new.sample_en = dp.attrs.sample_en
+
+        return new
 
     def _set_pm_data(self) -> None:
         """Set ``dt_pm`` and ``pm_signal`` attributes."""
@@ -948,7 +1031,62 @@ class ScanLine:
         return ' '.join(reprs)
 
 class MapData:
+    """"
+    2D PA data.
+    
+    Measured points irregularly spaced along one axis (fast scan axis).
 
+    Attributes
+    ----------
+    There are two kinds of attributes: `setted` and `measured`. The
+    former are parameters defined at initialization, the latter are
+    actually measured values.\n
+    `data`: `list[ScanLine]` - All `measured` scan lines.\n
+    `wavelength`: `PlainQuantity` - `setted` excitation wavelength.
+
+    `centp`: `Position` - `setted` center point of scan.\n
+    `startp`: `Position` - `Property`. Read only. Calculated `setted` 
+    starting position of scan.\n
+    `blp`: `Position` - `Property`. Read only. Calculated `setted` 
+    position of bottom-left corner of scan.
+
+    `width`: `PlainQuantity` - `setted` scan size along `horizontal` axis.\n
+    `height`: `PlainQuantity` - `setted` scan size along `vertical` axis.\n
+    `hpoints`: `int` - `setted` number of scan points along `horizontal` axis.\n
+    `vpoints`: `int` - `setted` number of scan points along `vertical` axis.\n
+    `hstep`: `PlainQuantity` - `Property`. Read only. Calculated `setted`
+    step along `horizontal` scan axis.\n
+    `vstep`: `PlainQuantity` - `Property`. Read only. Calculated `setted`
+    step along `vertical` scan axis.\n
+    `haxis`: `str` - `Property`. Read only. Title of `horizontal` scan axis.\n
+    `vaxis`: `str` - `Property`. Read only. Title of `vertical` scan axis.
+
+    `fstep`: `Position` - `Property`. Read only. Calculated `setted` step
+    along `fast` scan axis.\n
+    `sstep`: `Position` - `Property`. Read only. Calculated `setted` step
+    along `slow` scan axis.\n
+    `fsize`: `PlainQuantity` - `Property`. Read only. Calcualted `setted`
+    scan size along `fast` scan axis.\n
+    `fpoints`: `int` - `Property`. Read only. Calcualted `setted`
+    number of scan points along `fast` scan axis.\n
+    `fpoints_raw_max`: `int` - `Property`. Read only. Maximum number
+    of points in measured scan lines.\n
+    `spoints`: `int` - `Property`. Read only. Calcualted `setted`
+    number of scan points along `slow` scan axis.\n
+    `faxis`: `str` - `Property`. Read only. Title of `fast` scan axis.\n
+    `saxis`: `str` - `Property`. Read only. Title of `slow` scan axis.
+
+    `scan_dir`: `str` - `Property`. `setted` 3-letter direction and
+    starting point of scan. All letters are automatically converted
+    to upper case. First letter ['H'|'V"] - Horizontal or Vertical
+    direction of fast scan axis. Second letter ['L'|'R'] - horizontal
+    position of starting point (Left or Right). Third letter ['B'|'T'] -
+    vertical position of starting point (Bottom or Top).\n
+    `scan_plane`: `Literal['XY', 'YZ', 'ZX']` - `Property`. `setted`
+    Pair of axis along which scan is done. First letter is horizontal
+    axis, second is vertical.\n
+    """
+    
     def __init__(
             self,
             center: Position,
@@ -962,23 +1100,25 @@ class MapData:
         ) -> None:
 
         self.centp = center
-        "Center point of scan."
+        "`setted` center point of scan."
         self.width = width
+        "`setted` scan size along `horizontal` axis."
         self.height = height
+        "`setted` scan size along `vertical` axis."
         self.hpoints = hpoints
+        "`setted` number of scan points along `horizontal` axis."
         self.vpoints = vpoints
+        "`setted` number of scan points along `vertical` axis."
         self.scan_dir = scan_dir
         self.scan_plane = scan_plane
         self.wavelength = wavelength
-        "Excitation wavelength."
-
+        "`setted` excitation wavelength."
         self.data: list[ScanLine] = []
-        "All scanned lines."
-
+        "All `measured` scan lines."
         self._raw_points_sig: list[list[MeasuredPoint]] = []
-        "len is amount of cashed lines for signal."
+        "Cashed lines for signal."
         self._raw_points_coord: list[list[MeasuredPoint]] = []
-        "len is amount of cashed lines for coordinates."
+        "Cashed lines for coordinates."
         self._plot_coords: list[list[Position]] = []
         self._plot_sigs: list[list[MeasuredPoint]] = []
 
@@ -1226,7 +1366,7 @@ class MapData:
     @property
     def blp(self) -> Position:
         """
-        Position of bottom-left corner.
+        Position of bottom-left corner of scan.
         
         Read only.
         """
@@ -1243,7 +1383,7 @@ class MapData:
     @property
     def fstep(self) -> Position:
         """
-        Scan step along slow axis.
+        Calculated `setted` step along `fast` scan axis.
         
         Read only.
         """
@@ -1269,7 +1409,7 @@ class MapData:
     @property
     def sstep(self) -> Position:
         """
-        Scan step along slow axis.
+        Calculated `setted` step along `slow` scan axis.
         
         Read only.
         """
@@ -1295,7 +1435,7 @@ class MapData:
     @property
     def fsize(self) -> PlainQuantity:
         """
-        Scan size along fast axis.
+        Calcualted `setted` scan size along `fast` scan axis.
 
         Read only.
         """
@@ -1312,7 +1452,7 @@ class MapData:
     @property
     def fpoints(self) -> int:
         """
-        Scan points along fast scan axis, which were set.
+        Calcualted `setted` number of scan points along `fast` scan axis.
         
         Read only.
         """
@@ -1329,7 +1469,7 @@ class MapData:
     @property
     def fpoints_raw_max(self) -> int:
         """
-        Maximum amount of fast scan points among all scan lines.
+        Maximum number of points in measured scan lines.
         
         Read only.
         """
@@ -1345,7 +1485,7 @@ class MapData:
     @property
     def spoints(self) -> int:
         """
-        Scan points along slow scan axis, which were set.
+        Calcualted `setted` number of scan points along `slow` scan axis.
         
         Read only.
         """
@@ -1362,7 +1502,7 @@ class MapData:
     @property
     def saxis(self) -> str:
         """
-        Title of slow scan axis.
+        Title of `slow` scan axis.
         
         Read only.
         """
@@ -1379,7 +1519,7 @@ class MapData:
     @property
     def faxis(self) -> str:
         """
-        Title of fast scan axis.
+        Title of `fast` scan axis.
         
         Read only.
         """
@@ -1396,12 +1536,12 @@ class MapData:
     @property
     def hstep(self) -> PlainQuantity:
         """
-        Step along horizontal direction.
+        Calculated `setted` step along `horizontal` scan axis.
         
         Read only.
         """
         if self.width.m is not np.nan and self.hpoints > 1:
-            hstep = self.width/(self.hpoints)
+            hstep = self.width/(self.hpoints - 1)
         else:
             hstep = Q_(np.nan, 'mm')
         return hstep
@@ -1412,12 +1552,12 @@ class MapData:
     @property
     def vstep(self) -> PlainQuantity:
         """
-        Step along vertical direction.
+        Calculated `setted` step along `vertical` scan axis.
         
         Read only.
         """
         if self.height.m is not np.nan and self.vpoints > 1:
-            vstep = self.height/(self.vpoints)
+            vstep = self.height/(self.vpoints - 1)
         else:
             vstep = Q_(np.nan, 'mm')
         return vstep
@@ -1426,41 +1566,9 @@ class MapData:
         logger.warning('vstep is read only attributes and cannot be set.')
 
     @property
-    def width(self) -> PlainQuantity:
-        "Horizontal size of scan."
-        return self._width
-    @width.setter
-    def width(self, val: PlainQuantity) -> None:
-        self._width = val
-
-    @property
-    def height(self) -> PlainQuantity:
-        "Vertical size of scan."
-        return self._height
-    @height.setter
-    def height(self, val: PlainQuantity) -> None:
-        self._height = val
-
-    @property
-    def hpoints(self) -> int:
-        "Amount of points along horizontal axis, which were set."
-        return self._hpoints
-    @hpoints.setter
-    def hpoints(self, val: int) -> None:
-        self._hpoints = val
-
-    @property
-    def vpoints(self) -> int:
-        "Amount of points along vertical axis, which were set."
-        return self._vpoints
-    @vpoints.setter
-    def vpoints(self, val: int) -> None:
-        self._vpoints = val
-
-    @property
     def haxis(self) -> str:
         """
-        Actual title of horizontal axis.
+        Title of `horizontal` scan axis.
         
         Read only.\n
         Automatically calculated from ``scan_plane``.
@@ -1473,7 +1581,7 @@ class MapData:
     @property
     def vaxis(self) -> str:
         """
-        Actual title of vertical axis.
+        Title of `vertical` scan axis.
         
         Read only.\n
         Automatically calculated from ``scan_plane``.
@@ -1488,6 +1596,7 @@ class MapData:
         """
         3-letter direction and starting point of scan.
 
+        All letters are automatically converted to upper case.\n
         First letter ['H'|'V"] - horizontal or vertical direction of
         fast scan axis.\n
         Second letter ['L'|'R'] - horizontal position of starting point
@@ -1498,7 +1607,7 @@ class MapData:
         return self._scan_dir
     @scan_dir.setter
     def scan_dir(self, val: str) -> None:
-        self._scan_dir = val
+        self._scan_dir = val.upper()
 
     @property
     def scan_plane(self) -> str:
@@ -1510,7 +1619,9 @@ class MapData:
         return self._scan_plane
     @scan_plane.setter
     def scan_plane(self, val: str) -> None:
-        self._scan_plane = val
+        if val.upper() not in ['XY', 'YZ', 'ZX']:
+            raise ValueError
+        self._scan_plane = val.upper()
 
 @dataclass
 class StagesStatus:

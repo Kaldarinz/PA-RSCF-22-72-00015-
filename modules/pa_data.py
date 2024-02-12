@@ -69,7 +69,8 @@ PaData:
 
     """
 
-from typing import Iterable, Any, Tuple
+from typing import Iterable, Any, Tuple, TypeVar, Type
+from dataclasses import fields, field
 from datetime import datetime
 import time
 import math
@@ -105,6 +106,8 @@ from modules.exceptions import (
 )
 
 logger = logging.getLogger(__name__)
+
+T =TypeVar('T')
 
 class PaData:
     """Class for PA data storage and manipulations"""
@@ -167,8 +170,19 @@ class PaData:
         ) -> None:
         """Add map data."""
 
+        # Create measurement
         title, msmnt = self.add_measurement(2, ['line', 'point']) # type: ignore
+        msmnt.attrs.centp = map.centp
+        msmnt.attrs.width = map.width
+        msmnt.attrs.height = map.height
+        msmnt.attrs.hpoints = map.hpoints
+        msmnt.attrs.vpoints = map.vpoints
+        msmnt.attrs.scan_dir = map.scan_dir
+        msmnt.attrs.scan_plane = map.scan_plane
+        msmnt.attrs.wavelength = map.wavelength
+        # Add scan to list of scans
         self.maps[title] = map
+        # Add all scanned points
         for lno, line in enumerate(map.data):
             for pno, point in enumerate(line.raw_data):
                 self.add_point(
@@ -176,7 +190,7 @@ class PaData:
                     data = point,
                     param_val = [Q_(lno, ''), Q_(pno, '')]
                 )
-                # Set correct created time
+                # Set correct created time for measurement
                 if lno == 0 and pno == 0:
                     msmnt.attrs.created = self._get_time(point.datetime)
 
@@ -224,20 +238,16 @@ class PaData:
         metadata = PointMetadata(
             pm_en = data.pm_energy,
             sample_en = data.sample_en,
+            datetime = data.datetime,
             wavelength = data.wavelength,
             pos = data.pos,
             param_val = param_val.copy()
         )
         
-        a,b = self._calc_data_fit(
-            data = data.pa_signal,
-            data_raw = data.pa_signal_raw
-        )
         rawdata = BaseData(
             data = data.pa_signal.copy(), # type: ignore
             data_raw = data.pa_signal_raw.copy(),
-            a = a,
-            b = b,
+            yincrement = data.yincrement,
             max_amp = data.pa_signal.ptp(), # type: ignore
             x_var_step = data.dt,
             x_var_start = data.start_time,
@@ -410,74 +420,78 @@ class PaData:
 
     def _to_dict(self, obj: object) -> dict:
         """"
-        Convert datastructure to dict.
+        Convert dataclass to dict of basic types.
         
         ``data`` and ``data_raw`` attributes are excluded.
         """
 
         result = {}
-        for key, val in obj.__dict__.items():
-            if key not in ('data','data_raw'):
+        for fld in fields(obj): # type: ignore
+            if fld.name not in ('data','data_raw'):
+                value = getattr(obj, fld.name)
                 # each quantity is saved as magnitude and unit
-                if isinstance(val, PlainQuantity):
+                if fld.type == PlainQuantity:
                     result.update(
                         {
-                            key:val.m,
-                            key + '_u': str(val.u)
+                            fld.name: value.m,
+                            fld.name + '_u': str(value.u)
                         }
                     )
                 # lists must be unpacked, as they can contain quantities
-                elif (isinstance(val,list)
-                      and len(val)
-                      and isinstance(val[0], PlainQuantity)
-                    ):
-                    mags = [x.m for x in val]
-                    units = [str(x.u) for x in val]
-                    result.update(
-                        {
-                            key: mags,
-                            key + '_u': units
-                        }
-                    )
+                elif fld.type == list[PlainQuantity]:
+                    # save only non-empty list
+                    if len(value):
+                        mags = [x.m for x in value]
+                        units = [str(x.u) for x in value]
+                        result.update(
+                            {
+                                fld.name: mags,
+                                fld.name + '_u': units
+                            }
+                        )
                 # Spetial case for Position
-                elif isinstance(val, Position):
-                    result.update(val.serialize())
+                elif fld.type == Position:
+                    result.update(value.serialize(fld.name))
                 # Otherwise it should be basic type
                 else:
-                    result.update({key: val})
+                    result.update({fld.name: value})
         return result
 
-    def _from_dict(self, dtype, source: dict):
+    def _from_dict(self, dtype: Type[T], source: dict) -> T:
         """
         Generate dataclass from a dictionary.
         
         Intended for use in loading data from file.\n
-        ``dtype`` - dataclass, in which data should be converted.
+        Attributes
+        ----------
+        ``dtype`` - dataclass, which instance should be created.
         ``source`` - dictionary with the data to load.
         """
 
         init_vals = {}
-        for key, val in dtype.__annotations__.items():
-            # this condition check is different from others
-            if val == list[PlainQuantity]:
-                if len(source[key]):
-                    mags = source[key]
-                    units = source[key + '_u']
-                    item = [Q_(m, u) for m, u in zip(mags, units)]
-                else:
-                    item = None
-            elif val is PlainQuantity:
+        for fld in fields(dtype): # type: ignore
+            value = None
+            # Iterate through possible types. Special cases should be
+            # handled, when a field is serialized into several records. 
+            if fld.type == list[PlainQuantity]:
+                # Try to construct quantities only for non-empty lists
+                if len(source.get(fld.name, None)):
+                    mags = source.get(fld.name, None)
+                    units = source.get(fld.name + '_u', None)
+                    if mags is not None and units is not None:
+                        value = [Q_(m, u) for m, u in zip(mags, units)]
+            elif fld.type == PlainQuantity:
                 try:
-                    item = Q_(source[key], source[key + '_u'])
+                    value = Q_(source[fld.name], source[fld.name + '_u'])
                 except:
-                    logger.warning(f'Error in data loading for {key}.')
-                    item = None
-            elif val is Position:
-                item = Position.from_dict(source)
+                    logger.debug(f'Error in data loading for {fld.name}.')
+            # Special case for Position
+            elif fld.type == Position:
+                value = Position.from_dict(data = source, prefix = fld.name)
             else:
-                item = source[key]
-            if item is not None:
-                init_vals.update({key: item})
+                value = source.get(fld.name, None)
+            if value is not None:
+                init_vals.update({fld.name: value})
         return dtype(**init_vals)
 
     def _load_basedata(
@@ -495,6 +509,12 @@ class PaData:
         for key, val in BaseData.__annotations__.items():
             # this condition check is different from others
             if key not in ['data', 'data_raw']:
+                # load old data format
+                if self.attrs.version < 1.4:
+                    if key == 'yincrement':
+                        item = Q_(np.nan, 'V')
+                        init_vals.update({key: item})
+                        continue
                 if val == list[PlainQuantity]:
                     mags = source[key]
                     units = source[key + '_u']
@@ -551,12 +571,9 @@ class PaData:
         with h5py.File(filename, 'r') as file:
             #load file metadata
             general = file.attrs
-            if 'version' not in general:
+            if ('version' not in general or
+                (general.get('version', 0)) < 1.2):
                 logger.warning('File has old structure and cannot be loaded.')
-                return
-            # add backward compatibility here
-            if (general.get('version', 0)) < 1.2:
-                self._load_old(file)
                 return
 
             self.attrs = self._from_dict(
@@ -581,8 +598,11 @@ class PaData:
                     data_raw = ds[...]
                     y_var_units = ds.attrs['y_var_units']
                     # restore data
-                    p = np.poly1d([ds.attrs['a'], ds.attrs['b']])
-                    data = Q_(p(data_raw), y_var_units)
+                    if general.get('version', 0) < 1.4:
+                        p = np.poly1d([ds.attrs['a'], ds.attrs['b']])
+                        data = Q_(p(data_raw), y_var_units)
+                    else:
+                        data = data_raw * ds.attrs['yincrement'] / point_attrs.sample_en
                     basedata = self._load_basedata(
                         data,
                         data_raw,
@@ -595,6 +615,9 @@ class PaData:
                         filtdata,
                         freqdata
                     )
+                    # For scan data
+                    if measurement.attrs.measurement_dims == 2:
+                        max_lines = dp.attrs.param_val[0]
                     measurement.data.update({datapoint_title: dp})
                 self.measurements.update({msmnt_title: measurement})
 

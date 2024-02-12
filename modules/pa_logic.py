@@ -836,7 +836,7 @@ def meas_point_from_osc(
         return None
     en_info = PaEnergyMeasurement(pm_energy, sample_en)
 
-    measurement = MeasuredPoint(
+    measurement = MeasuredPoint.from_msmnts(
         data = msmnt,
         energy_info = en_info,
         wavelength = wl,
@@ -845,44 +845,6 @@ def meas_point_from_osc(
     )
     logger.debug('...MeasuredPoint created.')
     return measurement
-
-def aver_measurements(measurements: list[MeasuredPoint]) -> MeasuredPoint:
-    """Calculate average measurement from a given list of measurements.
-    
-    Actually only amplitude values are averaged, in other cases data
-    from the last measurement from the <measurements> is used."""
-
-    logger.debug('Starting measurement averaging...')
-    result = MeasuredPoint()
-    total = len(measurements)
-    for measurement in measurements:
-        result.dt = measurement.dt
-        result.pa_signal = measurement.pa_signal
-        result.pa_signal_raw = measurement.pa_signal_raw
-        result.pm_signal = measurement.pm_signal
-        result.start_time = measurement.start_time
-        result.stop_time = measurement.stop_time
-        result.wavelength = measurement.wavelength
-        
-        result.pm_energy += measurement.pm_energy
-        result.sample_energy += measurement.sample_energy
-        result.max_amp += measurement.max_amp
-
-    if total:
-        result.pm_energy = result.pm_energy/total
-        result.sample_energy = result.sample_energy/total
-        result.max_amp = result.max_amp/total
-    else:
-        result.pm_energy = Q_(0, 'J')
-        result.sample_energy = Q_(0, 'J')
-        result.max_amp = Q_(0, 'V/J')
-
-    logger.info(f'Average power meter energy {result.pm_energy}')
-    logger.info(f'Average energy at {result.sample_energy}')
-    logger.info(f'Average PA signal amp {result.max_amp}')
-    
-    logger.debug('...Finishing averaging of measurements.')
-    return result
 
 ### Emulation functions
 

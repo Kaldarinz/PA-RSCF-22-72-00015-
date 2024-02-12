@@ -5,6 +5,7 @@ from collections.abc import Iterable, Sequence
 from datetime import datetime
 import time, math
 import typing
+import copy
 from pint import UnitRegistry
 from pint.facets.plain.quantity import PlainQuantity
 import pint
@@ -22,7 +23,10 @@ from modules.data_classes import (
     StagesStatus,
     ScanLine,
     PointMetadata,
-    Direction
+    Direction,
+    DataPoint,
+    BaseData,
+    MeasurementMetadata
 )
 from modules.utils import (
     propvals
@@ -31,6 +35,5 @@ ureg = pint.get_application_registry()
 Q_ = ureg.Quantity
 rng = np.random.default_rng()
 
-a = Q_(1,'')
-b = Q_(10,'')
-print(a.m)
+pos = Position(Q_(1,'m'))
+pprint(pos.serialize('pos'))
