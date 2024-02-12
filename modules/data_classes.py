@@ -733,13 +733,7 @@ class ScanLine:
     with `measured` points. Internally call `calc_scan_coord` method,
     which can be computationally costly. Should return correct data
     even if line was not fully scanned.\n
-    `raw_sig`: `list[OscMeasurement]` - list with `measured` osc signals.\n
-    `raw_pos`: `list[tuple[dt, Position]]` - list with `measured` 
-    positions along scan line. These are not positions, where signals
-    where measured. These positions are used to calculate actual signal
-    positions.\n
     `num_points`: `int` - `property`. Read only. Amount of `measured` points.\n
-    `num_rpoints`: `int` - `setted` amount of regular line points.\n
     `ltype`: `Literal['straight line']` - `setted` shape of the scan line.\n
 
     Methods
@@ -753,9 +747,6 @@ class ScanLine:
             self,
             startp: Position,
             stopp: Position,
-            points: int,
-            raw_sig: list[OscMeasurement] | None=None,
-            raw_pos: list[tuple[dt, Position]] | None=None,
             ltype: Literal['straight line']='straight line'   
         ) -> None:
         """Default scan line constructor.
@@ -765,8 +756,6 @@ class ScanLine:
         ``startp`` - `setted` position of line start.\n
         ``stopp`` - `setted` position of line stop.\n
         ``points`` - `setted` amount of regular line points.\n
-        ``raw_sig`` - optional list with measured osc signals.\n
-        ``raw_pos`` - optional list with measured scan positions.\n
         ``ltype`` - optional shape of the scan line.\n
         """
         
@@ -774,26 +763,51 @@ class ScanLine:
         "Exact position of scan start."
         self.stopp = stopp
         "Exact position of scan stop."
-        self.num_rpoints = points
-        "Amount of regular points."
-        if raw_sig is None:
-            self.raw_sig = []
-            "List with raw measurements."
-        else:
-            self.raw_sig = raw_sig
-        if raw_pos is None:
-            self.raw_pos = []
-            "List with positions, measured along scan line with timestamps."
-        else:
-            self.raw_pos = raw_pos
+        self._raw_sig = []
+        "List with raw measurements."
+        self._raw_pos = []
+        "List with positions, measured along scan line with timestamps."
         self.ltype = ltype
         "Type of scan line"
+
+    @classmethod
+    def from_list(
+        cls: Type[Self],
+        lst: list[MeasuredPoint]
+        ) -> Self | None:
+        """
+        Create ScanLine from list of measured points.
+        
+        Intended to be used for loading data from file.
+        Starting point is position of the first datapoint, stop point
+        is position of the last data point. `lst` should contain at
+        least 2 points.\n
+        Does not check whether all points are on the same line.
+        """
+
+        if len(lst) < 3:
+            logger.warning('Scan line cannot be created. Too few data.')
+            return
+        # Start and stop points are positions of the first and last
+        # points in the list.
+        startp = lst[0].pos
+        stopp = lst[-1].pos
+
+        new_line = cls(startp, stopp)
+        for point in lst:
+            new_line.add_measurement(point)
+        return new_line
+
+    def add_measurement(self, point: MeasuredPoint) -> None:
+        """Append MeasuredPoint to scan line."""
+        
+        self.raw_data.append(point)
 
     def add_pos_point(self, pos: Position | None) -> None:
         """Append position along scan line."""
 
         if pos is not None:
-            self.raw_pos.append((dt.now(),pos))
+            self._raw_pos.append((dt.now(),pos))
 
     def calc_grid(self) -> None:
         """
@@ -899,8 +913,8 @@ class ScanLine:
         Read only.
         """
         return self.calc_scan_coord(
-            signals = self.raw_sig,
-            poses = self.raw_pos,
+            signals = self._raw_sig,
+            poses = self._raw_pos,
             start = self.startp,
             stop = self.stopp
         )
@@ -928,9 +942,9 @@ class ScanLine:
         reprs.append('Points with pos =')
         reprs.append(str(self.num_points))
         reprs.append('Measured PA signals =')
-        reprs.append(str(len(self.raw_sig)))
+        reprs.append(str(len(self._raw_sig)))
         reprs.append('Pos points =')
-        reprs.append(str(len(self.raw_pos)))
+        reprs.append(str(len(self._raw_pos)))
         return ' '.join(reprs)
 
 class MapData:
@@ -999,8 +1013,7 @@ class MapData:
 
         new_line = ScanLine(
             startp = line_start,
-            stopp = line_stop,
-            points = self.fpoints
+            stopp = line_stop
         )
         return new_line 
 

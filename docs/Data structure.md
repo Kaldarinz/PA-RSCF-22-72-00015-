@@ -51,7 +51,11 @@
 
 ## Version history
 
-# version 1.2
+# version 1.4
+1. Added support for 2D data.
+   1. `PaData` instance now have new attribute `maps`, which is a `dict` containing `MapData` isntances for 2D data. The keys are the same as for `measurements` of 2D data type.
+
+# version 1.3
 1. Added `wavelength` and `pos` fields to `PointMetadata`.
    1. `wavelength` field is excitation wavelength.
    2. `pos` field is position, at which point was measured.

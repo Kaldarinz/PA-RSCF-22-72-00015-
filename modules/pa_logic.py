@@ -719,7 +719,7 @@ def scan_2d(
             meas_point_from_osc(x, scan.wavelength) for x in result_en
         ]
         # Add measured points to scan line
-        line.raw_sig = meas_points
+        line._raw_sig = meas_points
         # Add scanned line to scan
         scan.add_line(line)
         signals.progess.emit(line)
@@ -958,7 +958,7 @@ def scan_2d_emul(
             meas_point_from_osc(x, scan.wavelength) for x in result_en
         ]
         # Add measured points to scan line
-        line.raw_sig = meas_points # type: ignore
+        line._raw_sig = meas_points # type: ignore
         scan.add_line(line)
         signals.progess.emit(line)
         logger.info(f'Scanned {line}.')

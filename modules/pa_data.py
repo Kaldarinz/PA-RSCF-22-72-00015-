@@ -109,7 +109,7 @@ logger = logging.getLogger(__name__)
 class PaData:
     """Class for PA data storage and manipulations"""
 
-    VERSION = 1.3
+    VERSION = 1.4
 
     def __init__(self) -> None:
 
