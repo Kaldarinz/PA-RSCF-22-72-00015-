@@ -430,20 +430,44 @@ class OscMeasurement:
     """
     Oscilloscope measurement.
     
-    Could contain data for all channels.
+    Equality test only check `data_raw` attributes. 
+
+    Attributes
+    ----------
+    `datetime`: `datetime` - Date and time of measurement.\n
+    `data_raw`: `list[ndarray|None]` - list with raw data from osc.
+    Its length is equal to amount of osc channels. Contain `None` for
+    channels, which were not measured.\n
+    `dt`: `PlainQuantity` - time step for measurements in `data_raw`.\n
+    `pre_t`: `list[PlainQuantity]` - list with time offsets from start
+    of sampling to trigger positions, where absolute time of all
+    signals match. Length of this list is equal to length of `data_raw`.\n
+    `yincrement`: `PlainQuantity` - Scaling factor to convert raw data
+    to [V]: Data = yincrement*data_raw.
     """
 
     datetime: dt = field(compare=False)
-    data_raw: list[npt.NDArray | None] = field(
+    "Date and time of measurement."
+    data_raw: list[npt.NDArray[np.int8] | None] = field(
         default_factory=list
     )
-    "List with raw data from osc channels."
+    """
+    List with raw data from osc channels.
+    Its length is equal to amount of osc channels. Contain `None` for
+    channels, which were not measured.
+    """
     dt: PlainQuantity = Q_(np.nan, 'us')
-    "Time step of ``data_raw``"
+    "Time step for measurements in `data_raw`."
     pre_t: list[PlainQuantity] = field(default_factory=list)
-    "List with time intervals from start of sampling to trigger."
+    """
+    List with time offsets from start
+    of sampling to trigger positions, where absolute time of all
+    signals match. Length of this list is equal to length of `data_raw`.
+    """
     yincrement: PlainQuantity = Q_(np.nan, 'V')
-    "Data = yincrement*data_raw."
+    """
+    Scaling factor to convert raw data to [V]: Data = yincrement*data_raw.
+    """
 
     def __eq__(self, __value: Type[Self]) -> bool:
         """Only check equality of `data_raw` attribute."""
@@ -467,25 +491,56 @@ class OscMeasurement:
 
 @dataclass
 class EnergyMeasurement:
-    """Energy measurement from power meter."""
+    """
+    Energy measurement from power meter.
+    
+    Equality test does not check `datetime` attribute. 
+
+    Attributes
+    ----------
+    `datetime`: `datetime` - Date and time of measurement.\n
+    `signal`: `PlainQuantity[ndarray]` - Sampled PM signal in Volts.\n
+    `dt`: `PlainQuantity` - time stamp for data in `signal`.\n
+    `istart`: `int` - index of laser pulse start in `signal`.\n
+    `istop`: `int` - index of laser pulse stop in `signal`.\n
+    `energy`: `PlainQuantity` - laser pulse energy in [uJ]. 
+    """
 
     datetime: dt = field(compare=False)
+    "Date and time of measurement."
     signal: PlainQuantity = field(
         default_factory=empty_arr_quantity,
         compare = False
     )
-    "Measured PM signal (full data)."
+    "Sampled PM signal in Volts."
     dt: PlainQuantity = Q_(np.nan, 'us')
+    "Time stamp for data in `signal`."
     istart: int = -1
     "Index of laser pulse start."
     istop: int = -1
     "Index of laser pulse end."
     energy: PlainQuantity = Q_(np.nan, 'uJ')
-    "Last measured laser energy."
+    "Laser pulse energy in [uJ]."
 
 @dataclass(init=False)
 class PaEnergyMeasurement(EnergyMeasurement):
-    """Energy information for PA measurement."""
+    """
+    Energy information for PA measurement.
+    
+    Equality test does not check `datetime` attribute.
+
+    Attributes
+    ----------
+    `datetime`: `datetime` - Date and time of measurement.\n
+    `signal`: `PlainQuantity[ndarray]` - Sampled PM signal in Volts.\n
+    `dt`: `PlainQuantity` - time stamp for data in `signal`.\n
+    `istart`: `int` - index of laser pulse start in `signal`.\n
+    `istop`: `int` - index of laser pulse stop in `signal`.\n
+    `energy`: `PlainQuantity` - laser pulse energy [J] calculated
+    from `signal`. This value is actual value at power meter, which can
+    be located at some intermediate point.\n
+    `sample_en`: `PlainQuantity` - laser pulse energy [J] at sample.
+    """
 
     def __init__(self, en_info: EnergyMeasurement, sample_en: PlainQuantity):
         super().__init__(
@@ -498,24 +553,50 @@ class PaEnergyMeasurement(EnergyMeasurement):
         )
 
         self.sample_en = sample_en
-        "Energy at sample."
+        "Laser pulse energy [J] at sample."
 
-@dataclass
 class MeasuredPoint:
-    """Single PA measurement."""
+    """
+    Single PA measurement.
+    
+    Attributes
+    ----------
+    `datetime`: `datetime` - Date and time of measurement.\n
+    `pa_signal_raw`: ndarray - Raw PA signal.\n
+    `pm_signal_raw`: ndarray - Raw PM signal.\n
+    `pa_signal`: `PlainQuantity[array]` - Sampled PA signal in [V/J].\n
+    `pm_signal`: `PlainQuantity[array]` - Sampled PM signal in [V].
+    This signal is downsampled from `pm_signal_raw`.\n
+    `dt`: `PlainQuantity` - Sampling interval for PA data.
+    `dt_pm`: PlainQuantity - Sampling interval for PM data, could differ
+    from `dt` due to downsampling of PM data.\n
+    `start_time`: `PlainQuantity` - Start of PA signal sampling interval
+    relative to the begining of laser pulse.\n
+    `stop_time`: `PlainQuantity` - Stop of PA signal sampling interval
+    relative to the begining of laser pulse.\n
+    `yincrement`: `PlainQuantity` - Scaling factor to convert raw data to [V].\n
+    `max_amp`: `PlainQuantity` - Maximum PA amplitude in [V/J].\n
+    `pm_energy`: `PlainQuantity` - Energy at PM in [J].\n
+    `sample_en`: `PlainQuantity` - Energy at sample in [J].\n
+    `wavelength`: `PlainQuantity` - Excitation laser wavelength.\n
+    `pos`: `Position` - Coordinate of the measured point.
+    """
 
     dt_pm: PlainQuantity
-    "Sampling interval for PM data, could differ from dt due to downsampling of PM data."
+    """
+    Sampling interval for PM data, could differ from `dt` due 
+    to downsampling of PM data.
+    """
     pa_signal: PlainQuantity = Q_(np.empty(0), 'V/mJ')
-    "Sampled PA signal in physical units"
+    "Sampled PA signal in [V/mJ]."
     pm_signal: PlainQuantity = Q_(np.empty(0), 'V')
-    "Sampled power meter signal in volts"
+    "Sampled PM signal in [V]. This signal is downsampled from `pm_signal_raw`."
     max_amp: PlainQuantity = Q_(np.nan, 'V/uJ')
-    "Maximum PA signal amplitude"
+    "Maximum PA amplitude in [V/J]."
     start_time: PlainQuantity = Q_(np.nan, 'us')
-    "Start of PA signal sampling interval relative to begining of laser pulse"
+    "Start of PA signal sampling interval relative to begining of laser pulse."
     stop_time: PlainQuantity = Q_(np.nan, 'us')
-    "Stop of PA signal sampling interval relative to begining of laser pulse"
+    "Stop of PA signal sampling interval relative to begining of laser pulse."
 
     def __init__(
             self,
@@ -529,28 +610,27 @@ class MeasuredPoint:
 
         # Direct attribute initiation
         self.datetime = data.datetime
-        "Date and time of measurement"
+        "Date and time of measurement."
         self.pa_signal_raw = data.data_raw[pa_ch_ind]
-        "Sampled PA signal in int8 format"
+        "Raw PA signal."
         self.pm_signal_raw = data.data_raw[pm_ch_ind]
-        "Sampled PA signal in int8 format"
+        "Raw PM signal."
         self.dt = data.dt
-        "Sampling interval for PA data"
+        "Sampling interval for PA data."
         self.wavelength = wavelength
-        "Excitation laser wavelength"
+        "Excitation laser wavelength."
         if pos is None:
             self.pos = Position()
-            "Coordinate of the measured point"
+            "Coordinate of the measured point."
         else:
             self.pos = pos
-        self.yincrement: PlainQuantity = Q_(data.yincrement, 'V')
-        "Scaling factor to convert raw data to volts"
-        self.pm_info = energy_info
-        "General information laser energy."
+        self.yincrement = data.yincrement
+        "Scaling factor to convert raw data to [V]."
         self.pm_energy = energy_info.energy
-        "Energy at power meter in physical units"
+        "Energy at PM in [J]."
         self.sample_en = energy_info.sample_en
-        "Energy at sample in physical units"
+        "Energy at sample in [J]."
+        self._pm_info = energy_info
         self._pm_start = data.pre_t[pm_ch_ind]
         self._pa_start = data.pre_t[pa_ch_ind]
 
@@ -599,7 +679,7 @@ class MeasuredPoint:
     def _set_pa_offset(self) -> None:
 
         # Calculate time from start of pm_signal to trigger position
-        pm_offset = self.pm_info.dt*self.pm_info.istart
+        pm_offset = self._pm_info.dt*self._pm_info.istart
         if pm_offset is not None:
             # Start time of PA data relative to start of laser pulse
             self.start_time = (self._pm_start - pm_offset) - self._pa_start
@@ -639,7 +719,35 @@ class MeasuredPoint:
         return data, decim_factor
 
 class ScanLine:
-    """Single scan line."""
+    """
+    Single scan line.
+    
+    Attributes
+    ----------
+    There are two kinds of attributes: `setted` and `measured`. The
+    former are parameters defined at initialization, the latter are
+    actually measured values.\n
+    `startp`: `Position` - `setted` position of line start.\n
+    `stopp`: `Position` - `setted` position of line stop.\n
+    `raw_data`: `list[MeasuredPoint]` - `property`. Read only. List
+    with `measured` points. Internally call `calc_scan_coord` method,
+    which can be computationally costly. Should return correct data
+    even if line was not fully scanned.\n
+    `raw_sig`: `list[OscMeasurement]` - list with `measured` osc signals.\n
+    `raw_pos`: `list[tuple[dt, Position]]` - list with `measured` 
+    positions along scan line. These are not positions, where signals
+    where measured. These positions are used to calculate actual signal
+    positions.\n
+    `num_points`: `int` - `property`. Read only. Amount of `measured` points.\n
+    `num_rpoints`: `int` - `setted` amount of regular line points.\n
+    `ltype`: `Literal['straight line']` - `setted` shape of the scan line.\n
+
+    Methods
+    -------
+    `add_pos_point`\n
+    `calc_grid`\n
+    `calc_scan_coord`
+    """
 
     def __init__(
             self,
@@ -652,9 +760,11 @@ class ScanLine:
         ) -> None:
         """Default scan line constructor.
         
-        ``startp`` - Exact position of scan start.\n
-        ``stopp`` - Exact position of scan stop.\n
-        ``points`` - Amount of regular points.\n
+        Attributes
+        ----------
+        ``startp`` - `setted` position of line start.\n
+        ``stopp`` - `setted` position of line stop.\n
+        ``points`` - `setted` amount of regular line points.\n
         ``raw_sig`` - optional list with measured osc signals.\n
         ``raw_pos`` - optional list with measured scan positions.\n
         ``ltype`` - optional shape of the scan line.\n
@@ -664,7 +774,7 @@ class ScanLine:
         "Exact position of scan start."
         self.stopp = stopp
         "Exact position of scan stop."
-        self.points = points
+        self.num_rpoints = points
         "Amount of regular points."
         if raw_sig is None:
             self.raw_sig = []
@@ -799,54 +909,24 @@ class ScanLine:
         logger.warning('Raw scan data is read only.')
 
     @property
-    def data(self) -> list[MeasuredPoint]:
+    def num_points(self) -> int:
         """
-        List with data points along exact scan line geometry.
-        
-        Read only.
-        """
-        logger.warning('Scan line data not implemented.')
-        return []
-    @data.setter
-    def data(self, val: Any) -> None:
-        logger.warning('Scan data is read only.')
-
-    @property
-    def raw_points(self) -> int:
-        """
-        Amount of all measured points.
+        Amount of measured points.
 
         Read only.
         """
         return len(self.raw_data)
-    @raw_points.setter
-    def raw_points(self, val: Any) -> None:
+    @num_points.setter
+    def num_points(self, val: Any) -> None:
         logger.warning(
             'Amount of raw points along scan line is read only.'
         )
-
-    @property
-    def step(self) -> Position:
-        """
-        Regular scan step.
-        
-        Read only.
-        """
-        # Set step
-        dist = self.startp.dist(self.stopp)
-        # Unit vector in direction from start point to stop point
-        unit = self.startp.direction(self.stopp)
-        step = unit*dist/(self.points - 1)
-        return step
-    @step.setter
-    def step(self, val: Any) -> None:
-        logging.warning('Scan line step is read only.')
 
     def __str__(self) -> str:
         
         reprs = [self.__class__.__name__ + ':']
         reprs.append('Points with pos =')
-        reprs.append(str(self.raw_points))
+        reprs.append(str(self.num_points))
         reprs.append('Measured PA signals =')
         reprs.append(str(len(self.raw_sig)))
         reprs.append('Pos points =')
@@ -1242,8 +1322,8 @@ class MapData:
         """
         points = 0
         for line in self.data:
-            if line.raw_points > points:
-                points = line.raw_points
+            if line.num_points > points:
+                points = line.num_points
         return points
     @fpoints_raw_max.setter
     def fpoints_raw_max(self, val: Any) -> None:

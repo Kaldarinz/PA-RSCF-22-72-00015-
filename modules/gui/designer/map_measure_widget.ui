@@ -485,6 +485,9 @@
        </item>
        <item>
         <widget class="QPushButton" name="btn_pause">
+         <property name="enabled">
+          <bool>false</bool>
+         </property>
          <property name="text">
           <string/>
          </property>
@@ -499,6 +502,9 @@
        </item>
        <item>
         <widget class="QPushButton" name="btn_restart">
+         <property name="enabled">
+          <bool>false</bool>
+         </property>
          <property name="text">
           <string/>
          </property>
@@ -984,6 +990,9 @@
      </item>
      <item>
       <widget class="QPushButton" name="btn_tst">
+       <property name="enabled">
+        <bool>false</bool>
+       </property>
        <property name="text">
         <string>Test</string>
        </property>

@@ -31,4 +31,6 @@ ureg = pint.get_application_registry()
 Q_ = ureg.Quantity
 rng = np.random.default_rng()
 
-pprint(vars())
+a = Q_(1,'')
+b = Q_(10,'')
+print(a.m)

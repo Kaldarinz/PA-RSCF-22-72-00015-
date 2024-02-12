@@ -816,8 +816,9 @@ def meas_point_from_osc(
         msmnt: OscMeasurement,
         wl: PlainQuantity
     ) -> MeasuredPoint | None:
-    """Make MeasurePoint from OscMeasurement and wavelength."""
+    """Make MeasuredPoint from OscMeasurement and wavelength."""
 
+    logger.debug('Start creating MeasuredPoint...')
     pm = hardware.power_meter
     pm_ch_id = int(hardware.config['power_meter']['connected_chan']) - 1
     if pm is None:
@@ -834,6 +835,7 @@ def meas_point_from_osc(
         logger.error('Sample energy cannot be calculated.')
         return None
     en_info = PaEnergyMeasurement(pm_energy, sample_en)
+
     measurement = MeasuredPoint(
         data = msmnt,
         energy_info = en_info,
@@ -841,6 +843,7 @@ def meas_point_from_osc(
         pa_ch_ind = int(not bool(pm_ch_id)),
         pm_ch_ind = pm_ch_id
     )
+    logger.debug('...MeasuredPoint created.')
     return measurement
 
 def aver_measurements(measurements: list[MeasuredPoint]) -> MeasuredPoint:

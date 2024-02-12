@@ -96,7 +96,9 @@ from .data_classes import (
     Position,
     OscMeasurement,
     PaEnergyMeasurement,
-    MeasuredPoint
+    MeasuredPoint,
+    MapData,
+    ScanLine
 )
 from modules.exceptions import (
     PlotError
@@ -118,15 +120,16 @@ class PaData:
             updated=self._get_cur_time(),
         )
         self.measurements: dict[str, Measurement] = {}
+        self.maps: dict[str, MapData] = {}
         self.changed = False
         "Data changed flag"
         logger.debug('PaData instance created')
 
-    def create_measurement(
+    def add_measurement(
             self,
             dims: int,
             params: list[str]
-        ) -> Measurement|None:
+        ) -> tuple[str, Measurement]|None:
         """
         Create a measurement, where data points will be stored.
         
@@ -156,28 +159,26 @@ class PaData:
         self.attrs.measurements_count += 1
         self.changed = True
         logger.debug(f'{title} created.')
-        return measurement
+        return (title, measurement)
 
-    def add_measurement(
+    def add_map(
             self,
-            dims: int,
-            parameters: list[str]) -> str:
-        """Add measurement and return its title."""
+            map: MapData
+        ) -> None:
+        """Add map data."""
 
-        n = self.attrs.measurements_count
-        title = self._build_name(n + 1, 'measurement')
-        md = MeasurementMetadata(
-            measurement_dims = dims,
-            parameter_name = parameters,
-            created = self._get_cur_time(),
-            updated = self._get_cur_time()
-        )
-        msmnt = Measurement(md)
-        self.measurements.update({title: msmnt})
-        self.attrs.updated = self._get_cur_time()
-        self.attrs.measurements_count += 1
-        self.changed = True
-        return title
+        title, msmnt = self.add_measurement(2, ['line', 'point']) # type: ignore
+        self.maps[title] = map
+        for lno, line in enumerate(map.data):
+            for pno, point in enumerate(line.raw_data):
+                self.add_point(
+                    measurement = msmnt,
+                    data = point,
+                    param_val = [Q_(lno, ''), Q_(pno, '')]
+                )
+                # Set correct created time
+                if lno == 0 and pno == 0:
+                    msmnt.attrs.created = self._get_time(point.datetime)
 
     def add_point(
             self,
@@ -264,9 +265,10 @@ class PaData:
         
         cur_time = time.time()
         date_time = datetime.fromtimestamp(cur_time)
-        date_time = date_time.strftime("%d-%m-%Y, %H:%M:%S")
+        return self._get_time(date_time)
 
-        return date_time
+    def _get_time(self, date_time: datetime) -> str:
+        return date_time.strftime("%d-%m-%Y, %H:%M:%S")
 
     def save(self, filename: str) -> None:
         """Save data to file."""
@@ -468,7 +470,7 @@ class PaData:
                 try:
                     item = Q_(source[key], source[key + '_u'])
                 except:
-                    logger.warning('Error in data loading.')
+                    logger.warning(f'Error in data loading for {key}.')
                     item = None
             elif val is Position:
                 item = Position.from_dict(source)
@@ -873,7 +875,7 @@ class PaData:
     def bp_filter(
             self,
             data: BaseData,
-            low: PlainQuantity=Q_(1, 'MHz'),
+            low: PlainQuantity=Q_(1, 'kHz'),
             high: PlainQuantity=Q_(10, 'MHz')
         ) -> tuple[ProcessedData, ProcessedData]:
         """

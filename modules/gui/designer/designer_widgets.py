@@ -42,7 +42,8 @@ from . import (
     pm_monitor_ui,
     curve_data_view_ui,
     point_data_view_ui,
-    motor_control_ui
+    motor_control_ui,
+    map_data_view_ui
 )
 
 from ... import Q_
@@ -88,6 +89,7 @@ class DataViewer(QWidget, data_viewer_ui.Ui_Form):
     def __init__(self, parent: QWidget | None=None) -> None:
         super().__init__(parent)
         self.setupUi(self)
+        self.p_2d = MapView(self)
         self.p_1d = CurveView(self)
         self.p_0d = PointView(self)
         self.p_empty = QWidget()
@@ -96,12 +98,15 @@ class DataViewer(QWidget, data_viewer_ui.Ui_Form):
         layout.addWidget(lbl)
         layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.p_empty.setLayout(layout)
+        self.sw_view.addWidget(self.p_2d)
         self.sw_view.addWidget(self.p_1d)
         self.sw_view.addWidget(self.p_0d)
         self.sw_view.addWidget(self.p_empty)
         self.sw_view.setCurrentWidget(self.p_empty)
         self.measurement: Measurement|None = None
         "Currently displayed data."
+        self.msmnt_title: str = ''
+        "Title of the currently displayed measurement."
         self.datapoint: DataPoint|None = None
         "Selected datapoint."
         self.data_index: int = 0
@@ -163,7 +168,6 @@ class CurveMeasureWidget(QWidget,curve_measure_widget_ui.Ui_Form):
         Automatically updates related widgets."""
 
         return self._current_point
-    
     @current_point.setter
     def current_point(self, val: int) -> None:
 
@@ -171,9 +175,10 @@ class CurveMeasureWidget(QWidget,curve_measure_widget_ui.Ui_Form):
         self.cur_p_changed.emit()
 
     def upd_widgets(self) -> None:
-        """Update widgets, related to current scan point.
+        """
+        Update widgets, related to current scan point.
         
-        Updates progress bar, its label and current param."""
+        Update progress bar, its label and current param."""
 
         # progress bar
         pb = int(self.current_point/self.max_steps*100)
@@ -212,6 +217,8 @@ class MapMeasureWidget(QWidget,map_measure_widget_ui.Ui_map_measure):
     astep_calculated = Signal(bool)
     "Emitted, when auto step is calculated. Always return `True`."
     scan_started = Signal(MapData)
+    scan_obtained = Signal(MapData)
+    "Emiited when scanning finished and some data were measured."
     scan_worker: Worker | None = None
 
     def __init__(self, parent: QWidget | None=None) -> None:
@@ -365,7 +372,9 @@ class MapMeasureWidget(QWidget,map_measure_widget_ui.Ui_map_measure):
             lines = len(self.plot_scan.data.data)
             dur = self.le_dur.text()
             logger.info(f'{lines} lines scanned. Scan duration {dur}')
-
+            # Save scan data
+            if lines:
+                self.scan_obtained.emit(self.plot_scan.data)
         logger.info('Scanning finished.')
 
     @Slot()
@@ -718,6 +727,13 @@ class PowerMeterMonitor(QWidget,pm_monitor_ui.Ui_Form):
         self.le_aver_en.setText(form_quant(aver))
         std = Q_(ytune.std(), units)
         self.le_std_en.setText(form_quant(std))
+
+class MapView(QWidget, map_data_view_ui.Ui_Map_view):
+    """Plots for 2D data."""
+
+    def __init__(self, parent: QWidget | None=None) -> None:
+        super().__init__(parent)
+        self.setupUi(self)
 
 class CurveView(QWidget,curve_data_view_ui.Ui_Form):
     """Plots for 1D data."""

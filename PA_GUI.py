@@ -132,10 +132,8 @@ class Window(QMainWindow,Ui_MainWindow,):
     """Application MainWindow."""
 
     _data: PaData|None = None
-
     data_changed = Signal()
     "Signal, which is emitted when data is changed."
-
     energy_measured = Signal(EnergyMeasurement)
     "Signal, emitted when PM data is obtained."
 
@@ -370,7 +368,8 @@ class Window(QMainWindow,Ui_MainWindow,):
         ### 2D measurements ###
         # Scan
         self.p_map.scan_started.connect(self.measure_map)
-
+        # Scan finished
+        self.p_map.scan_obtained.connect(self.save_map)
         # Calculate auto step
         self.p_map.calc_astepClicked.connect(self.calc_astep)
 
@@ -462,6 +461,17 @@ class Window(QMainWindow,Ui_MainWindow,):
         scan_worker.signals.finished.connect(self.p_map.scan_finished)
         self.pool.start(scan_worker)
 
+    @Slot(MapData)
+    def save_map(self, scan: MapData) -> None:
+        """Save scanned data."""
+
+        # create new data structure if necessary
+        if self.data is None:
+            self.data = PaData()
+        self.data.add_map(scan)
+        logger.debug('Map data saved.')
+        self.data_changed.emit()
+
     @Slot(PlainQuantity)
     def set_scan_speed(self, speed: PlainQuantity) -> None:
         """
@@ -482,7 +492,6 @@ class Window(QMainWindow,Ui_MainWindow,):
         set_vel_worker.signals.result.connect(
             self.p_map.sb_cur_speed.set_quantity
         )
-
 
     @Slot(QProgressDialog)
     def calc_astep(self, pb: QProgressDialog) -> None:
@@ -662,7 +671,7 @@ class Window(QMainWindow,Ui_MainWindow,):
         
         # Selected measurements will show first DataPoint
         data_index = 0
-        self.show_data(msmnt, data_index)
+        self.show_data(msmnt_title, msmnt, data_index)
 
     @Slot(QModelIndex, QModelIndex, list)
     def _msmnt_changed(
@@ -719,6 +728,10 @@ class Window(QMainWindow,Ui_MainWindow,):
         # clear old data view
         self._clear_data_view()
 
+        # Finish for empty data
+        if not len(data.measurements):
+            logger.debug('Data view cannot be loaded. No measurements.')
+            return
         # Update file content and set selected msmsnt
         self.data_viwer.content_model.setStringList(
             [key for key in data.measurements.keys()]
@@ -738,14 +751,15 @@ class Window(QMainWindow,Ui_MainWindow,):
             )
             return
 
-        self.show_data(
-            measurement = msmnt,
-            data_index = 0
-        )
+        # self.show_data(
+        #     measurement = msmnt,
+        #     data_index = 0
+        # )
         logger.debug('Data plotting complete.')
 
     def show_data(
             self,
+            msmnt_title: str,
             measurement: Measurement,
             data_index: int
     ) -> None:
@@ -758,6 +772,7 @@ class Window(QMainWindow,Ui_MainWindow,):
         """
 
         # Load data to show o attributes of data_viwer
+        self.data_viwer.msmnt_title = msmnt_title
         self.data_viwer.measurement = measurement
         self.data_viwer.data_index = data_index
         dp_name = PaData._build_name(data_index + 1)
@@ -768,7 +783,7 @@ class Window(QMainWindow,Ui_MainWindow,):
         elif measurement.attrs.measurement_dims == 0:
             self.set_point_view()
         else:
-            logger.error(f'Data dimension is not supported.')
+            self.set_map_view()
             
         # Update description
         self.set_data_description_view(self.data) # type: ignore
@@ -856,6 +871,20 @@ class Window(QMainWindow,Ui_MainWindow,):
                 event # type: ignore
             )
         )
+
+    def set_map_view(self) -> None:
+        """Set central part of data_viewer for map view."""
+
+        if (self.data is None
+            or self.data_viwer.measurement is None):
+            logger.warning(
+                'Map view cannot be updated. Data is missing.'
+            )
+            return 
+            
+        view = self.data_viwer.p_2d
+        self.data_viwer.sw_view.setCurrentWidget(view)
+        view.plot_map.set_data(self.data.maps[self.data_viwer.msmnt_title])       
 
     def set_cb_detail_view(
             self,
@@ -958,17 +987,18 @@ class Window(QMainWindow,Ui_MainWindow,):
             )
             return
 
-        # update plot
-        active_dview = self.data_viwer.sw_view.currentWidget()
-        active_dview = cast(CurveView, active_dview)
-        upd_plot(
-            active_dview.plot_detail, # type: ignore
-            *self.data.point_data_plot(
-                msmnt = self.data_viwer.measurement,
-                index = self.data_viwer.data_index,
-                dtype = self.data_viwer.dtype_point
+        if self.data_viwer.measurement.attrs.measurement_dims == 1:
+            # update plot
+            active_dview = self.data_viwer.sw_view.currentWidget()
+            active_dview = cast(CurveView, active_dview)
+            upd_plot(
+                active_dview.plot_detail, # type: ignore
+                *self.data.point_data_plot(
+                    msmnt = self.data_viwer.measurement,
+                    index = self.data_viwer.data_index,
+                    dtype = self.data_viwer.dtype_point
+                )
             )
-        )
 
         # clear existing description
         tv = self.data_viwer.tv_info 
@@ -1156,6 +1186,8 @@ class Window(QMainWindow,Ui_MainWindow,):
         """
         Verify a measurement.
         
+        Attributes
+        ----------
         ``parent`` is widget, which stores current point index.
         """
 
@@ -1204,32 +1236,28 @@ class Window(QMainWindow,Ui_MainWindow,):
             # create new data structure if necessary
             if self.data is None:
                 self.data = PaData()
-            # create new measurement if it is the first measured point
+            # Create new measurement if it is the first measured point
             # in curve measurement
             if isinstance(parent, CurveMeasureWidget):
                 if parent.current_point == 0:
-                    msmnt_title = self.data.add_measurement(
+                    msmnt_title, _ = self.data.add_measurement(
                         dims = 1,
-                        parameters = parent.parameter
-                    )
+                        params = parent.parameter
+                    ) # type: ignore
                     # Activate restart button
                     parent.btn_restart.setEnabled(True)
                 # otherwise take title of the last measurement
                 else:
-                    if self.data is None:
-                        logger.error('Trying to add not starting point '
-                                    + 'while data is None.')
-                        return
                     msmnt_title = PaData._build_name(
                         self.data.attrs.measurements_count,
                         'measurement'
                 )
             # for point data new measurement is created each time
             else:
-                msmnt_title = self.data.add_measurement(
+                msmnt_title, _ = self.data.add_measurement(
                     dims = 0,
-                    parameters = []
-                )
+                    params = []
+                ) # type: ignore
             # add datapoint to the measurement
             msmnt = self.data.measurements[msmnt_title]
             cur_param = []

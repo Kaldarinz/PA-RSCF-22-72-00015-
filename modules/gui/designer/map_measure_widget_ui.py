@@ -273,6 +273,7 @@ class Ui_map_measure(object):
 
         self.btn_pause = QPushButton(map_measure)
         self.btn_pause.setObjectName(u"btn_pause")
+        self.btn_pause.setEnabled(False)
         icon5 = QIcon()
         icon5.addFile(u":/icons/qt_resources/control-pause.png", QSize(), QIcon.Normal, QIcon.Off)
         self.btn_pause.setIcon(icon5)
@@ -282,6 +283,7 @@ class Ui_map_measure(object):
 
         self.btn_restart = QPushButton(map_measure)
         self.btn_restart.setObjectName(u"btn_restart")
+        self.btn_restart.setEnabled(False)
         icon6 = QIcon()
         icon6.addFile(u":/icons/qt_resources/arrow-circle-225-left.png", QSize(), QIcon.Normal, QIcon.Off)
         self.btn_restart.setIcon(icon6)
@@ -527,6 +529,7 @@ class Ui_map_measure(object):
 
         self.btn_tst = QPushButton(map_measure)
         self.btn_tst.setObjectName(u"btn_tst")
+        self.btn_tst.setEnabled(False)
 
         self.verticalLayout.addWidget(self.btn_tst)
 

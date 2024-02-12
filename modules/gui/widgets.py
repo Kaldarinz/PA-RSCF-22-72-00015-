@@ -842,6 +842,9 @@ class PgMap(pg.GraphicsLayoutWidget):
         self._remove_sel()
         self.selection_changed.emit(None)
 
+        if len(data.data):
+            self.upd_scan()
+
     def clear_plot(self) -> None:
         """CLear plot and remove data."""
 
