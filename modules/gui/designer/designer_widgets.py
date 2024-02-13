@@ -3,17 +3,21 @@ Widgets, built in Qt Designer, and used as a relatively big parts of
 the progamm.
 """
 import logging
+from typing import Literal, cast
 from collections import deque
 from datetime import datetime
 import math
 from time import sleep, time
+import re
 
 from PySide6.QtCore import (
     Signal,
     Qt,
     QStringListModel,
     Slot,
-    QTimer
+    QTimer,
+    QRect,
+    QItemSelectionModel,
 )
 from PySide6.QtWidgets import (
     QDialog,
@@ -47,7 +51,7 @@ from . import (
 )
 
 from ... import Q_
-from ...pa_data import Measurement
+from ...pa_data import PaData
 from ...data_classes import (
     DataPoint,
     Position,
@@ -56,10 +60,11 @@ from ...data_classes import (
     EnergyMeasurement,
     MapData,
     Worker,
-    WorkerFlags
+    WorkerFlags,
+    Measurement
 )
 from ...constants import (
-    DetailedSignals
+    POINT_SIGNALS
 )
 from ...utils import (
     upd_plot,
@@ -85,45 +90,229 @@ class DataViewer(QWidget, data_viewer_ui.Ui_Form):
     """Data viewer widget."""
 
     data_changed = Signal(bool)
+    "Value is whether new data is valid PaData (not None)."
+    msmnt_selected = Signal()
+    point_selected = Signal()
 
     def __init__(self, parent: QWidget | None=None) -> None:
         super().__init__(parent)
         self.setupUi(self)
+
+        self._data: PaData | None=None
+        # Create pages for 0D, 1D and 2D data
         self.p_2d = MapView(self)
         self.p_1d = CurveView(self)
         self.p_0d = PointView(self)
+        self.sw_view.addWidget(self.p_2d)
+        self.sw_view.addWidget(self.p_1d)
+        self.sw_view.addWidget(self.p_0d)
+        # Create empty page
         self.p_empty = QWidget()
         layout = QVBoxLayout()
         lbl = QLabel('No data to show')
         layout.addWidget(lbl)
         layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.p_empty.setLayout(layout)
-        self.sw_view.addWidget(self.p_2d)
-        self.sw_view.addWidget(self.p_1d)
-        self.sw_view.addWidget(self.p_0d)
         self.sw_view.addWidget(self.p_empty)
+        # By default empty page is shown
         self.sw_view.setCurrentWidget(self.p_empty)
-        self.measurement: Measurement|None = None
-        "Currently displayed data."
-        self.msmnt_title: str = ''
-        "Title of the currently displayed measurement."
-        self.datapoint: DataPoint|None = None
-        "Selected datapoint."
-        self.data_index: int = 0
-        "Index of the selceted datapoint."
-        self.dtype_point: str = ''
-        "Data type of the currently displayed datapoint."
 
-        # Set model for file content
+        # Currently selected objects (start with s prefix)
+        self._s_msmnt: Measurement | None = None # Private for property
+        self._s_point: DataPoint | None = None # Private for property
+        self.s_point_dtype: str = 'Raw'
+        "Data type of the selected datapoint."
+
+        # Model for file content
         self.content_model = QStringListModel()
         self.lv_content.setModel(self.content_model)
 
-        # This is bullshit, but I cannot find other solution.
-        # With default stretch factor central widget is too narrow 
-        # for no reason.
-        self.splitter.setStretchFactor(0,1)
-        self.splitter.setStretchFactor(1,90)
-        self.splitter.setStretchFactor(2,1)
+    def connect_signals_slots(self) -> None:
+        """"Connect all signals and slots."""
+
+        self.data_changed.connect(self.data_updated)
+        self.msmnt_selected.connect(self.show_data)
+
+    @Slot(bool)
+    def data_updated(self, data_exist: bool) -> None:
+        """
+        Slot, which triggers when data is changed.
+        
+        Set marker of changed data for title and
+        reload whole view.
+        """
+
+        # set marker of changed data for title
+        data_title = self.lbl_data_title.text()
+        if not data_title.endswith('*') and data_exist:
+            data_title = data_title + '*'
+            self.lbl_data_title.setText(data_title)
+
+        logger.debug('Updating data in viewer...')
+        # clear old data view
+        self.clear_view()
+        if data_exist:
+            data = cast(PaData, self.data)
+            # Finish for empty data
+            if not len(data.measurements):
+                logger.debug('Data contain o measurements.')
+                return
+            # Load new file content
+            self.content_model.setStringList(
+                [key for key in data.measurements.keys()]
+            )
+            # Select the first msmnt
+            self.lv_content.setSelection(
+                QRect(0,0,1,1),
+                QItemSelectionModel.SelectionFlag.Select
+            )
+            # Todo: connect signal from selection model to update s_msmnt
+        logger.debug('Data updated in viewer.')
+
+    @Slot()
+    def show_data(self) -> None:
+        """
+        Show selected measurement.
+        
+        Automatically called, when new measurement is selected 
+        (technically new value is set to `s_msmnt_title`).
+        """
+
+        # Setter of s_msmnt_title do not verify that new value is
+        # correct, therefore new msmnt can be None
+        if self.s_measurement is None:
+            logger.info('Cannot display invalid measurement.')
+            return
+        # Load data to show o attributes of data_viwer
+        self.data_viewer.s_msmnt_title = msmnt_title
+        self.data_viewer.s_measurement = measurement
+        self.data_viewer.s_data_index = data_index
+        dp_name = PaData._build_name(data_index + 1)
+        self.data_viewer.s_datapoint = measurement.data[dp_name]
+
+        if measurement.attrs.measurement_dims == 1:
+            self.set_curve_view()
+        elif measurement.attrs.measurement_dims == 0:
+            self.set_point_view()
+        else:
+            self.set_map_view()
+            
+        # Update description
+        self.set_data_description_view(self.data) # type: ignore
+
+    def clear_view(self) -> None:
+        """Clear whole viewer."""
+
+        # Reset selected object attributes
+        self.s_msmnt = None
+        self.s_point = None
+        self.s_point_dtype = 'Raw'
+        # Clear file content
+        self.content_model.setStringList([])
+        # Clear information view
+        while self.tv_info.topLevelItemCount():
+            self.tv_info.takeTopLevelItem(0)
+        # Set empty page for plot view
+        self.sw_view.setCurrentWidget(self.p_empty)
+
+    @property
+    def s_msmnt(self) -> Measurement | None:
+        """
+        Selected measurement.
+
+        If new value is set, emit `msmnt_selected` signal.\n
+        """
+        return self._s_msmnt
+    @s_msmnt.setter
+    def s_msmnt(self, new_val: Measurement | None) -> None:
+        if self._s_msmnt is not None and self._s_msmnt != new_val:
+            self._s_msmnt = new_val
+            self.msmnt_selected.emit()
+        else:
+            self._s_msmnt = new_val
+
+    @property
+    def s_msmnt_title(self) -> str:
+        """
+        Title of the selected measurement.
+        
+        Read only.
+        """
+        title = ''
+        if self.s_msmnt is not None and self.data is not None:
+            for key, val in self.data.measurements.items():
+                if val == self.s_msmnt:
+                    title = key
+                    break
+        return title
+
+    @property
+    def s_point(self) -> DataPoint | None:
+        """
+        Selected data point.
+
+        If new value is set, emit `point_selected` signal.\n
+        """
+        return self._s_point
+    @s_point.setter
+    def s_point(self, new_val: DataPoint | None) -> None:
+        if self._s_point is not None and self._s_point != new_val:
+            self._s_point = new_val
+            self.point_selected.emit()
+        else:
+            self._s_point = new_val
+
+    @property
+    def s_point_title(self) -> str:
+        """
+        Title of the selected point.
+        
+        Read only.
+        """
+        title = ''
+        if self.s_point is not None and self.s_msmnt is not None:
+            for key, val in self.s_msmnt.data.items():
+                if val == self.s_point:
+                    title = key
+                    break
+        return title
+
+    @property
+    def s_point_ind(self) -> int:
+        """
+        Index of the selected point.
+        
+        Read only.
+        """
+        ind = 0
+        if self.s_point is not None and self.s_msmnt is not None:
+            for key, val in self.s_msmnt.data.items():
+                if val == self.s_point:
+                    # Extract number from point title, which is spected
+                    # to be Point001, etc
+                    ind = int(re.findall(r'\d+', key)[0]) - 1
+                    break
+        return ind
+
+    @property
+    def data(self) -> PaData | None:
+        "PA data."
+        return self._data
+    @data.setter
+    def data(self, value: PaData | None) -> None:
+        """Set new PaData and triggers data_viewer update."""
+        logger.debug(f'data attribute is set to {value}')
+        if (isinstance(value, PaData)
+            and self._data is not None
+            and self._data != value):
+            self._data = value
+            self.data_changed.emit(True)
+        elif value is None and self._data is not None:
+            self._data = None
+            self.data_changed.emit(False)
+        else:
+            logger.warning('Attempt to set wrong object to data.')
+            return
 
 class LoggerWidget(QDockWidget, log_dock_widget_ui.Ui_d_log):
     """Logger dock widget."""

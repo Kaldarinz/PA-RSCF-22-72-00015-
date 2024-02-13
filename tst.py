@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field, fields
 from typing import TypedDict
 from pprint import pprint
+import re
 from collections.abc import Iterable, Sequence
 from datetime import datetime
 import time, math
@@ -35,7 +36,6 @@ ureg = pint.get_application_registry()
 Q_ = ureg.Quantity
 rng = np.random.default_rng()
 
-a = Q_(1, 'm')
-b: list[int] = [1]
-if type(b) == list:
-    print('OK')
+key = 'Point001'
+ind = int(re.findall(r'\d+', key)[0])
+print(ind)

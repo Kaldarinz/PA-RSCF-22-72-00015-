@@ -69,7 +69,7 @@ PaData:
 
     """
 
-from typing import Iterable, Any, Tuple, TypeVar, Type
+from typing import Iterable, Any, Tuple, TypeVar, Type, Self
 from dataclasses import fields, field
 from datetime import datetime
 import time
@@ -653,7 +653,6 @@ class PaData:
                         scan.add_line(line)
                     self.maps.update({msmnt_title: scan})
 
-
     def _load_old(self, file: h5py.File) -> None:
         """Load file with version < 1.2."""
 
@@ -989,3 +988,14 @@ class PaData:
         )
         logger.debug(f'Filtered signal amplitude = {filt_data.max_amp}')
         return (filt_data,freq_data)
+    
+    def __eq__(self, __value: Self) -> bool:
+        """Compare creation time."""
+        if self.attrs.created == __value.attrs.created:
+            return True
+        else:
+            return False
+    
+    def __ne__(self, __value: Self) -> bool:
+        """Compare creation time."""
+        return not self.__eq__(__value)

@@ -1,6 +1,6 @@
 from enum import IntEnum
 
-DetailedSignals = {
+POINT_SIGNALS = {
     'Raw': 'raw_data',
     'Filtered': 'filt_data',
     'Zoomed Raw': 'raw_data',
