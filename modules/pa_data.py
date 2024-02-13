@@ -172,7 +172,7 @@ class PaData:
 
         # Create measurement
         title, msmnt = self.add_measurement(2, ['line', 'point']) # type: ignore
-        msmnt.attrs.centp = map.centp
+        msmnt.attrs.center = map.centp
         msmnt.attrs.width = map.width
         msmnt.attrs.height = map.height
         msmnt.attrs.hpoints = map.hpoints
@@ -452,6 +452,11 @@ class PaData:
                 # Spetial case for Position
                 elif fld.type == Position:
                     result.update(value.serialize(fld.name))
+                # Special case for datetime
+                elif fld.type == datetime:
+                    result.update({
+                        fld.name: str(getattr(obj, fld.name))
+                        })
                 # Otherwise it should be basic type
                 else:
                     result.update({fld.name: value})
@@ -488,6 +493,12 @@ class PaData:
             # Special case for Position
             elif fld.type == Position:
                 value = Position.from_dict(data = source, prefix = fld.name)
+            # Special case for datetime
+            elif fld.type == datetime:
+                iso_format = source.get(fld.name, None)
+                if iso_format is not None:
+                    value = datetime.fromisoformat(iso_format)
+            # Otherwise values is one of basic types
             else:
                 value = source.get(fld.name, None)
             if value is not None:
@@ -615,11 +626,33 @@ class PaData:
                         filtdata,
                         freqdata
                     )
-                    # For scan data
-                    if measurement.attrs.measurement_dims == 2:
-                        max_lines = dp.attrs.param_val[0]
                     measurement.data.update({datapoint_title: dp})
                 self.measurements.update({msmnt_title: measurement})
+                # For scan data
+                if measurement.attrs.measurement_dims == 2:
+                    scan = MapData.from_measmd(measurement.attrs)
+                    line_no = 0
+                    line_points: list[MeasuredPoint] = []
+                    for _, point in measurement.data.items():
+                        cur_lino_no = point.attrs.param_val[0]
+                        if cur_lino_no == line_no:
+                            line_points.append(
+                                MeasuredPoint.from_datapoint(point)
+                            )
+                        else:
+                            line = scan.create_line()
+                            if line is not None:
+                                line.add_measurements(line_points)
+                                scan.add_line(line)
+                            line_no += 1
+                            line_points = [MeasuredPoint.from_datapoint(point)]
+                    # add last line
+                    line = scan.create_line()
+                    if line is not None:
+                        line.add_measurements(line_points)
+                        scan.add_line(line)
+                    self.maps.update({msmnt_title: scan})
+
 
     def _load_old(self, file: h5py.File) -> None:
         """Load file with version < 1.2."""

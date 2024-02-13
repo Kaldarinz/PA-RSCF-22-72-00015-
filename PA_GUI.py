@@ -1011,14 +1011,12 @@ class Window(QMainWindow,Ui_MainWindow,):
         dp_title = PaData._build_name(self.data_viwer.data_index + 1)
         dp = self.data_viwer.measurement.data[dp_title] #type: ignore
         QTreeWidgetItem(tv.pmd, ['Title', dp_title])
+        # PointMetaData
         for field in fields(dp.attrs):
-            QTreeWidgetItem(
-                tv.pmd,
-                [field.name, str(getattr(
-                    dp.attrs,
-                    field.name
-                    ))]
-            )
+            val = getattr(dp.attrs, field.name)
+            if type(val) == list:
+                val = [str(x) for x in val]
+            QTreeWidgetItem(tv.pmd, [field.name, str(val)])
         dtype = getattr(dp, self.data_viwer.dtype_point)
         for field in fields(dtype):
             if field.name in ['data', 'data_raw']:

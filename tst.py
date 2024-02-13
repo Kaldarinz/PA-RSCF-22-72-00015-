@@ -35,5 +35,7 @@ ureg = pint.get_application_registry()
 Q_ = ureg.Quantity
 rng = np.random.default_rng()
 
-pos = Position(Q_(1,'m'))
-pprint(pos.serialize('pos'))
+a = Q_(1, 'm')
+b: list[int] = [1]
+if type(b) == list:
+    print('OK')

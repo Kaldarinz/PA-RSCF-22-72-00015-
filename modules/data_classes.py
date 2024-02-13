@@ -5,7 +5,7 @@ Module with data classes.
 import sys
 from typing import Callable, TypeVar, Any, Literal, cast, TypedDict, NamedTuple
 from typing_extensions import ParamSpec, Self, Type
-from dataclasses import dataclass, field, fields
+from dataclasses import dataclass, field, fields, asdict
 import traceback
 import logging
 import heapq
@@ -407,7 +407,7 @@ class MeasurementMetadata:
 
     measurement_dims: int
     'dimensionality of the measurement'
-    parameter_name: list[str] = field(default_factory = list)
+    parameter_name: list[str] = field(default_factory = list, compare=False)
     'independent parameter, changed between measured PA signals'
     data_points: int = 0
     'amount of datapoints in the measurement'
@@ -419,7 +419,7 @@ class MeasurementMetadata:
     'description of the measurement'
     max_len: int = 0
     'maximum amount of samples in a single datapoint in this measurement'
-    centp: Position = field(default_factory=lambda: Position())
+    center: Position = field(default_factory=lambda: Position())
     'Center point of 2D measurement.'
     width: PlainQuantity = Q_(np.nan, 'mm')
     'Scan size of 2D measurement along horizontal axis.'
@@ -443,7 +443,7 @@ class Measurement:
 
     attrs: MeasurementMetadata
     "MetaData of the measurement."
-    data: dict[str, DataPoint] = field(default_factory = dict)
+    data: dict[str, DataPoint] = field(default_factory = dict, compare=False)
 
 def def_pos() -> Position:
     return Position()
@@ -812,10 +812,11 @@ class ScanLine:
     actually measured values.\n
     `startp`: `Position` - `setted` position of line start.\n
     `stopp`: `Position` - `setted` position of line stop.\n
-    `raw_data`: `list[MeasuredPoint]` - `property`. Read only. List
-    with `measured` points. Internally call `calc_scan_coord` method,
-    which can be computationally costly. Should return correct data
-    even if line was not fully scanned.\n
+    `raw_data`: `list[MeasuredPoint]` - `property`. List with `measured`
+    points. Internally call `calc_scan_coord` method if `_raw_pos` and
+    `_raw_sig` are not empty, which can be computationally costly.
+    Should return correct data even if line was not fully scanned.
+    If any of `_raw_pos` or `_raw_sig` is empty, return last setted value.\n
     `num_points`: `int` - `property`. Read only. Amount of `measured` points.\n
     `ltype`: `Literal['straight line']` - `setted` shape of the scan line.\n
 
@@ -852,6 +853,7 @@ class ScanLine:
         "List with positions, measured along scan line with timestamps."
         self.ltype = ltype
         "Type of scan line"
+        self._raw_data: list[MeasuredPoint] = []
 
     @classmethod
     def from_list(
@@ -877,14 +879,16 @@ class ScanLine:
         stopp = lst[-1].pos
 
         new_line = cls(startp, stopp)
-        for point in lst:
-            new_line.add_measurement(point)
+        new_line.add_measurements(lst)
         return new_line
 
-    def add_measurement(self, point: MeasuredPoint) -> None:
-        """Append MeasuredPoint to scan line."""
+    def add_measurements(self, points: list[MeasuredPoint]) -> None:
+        """Append MeasuredPoints to scan line."""
         
-        self.raw_data.append(point)
+        new_data = self.raw_data
+        for point in points:
+            new_data.append(point)
+        self.raw_data = new_data
 
     def add_pos_point(self, pos: Position | None) -> None:
         """Append position along scan line."""
@@ -990,20 +994,22 @@ class ScanLine:
 
     @property
     def raw_data(self) -> list[MeasuredPoint]:
-        """
-        List with data points at their measured positions.
-        
-        Read only.
-        """
-        return self.calc_scan_coord(
-            signals = self._raw_sig,
-            poses = self._raw_pos,
-            start = self.startp,
-            stop = self.stopp
-        )
+        """List with data points at their measured positions."""
+
+        # if positions and signals were added, then calculate results
+        # otherwise it is supposed that MeasuredPoints were setted.
+        if len(self._raw_pos) and len(self._raw_sig):
+            return self.calc_scan_coord(
+                signals = self._raw_sig,
+                poses = self._raw_pos,
+                start = self.startp,
+                stop = self.stopp
+            )
+        else:
+            return self._raw_data
     @raw_data.setter
-    def raw_data(self, val: Any) -> None:
-        logger.warning('Raw scan data is read only.')
+    def raw_data(self, val: list[MeasuredPoint]) -> None:
+        self._raw_data = val
 
     @property
     def num_points(self) -> int:
@@ -1096,7 +1102,8 @@ class MapData:
             vpoints: int,
             scan_plane: Literal['XY', 'YZ', 'ZX']='XY',
             scan_dir: str='HLB',
-            wavelength: PlainQuantity=Q_(100, 'nm')
+            wavelength: PlainQuantity=Q_(100, 'nm'),
+            **kwargs
         ) -> None:
 
         self.centp = center
@@ -1121,6 +1128,15 @@ class MapData:
         "Cashed lines for coordinates."
         self._plot_coords: list[list[Position]] = []
         self._plot_sigs: list[list[MeasuredPoint]] = []
+
+    @classmethod
+    def from_measmd(cls: Type[Self], md: MeasurementMetadata) -> Self:
+        """
+        Initialize MapData from measurement metadata.
+        
+        Intended to be used in data loading from file.
+        """
+        return cls(**asdict(md))
 
     def create_line(self) -> ScanLine|None:
         """
@@ -1541,7 +1557,7 @@ class MapData:
         Read only.
         """
         if self.width.m is not np.nan and self.hpoints > 1:
-            hstep = self.width/(self.hpoints - 1)
+            hstep = self.width/(self.hpoints)
         else:
             hstep = Q_(np.nan, 'mm')
         return hstep
@@ -1557,7 +1573,7 @@ class MapData:
         Read only.
         """
         if self.height.m is not np.nan and self.vpoints > 1:
-            vstep = self.height/(self.vpoints - 1)
+            vstep = self.height/(self.vpoints)
         else:
             vstep = Q_(np.nan, 'mm')
         return vstep
