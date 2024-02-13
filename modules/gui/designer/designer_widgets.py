@@ -18,6 +18,7 @@ from PySide6.QtCore import (
     QTimer,
     QRect,
     QItemSelectionModel,
+    QItemSelection
 )
 from PySide6.QtWidgets import (
     QDialog,
@@ -132,6 +133,10 @@ class DataViewer(QWidget, data_viewer_ui.Ui_Form):
 
         self.data_changed.connect(self.data_updated)
         self.msmnt_selected.connect(self.show_data)
+        # Measurement selection
+        self.lv_content.selectionModel().selectionChanged.connect(
+            self.new_sel_msmnt 
+        )
 
     @Slot(bool)
     def data_updated(self, data_exist: bool) -> None:
@@ -168,6 +173,32 @@ class DataViewer(QWidget, data_viewer_ui.Ui_Form):
             )
             # Todo: connect signal from selection model to update s_msmnt
         logger.debug('Data updated in viewer.')
+
+    @Slot(QItemSelection, QItemSelection)
+    def new_sel_msmnt(
+            self,
+            selected: QItemSelection,
+            desecled: QItemSelection
+        ) -> None:
+        """Load new selected measurement."""
+
+        # Selected index
+        ind = selected.indexes()[0]
+
+        # Get selected measurement
+        model = self.data_viewer.content_model
+        msmnt_title = model.data(ind, Qt.ItemDataRole.EditRole)
+        msmnt = self.data.measurements.get(msmnt_title) # type: ignore
+        
+        if msmnt is None:
+            logger.warning(
+                f'Trying to load invalid measurement: {msmnt_title}'
+            )
+            return
+        
+        # Selected measurements will show first DataPoint
+        data_index = 0
+        self.show_data(msmnt_title, msmnt, data_index)
 
     @Slot()
     def show_data(self) -> None:

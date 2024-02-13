@@ -27,7 +27,6 @@ from PySide6.QtCore import (
     QThreadPool,
     Slot,
     Signal,
-    QItemSelection,
     QModelIndex,
     QTimer
 )
@@ -357,10 +356,7 @@ class Window(QMainWindow,Ui_MainWindow,):
         ### Data view###
         self.action_Data.toggled.connect(self.activate_data_viwer)
         self.action_Open.triggered.connect(self.open_file)
-        # Measurement selection
-        self.data_viewer.lv_content.selectionModel().selectionChanged.connect(
-            self.new_sel_msmnt
-        )
+        
         # Measurement title change
         self.data_viewer.content_model.dataChanged.connect(
             self._msmnt_changed
@@ -592,32 +588,6 @@ class Window(QMainWindow,Ui_MainWindow,):
         """Actual file close."""
 
         self.data_viewer.data = None
-
-    @Slot(QItemSelection, QItemSelection)
-    def new_sel_msmnt(
-            self,
-            selected: QItemSelection,
-            desecled: QItemSelection
-        ) -> None:
-        """Load new selected measurement."""
-
-        # Selected index
-        ind = selected.indexes()[0]
-
-        # Get selected measurement
-        model = self.data_viewer.content_model
-        msmnt_title = model.data(ind, Qt.ItemDataRole.EditRole)
-        msmnt = self.data.measurements.get(msmnt_title) # type: ignore
-        
-        if msmnt is None:
-            logger.warning(
-                f'Trying to load invalid measurement: {msmnt_title}'
-            )
-            return
-        
-        # Selected measurements will show first DataPoint
-        data_index = 0
-        self.show_data(msmnt_title, msmnt, data_index)
 
     @Slot(QModelIndex, QModelIndex, list)
     def _msmnt_changed(
