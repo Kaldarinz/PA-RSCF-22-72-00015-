@@ -135,6 +135,8 @@ class DataViewer(QWidget, data_viewer_ui.Ui_Form):
         self.content_model = QStringListModel()
         self.lv_content.setModel(self.content_model)
 
+        self.connect_signals_slots()
+
     def connect_signals_slots(self) -> None:
         """"Connect all signals and slots."""
 
@@ -193,12 +195,13 @@ class DataViewer(QWidget, data_viewer_ui.Ui_Form):
             data = cast(PaData, self.data)
             # Finish for empty data
             if not len(data.measurements):
-                logger.debug('Data contain o measurements.')
+                logger.debug('Data contain no measurements.')
                 return
             # Load new file content
             self.content_model.setStringList(
                 [key for key in data.measurements.keys()]
             )
+            logger.debug(f'{self.content_model.rowCount()} msmnts set.')
             # Select the first msmnt
             self.s_msmnt = next(iter(data.measurements.values()))
             # Set file description
@@ -209,11 +212,13 @@ class DataViewer(QWidget, data_viewer_ui.Ui_Form):
     def set_msmnt_selection(self) -> None:
         """Select `s_msmnt` in the list of measurements."""
 
+        logger.debug('Starting selection of new msmnt in the view.')
         # Do not update selection if s_msmnt is not set
         if not len(s_msmnt_title:=self.s_msmnt_title):
             return
         # Get list of all msmsnts in the file content QListView
         msmnts = self.content_model.stringList()
+        logger.debug(f'Choosing {self.s_msmnt_title} from {msmnts}')
         for ind, msmnt in enumerate(msmnts):
             if msmnt == s_msmnt_title:
                 self.lv_content.setSelection(
@@ -390,6 +395,7 @@ class DataViewer(QWidget, data_viewer_ui.Ui_Form):
             self.tv_info.takeTopLevelItem(0)
         # Set empty page for plot view
         self.sw_view.setCurrentWidget(self.p_empty)
+        logger.debug('Data view cleared')
 
     @Slot(MapData)
     def add_map_to_data(self, scan: MapData) -> None:
@@ -400,7 +406,7 @@ class DataViewer(QWidget, data_viewer_ui.Ui_Form):
             self.data = PaData()
         self.data.add_map(scan)
         logger.debug('Map data saved.')
-        self.data_changed.emit()
+        self.data_changed.emit(True)
 
     @Slot(QModelIndex, QModelIndex, list)
     def _msmnt_renamed(
@@ -447,6 +453,7 @@ class DataViewer(QWidget, data_viewer_ui.Ui_Form):
         return self._s_msmnt
     @s_msmnt.setter
     def s_msmnt(self, new_val: Measurement | None) -> None:
+        logger.debug(f'Trying toassign {new_val} to s_msmnt')
         if self._s_msmnt is not None and self._s_msmnt != new_val:
             self._s_msmnt = new_val
             self.msmnt_selected.emit()
@@ -526,15 +533,19 @@ class DataViewer(QWidget, data_viewer_ui.Ui_Form):
     @data.setter
     def data(self, value: PaData | None) -> None:
         """Set new PaData and triggers data_viewer update."""
-        logger.debug(f'data attribute is set to {value}')
-        if (isinstance(value, PaData)
-            and self._data is not None
-            and self._data != value):
-            self._data = value
-            self.data_changed.emit(True)
+        if isinstance(value, PaData):
+            if self._data is not None and self._data != value:
+                self._data = value
+                self.data_changed.emit(True)
+                logger.debug(f'data attribute is set to {value}')
+            elif self._data is None:
+                self._data = value
+                self.data_changed.emit(True)
+                logger.debug(f'data attribute is set to {value}')
         elif value is None and self._data is not None:
             self._data = None
             self.data_changed.emit(False)
+            logger.debug(f'data attribute is set to {value}')
         else:
             logger.warning('Attempt to set wrong object to data.')
             return
@@ -860,8 +871,6 @@ class MapMeasureWidget(QWidget,map_measure_widget_ui.Ui_map_measure):
         if state and self._zoomed_out:
             return
         if not state and not self._zoomed_out:
-            return
-        if self.plot_scan.data is None:
             return
         
         self._zoomed_out = state

@@ -770,11 +770,13 @@ class TreeInfoWidget(QTreeWidget):
     def set_file_md(self, attrs) -> None:
         """Set file metadata from a dataclass."""
 
+        logger.debug('Starting file metadata update.')
         # clear existing information
         if self.fmd is not None:
-            index = self.indexOfTopLevelItem(self.fmd)
-            while self.topLevelItemCount() > index:
-                self.takeTopLevelItem(index)
+            logger.debug('Starting all metadata claering.')
+            while self.topLevelItemCount():
+                self.takeTopLevelItem(0)
+            logger.debug('All metadata cleared.')
         # Set top level item as "File attributes" string
         self.fmd = QTreeWidgetItem(self, ['File attributes'])
         self.fmd.setExpanded(True)

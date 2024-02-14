@@ -443,7 +443,7 @@ class Measurement:
 
     attrs: MeasurementMetadata
     "MetaData of the measurement."
-    data: dict[str, DataPoint] = field(default_factory = dict, compare=False)
+    data: dict[str, DataPoint] = field(default_factory = dict, compare=False, repr=False)
 
 def def_pos() -> Position:
     return Position()
