@@ -19,7 +19,8 @@ from PySide6.QtCore import (
     QTimer,
     QRect,
     QItemSelectionModel,
-    QItemSelection
+    QItemSelection,
+    QModelIndex
 )
 from PySide6.QtWidgets import (
     QDialog,
@@ -38,6 +39,7 @@ from PySide6.QtGui import (
 import numpy as np
 from pint.facets.plain.quantity import PlainQuantity
 from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT
+from matplotlib.backend_bases import PickEvent
 
 from . import (
     verify_measure_ui,
@@ -145,14 +147,29 @@ class DataViewer(QWidget, data_viewer_ui.Ui_Form):
         )
         # Measurement selection from code
         self.msmnt_selected.connect(self.set_msmnt_selection)
+        
+        # Measurement renamed
+        self.content_model.dataChanged.connect(
+            self._msmnt_renamed
+        )
 
-        # Signal selection
+        # Signal selection for point
         self.p_0d.cb_detail_select.currentTextChanged.connect(
             lambda _ : self.show_signal())
         self.p_1d.cb_detail_select.currentTextChanged.connect(
             lambda _ : self.show_signal())
         self.p_2d.cb_detail_select.currentTextChanged.connect(
             lambda _ : self.show_signal())
+        
+        # Signal selection for parameter
+        self.p_1d.cb_curve_select.currentTextChanged.connect(
+            lambda _ : self.plot_param()
+        )
+
+        # Data picker
+        self.p_1d.plot_curve.canvas.fig.canvas.mpl_connect(
+            'pick_event', self.pick_event # type: ignore
+        )
 
     @Slot(bool)
     def data_updated(self, data_exist: bool) -> None:
@@ -268,53 +285,27 @@ class DataViewer(QWidget, data_viewer_ui.Ui_Form):
         self.s_point = next(iter(msmnt.data.values()))
 
     def set_curve_view(self) -> None:
-        """Set central part of data_viewer for curve view."""
+        """Load curve view."""
 
         # This method is called, when s_msmnt do exist
         msmnt = cast(Measurement, self.s_msmnt)
         # Load curve view
         self.sw_view.setCurrentWidget(self.p_1d)
-        ## Set comboboxes ##
-        # Curve combobox
-
-        view.cb_curve_select.currentTextChanged.connect(
-            lambda new_val: upd_plot(
-                view.plot_curve,
-                *self.data.param_data_plot( # type: ignore
-                    self.data_viewer.s_measurement, # type: ignore
-                    ParamSignals[new_val]
-                ),
-                marker = [self.data_viewer.s_point_ind],
-                enable_pick = True 
-            )
-        )
+        # Set selected DataPoint
+        self.s_point = next(iter(msmnt.data.values()))
         ## Set main plot ##
-        main_data = self.data.param_data_plot(
-            msmnt = self.data_viewer.s_measurement,
-            dtype = ParamSignals[view.cb_curve_select.currentText()]
-        )
-        upd_plot(
-            view.plot_curve,
-            *main_data,
-            marker = [self.data_viewer.s_point_ind],
-            enable_pick = True
-        )
-        # Set additional plot
-        detail_data = self.data.point_data_plot(
-            msmnt = self.data_viewer.s_measurement,
-            index = self.data_viewer.s_point_ind,
-            dtype = self.data_viewer.s_point_dtype
-        )
-        upd_plot(view.plot_detail, *detail_data)
-        # Picker event
-        view.plot_curve.canvas.fig.canvas.mpl_connect(
-            'pick_event',
-            lambda event: self.pick_event(
-                view.plot_curve.canvas,
-                event # type: ignore
-            )
-        )
+        self.plot_param()
 
+    def set_map_view(self) -> None:
+        """Load map view."""
+
+        # Load curve view
+        self.sw_view.setCurrentWidget(self.p_2d) 
+        
+        if self.data is not None:
+            self.p_2d.plot_map.set_data(
+                self.data.maps[self.s_msmnt_title]
+            )
 
     def show_point(self) -> None:
         """
@@ -337,12 +328,13 @@ class DataViewer(QWidget, data_viewer_ui.Ui_Form):
     def show_signal(self) -> None:
         """Actually plot point data and set signal description."""
 
-        if self.s_point is None or self.s_msmnt is None:
-            # We should clear point plot, implement it in future
-            logger.debug('Signal cannot be shown. Some info is missing.')
-            return
         view = self.sw_view.currentWidget()
         view = cast(PointView|CurveView|MapView, view)
+        if self.s_point is None or self.s_msmnt is None:
+            view.plot_detail.clear_plot()
+            logger.debug('Signal cannot be shown. Some info is missing.')
+            return
+        
         # signal data type for plotting
         dtype =  POINT_SIGNALS[view.cb_detail_select.currentText()]
         # Set signal description
@@ -354,7 +346,36 @@ class DataViewer(QWidget, data_viewer_ui.Ui_Form):
             index = self.s_point_ind,
             dtype = dtype
         )
-        upd_plot(view.plot_detail, *detail_data)
+        view.plot_detail.plot(*detail_data)
+
+    @Slot()
+    def plot_param(self) -> None:
+        """Plot param data."""
+
+        view = self.sw_view.currentWidget()
+        view = cast(CurveView, view)
+        if self.s_point is None or self.s_msmnt is None:
+            view.plot_detail.clear_plot()
+            logger.debug('Signal cannot be shown. Some info is missing.')
+            return
+        # signal data type for plotting
+        dtype =  MSMNTS_SIGNALS[view.cb_curve_select.currentText()]
+        # Plot the data
+        param_data = PaData.param_data_plot(
+            msmnt = self.s_msmnt,
+            dtype = dtype
+        )
+        view.plot_curve.plot(*param_data)
+        view.plot_curve.set_marker([self.s_point_ind])
+
+    def pick_event(self, event: PickEvent):
+        """Callback method for processing data picking on plot."""
+
+        # Update datamarker on plot
+        self.p_1d.plot_curve.set_marker([event.ind[0]]) # type: ignore
+        # Update index of currently selected data
+        dp_name = PaData._build_name(event.ind[0] + 1) # type: ignore
+        self.s_datapoint = self.s_msmnt.data[dp_name] # type: ignore
 
     def clear_view(self) -> None:
         """Clear whole viewer."""
@@ -369,6 +390,52 @@ class DataViewer(QWidget, data_viewer_ui.Ui_Form):
             self.tv_info.takeTopLevelItem(0)
         # Set empty page for plot view
         self.sw_view.setCurrentWidget(self.p_empty)
+
+    @Slot(MapData)
+    def add_map_to_data(self, scan: MapData) -> None:
+        """Save scanned data."""
+
+        # create new data structure if necessary
+        if self.data is None:
+            self.data = PaData()
+        self.data.add_map(scan)
+        logger.debug('Map data saved.')
+        self.data_changed.emit()
+
+    @Slot(QModelIndex, QModelIndex, list)
+    def _msmnt_renamed(
+            self,
+            top_left: QModelIndex,
+            bot_right: QModelIndex,
+            roles: list
+        ) -> None:
+        """Change measurement title."""
+
+        # If new title is invalid, set old title back
+        if not top_left.data():
+            self.content_model.setData(
+                top_left,
+                self.s_msmnt_title,
+                role = Qt.ItemDataRole.EditRole
+            )
+            return
+        # Update data
+        msmnts = self.data.measurements # type: ignore
+        # I'm not sure if it will actually change title of s_msmnt
+        ###### CHECK IT ####
+        msmnts[top_left.data()] = msmnts.pop(self.s_msmnt_title)
+
+    @Slot()
+    def del_msmsnt(self) -> None:
+        """Delete currently selected measurement."""
+
+        # Get currently selected index
+        val = self.lv_content.selectedIndexes()[0]
+        # Remove measurement from data
+        self.data.measurements.pop(val.data()) # type: ignore
+        # Trigger update of widgets
+        self.data_changed.emit()
+        logger.info(f'Measurement: {val.data()} removed.')
 
     @property
     def s_msmnt(self) -> Measurement | None:
@@ -794,6 +861,8 @@ class MapMeasureWidget(QWidget,map_measure_widget_ui.Ui_map_measure):
             return
         if not state and not self._zoomed_out:
             return
+        if self.plot_scan.data is None:
+            return
         
         self._zoomed_out = state
         self.plot_scan.abs_coords = state
@@ -1106,6 +1175,9 @@ class CurveView(QWidget,curve_data_view_ui.Ui_Form):
         self.cb_curve_select.addItems(
             [key for key in MSMNTS_SIGNALS.keys()]
         )
+
+        #Enable picker
+        self.plot_curve.canvas.enable_pick = True
         
 class PointView(QWidget, point_data_view_ui.Ui_Form):
     """Plots for 1D data."""

@@ -2,7 +2,7 @@
 Base widgets, which are used as parts in other widgets.
 """
 
-from typing import Sequence, Literal, cast
+from typing import Iterable, Literal, cast
 import os
 import logging
 from dataclasses import fields
@@ -63,13 +63,16 @@ class MplCanvas(FigureCanvasQTAgg):
         self.axes = self.fig.add_subplot()
         self._xdata: np.ndarray | None = None
         self._ydata: np.ndarray | None = None
-        self.xlabel: str = ''
-        self.ylabel: str = ''
+        self.xunits: str = ''
+        self.yunits: str = ''
+        self._xlabel: str = ''
+        self._ylabel: str = ''
         self._plot_ref: Line2D|None = None
         self._sp_ref: Line2D|None = None
         self._sp: float|None = None
         self._marker_ref: Line2D|None = None
         self.fixed_scales: bool = False
+        self.enable_pick: bool = False
         super().__init__(self.fig)
 
     def contextMenuEvent(self, event: QContextMenuEvent) -> None:
@@ -110,29 +113,24 @@ class MplCanvas(FigureCanvasQTAgg):
 
     def plot(
             self,
-            ydata: Sequence,
-            xdata: Sequence | None=None,
+            ydata: Iterable,
+            xdata: Iterable | None=None,
             ylabel: str | None=None,
             xlabel: str | None=None,
-            fmt: str | None=None,
-            marker: Sequence | None=None,
-            enable_pick: bool=False
+            fmt: str | None=None
         ) -> None:
         """
         Update a plot.
         
         Attributes
         ----------
-        ``xdata`` - Sequence containing data for X axes. Should not
+        ``xdata`` - Iterable containing data for X axes. Should not
         be shorter than ``ydata``. If None, then enumeration of 
         ``ydata`` will be used.\n
-        ``ydata`` - Sequence containing data for Y axes.\n
+        ``ydata`` - Iterable containing data for Y axes.\n
         ``fmt`` - Format string.\n
         ``xlabel`` - Optional label for x data.\n
-        ``ylabel`` - Optional label for y data.\n
-        ``marker`` - Index of marker for data. If this option is
-        omitted, then marker is removed.\n
-        ``enable_pick`` - enabler picker for main data.
+        ``ylabel`` - Optional label for y data.
         """
 
         # Update data
@@ -157,7 +155,7 @@ class MplCanvas(FigureCanvasQTAgg):
                 self.xdata,
                 self.ydata,
                 fmt,
-                picker = enable_pick,
+                picker = self.enable_pick,
                 pickradius = 10
             )[0]
         # otherwise just update data
@@ -174,53 +172,74 @@ class MplCanvas(FigureCanvasQTAgg):
                     'b'
                 )[0]
             else:
-                self._sp_ref.set_xdata(self.xdata) # type: ignore
+                self._sp_ref.set_xdata(self.xdata)
                 self._sp_ref.set_ydata(spdata)
 
-        ###################################### Continuew from here #############################
-        # Set markers
-        if marker is not None:
-            if widget._marker_ref is None:
-                # Marker Style
-                marker_style = {
-                    'marker': 'o',
-                    'alpha': 0.4,
-                    'ms': 12,
-                    'color': 'yellow',
-                    'linewidth': 0
-                }
-                widget._marker_ref, = widget.axes.plot(
-                    widget.xdata[marker], # type: ignore
-                    widget.ydata[marker], # type: ignore
-                    **marker_style
-                )
-            else:
-                widget._marker_ref.set_data(
-                    [widget.xdata[marker]], # type: ignore
-                    [widget.ydata[marker]] # type: ignore
-                )
-        else:
-            if widget._marker_ref is not None:
-                widget._marker_ref.remove()
-                widget._marker_ref = None
         # Set labels
-        widget.axes.set_xlabel(widget.xlabel) # type: ignore
-        widget.axes.set_ylabel(widget.ylabel) # type: ignore
+        self.axes.set_xlabel(self.xlabel)
+        self.axes.set_ylabel(self.ylabel)
         # Update scale limits
-        if not widget.fixed_scales:
-            widget.axes.relim()
-            widget.axes.autoscale(True, 'both')
-        widget.draw()
+        if not self.fixed_scales:
+            self.axes.relim()
+            self.axes.autoscale(True, 'both')
+        self.draw()
 
-        # Reset history of navigation toolbar
-        if isinstance(base_widget, MplNavCanvas):
-            base_widget.toolbar.update()
+    def set_marker(self, markers: list[int]) -> None:
+        """
+        Add markers to the plot.
+        
+        Atrributes
+        ----------
+        `markers` - list of data indexes.
+        """
+
+        if self._plot_ref is None:
+            return
+        
+        if self._marker_ref is None:
+            # Marker Style
+            marker_style = {
+                'marker': 'o',
+                'alpha': 0.4,
+                'ms': 12,
+                'color': 'yellow',
+                'linewidth': 0
+            }
+            self._marker_ref, = self.axes.plot(
+                self.xdata[markers],
+                self.ydata[markers],
+                **marker_style
+            )
+        else:
+            self._marker_ref.set_data(
+                [self.xdata[markers]],
+                [self.ydata[markers]]
+            )
+
+    def clear_plot(self) -> None:
+        """Restore plot to dafault state."""
+
+        self._xdata = None
+        self._ydata = None
+        self.xlabel = ''
+        self.ylabel = ''
+        if self._plot_ref is not None:
+            self._plot_ref.remove()
+            self._plot_ref = None
+        if self._sp_ref is not None:
+            self._sp_ref.remove()
+            self._sp_ref = None
+        self._sp = None
+        if self._marker_ref is not None:
+            self._marker_ref.remove()
+            self._marker_ref = None
+        self.fixed_scales = False
 
     @property
     def xdata(self) -> npt.NDArray:
         return np.array(self._xdata)  
     @xdata.setter
-    def xdata(self, data: Sequence) -> None:
+    def xdata(self, data: Iterable) -> None:
         try:
             iter(data)
         except TypeError:
@@ -228,19 +247,19 @@ class MplCanvas(FigureCanvasQTAgg):
             return
         if isinstance(data, PlainQuantity):
             try:
-                data = data.to(self.xlabel) # type: ignore
+                data = data.to(self.xunits)
             except:
-                self.xlabel = f'{data.u:~.2gP}'
-            self._xdata = data.m # type: ignore
+                self.xunits = f'{data.u:~.2gP}'
+            self._xdata = data.m
         else:
-            self.xlabel = ''
-            self._xdata = np.array(data) # type: ignore
+            self.xunits = ''
+            self._xdata = np.array(data)
     
     @property
     def ydata(self) -> np.ndarray:
         return np.array(self._ydata)   
     @ydata.setter
-    def ydata(self, data: Sequence) -> None:
+    def ydata(self, data: Iterable) -> None:
         try:
             iter(data)
         except TypeError:
@@ -248,18 +267,53 @@ class MplCanvas(FigureCanvasQTAgg):
             return
         if isinstance(data, PlainQuantity):
             try:
-                data = data.to(self.ylabel) # type: ignore
+                data = data.to(self.yunits)
             except:
-                self.ylabel = f'{data.u:~.2gP}'
-            self._ydata = data.m # type: ignore
+                self.yunits = f'{data.u:~.2gP}'
+            self._ydata = data.m
         else:
-            self.ylabel = ''
-            self._ydata = np.array(data) # type: ignore
+            self.yunits = ''
+            self._ydata = np.array(data)
+
+    @property
+    def xlabel(self) -> str:
+        if not len(self._xlabel):
+            if not len(self.xunits):
+                return ''
+            else:
+                return f'[{self.xunits}]'
+        else:
+            if not len(self.xunits):
+                return self._xlabel
+            else:
+                return f'{self._xlabel}, [{self.xunits}]'
+    @xlabel.setter
+    def xlabel(self, new_lbl: str) -> None:
+        self._xlabel = new_lbl
+
+    @property
+    def ylabel(self) -> str:
+        if not len(self._ylabel):
+            if not len(self.yunits):
+                return ''
+            else:
+                return f'[{self.yunits}]'
+        else:
+            if not len(self.yunits):
+                return self._ylabel
+            else:
+                return f'{self._ylabel}, [{self.yunits}]'
+    @ylabel.setter
+    def ylabel(self, new_lbl: str) -> None:
+        self._ylabel = new_lbl
 
     @property
     def sp(self) -> PlainQuantity | None:
         """SetPoint property."""
-        return Q_(self._sp, self.ylabel)   
+        if self._sp is not None:
+            return Q_(self._sp, self.yunits)
+        else:
+            return None
     @sp.setter
     def sp(self, value: PlainQuantity) -> None:
         try:
@@ -281,6 +335,46 @@ class MplNavCanvas(QWidget):
         layout.addWidget(self.canvas)
         layout.addWidget(self.toolbar)
         self.setLayout(layout)
+
+    def plot(
+            self,
+            ydata: Iterable,
+            xdata: Iterable | None=None,
+            ylabel: str | None=None,
+            xlabel: str | None=None,
+            fmt: str | None=None
+        ) -> None:
+        """
+        Update a plot.
+        
+        Attributes
+        ----------
+        ``xdata`` - Iterable containing data for X axes. Should not
+        be shorter than ``ydata``. If None, then enumeration of 
+        ``ydata`` will be used.\n
+        ``ydata`` - Iterable containing data for Y axes.\n
+        ``fmt`` - Format string.\n
+        ``xlabel`` - Optional label for x data.\n
+        ``ylabel`` - Optional label for y data.
+        """
+
+        self.canvas.plot(ydata, xdata, ylabel, xlabel, fmt)
+        # Reset history of navigation toolbar
+        self.toolbar.update()
+
+    def set_marker(self, markers: list[int]) -> None:
+        """
+        Add markers to the plot.
+        
+        Atrributes
+        ----------
+        `markers` - list of data indexes.
+        """
+        self.canvas.set_marker(markers)
+
+    def clear_plot(self) -> None:
+        """Restore plot to dafault state."""
+        self.canvas.clear_plot()
 
 class MplMap(FigureCanvasQTAgg):
     """Single plot MatPlotLib widget."""

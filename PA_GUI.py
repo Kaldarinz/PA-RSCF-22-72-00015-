@@ -16,7 +16,7 @@ from functools import partial
 import pint
 import yaml
 from pint.facets.plain.quantity import PlainQuantity
-from matplotlib.backend_bases import PickEvent
+
 from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT
 import PySide6
 import pyqtgraph as pg
@@ -264,7 +264,7 @@ class Window(QMainWindow,Ui_MainWindow,):
             self.data_viewer.lv_content,
             context = Qt.ShortcutContext.WidgetShortcut
         )
-        del_sc.activated.connect(self.del_msmsnt)
+        del_sc.activated.connect(self.data_viewer.del_msmsnt)
 
         ### Mode selection ###
         self.cb_mode_select.currentTextChanged.connect(self.upd_mode)
@@ -344,7 +344,7 @@ class Window(QMainWindow,Ui_MainWindow,):
         # Scan
         self.p_map.scan_started.connect(self.measure_map)
         # Scan finished
-        self.p_map.scan_obtained.connect(self.save_map)
+        self.p_map.scan_obtained.connect(self.data_viewer.add_map_to_data)
         # Calculate auto step
         self.p_map.calc_astepClicked.connect(self.calc_astep)
 
@@ -357,11 +357,6 @@ class Window(QMainWindow,Ui_MainWindow,):
         self.action_Data.toggled.connect(self.activate_data_viwer)
         self.action_Open.triggered.connect(self.open_file)
         
-        # Measurement title change
-        self.data_viewer.content_model.dataChanged.connect(
-            self._msmnt_changed
-        )
-
         ### Logs ###
         self.action_Logs.toggled.connect(self.d_log.setVisible)
         self.d_log.visibilityChanged.connect(self.action_Logs.setChecked)
@@ -444,16 +439,7 @@ class Window(QMainWindow,Ui_MainWindow,):
         scan_worker.signals.finished.connect(self.p_map.scan_finished)
         self.pool.start(scan_worker)
 
-    @Slot(MapData)
-    def save_map(self, scan: MapData) -> None:
-        """Save scanned data."""
 
-        # create new data structure if necessary
-        if self.data is None:
-            self.data = PaData()
-        self.data.add_map(scan)
-        logger.debug('Map data saved.')
-        self.data_changed.emit()
 
     @Slot(PlainQuantity)
     def set_scan_speed(self, speed: PlainQuantity) -> None:
@@ -545,7 +531,7 @@ class Window(QMainWindow,Ui_MainWindow,):
                         + 'PA measurements loaded!')
             basename = os.path.basename(filename)
             self.data_viewer.lbl_data_title.setText(basename)
-            self.data = data
+            self.data_viewer.data = data
 
     @Slot(bool)
     def save_file(self, new_file: bool) -> None:
@@ -564,10 +550,8 @@ class Window(QMainWindow,Ui_MainWindow,):
                 dir=initial_dir,
                 filter='Hierarchical Data Format (*.hdf5)'
             )[0]
-        if self.data is not None:
-            if self.data.attrs.version < 1.2:
-                self.data.attrs.version = PaData.VERSION
-            self.data.save(filename)
+        if self.data_viewer.data is not None:
+            self.data_viewer.data.save(filename)
             # remove marker of changed data from data title
             data_title = self.data_viewer.lbl_data_title.text()
             data_title = data_title.split('*')[0]
@@ -577,7 +561,7 @@ class Window(QMainWindow,Ui_MainWindow,):
     def close_file(self) -> None:
         """Close current file."""
 
-        if self.data is not None and self.data.changed:
+        if self.data_viewer.data is not None and self.data_viewer.data.changed:
             if self.confirm_action('Data was changed.'
                                 + ' Do you really want to close the file?'):
                 self._file_close_proc()
@@ -589,231 +573,6 @@ class Window(QMainWindow,Ui_MainWindow,):
 
         self.data_viewer.data = None
 
-    @Slot(QModelIndex, QModelIndex, list)
-    def _msmnt_changed(
-            self,
-            top_left: QModelIndex,
-            bot_right: QModelIndex,
-            roles: list
-        ) -> None:
-        """Change measurement title."""
-
-        # Get old measurement title
-        title = ''
-        for title, val in self.data.measurements.items(): # type: ignore
-            if val == self.data_viewer.s_measurement:
-                break
-        if not title:
-            logger.warning('Error in measurement title change.')
-            return
-        # If new title is invalid, set old title back
-        if not top_left.data():
-            self.data_viewer.content_model.setData(
-                top_left,
-                title,
-                role = Qt.ItemDataRole.EditRole
-            )
-            return
-        
-        # Update data
-        msmnts = self.data.measurements # type: ignore
-        msmnts[top_left.data()] = msmnts.pop(title)
-
-    @Slot()
-    def del_msmsnt(self) -> None:
-        """Delete currently selected measurement."""
-
-        # Get currently selected index
-        val = self.data_viewer.lv_content.selectedIndexes()[0]
-        # Remove measurement from data
-        self.data.measurements.pop(val.data()) # type: ignore
-        # Trigger update of widgets
-        self.data_changed.emit()
-        logger.info(f'Measurement: {val.data()} removed.')
-
-    def set_map_view(self) -> None:
-        """Set central part of data_viewer for map view."""
-
-        if (self.data is None
-            or self.data_viewer.s_measurement is None):
-            logger.warning(
-                'Map view cannot be updated. Data is missing.'
-            )
-            return 
-            
-        view = self.data_viewer.p_2d
-        self.data_viewer.sw_view.setCurrentWidget(view)
-        view.plot_map.set_data(self.data.maps[self.data_viewer.s_msmnt_title])       
-
-    def set_cb_detail_view(
-            self,
-            parent: PointView | CurveView
-        ) -> None:
-        """
-        Set combobox with signals for detail view.
-        
-        Implies that combobox is ``cb_detail_select``.
-        ``parent`` should have attribute with this name.
-        """
-
-        # Disconnect old slots
-        try:
-            parent.cb_detail_select.currentTextChanged.disconnect()
-        except:
-            logger.debug('No slots were connected to cb_detail_select.')
-
-        # Clear old values
-        parent.cb_detail_select.clear()
-
-        # Set new values
-        parent.cb_detail_select.addItems(
-            [key for key in POINT_SIGNALS.keys()]
-        )
-
-        # If necessary, set dtype_point attribute
-        if self.data_viewer.s_point_dtype:
-            for key,val in POINT_SIGNALS.items():
-                if val == self.data_viewer.s_point_dtype:
-                    parent.cb_detail_select.setCurrentText(key)
-                    break
-        else:
-            self.data_viewer.s_point_dtype = POINT_SIGNALS[
-                parent.cb_detail_select.currentText()
-            ]
-
-        # Connect slot again
-        parent.cb_detail_select.currentTextChanged.connect(
-            self.upd_point_info
-        )
-
-    def set_data_description_view(self, data: PaData) -> None:
-        """Set data description tv_info."""
-
-        tv = self.data_viewer.tv_info
-        if self.data_viewer.s_measurement is None:
-            logger.error('Describption cannot be build. Measurement is not set.')
-            return
-        measurement = self.data_viewer.s_measurement
-
-        # file attributes
-        # clear if existed
-        if getattr(tv, 'fmd', None) is not None:
-            index = tv.indexOfTopLevelItem(tv.fmd)
-            tv.takeTopLevelItem(index)
-        tv.fmd = QTreeWidgetItem(tv, ['File attributes'])
-        tv.fmd.setExpanded(True)
-        for field in fields(data.attrs):
-            QTreeWidgetItem(
-                tv.fmd,
-                [field.name, str(getattr(data.attrs, field.name))]
-            )
-
-        # measurement attributes
-        # clear if existed
-        if getattr(tv, 'mmd', None) is not None:
-            index = tv.indexOfTopLevelItem(tv.mmd)
-            tv.takeTopLevelItem(index)
-        tv.mmd = QTreeWidgetItem(tv, ['Measurement attributes'])
-        tv.mmd.setExpanded(True)
-        msmnt_title = ''
-        for key, val in data.measurements.items():
-            if val == measurement:
-                msmnt_title = key
-                break
-        QTreeWidgetItem(tv.mmd, ['Title', msmnt_title])
-        for field in fields(measurement.attrs):
-            QTreeWidgetItem(
-                tv.mmd,
-                [field.name, str(getattr(
-                    measurement.attrs,
-                    field.name
-                    ))]
-            )
-        
-        # point attributes
-        self.upd_point_info()
-
-    def upd_point_info(self, new_text: str | None=None) -> None:
-        """Update plot and text information about current datapoint."""
-
-        if new_text is not None:
-            self.data_viewer.s_point_dtype = POINT_SIGNALS[new_text]
-
-        if (self.data is None
-            or self.data_viewer.s_measurement is None):
-            logger.warning(
-                'Point info cannot be updated. Some data is missing.'
-            )
-            return
-
-        if self.data_viewer.s_measurement.attrs.measurement_dims == 1:
-            # update plot
-            active_dview = self.data_viewer.sw_view.currentWidget()
-            active_dview = cast(CurveView, active_dview)
-            upd_plot(
-                active_dview.plot_detail, # type: ignore
-                *self.data.point_data_plot(
-                    msmnt = self.data_viewer.s_measurement,
-                    index = self.data_viewer.s_point_ind,
-                    dtype = self.data_viewer.s_point_dtype
-                )
-            )
-
-        # clear existing description
-        tv = self.data_viewer.tv_info 
-        if tv.pmd is not None:
-            index = tv.indexOfTopLevelItem(tv.pmd)
-            tv.takeTopLevelItem(index)
-        # set new description
-        tv.pmd = QTreeWidgetItem(tv, ['Point attributes'])
-        tv.pmd.setExpanded(True)
-        dp_title = PaData._build_name(self.data_viewer.s_point_ind + 1)
-        dp = self.data_viewer.s_measurement.data[dp_title] #type: ignore
-        QTreeWidgetItem(tv.pmd, ['Title', dp_title])
-        # PointMetaData
-        for field in fields(dp.attrs):
-            val = getattr(dp.attrs, field.name)
-            if type(val) == list:
-                val = [str(x) for x in val]
-            QTreeWidgetItem(tv.pmd, [field.name, str(val)])
-        dtype = getattr(dp, self.data_viewer.s_point_dtype)
-        for field in fields(dtype):
-            if field.name in ['data', 'data_raw']:
-                continue
-            QTreeWidgetItem(
-                tv.pmd,
-                [field.name, str(getattr(dtype, field.name))]
-            )
-
-    def pick_event(
-            self,
-            widget:MplCanvas,
-            event: PickEvent,
-            parent: CurveView | None=None,
-            measurement: Measurement | None=None):
-        """Callback method for processing data picking on plot."""
-
-        if self.data_viewer.s_measurement is None:
-            logger.warning(
-                'pick event cannot be processed. Measurement is missing.'
-            )
-            return
-
-        # Update datamarker on plot
-        if widget._marker_ref is None:
-            logger.warning('Marker is not set.')
-            return
-        widget._marker_ref.set_data(
-            [widget.xdata[event.ind[0]]], # type: ignore
-            [widget.ydata[event.ind[0]]] # type: ignore
-        )
-        widget.draw()
-        # Update index of currently selected data
-        self.data_viewer.s_point_ind = event.ind[0] # type: ignore
-        dp_name = PaData._build_name(event.ind[0] + 1) # type: ignore
-        self.data_viewer.s_datapoint = self.data_viewer.s_measurement.data[dp_name]
-        # update point widgets
-        self.upd_point_info()
 
     def get_filename(self) -> str:
         """Launch a dialog to open a file."""
@@ -991,13 +750,13 @@ class Window(QMainWindow,Ui_MainWindow,):
         # pa_verifier.exec return 1 if data is ok and 0 otherwise
         if self.pa_verifier.exec():
             # create new data structure if necessary
-            if self.data is None:
-                self.data = PaData()
+            if self.data_viewer.data is None:
+                self.data_viewer.data = PaData()
             # Create new measurement if it is the first measured point
             # in curve measurement
             if isinstance(parent, CurveMeasureWidget):
                 if parent.current_point == 0:
-                    msmnt_title, _ = self.data.add_measurement(
+                    msmnt_title, _ = self.data_viewer.data.add_measurement(
                         dims = 1,
                         params = parent.parameter
                     ) # type: ignore
@@ -1006,21 +765,21 @@ class Window(QMainWindow,Ui_MainWindow,):
                 # otherwise take title of the last measurement
                 else:
                     msmnt_title = PaData._build_name(
-                        self.data.attrs.measurements_count,
+                        self.data_viewer.data.attrs.measurements_count,
                         'measurement'
                 )
             # for point data new measurement is created each time
             else:
-                msmnt_title, _ = self.data.add_measurement(
+                msmnt_title, _ = self.data_viewer.data.add_measurement(
                     dims = 0,
                     params = []
                 ) # type: ignore
             # add datapoint to the measurement
-            msmnt = self.data.measurements[msmnt_title]
+            msmnt = self.data_viewer.data.measurements[msmnt_title]
             cur_param = []
             if isinstance(parent, CurveMeasureWidget):
                 cur_param.append(parent.sb_cur_param.quantity)
-            self.data.add_point(
+            self.data_viewer.data.add_point(
                 measurement = msmnt,
                 data = data,
                 param_val = cur_param.copy()
@@ -1042,13 +801,13 @@ class Window(QMainWindow,Ui_MainWindow,):
                 # update measurement plot
                 upd_plot(
                     parent.plot_measurement,
-                    *self.data.param_data_plot(msmnt = msmnt)
+                    *self.data_viewer.data.param_data_plot(msmnt = msmnt)
                 )
             else:
                 # Enable measure button for Point measuremnt
                 parent.btn_measure.setEnabled(True) 
             # Update data_viewer
-            self.data_changed.emit()
+            self.data_viewer.data_changed.emit()
         # Enable measure button if measured point is bad
         else:
             parent.btn_measure.setEnabled(True)

@@ -738,8 +738,8 @@ class PaData:
             return ''
         return name + n_str
     
+    @staticmethod
     def param_data_plot(
-            self,
             msmnt: Measurement,
             dtype: str='filt_data',
             value: str='max_amp'
@@ -752,7 +752,7 @@ class PaData:
         Return a tuple, which contain [ydata, xdata, ylabel, xlabel].
         """
         
-        xdata = self.get_dependance(
+        xdata = PaData.get_dependance(
             msmnt=msmnt,
             data_type=dtype,
             value = 'param_val')
@@ -761,7 +761,7 @@ class PaData:
             logger.debug(err_msg)
             raise PlotError(err_msg)
 
-        ydata = self.get_dependance(
+        ydata = PaData.get_dependance(
             msmnt=msmnt,
             data_type=dtype,
             value = value)
@@ -887,8 +887,8 @@ class PaData:
             zoom_ax.set_ylabel(y_label)
             zoom_ax.set_title('Zoom of ' + title)
 
+    @staticmethod
     def get_dependance(
-            self, 
             msmnt: Measurement,
             data_type: str, 
             value: str
