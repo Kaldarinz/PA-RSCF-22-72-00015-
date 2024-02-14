@@ -36,6 +36,5 @@ ureg = pint.get_application_registry()
 Q_ = ureg.Quantity
 rng = np.random.default_rng()
 
-key = 'Point001'
-ind = int(re.findall(r'\d+', key)[0])
-print(ind)
+a = np.array((1,2,3))
+print(a)

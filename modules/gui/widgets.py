@@ -2,9 +2,10 @@
 Base widgets, which are used as parts in other widgets.
 """
 
-from typing import Iterable, Literal, cast
+from typing import Sequence, Literal, cast
 import os
 import logging
+from dataclasses import fields
 
 import numpy as np
 import numpy.typing as npt
@@ -60,10 +61,10 @@ class MplCanvas(FigureCanvasQTAgg):
         self.fig = Figure()
         self.fig.set_tight_layout(True) # type: ignore
         self.axes = self.fig.add_subplot()
-        self._xdata: Iterable|None = None
-        self._ydata: Iterable|None = None
-        self.xlabel: str|None = None
-        self.ylabel: str|None = None
+        self._xdata: np.ndarray | None = None
+        self._ydata: np.ndarray | None = None
+        self.xlabel: str = ''
+        self.ylabel: str = ''
         self._plot_ref: Line2D|None = None
         self._sp_ref: Line2D|None = None
         self._sp: float|None = None
@@ -107,49 +108,165 @@ class MplCanvas(FigureCanvasQTAgg):
             else:
                 logger.warning('Attempt to export empty data!')
 
+    def plot(
+            self,
+            ydata: Sequence,
+            xdata: Sequence | None=None,
+            ylabel: str | None=None,
+            xlabel: str | None=None,
+            fmt: str | None=None,
+            marker: Sequence | None=None,
+            enable_pick: bool=False
+        ) -> None:
+        """
+        Update a plot.
+        
+        Attributes
+        ----------
+        ``xdata`` - Sequence containing data for X axes. Should not
+        be shorter than ``ydata``. If None, then enumeration of 
+        ``ydata`` will be used.\n
+        ``ydata`` - Sequence containing data for Y axes.\n
+        ``fmt`` - Format string.\n
+        ``xlabel`` - Optional label for x data.\n
+        ``ylabel`` - Optional label for y data.\n
+        ``marker`` - Index of marker for data. If this option is
+        omitted, then marker is removed.\n
+        ``enable_pick`` - enabler picker for main data.
+        """
+
+        # Update data
+        self.ydata = ydata
+        if xdata is None:
+            self.xdata = np.arange(self.ydata.size) # type: ignore
+        else:
+            self.xdata = xdata
+        if xlabel is not None:
+            self.xlabel = xlabel
+        if ylabel is not None:
+            self.ylabel = ylabel
+
+        # Plot data
+        # If plot is empty, create reference to 2D line
+        if self._plot_ref is None:
+            # Set format
+            if fmt is None:
+                fmt = 'r'
+            # Actual plot
+            self._plot_ref = self.axes.plot(
+                self.xdata,
+                self.ydata,
+                fmt,
+                picker = enable_pick,
+                pickradius = 10
+            )[0]
+        # otherwise just update data
+        else:
+            self._plot_ref.set_xdata(self.xdata)
+            self._plot_ref.set_ydata(self.ydata)
+        # Update SetPoint if necessary
+        if self.sp is not None:
+            spdata = np.ones_like(self.xdata)*self.sp.m
+            if self._sp_ref is None:
+                self._sp_ref = self.axes.plot(
+                    self.xdata,
+                    spdata,
+                    'b'
+                )[0]
+            else:
+                self._sp_ref.set_xdata(self.xdata) # type: ignore
+                self._sp_ref.set_ydata(spdata)
+
+        ###################################### Continuew from here #############################
+        # Set markers
+        if marker is not None:
+            if widget._marker_ref is None:
+                # Marker Style
+                marker_style = {
+                    'marker': 'o',
+                    'alpha': 0.4,
+                    'ms': 12,
+                    'color': 'yellow',
+                    'linewidth': 0
+                }
+                widget._marker_ref, = widget.axes.plot(
+                    widget.xdata[marker], # type: ignore
+                    widget.ydata[marker], # type: ignore
+                    **marker_style
+                )
+            else:
+                widget._marker_ref.set_data(
+                    [widget.xdata[marker]], # type: ignore
+                    [widget.ydata[marker]] # type: ignore
+                )
+        else:
+            if widget._marker_ref is not None:
+                widget._marker_ref.remove()
+                widget._marker_ref = None
+        # Set labels
+        widget.axes.set_xlabel(widget.xlabel) # type: ignore
+        widget.axes.set_ylabel(widget.ylabel) # type: ignore
+        # Update scale limits
+        if not widget.fixed_scales:
+            widget.axes.relim()
+            widget.axes.autoscale(True, 'both')
+        widget.draw()
+
+        # Reset history of navigation toolbar
+        if isinstance(base_widget, MplNavCanvas):
+            base_widget.toolbar.update()
 
     @property
     def xdata(self) -> npt.NDArray:
-        return np.array(self._xdata)
-    
+        return np.array(self._xdata)  
     @xdata.setter
-    def xdata(self, data: Iterable) -> None:
+    def xdata(self, data: Sequence) -> None:
+        try:
+            iter(data)
+        except TypeError:
+            logger.warning('Attempt to plot non-terable X data.')
+            return
         if isinstance(data, PlainQuantity):
-            if self.xlabel is not None:
-                data = data.to(self.xlabel)
-            self.xlabel = f'{data.u:~.2gP}'
-            self._xdata = data.m
+            try:
+                data = data.to(self.xlabel) # type: ignore
+            except:
+                self.xlabel = f'{data.u:~.2gP}'
+            self._xdata = data.m # type: ignore
         else:
-            #self.xlabel = None
-            self._xdata = np.array(data)
-
-    @property
-    def ydata(self) -> npt.NDArray:
-
-        return np.array(self._ydata)
+            self.xlabel = ''
+            self._xdata = np.array(data) # type: ignore
     
+    @property
+    def ydata(self) -> np.ndarray:
+        return np.array(self._ydata)   
     @ydata.setter
-    def ydata(self, data: Iterable) -> None:
+    def ydata(self, data: Sequence) -> None:
+        try:
+            iter(data)
+        except TypeError:
+            logger.warning('Attempt to plot non-terable Y data.')
+            return
         if isinstance(data, PlainQuantity):
-            if self.ylabel is not None:
-                data = data.to(self.ylabel)
-            self.ylabel = f'{data.u:~.2gP}'
-            self._ydata = data.m
+            try:
+                data = data.to(self.ylabel) # type: ignore
+            except:
+                self.ylabel = f'{data.u:~.2gP}'
+            self._ydata = data.m # type: ignore
         else:
-            #self.ylabel = None
-            self._ydata = np.array(data)
+            self.ylabel = ''
+            self._ydata = np.array(data) # type: ignore
 
     @property
-    def sp(self) -> float|None:
+    def sp(self) -> PlainQuantity | None:
         """SetPoint property."""
-        return self._sp
-    
+        return Q_(self._sp, self.ylabel)   
     @sp.setter
     def sp(self, value: PlainQuantity) -> None:
-        if self.ylabel is not None:
+        try:
             value = value.to(self.ylabel)
-        else:
-            self.ylabel = f'{value.u:~.2gP}'
+        except:
+            logger.error(f' Trying to set wrong SetPoint {value}')
+            return
         self._sp = value.m
 
 class MplNavCanvas(QWidget):
@@ -547,12 +664,84 @@ class TreeInfoWidget(QTreeWidget):
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
 
-        self.fmd: QTreeWidgetItem
+        self.fmd: QTreeWidgetItem | None = None
         "File MetaData"
-        self.mmd: QTreeWidgetItem
+        self.mmd: QTreeWidgetItem | None = None
         "Measurement MetaData"
-        self.pmd: QTreeWidgetItem|None = None
-        "PointMetaData"
+        self.gpmd: QTreeWidgetItem | None = None
+        "General point MetaData"
+        self.spmd: QTreeWidgetItem | None = None
+        "Signal specific point MetaData"
+    
+    def set_file_md(self, attrs) -> None:
+        """Set file metadata from a dataclass."""
+
+        # clear existing information
+        if self.fmd is not None:
+            index = self.indexOfTopLevelItem(self.fmd)
+            while self.topLevelItemCount() > index:
+                self.takeTopLevelItem(index)
+        # Set top level item as "File attributes" string
+        self.fmd = QTreeWidgetItem(self, ['File attributes'])
+        self.fmd.setExpanded(True)
+        # Add file information
+        self._set_items(self.fmd, attrs)
+
+    def set_msmnt_md(self, attrs) -> None:
+        """Set measurement metadata from a dataclass."""
+
+        # clear existing information
+        if self.mmd is not None:
+            index = self.indexOfTopLevelItem(self.mmd)
+            while self.topLevelItemCount() > index:
+                self.takeTopLevelItem(index)
+        # Set top level item as "Measurement attributes" string
+        self.mmd = QTreeWidgetItem(self, ['Measurement attributes'])
+        self.mmd.setExpanded(True)
+        # Add file information
+        self._set_items(self.mmd, attrs)
+
+    def set_gen_point_md(self, attrs) -> None:
+        """Set general point metadata from a dataclass."""
+
+        # clear existing information
+        if self.gpmd is not None:
+            index = self.indexOfTopLevelItem(self.gpmd)
+            while self.topLevelItemCount() > index:
+                self.takeTopLevelItem(index)
+        # Set top level item as "Measurement attributes" string
+        self.gpmd = QTreeWidgetItem(self, ['General point attributes'])
+        self.gpmd.setExpanded(True)
+        # Add file information
+        self._set_items(self.gpmd, attrs)
+
+    def set_signal_md(self, attrs) -> None:
+        """Set signal specific point metadata from a dataclass."""
+
+        # clear existing information
+        if self.spmd is not None:
+            index = self.indexOfTopLevelItem(self.spmd)
+            while self.topLevelItemCount() > index:
+                self.takeTopLevelItem(index)
+        # Set top level item as "Measurement attributes" string
+        self.spmd = QTreeWidgetItem(self, ['Signal attributes'])
+        self.spmd.setExpanded(True)
+        # Add file information
+        self._set_items(self.spmd, attrs)
+
+    def _set_items(self, group: QTreeWidgetItem, attrs) -> None:
+        """Fill group with info from a dataclass."""
+
+        for field in fields(attrs):
+            # For PointMetadata we should not include data iself
+            # in the description
+            if field.name in ['data', 'data_raw']:
+                continue
+            val = getattr(attrs, field.name)
+            # Use str rather than repr for list items
+            if type(val) == list:
+                val = [str(x) for x in val]
+            QTreeWidgetItem(group, [field.name, str(val)])
 
 class PgMap(pg.GraphicsLayoutWidget):
     """2d map pyqtgraph widget."""

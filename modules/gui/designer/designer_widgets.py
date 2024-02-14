@@ -8,6 +8,7 @@ from collections import deque
 from datetime import datetime
 import math
 from time import sleep, time
+from dataclasses import field, fields
 import re
 
 from PySide6.QtCore import (
@@ -28,7 +29,8 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QVBoxLayout,
     QLabel,
-    QProgressDialog
+    QProgressDialog,
+    QTreeWidgetItem
 )
 from PySide6.QtGui import (
     QPixmap
@@ -65,7 +67,8 @@ from ...data_classes import (
     Measurement
 )
 from ...constants import (
-    POINT_SIGNALS
+    POINT_SIGNALS,
+    MSMNTS_SIGNALS
 )
 from ...utils import (
     upd_plot,
@@ -93,7 +96,11 @@ class DataViewer(QWidget, data_viewer_ui.Ui_Form):
     data_changed = Signal(bool)
     "Value is whether new data is valid PaData (not None)."
     msmnt_selected = Signal()
+    "Emitted when selected measurement is changed."
     point_selected = Signal()
+    "Emitted when selected datapoint is changed."
+    point_dtype_changed = Signal()
+    "Emitted when type of displayed data in selected datapoint is changed."
 
     def __init__(self, parent: QWidget | None=None) -> None:
         super().__init__(parent)
@@ -121,8 +128,6 @@ class DataViewer(QWidget, data_viewer_ui.Ui_Form):
         # Currently selected objects (start with s prefix)
         self._s_msmnt: Measurement | None = None # Private for property
         self._s_point: DataPoint | None = None # Private for property
-        self.s_point_dtype: str = 'Raw'
-        "Data type of the selected datapoint."
 
         # Model for file content
         self.content_model = QStringListModel()
@@ -132,11 +137,22 @@ class DataViewer(QWidget, data_viewer_ui.Ui_Form):
         """"Connect all signals and slots."""
 
         self.data_changed.connect(self.data_updated)
-        self.msmnt_selected.connect(self.show_data)
-        # Measurement selection
+        self.msmnt_selected.connect(self.show_measurement)
+        self.point_selected.connect(self.show_point)
+        # Measurement selection from interface
         self.lv_content.selectionModel().selectionChanged.connect(
             self.new_sel_msmnt 
         )
+        # Measurement selection from code
+        self.msmnt_selected.connect(self.set_msmnt_selection)
+
+        # Signal selection
+        self.p_0d.cb_detail_select.currentTextChanged.connect(
+            lambda _ : self.show_signal())
+        self.p_1d.cb_detail_select.currentTextChanged.connect(
+            lambda _ : self.show_signal())
+        self.p_2d.cb_detail_select.currentTextChanged.connect(
+            lambda _ : self.show_signal())
 
     @Slot(bool)
     def data_updated(self, data_exist: bool) -> None:
@@ -167,12 +183,27 @@ class DataViewer(QWidget, data_viewer_ui.Ui_Form):
                 [key for key in data.measurements.keys()]
             )
             # Select the first msmnt
-            self.lv_content.setSelection(
-                QRect(0,0,1,1),
-                QItemSelectionModel.SelectionFlag.Select
-            )
-            # Todo: connect signal from selection model to update s_msmnt
+            self.s_msmnt = next(iter(data.measurements.values()))
+            # Set file description
+            self.tv_info.set_file_md(data.attrs)
         logger.debug('Data updated in viewer.')
+
+    @Slot()
+    def set_msmnt_selection(self) -> None:
+        """Select `s_msmnt` in the list of measurements."""
+
+        # Do not update selection if s_msmnt is not set
+        if not len(s_msmnt_title:=self.s_msmnt_title):
+            return
+        # Get list of all msmsnts in the file content QListView
+        msmnts = self.content_model.stringList()
+        for ind, msmnt in enumerate(msmnts):
+            if msmnt == s_msmnt_title:
+                self.lv_content.setSelection(
+                    QRect(0, ind, 1, 1), # left, top, width, height
+                    QItemSelectionModel.SelectionFlag.Select
+                )
+                break
 
     @Slot(QItemSelection, QItemSelection)
     def new_sel_msmnt(
@@ -180,56 +211,150 @@ class DataViewer(QWidget, data_viewer_ui.Ui_Form):
             selected: QItemSelection,
             desecled: QItemSelection
         ) -> None:
-        """Load new selected measurement."""
+        """Update `s_msmnt` if new measurement selected in the interface."""
 
         # Selected index
         ind = selected.indexes()[0]
 
         # Get selected measurement
-        model = self.data_viewer.content_model
+        model = self.content_model
         msmnt_title = model.data(ind, Qt.ItemDataRole.EditRole)
-        msmnt = self.data.measurements.get(msmnt_title) # type: ignore
-        
+        if self.data is None:
+            logger.warning('Trying to load measurement from empty data.')
+            return
+        msmnt = self.data.measurements.get(msmnt_title, None)
         if msmnt is None:
             logger.warning(
                 f'Trying to load invalid measurement: {msmnt_title}'
             )
-            return
-        
-        # Selected measurements will show first DataPoint
-        data_index = 0
-        self.show_data(msmnt_title, msmnt, data_index)
+        self.s_msmnt = msmnt
 
     @Slot()
-    def show_data(self) -> None:
+    def show_measurement(self) -> None:
         """
         Show selected measurement.
         
-        Automatically called, when new measurement is selected 
-        (technically new value is set to `s_msmnt_title`).
+        Automatically called, when new measurement is seleced.
         """
 
-        # Setter of s_msmnt_title do not verify that new value is
-        # correct, therefore new msmnt can be None
-        if self.s_measurement is None:
-            logger.info('Cannot display invalid measurement.')
+        if self.s_msmnt is None:
+            self.sw_view.setCurrentWidget(self.p_empty)
             return
-        # Load data to show o attributes of data_viwer
-        self.data_viewer.s_msmnt_title = msmnt_title
-        self.data_viewer.s_measurement = measurement
-        self.data_viewer.s_data_index = data_index
-        dp_name = PaData._build_name(data_index + 1)
-        self.data_viewer.s_datapoint = measurement.data[dp_name]
 
-        if measurement.attrs.measurement_dims == 1:
-            self.set_curve_view()
-        elif measurement.attrs.measurement_dims == 0:
+        # Set measurement description
+        self.tv_info.set_msmnt_md(self.s_msmnt.attrs)
+
+        # Plot data
+        if self.s_msmnt.attrs.measurement_dims == 0:
             self.set_point_view()
-        else:
+        elif self.s_msmnt.attrs.measurement_dims == 1:
+            self.set_curve_view()
+        elif self.s_msmnt.attrs.measurement_dims == 2:
             self.set_map_view()
+        else:
+            logger.error('Unsupported data dimensionality.')
             
         # Update description
         self.set_data_description_view(self.data) # type: ignore
+
+    def set_point_view(self) -> None:
+        """Load point measurement view."""
+
+        # This method is called, when s_msmnt do exist
+        msmnt = cast(Measurement, self.s_msmnt)
+        # Load point view
+        self.sw_view.setCurrentWidget(self.p_0d)
+        # Set selected DataPoint
+        self.s_point = next(iter(msmnt.data.values()))
+
+    def set_curve_view(self) -> None:
+        """Set central part of data_viewer for curve view."""
+
+        # This method is called, when s_msmnt do exist
+        msmnt = cast(Measurement, self.s_msmnt)
+        # Load curve view
+        self.sw_view.setCurrentWidget(self.p_1d)
+        ## Set comboboxes ##
+        # Curve combobox
+
+        view.cb_curve_select.currentTextChanged.connect(
+            lambda new_val: upd_plot(
+                view.plot_curve,
+                *self.data.param_data_plot( # type: ignore
+                    self.data_viewer.s_measurement, # type: ignore
+                    ParamSignals[new_val]
+                ),
+                marker = [self.data_viewer.s_point_ind],
+                enable_pick = True 
+            )
+        )
+        ## Set main plot ##
+        main_data = self.data.param_data_plot(
+            msmnt = self.data_viewer.s_measurement,
+            dtype = ParamSignals[view.cb_curve_select.currentText()]
+        )
+        upd_plot(
+            view.plot_curve,
+            *main_data,
+            marker = [self.data_viewer.s_point_ind],
+            enable_pick = True
+        )
+        # Set additional plot
+        detail_data = self.data.point_data_plot(
+            msmnt = self.data_viewer.s_measurement,
+            index = self.data_viewer.s_point_ind,
+            dtype = self.data_viewer.s_point_dtype
+        )
+        upd_plot(view.plot_detail, *detail_data)
+        # Picker event
+        view.plot_curve.canvas.fig.canvas.mpl_connect(
+            'pick_event',
+            lambda event: self.pick_event(
+                view.plot_curve.canvas,
+                event # type: ignore
+            )
+        )
+
+
+    def show_point(self) -> None:
+        """
+        Show selected point.
+
+        Automatically called, when new measurement is seleced.
+        """
+
+        if self.s_point is None or self.s_msmnt is None:
+            # We should clear point plot, implement it in future
+            logger.debug('Point cannot be shown. Some info is missing.')
+            return
+        
+        # Set general point description
+        self.tv_info.set_gen_point_md(self.s_point.attrs)
+        # Do some stuff with other plots if necessary
+        ...
+        self.show_signal()
+
+    def show_signal(self) -> None:
+        """Actually plot point data and set signal description."""
+
+        if self.s_point is None or self.s_msmnt is None:
+            # We should clear point plot, implement it in future
+            logger.debug('Signal cannot be shown. Some info is missing.')
+            return
+        view = self.sw_view.currentWidget()
+        view = cast(PointView|CurveView|MapView, view)
+        # signal data type for plotting
+        dtype =  POINT_SIGNALS[view.cb_detail_select.currentText()]
+        # Set signal description
+        sig_attrs = getattr(self.s_point, dtype)
+        self.tv_info.set_signal_md(sig_attrs)
+        # Plot the data
+        detail_data = PaData.point_data_plot(
+            msmnt = self.s_msmnt,
+            index = self.s_point_ind,
+            dtype = dtype
+        )
+        upd_plot(view.plot_detail, *detail_data)
 
     def clear_view(self) -> None:
         """Clear whole viewer."""
@@ -237,7 +362,6 @@ class DataViewer(QWidget, data_viewer_ui.Ui_Form):
         # Reset selected object attributes
         self.s_msmnt = None
         self.s_point = None
-        self.s_point_dtype = 'Raw'
         # Clear file content
         self.content_model.setStringList([])
         # Clear information view
@@ -257,6 +381,9 @@ class DataViewer(QWidget, data_viewer_ui.Ui_Form):
     @s_msmnt.setter
     def s_msmnt(self, new_val: Measurement | None) -> None:
         if self._s_msmnt is not None and self._s_msmnt != new_val:
+            self._s_msmnt = new_val
+            self.msmnt_selected.emit()
+        elif self._s_msmnt is None and new_val is not None:
             self._s_msmnt = new_val
             self.msmnt_selected.emit()
         else:
@@ -955,12 +1082,30 @@ class MapView(QWidget, map_data_view_ui.Ui_Map_view):
         super().__init__(parent)
         self.setupUi(self)
 
+        # Point signals
+        self.cb_detail_select.addItems(
+            [key for key in POINT_SIGNALS.keys()]
+        )
+        # Param signals
+        self.cb_curve_select.addItems(
+            [key for key in MSMNTS_SIGNALS.keys()]
+        )
+
 class CurveView(QWidget,curve_data_view_ui.Ui_Form):
     """Plots for 1D data."""
 
     def __init__(self, parent: QWidget | None=None) -> None:
         super().__init__(parent)
         self.setupUi(self)
+
+        # Point signals
+        self.cb_detail_select.addItems(
+            [key for key in POINT_SIGNALS.keys()]
+        )
+        # Param signals
+        self.cb_curve_select.addItems(
+            [key for key in MSMNTS_SIGNALS.keys()]
+        )
         
 class PointView(QWidget, point_data_view_ui.Ui_Form):
     """Plots for 1D data."""
@@ -968,6 +1113,10 @@ class PointView(QWidget, point_data_view_ui.Ui_Form):
     def __init__(self, parent: QWidget | None=None) -> None:
         super().__init__(parent)
         self.setupUi(self)
+
+        self.cb_detail_select.addItems(
+            [key for key in POINT_SIGNALS.keys()]
+        )
 
 class MotorView(QDockWidget, motor_control_ui.Ui_DockWidget):
     """Mechanical positioning widget."""

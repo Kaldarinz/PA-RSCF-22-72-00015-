@@ -35,15 +35,15 @@ def upd_plot(
     
     ``widget`` - widget with axes, where to plot,\n
     ``xdata`` - Iterable containing data for X axes. Should not
-        be shorter than ``ydata``. If None, then enumeration of 
-        ``ydata`` will be used.\n
-        ``ydata`` - Iterable containing data for Y axes.\n
-        ``fmt`` - Format string.\n
-        ``xlabel`` - Optional label for x data.\n
-        ``ylabel`` - Optional label for y data.\n
-        ``marker`` - Index of marker for data. If this option is
-        omitted, then marker is removed.\n
-        ``enable_pick`` - enabler picker for main data.
+    be shorter than ``ydata``. If None, then enumeration of 
+    ``ydata`` will be used.\n
+    ``ydata`` - Iterable containing data for Y axes.\n
+    ``fmt`` - Format string.\n
+    ``xlabel`` - Optional label for x data.\n
+    ``ylabel`` - Optional label for y data.\n
+    ``marker`` - Index of marker for data. If this option is
+    omitted, then marker is removed.\n
+    ``enable_pick`` - enabler picker for main data.
     """
 
     if isinstance(base_widget, MplNavCanvas):

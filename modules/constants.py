@@ -8,7 +8,7 @@ POINT_SIGNALS = {
     'FFT': 'freq_data'
 }
 
-ParamSignals = {
+MSMNTS_SIGNALS = {
     'Raw': 'raw_data',
     'Filtered': 'filt_data'
 }

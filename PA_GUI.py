@@ -71,7 +71,7 @@ from modules.data_classes import (
 )
 from modules.constants import (
     POINT_SIGNALS,
-    ParamSignals
+    MSMNTS_SIGNALS
 )
 from modules.gui.widgets import (
     MplCanvas,
@@ -630,91 +630,6 @@ class Window(QMainWindow,Ui_MainWindow,):
         # Trigger update of widgets
         self.data_changed.emit()
         logger.info(f'Measurement: {val.data()} removed.')
-
-
-    def set_point_view(self) -> None:
-        """Set central part of data_viewer for point view."""
-
-        self.data_viewer.sw_view.setCurrentWidget(self.data_viewer.p_0d)
-        # Set combobox
-        view = self.data_viewer.p_0d
-        self.set_cb_detail_view(view)
-        # Set plot
-        if (self.data is None 
-            or self.data_viewer.s_measurement is None
-            or self.data_viewer.s_point_dtype is None):
-            logger.warning(
-                'Point view cannot be set, some data is missing.'
-            )
-            return
-        detail_data = self.data.point_data_plot(
-            msmnt = self.data_viewer.s_measurement,
-            index = self.data_viewer.s_point_ind,
-            dtype = self.data_viewer.s_point_dtype
-        )
-        upd_plot(view.plot_detail, *detail_data)
-
-    def set_curve_view(self) -> None:
-        """Set central part of data_viewer for curve view."""
-
-        if (self.data is None
-            or self.data_viewer.s_measurement is None):
-            logger.warning(
-                'Curve view cannot be updated. Some data is missing.'
-            )
-            return 
-            
-
-        self.data_viewer.sw_view.setCurrentWidget(self.data_viewer.p_1d)
-        view = self.data_viewer.p_1d
-        ## Set comboboxes ##
-        # Detail combobox
-        self.set_cb_detail_view(view)
-        # Curve combobox
-        view.cb_curve_select.blockSignals(True)
-        view.cb_curve_select.clear()
-        view.cb_curve_select.blockSignals(False)
-        view.cb_curve_select.addItems(
-            [key for key in ParamSignals.keys()]
-        )
-
-        view.cb_curve_select.currentTextChanged.connect(
-            lambda new_val: upd_plot(
-                view.plot_curve,
-                *self.data.param_data_plot( # type: ignore
-                    self.data_viewer.s_measurement, # type: ignore
-                    ParamSignals[new_val]
-                ),
-                marker = [self.data_viewer.s_point_ind],
-                enable_pick = True 
-            )
-        )
-        ## Set main plot ##
-        main_data = self.data.param_data_plot(
-            msmnt = self.data_viewer.s_measurement,
-            dtype = ParamSignals[view.cb_curve_select.currentText()]
-        )
-        upd_plot(
-            view.plot_curve,
-            *main_data,
-            marker = [self.data_viewer.s_point_ind],
-            enable_pick = True
-        )
-        # Set additional plot
-        detail_data = self.data.point_data_plot(
-            msmnt = self.data_viewer.s_measurement,
-            index = self.data_viewer.s_point_ind,
-            dtype = self.data_viewer.s_point_dtype
-        )
-        upd_plot(view.plot_detail, *detail_data)
-        # Picker event
-        view.plot_curve.canvas.fig.canvas.mpl_connect(
-            'pick_event',
-            lambda event: self.pick_event(
-                view.plot_curve.canvas,
-                event # type: ignore
-            )
-        )
 
     def set_map_view(self) -> None:
         """Set central part of data_viewer for map view."""
