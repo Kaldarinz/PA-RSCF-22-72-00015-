@@ -1,66 +1,85 @@
-    def get_raw_points(self, add_zero_points: bool=False) -> np.ndarray:
-        """
-        2D array containing deep copy of measured points.
+"""
+Demonstrates some customized mouse interaction by drawing a crosshair that follows 
+the mouse.
+"""
 
-        The first index is vertical axis, the second is horizontal.
-        Indexing starts ar left bottom corner of scan.
-        As amount of points along fast scan axis can vary from line
-        to line, size of the array in this direction corresponds to
-        the longest scan line in ``data``. Size along slow scan axis
-        is ``spoints``. Default value of not scanned points is 
-        ``None``.\n
+import numpy as np
 
-        Attributes
-        ----------
-        `add_zero_points` if `True` duplicate initial scan points so that
-        size of the resulting array will be increased by one for each
-        dimension.
-        """
+import pyqtgraph as pg
 
-        tstart = time.time()
+#generate layout
+app = pg.mkQApp("Crosshair Example")
+win = pg.GraphicsLayoutWidget(show=True)
+win.setWindowTitle('pyqtgraph example: crosshair')
+label = pg.LabelItem(justify='right')
+win.addItem(label)
+p1 = win.addPlot(row=1, col=0)
+# customize the averaged curve that can be activated from the context menu:
+p1.avgPen = pg.mkPen('#FFFFFF')
+p1.avgShadowPen = pg.mkPen('#8080DD', width=10)
 
-        icashed = len(self._raw_points)
-        # Create a deep copy of new data
-        data = copy.deepcopy(self.data[icashed:])
-        logger.info(f'copy all data in {(time.time() - tstart):.3}')
-        tcur = time.time()
-        # Array for result
-        raw_data: list[list[MeasuredPoint]] = []
-        # Fill array with existing data
-        for i, line in enumerate(data):
-            line_points = copy.deepcopy(line.raw_data)
-            # To match line size last point in each line is duplicated
-            # required times
-            last_point = copy.deepcopy(line_points[-1])
-            while (j:=self.fpoints_raw_max - len(line_points)) > 0:
-                line_points.append(copy.deepcopy(last_point))
-                j -= 1
-            # For plotting data duplicate first scan line and shift
-            # other lines by one slow scan step
-            if add_zero_points:
-                # For each line the first position is starting point of
-                # that line
-                first_point = copy.deepcopy(line_points[0])
-                first_point.pos = line.startp
-                line_points.insert(0, first_point)
-                if i == 0:
-                    raw_data.append(copy.deepcopy(line_points))
-                for point in line_points:
-                    point.pos = point.pos + self.sstep
-            raw_data.append(copy.deepcopy(line_points))
-            logger.info(f'before line sort {(time.time() - tcur):.3}')
-            tcur = time.time()
-            # Sort points within each scan line
-            raw_data[-1].sort(key=lambda x: getattr(x.pos, self.faxis))
-            logger.info(f'line sort {(time.time() - tcur):.3}')
-            tcur = time.time()
-        # Sort lines
-        raw_data.sort(key=lambda x: getattr(x[0].pos, self.saxis))
-        logger.info(f'all lines sort {(time.time() - tcur):.3}')
-        tcur = time.time()
-        # Transpose data if fast scan axis is vertical
-        if self.scan_dir[0] == 'V':
-            raw_data = [list(x) for x in zip(*raw_data)]
+p2 = win.addPlot(row=2, col=0)
 
-        logger.info(f'get_raw_points in {(time.time() - tstart):.3}')
-        return np.array(raw_data, dtype=object)
+region = pg.LinearRegionItem()
+region.setZValue(10)
+# Add the LinearRegionItem to the ViewBox, but tell the ViewBox to exclude this 
+# item when doing auto-range calculations.
+p2.addItem(region, ignoreBounds=True)
+
+#pg.dbg()
+p1.setAutoVisible(y=True)
+
+
+#create numpy arrays
+#make the numbers large to show that the range shows data from 10000 to all the way 0
+data1 = 10000 + 15000 * pg.gaussianFilter(np.random.random(size=10000), 10) + 3000 * np.random.random(size=10000)
+data2 = 15000 + 15000 * pg.gaussianFilter(np.random.random(size=10000), 10) + 3000 * np.random.random(size=10000)
+
+p1.plot(data1, pen="r")
+p1.plot(data2, pen="g")
+
+p2d = p2.plot(data1, pen="w")
+# bound the LinearRegionItem to the plotted data
+region.setClipItem(p2d)
+
+def update():
+    region.setZValue(10)
+    minX, maxX = region.getRegion()
+    p1.setXRange(minX, maxX, padding=0)    
+
+region.sigRegionChanged.connect(update)
+
+def updateRegion(window, viewRange):
+    rgn = viewRange[0]
+    region.setRegion(rgn)
+
+p1.sigRangeChanged.connect(updateRegion)
+
+region.setRegion([1000, 2000])
+
+#cross hair
+vLine = pg.InfiniteLine(angle=90, movable=False)
+hLine = pg.InfiniteLine(angle=0, movable=False)
+p1.addItem(vLine, ignoreBounds=True)
+p1.addItem(hLine, ignoreBounds=True)
+
+
+vb = p1.vb
+
+def mouseMoved(evt):
+    pos = evt
+    if p1.sceneBoundingRect().contains(pos):
+        mousePoint = vb.mapSceneToView(pos)
+        index = int(mousePoint.x())
+        if index > 0 and index < len(data1):
+            label.setText("<span style='font-size: 12pt'>x=%0.1f,   <span style='color: red'>y1=%0.1f</span>,   <span style='color: green'>y2=%0.1f</span>" % (mousePoint.x(), data1[index], data2[index]))
+        vLine.setPos(mousePoint.x())
+        hLine.setPos(mousePoint.y())
+
+
+print(type(p1.scene()))
+p1.scene().sigMouseMoved.connect(mouseMoved)
+
+
+if __name__ == '__main__':
+    pg.exec()

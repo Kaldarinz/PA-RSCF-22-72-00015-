@@ -393,7 +393,6 @@ class DataViewer(QWidget, data_viewer_ui.Ui_Form):
     def pick_event(self, event: PickEvent):
         """Callback method for processing data picking on plot."""
 
-        logger.info('Picker called')
         # Update datamarker on plot
         self.p_1d.plot_curve.set_marker([event.ind[0]]) # type: ignore
         # Update index of currently selected data

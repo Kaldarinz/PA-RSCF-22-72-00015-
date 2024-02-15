@@ -14,7 +14,8 @@ from pint.errors import DimensionalityError
 from PySide6.QtCore import (
     QRunnable,
     Signal,
-    QRectF
+    QRectF,
+    QPointF
 )
 from PySide6.QtWidgets import (
     QSpinBox,
@@ -38,6 +39,9 @@ from PySide6.QtCore import (
     Slot
 )
 import pyqtgraph as pg
+from pyqtgraph.GraphicsScene.mouseEvents import (
+    MouseClickEvent
+)
 from matplotlib.figure import Figure
 from matplotlib.lines import Line2D
 from matplotlib.image import AxesImage
@@ -895,6 +899,19 @@ class PgMap(pg.GraphicsLayoutWidget):
         "Reference to color bar."
         self._boundary_ref: QGraphicsRectItem | None = None
         "Reference to boundary."
+        self.pick_enabled: bool = False
+        self.scene().sigMouseClicked.connect(self.pick_point)
+
+    def pick_point(self, event: MouseClickEvent) -> None:
+        # This return correct coordinates
+        position = self._plot_ref.getViewBox().mapSceneToView(event.scenePos())
+        position = cast(QPointF, position)
+        x = position.x()
+        y = position.y()
+        print(f'{self.hcoords.shape=} {self.vcoords.shape=} {self.signal.shape=}')
+        print(np.argwhere(self.hcoords > x))
+        print(np.argwhere(self.vcoords > y))
+        
 
     def set_scanrange(
             self,
