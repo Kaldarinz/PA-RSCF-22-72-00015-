@@ -220,7 +220,6 @@ class DataViewer(QWidget, data_viewer_ui.Ui_Form):
             return
         # Get list of all msmsnts in the file content QListView
         msmnts = self.content_model.stringList()
-        logger.info(f'Choosing {self.s_msmnt_title} from {msmnts}')
         for ind, msmnt in enumerate(msmnts):
             if msmnt == s_msmnt_title:
                 # QRect for selection must be in content coordinates
@@ -293,7 +292,6 @@ class DataViewer(QWidget, data_viewer_ui.Ui_Form):
         else:
             logger.error('Unsupported data dimensionality.')
 
-
     def set_point_view(self) -> None:
         """Load point measurement view."""
 
@@ -319,12 +317,12 @@ class DataViewer(QWidget, data_viewer_ui.Ui_Form):
     def set_map_view(self) -> None:
         """Load map view."""
 
-        logger.info('Starting map view loading')
+        logger.debug('Starting map view loading')
         # Load curve view
         self.sw_view.setCurrentWidget(self.p_2d) 
         
         if self.data is not None:
-            logger.info(
+            logger.debug(
                 f'Setting new map {self.s_msmnt_title}:{self.data.maps[self.s_msmnt_title]}'
             )
             self.p_2d.plot_map.set_data(

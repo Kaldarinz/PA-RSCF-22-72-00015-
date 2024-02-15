@@ -776,7 +776,7 @@ class TreeInfoWidget(QTreeWidget):
         self.mmd = None
         self.gpmd = None
         self.spmd = None
-        logger.info('All md cleared')
+        logger.debug('All md cleared')
 
     def set_file_md(self, attrs) -> None:
         """Set file metadata from a dataclass."""
@@ -812,7 +812,6 @@ class TreeInfoWidget(QTreeWidget):
         self.mmd.setExpanded(True)
         # Add file information
         self._set_items(self.mmd, attrs)
-        logger.debug(f'mmd set at {self.indexOfTopLevelItem(self.mmd)}')
 
     def set_gen_point_md(self, attrs) -> None:
         """Set general point metadata from a dataclass."""
