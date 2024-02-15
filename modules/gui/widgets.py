@@ -215,6 +215,7 @@ class MplCanvas(FigureCanvasQTAgg):
                 [self.xdata[markers]],
                 [self.ydata[markers]]
             )
+        self.draw()
 
     def clear_plot(self) -> None:
         """Restore plot to dafault state."""
@@ -233,7 +234,6 @@ class MplCanvas(FigureCanvasQTAgg):
         if self._marker_ref is not None:
             self._marker_ref.remove()
             self._marker_ref = None
-        self.fixed_scales = False
 
     @property
     def xdata(self) -> npt.NDArray:

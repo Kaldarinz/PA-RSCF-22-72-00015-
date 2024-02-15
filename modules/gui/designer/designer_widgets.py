@@ -393,11 +393,12 @@ class DataViewer(QWidget, data_viewer_ui.Ui_Form):
     def pick_event(self, event: PickEvent):
         """Callback method for processing data picking on plot."""
 
+        logger.info('Picker called')
         # Update datamarker on plot
         self.p_1d.plot_curve.set_marker([event.ind[0]]) # type: ignore
         # Update index of currently selected data
         dp_name = PaData._build_name(event.ind[0] + 1) # type: ignore
-        self.s_datapoint = self.s_msmnt.data[dp_name] # type: ignore
+        self.s_point = self.s_msmnt.data[dp_name] # type: ignore
 
     def clear_view(self) -> None:
         """Clear whole viewer."""
@@ -563,7 +564,6 @@ class DataViewer(QWidget, data_viewer_ui.Ui_Form):
             self.data_changed.emit(False)
             logger.debug(f'data attribute is set to {value}')
         else:
-            logger.warning('Attempt to set wrong object to data.')
             return
 
 class LoggerWidget(QDockWidget, log_dock_widget_ui.Ui_d_log):

@@ -439,8 +439,6 @@ class Window(QMainWindow,Ui_MainWindow,):
         scan_worker.signals.finished.connect(self.p_map.scan_finished)
         self.pool.start(scan_worker)
 
-
-
     @Slot(PlainQuantity)
     def set_scan_speed(self, speed: PlainQuantity) -> None:
         """
@@ -572,7 +570,6 @@ class Window(QMainWindow,Ui_MainWindow,):
         """Actual file close."""
 
         self.data_viewer.data = None
-
 
     def get_filename(self) -> str:
         """Launch a dialog to open a file."""

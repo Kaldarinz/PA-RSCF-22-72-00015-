@@ -503,6 +503,9 @@ class PaData:
                 value = source.get(fld.name, None)
             if value is not None:
                 init_vals.update({fld.name: value})
+            # Support for file version < 1.4
+            if dtype is PointMetadata and init_vals.get('datetime', None) is None:
+                init_vals['datetime'] = datetime.fromtimestamp(0)
         return dtype(**init_vals)
 
     def _load_basedata(
