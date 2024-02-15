@@ -767,21 +767,35 @@ class TreeInfoWidget(QTreeWidget):
         self.spmd: QTreeWidgetItem | None = None
         "Signal specific point MetaData"
     
+    def clear_md(self) -> None:
+        """Clear all metadata."""
+
+        while self.topLevelItemCount():
+            self.takeTopLevelItem(0)
+        self.fmd = None
+        self.mmd = None
+        self.gpmd = None
+        self.spmd = None
+        logger.info('All md cleared')
+
     def set_file_md(self, attrs) -> None:
         """Set file metadata from a dataclass."""
 
         logger.debug('Starting file metadata update.')
         # clear existing information
         if self.fmd is not None:
-            logger.debug('Starting all metadata claering.')
             while self.topLevelItemCount():
                 self.takeTopLevelItem(0)
+            self.mmd = None
+            self.gpmd = None
+            self.spmd = None
             logger.debug('All metadata cleared.')
         # Set top level item as "File attributes" string
         self.fmd = QTreeWidgetItem(self, ['File attributes'])
         self.fmd.setExpanded(True)
         # Add file information
         self._set_items(self.fmd, attrs)
+        logger.debug(f'fmd set at {self.indexOfTopLevelItem(self.fmd)}')
 
     def set_msmnt_md(self, attrs) -> None:
         """Set measurement metadata from a dataclass."""
@@ -791,11 +805,14 @@ class TreeInfoWidget(QTreeWidget):
             index = self.indexOfTopLevelItem(self.mmd)
             while self.topLevelItemCount() > index:
                 self.takeTopLevelItem(index)
+            self.gpmd = None
+            self.spmd = None
         # Set top level item as "Measurement attributes" string
-        self.mmd = QTreeWidgetItem(self, ['Measurement attributes'])
+        self.mmd = QTreeWidgetItem(self, ['Measurement attributes']) # type: ignore
         self.mmd.setExpanded(True)
         # Add file information
         self._set_items(self.mmd, attrs)
+        logger.debug(f'mmd set at {self.indexOfTopLevelItem(self.mmd)}')
 
     def set_gen_point_md(self, attrs) -> None:
         """Set general point metadata from a dataclass."""
@@ -805,6 +822,7 @@ class TreeInfoWidget(QTreeWidget):
             index = self.indexOfTopLevelItem(self.gpmd)
             while self.topLevelItemCount() > index:
                 self.takeTopLevelItem(index)
+            self.spmd = None
         # Set top level item as "Measurement attributes" string
         self.gpmd = QTreeWidgetItem(self, ['General point attributes'])
         self.gpmd.setExpanded(True)
@@ -918,7 +936,7 @@ class PgMap(pg.GraphicsLayoutWidget):
             if self.height.m is not np.nan:
                 self.plot_item.setYRange(0, self.height.m, padding = 0.)
 
-        logger.info(f'Plot size set to ({self.width}:{self.height})')
+        logger.debug(f'Plot size set to ({self.width}:{self.height})')
         self._plot_boundary()
 
     def set_selarea(

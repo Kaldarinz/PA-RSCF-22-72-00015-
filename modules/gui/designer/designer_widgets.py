@@ -34,7 +34,8 @@ from PySide6.QtWidgets import (
     QTreeWidgetItem
 )
 from PySide6.QtGui import (
-    QPixmap
+    QPixmap,
+    QStandardItemModel
 )
 import numpy as np
 from pint.facets.plain.quantity import PlainQuantity
@@ -197,6 +198,8 @@ class DataViewer(QWidget, data_viewer_ui.Ui_Form):
             if not len(data.measurements):
                 logger.debug('Data contain no measurements.')
                 return
+            # Set file description
+            self.tv_info.set_file_md(data.attrs)
             # Load new file content
             self.content_model.setStringList(
                 [key for key in data.measurements.keys()]
@@ -204,13 +207,12 @@ class DataViewer(QWidget, data_viewer_ui.Ui_Form):
             logger.debug(f'{self.content_model.rowCount()} msmnts set.')
             # Select the first msmnt
             self.s_msmnt = next(iter(data.measurements.values()))
-            # Set file description
-            self.tv_info.set_file_md(data.attrs)
         logger.debug('Data updated in viewer.')
 
     @Slot()
     def set_msmnt_selection(self) -> None:
         """Select `s_msmnt` in the list of measurements."""
+
 
         logger.debug('Starting selection of new msmnt in the view.')
         # Do not update selection if s_msmnt is not set
@@ -218,11 +220,22 @@ class DataViewer(QWidget, data_viewer_ui.Ui_Form):
             return
         # Get list of all msmsnts in the file content QListView
         msmnts = self.content_model.stringList()
-        logger.debug(f'Choosing {self.s_msmnt_title} from {msmnts}')
+        logger.info(f'Choosing {self.s_msmnt_title} from {msmnts}')
         for ind, msmnt in enumerate(msmnts):
             if msmnt == s_msmnt_title:
+                # QRect for selection must be in content coordinates
+                _index = self.content_model.index(0,0)
+                # Get reference rect
+                ref_rect = self.lv_content.rectForIndex(_index)
+                # Calc actual rect
+                sel_rect = QRect(
+                    0,
+                    ind*ref_rect.height(),
+                    ref_rect.width(),
+                    ref_rect.height())
+                # Set selection
                 self.lv_content.setSelection(
-                    QRect(0, ind, 1, 1), # left, top, width, height
+                    sel_rect,
                     QItemSelectionModel.SelectionFlag.Select
                 )
                 break
@@ -236,8 +249,11 @@ class DataViewer(QWidget, data_viewer_ui.Ui_Form):
         """Update `s_msmnt` if new measurement selected in the interface."""
 
         # Selected index
-        ind = selected.indexes()[0]
-
+        try:
+            ind = selected.indexes()[0]
+        except IndexError:
+            logger.info('No selection')
+            return
         # Get selected measurement
         model = self.content_model
         msmnt_title = model.data(ind, Qt.ItemDataRole.EditRole)
@@ -249,6 +265,7 @@ class DataViewer(QWidget, data_viewer_ui.Ui_Form):
             logger.warning(
                 f'Trying to load invalid measurement: {msmnt_title}'
             )
+            return
         self.s_msmnt = msmnt
 
     @Slot()
@@ -275,9 +292,7 @@ class DataViewer(QWidget, data_viewer_ui.Ui_Form):
             self.set_map_view()
         else:
             logger.error('Unsupported data dimensionality.')
-            
-        # Update description
-        self.set_data_description_view(self.data) # type: ignore
+
 
     def set_point_view(self) -> None:
         """Load point measurement view."""
@@ -304,10 +319,14 @@ class DataViewer(QWidget, data_viewer_ui.Ui_Form):
     def set_map_view(self) -> None:
         """Load map view."""
 
+        logger.info('Starting map view loading')
         # Load curve view
         self.sw_view.setCurrentWidget(self.p_2d) 
         
         if self.data is not None:
+            logger.info(
+                f'Setting new map {self.s_msmnt_title}:{self.data.maps[self.s_msmnt_title]}'
+            )
             self.p_2d.plot_map.set_data(
                 self.data.maps[self.s_msmnt_title]
             )
@@ -391,8 +410,7 @@ class DataViewer(QWidget, data_viewer_ui.Ui_Form):
         # Clear file content
         self.content_model.setStringList([])
         # Clear information view
-        while self.tv_info.topLevelItemCount():
-            self.tv_info.takeTopLevelItem(0)
+        self.tv_info.clear_md()
         # Set empty page for plot view
         self.sw_view.setCurrentWidget(self.p_empty)
         logger.debug('Data view cleared')
@@ -453,10 +471,10 @@ class DataViewer(QWidget, data_viewer_ui.Ui_Form):
         return self._s_msmnt
     @s_msmnt.setter
     def s_msmnt(self, new_val: Measurement | None) -> None:
-        logger.debug(f'Trying toassign {new_val} to s_msmnt')
-        if self._s_msmnt is not None and self._s_msmnt != new_val:
-            self._s_msmnt = new_val
-            self.msmnt_selected.emit()
+        if self._s_msmnt is not None:
+            if new_val is None or self._s_msmnt != new_val:
+                self._s_msmnt = new_val
+                self.msmnt_selected.emit()
         elif self._s_msmnt is None and new_val is not None:
             self._s_msmnt = new_val
             self.msmnt_selected.emit()

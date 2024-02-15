@@ -436,7 +436,6 @@ class MeasurementMetadata:
     wavelength: PlainQuantity = Q_(np.nan, 'nm')
     'Excitation laser wavelength.'
 
-
 @dataclass
 class Measurement:
     """A Photoacoustic measurement with metadata."""
@@ -1278,12 +1277,7 @@ class MapData:
             # Add line poses
             self._plot_coords.append(copy.deepcopy(line_pos))
             # Shift all points by slow step
-            print(line_pos[0])
             line_pos = [pos + self.sstep for pos in line_pos]
-            # for pos in line_pos:
-            #     pos = pos + self.sstep
-            #     print(f'{self.sstep=}')
-            print(f'after {line_pos[0]}')
             # Add shifted line poses
             self._plot_coords.append(line_pos)
         # Transpose data if fast scan axis is vertical
@@ -1293,8 +1287,8 @@ class MapData:
             res = copy.deepcopy(self._plot_coords)
 
         tot = time.time() - tstart
-        logger.info(f'Done get_plot_coords in {(tot):.3}')
-        logger.info(f'{np.array(res, dtype=object).shape=}')
+        logger.debug(f'Done get_plot_coords in {(tot):.3}')
+        logger.debug(f'{np.array(res, dtype=object).shape=}')
         return np.array(res, dtype=object)
 
     def get_plot_points(self, add_zero_points: bool=False) -> np.ndarray:
@@ -1348,7 +1342,7 @@ class MapData:
             res = copy.deepcopy(self._plot_sigs)
 
         tot = time.time() - tstart
-        logger.info(f'Done get_plot_points in {(tot):.3}')
+        logger.debug(f'Done get_plot_points in {(tot):.3}')
         logger.debug(f'{np.array(res, dtype=object).shape=}')
         return np.array(res, dtype=object)
 
@@ -1638,6 +1632,9 @@ class MapData:
         if val.upper() not in ['XY', 'YZ', 'ZX']:
             raise ValueError
         self._scan_plane = val.upper()
+
+    def __str__(self):
+        return (f'Center={self.centp}. Scanned points={sum(map(lambda x: x.num_points, self.data))}')
 
 @dataclass
 class StagesStatus:
