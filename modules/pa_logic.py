@@ -898,7 +898,11 @@ def scan_2d_emul(
         logger.info(f'line {scan_time=}')
         # While stage is moving, measure its position.
         t0 = time.time()
-        while (cur_t:=time.time()-t0) < scan_time:
+        while t_en.is_alive():
+            time.sleep(0.1*rng.random() + 0.01)
+            if (cur_t:=time.time()-t0) > scan_time:
+                if comm_en.is_running:
+                    comm_en.is_running = False
             if not flags['is_running']:
                 comm_en.is_running = False
                 t_en.join()
@@ -910,10 +914,6 @@ def scan_2d_emul(
                 return scan
             cur_pos = line.startp + unit*scan_dist*cur_t/scan_time
             line.add_pos_point(cur_pos)
-            time.sleep(0.1*rng.random() + 0.01)
-        # When stage stopped, cancel signal measurements
-        comm_en.is_running = False
-        t_en.join()
         logger.debug('Line scanned. Start converting OscMeas to MeasPoint')
         # Convert OscMeasurements to MeasuredPoints
         meas_points = [
@@ -954,6 +954,7 @@ def pa_fast_cont_emul(
     pa_signal = np.loadtxt(os.path.join(path, 'pa_fast_norm.txt'))
     
     start = time.time()
+    time.sleep((rng.random()*0.2 + 0.9)*step/2)
     # execution loop
     while comm.is_running:
         # exit by timeout
@@ -963,7 +964,6 @@ def pa_fast_cont_emul(
             )
             break
         logger.debug(f'Prepare to emul measure {comm.count} at {t=}')
-        time.sleep((rng.random()*0.2 + 0.9)*step)
         
         # Generate Measurement
         raw_data: list[np.ndarray|None] = [None,None]
@@ -987,6 +987,7 @@ def pa_fast_cont_emul(
         if max_count and comm.count == max_count:
             logger.debug(f'{max_count=} reached')
             break
+        time.sleep((rng.random()*0.2 + 0.9)*step)
 
     return result
 

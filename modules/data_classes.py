@@ -981,7 +981,6 @@ class ScanLine:
         en_time = np.array([(x.datetime - t0).total_seconds() for x in result])
         # Array with time points relative to ref of position
         pos_time = np.array([(x[0] - t0).total_seconds() for x in poses])
-
         for fld in Position._FIELDS:
             # Assume that all positions have the same non-None fields
             # and iterate only on those fields.
@@ -1072,11 +1071,12 @@ class MapData:
     `data`: `list[ScanLine]` - All `measured` scan lines.\n
     `wavelength`: `PlainQuantity` - `setted` excitation wavelength.
 
-    `centp`: `Position` - `setted` center point of scan.\n
+    `centp`: `Position` - `setted` center point of scan in absolute
+    coordinates.\n
     `startp`: `Position` - `Property`. Read only. Calculated `setted` 
-    starting position of scan.\n
+    starting position of scan in absolute coordinates.\n
     `blp`: `Position` - `Property`. Read only. Calculated `setted` 
-    position of bottom-left corner of scan.
+    position of bottom-left corner of scan in absolute coordinates.
 
     `width`: `PlainQuantity` - `setted` scan size along `horizontal` axis.\n
     `height`: `PlainQuantity` - `setted` scan size along `vertical` axis.\n
@@ -1129,7 +1129,7 @@ class MapData:
         ) -> None:
 
         self.centp = center
-        "`setted` center point of scan."
+        "`setted` center point of scan in absolute coordinates."
         self.width = width
         "`setted` scan size along `horizontal` axis."
         self.height = height
@@ -1274,30 +1274,39 @@ class MapData:
         tstart = time.time()
         # Amount of cashed scan lines
         icashed = int(len(self._plot_coords)/2)
-        # Create a deep copy of new data
+        # Create a deep copy of _new_ (not cashed) data
         data = copy.deepcopy(self.data[icashed:])
         # New lines can have more points than old,
-        # therefore copy last point necessary amount of times
+        # therefore copy last point necessary amount of times in cashed data
         max_fpoints = self.fpoints_raw_max
         for line in self._plot_coords:
-            while (j:=max_fpoints- len(line) + 1) > 0:
+            while (j:=max_fpoints - len(line) + 1) > 0:
                 line.append(copy.copy(line[-1]))
                 j -= 1
         # Fill array with existing data
         for line in data:
             line_pos = [point.pos for point in line.raw_data]
-            # The last pos is stop point of the line
-            line_pos[-1] = line.stopp
-            # To match line size last pos in each line is duplicated
-            # required times
+            # To match line size add required amoun of line stop points
             while (j:=max_fpoints - len(line_pos)) > 0:
-                line_pos.append(copy.copy(line_pos[-1]))
+                line_pos.append(copy.copy(line.stopp))
                 j -= 1
             # Add start point in the begining
             line_pos.insert(0, line.startp)
+            #
+            print('Before')
+            print(line_pos)
+            for i, pos in enumerate(line_pos):
+                if i:
+                    if (i < len(line_pos) - 1) and pos != line.stopp:
+                        line_pos[i] += (line_pos[i+1] - pos)/2
+                    elif i == len(line_pos) - 1:
+                        line_pos[i] = copy.copy(line.stopp)
+            print('after')
+            print(line_pos)
+            # Sort data along fast scan axes.
             # The same sorting should be applied in get_plot_points
             line_pos.sort(key = lambda x: getattr(x, self.faxis).to_base_units())
-            # Add line poses
+            # Add line to cashed data
             self._plot_coords.append(copy.deepcopy(line_pos))
             # Shift all points by slow step
             line_pos = [pos + self.sstep for pos in line_pos]
@@ -1372,7 +1381,7 @@ class MapData:
     @property
     def startp(self) -> Position:
         """
-        Starting position of scan.
+        Starting position of scan in absolute coordinates.
         
         Read only.
         """
@@ -1399,7 +1408,7 @@ class MapData:
     @property
     def blp(self) -> Position:
         """
-        Position of bottom-left corner of scan.
+        Position of bottom-left corner of scan in absolute coordinates.
         
         Read only.
         """
