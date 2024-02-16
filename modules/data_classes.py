@@ -184,10 +184,16 @@ class Position:
         """Sqrt of squares of non-None coordinates."""
         
         val = Q_(np.nan, 'm**2')
+        # Flag for a valid value
+        valid = False
         for axis in self._FIELDS:
             if (ax:=getattr(self, axis)) is not None:
                 val = np.nan_to_num(val) + (ax)**2 # type: ignore
-        return np.sqrt(val) # type: ignore
+                valid = True
+        if valid:
+            return np.sqrt(val) # type: ignore
+        else:
+            raise ValueError
 
     def add(self, added: Self, strict: bool=True) -> None:
         """
@@ -261,6 +267,23 @@ class Position:
                     result.update({fld: magnitude})
                     result.update({fld + '_u': units})
         return result
+
+    def dotprod(self, other: Self) -> PlainQuantity | None:
+        """Calculate dot product with second vector."""
+
+        result = Q_(np.nan, 'm**2')
+        # Flag for a valid value
+        valid = False
+        for axis in self._FIELDS:
+            coord1 = getattr(self, axis)
+            coord2 = getattr(other, axis)
+            if None not in [coord1, coord2]:
+                result = np.nan_to_num(result) + coord1*coord2 # type: ignore
+                valid = True
+        if valid:
+            return result # type: ignore
+        else:
+            return None
 
     def __add__(self, added: Self) -> Self:
         """If value of any axis is None, result for the axis is None."""

@@ -52,7 +52,9 @@ from matplotlib.backend_bases import MouseEvent
 
 from ..data_classes import (
     MapData,
-    ScanLine
+    ScanLine,
+    Position,
+    DataPoint
 )
 from modules import ureg, Q_
 rng = np.random.default_rng()
@@ -904,14 +906,49 @@ class PgMap(pg.GraphicsLayoutWidget):
 
     def pick_point(self, event: MouseClickEvent) -> None:
         # This return correct coordinates
-        position = self._plot_ref.getViewBox().mapSceneToView(event.scenePos())
-        position = cast(QPointF, position)
-        x = position.x()
-        y = position.y()
-        print(f'{self.hcoords.shape=} {self.vcoords.shape=} {self.signal.shape=}')
-        print(np.argwhere(self.hcoords > x))
-        print(np.argwhere(self.vcoords > y))
+        if self.data is None:
+            return
+        click_pos = self._plot_ref.getViewBox().mapSceneToView(event.scenePos()) # type: ignore
+        click_pos = cast(QPointF, click_pos)
+        pos = Position.from_tuples([
+            (self.data.haxis, Q_(click_pos.x(), self.hunits)),
+            (self.data.vaxis, Q_(click_pos.y(), self.vunits))
+        ])
+        self.point_from_pos(pos)
         
+    def point_from_pos(self, pos: Position) -> DataPoint | None:
+        """
+        Get Datapoint for a given position.
+        
+        Return a datapoint, which is represented as a pixel on plot
+        and the `pos` is located within this pixel.\n
+        Relative coordinates are used.
+        """
+
+        if self.data is None:
+            return
+        
+        sstep = self.data.sstep
+        # Distance to the pos from start point along slow axis as number of sstep's
+        sproject = (sstep).dotprod(pos - self.data.startp + self.data.blp)/sstep.value()**2
+        line_no = int(sproject)
+        line = self.data.data[line_no]
+        startp = line.startp
+        rel_pos = pos - startp + self.data.blp
+        direct = startp.direction(line.stopp)
+        unit_dir = direct*Q_(1, self.hunits)
+        rel_proj = direct*(unit_dir.dotprod(rel_pos)/unit_dir.value())
+        point = line.raw_data[0]
+        for i, pnt in enumerate(line.raw_data):
+            rel_pnt = pnt.pos - startp
+            print(f'{rel_pnt=}')
+            if (proj:=rel_proj.dotprod(rel_pnt)/rel_proj.value()**2) > 1:
+                print(f'{proj=}')
+                point = line.raw_data[i]
+                break
+            else:
+                print(f'{proj=}')
+        print(point.pos- self.data.blp)
 
     def set_scanrange(
             self,
