@@ -40,10 +40,14 @@ T = TypeVar('T')
 
 class QuantRect(NamedTuple):
     """Rectangle with quantity values of its bottom left corner, width and height."""
-    x: PlainQuantity
-    y: PlainQuantity
-    width: PlainQuantity
-    height: PlainQuantity
+    x: PlainQuantity | None
+    y: PlainQuantity | None
+    width: PlainQuantity | None
+    height: PlainQuantity | None
+
+class PointIndex(NamedTuple):
+    line_ind: int
+    point_ind: int
 
 class Direction:
     """
@@ -1180,9 +1184,9 @@ class MapData:
             return
         # Calculate displacement from scan starting point to
         # to starting and ending points of new line
-        delta_start = lines*self.sstep + Direction(self.fstep)*((lines%2)*self.fsize)
+        delta_start = (lines + 0.5)*self.sstep + Direction(self.fstep)*((lines%2)*self.fsize)
         logger.debug(f'{delta_start=}')
-        delta_stop = lines*self.sstep + Direction(self.fstep)*(((lines + 1)%2)*self.fsize)
+        delta_stop = (lines + 0.5)*self.sstep + Direction(self.fstep)*(((lines + 1)%2)*self.fsize)
         # Generate start and stop points of new line
         line_start = self.startp + delta_start
         line_stop = self.startp + delta_stop
@@ -1269,6 +1273,7 @@ class MapData:
         """
         Get positions for uneven pixel corners.
 
+        Signals are centered in pixels.
         """
 
         tstart = time.time()
@@ -1292,9 +1297,10 @@ class MapData:
                 j -= 1
             # Add start point in the begining
             line_pos.insert(0, line.startp)
-            #
-            print('Before')
-            print(line_pos)
+            # Shift position for fast axis so that the first coordinate
+            # in line's starting point, the last coordinate is the
+            # line's stop point, all other coordinates are half way
+            # between measured points.
             for i, pos in enumerate(line_pos):
                 if i:
                     if (i < len(line_pos) - 1) and pos != line.stopp:
@@ -1306,11 +1312,11 @@ class MapData:
             # Sort data along fast scan axes.
             # The same sorting should be applied in get_plot_points
             line_pos.sort(key = lambda x: getattr(x, self.faxis).to_base_units())
-            # Add line to cashed data
+            # For lines of position should be added for each scanned line
+            # Lines are shifted by half of slow scan step from real line
+            line_pos = [pos - self.sstep/2 for pos in line_pos]
             self._plot_coords.append(copy.deepcopy(line_pos))
-            # Shift all points by slow step
             line_pos = [pos + self.sstep for pos in line_pos]
-            # Add shifted line poses
             self._plot_coords.append(line_pos)
         # Transpose data if fast scan axis is vertical
         if self.scan_dir[0] == 'V':
@@ -1377,6 +1383,47 @@ class MapData:
         logger.debug(f'Done get_plot_points in {(tot):.3}')
         logger.debug(f'{np.array(res, dtype=object).shape=}')
         return np.array(res, dtype=object)
+
+    def point_from_pos(self, pos: Position) -> MeasuredPoint | None:
+        """
+        Get Datapoint for a given position.
+        
+        Attributes
+        ----------
+        `pos` - Position in relative coordinates.
+
+        Return
+        ------
+        A datapoint, which is represented as a pixel on plot
+        and the `pos` is located within this pixel.\n
+        Relative coordinates are used.
+        """
+
+        if self.data is None:
+            return
+        
+        sstep = self.sstep
+        # Scan starting point in relative coords
+        scan_startp = self.startp - self.blp
+        # Vector from scan starting point to clicked_pos
+        scan_rel_pos = pos - scan_startp
+        # Distance to the pos from start point along slow axis as number of sstep's
+        pos_sstep = (sstep).dotprod(scan_rel_pos)/sstep.value()**2
+        line_no = int(pos_sstep)
+        line = self.data[line_no]
+        # The needed datapoint is the closest to the clicked pos in the line.
+        point = min(line.raw_data, key = lambda x: (x.pos - self.blp - pos).value())
+        return point
+    
+    def point_index(self, point: MeasuredPoint) -> PointIndex:
+
+        # Distance to the pos from start point along slow axis as number of sstep's
+        pos_sstep = (self.sstep).dotprod(point.pos-self.startp)/self.sstep.value()**2
+        line_ind = int(pos_sstep)
+        point_ind = self.data[line_ind].raw_data.index(point)
+        index = PointIndex(line_ind, point_ind)
+        logger.info(index)
+        return index
 
     @property
     def startp(self) -> Position:

@@ -54,7 +54,8 @@ from ..data_classes import (
     MapData,
     ScanLine,
     Position,
-    DataPoint
+    MeasuredPoint,
+    QuantRect
 )
 from modules import ureg, Q_
 rng = np.random.default_rng()
@@ -914,41 +915,45 @@ class PgMap(pg.GraphicsLayoutWidget):
             (self.data.haxis, Q_(click_pos.x(), self.hunits)),
             (self.data.vaxis, Q_(click_pos.y(), self.vunits))
         ])
-        self.point_from_pos(pos)
+        point = self.data.point_from_pos(pos)
+        print(self.data.point_index(point))
         
-    def point_from_pos(self, pos: Position) -> DataPoint | None:
-        """
-        Get Datapoint for a given position.
+    # def point_from_pos(self, pos: Position) -> MeasuredPoint | None:
+    #     """
+    #     Get Datapoint for a given position.
         
-        Return a datapoint, which is represented as a pixel on plot
-        and the `pos` is located within this pixel.\n
-        Relative coordinates are used.
-        """
+    #     Attributes
+    #     ----------
+    #     `pos` - Position in relative coordinates.
 
-        if self.data is None:
-            return
+    #     Return
+    #     ------
+    #     A datapoint, which is represented as a pixel on plot
+    #     and the `pos` is located within this pixel.\n
+    #     Relative coordinates are used.
+    #     """
+
+    #     if self.data is None:
+    #         return
         
-        sstep = self.data.sstep
-        # Distance to the pos from start point along slow axis as number of sstep's
-        sproject = (sstep).dotprod(pos - self.data.startp + self.data.blp)/sstep.value()**2
-        line_no = int(sproject)
-        line = self.data.data[line_no]
-        startp = line.startp
-        rel_pos = pos - startp + self.data.blp
-        direct = startp.direction(line.stopp)
-        unit_dir = direct*Q_(1, self.hunits)
-        rel_proj = direct*(unit_dir.dotprod(rel_pos)/unit_dir.value())
-        point = line.raw_data[0]
-        for i, pnt in enumerate(line.raw_data):
-            rel_pnt = pnt.pos - startp
-            print(f'{rel_pnt=}')
-            if (proj:=rel_proj.dotprod(rel_pnt)/rel_proj.value()**2) > 1:
-                print(f'{proj=}')
-                point = line.raw_data[i]
-                break
-            else:
-                print(f'{proj=}')
-        print(point.pos- self.data.blp)
+    #     sstep = self.data.sstep
+    #     # Scan starting point in relative coords
+    #     scan_startp = self.data.startp - self.data.blp
+    #     # Vector from scan starting point to clicked_pos
+    #     scan_rel_pos = pos - scan_startp
+    #     # Distance to the pos from start point along slow axis as number of sstep's
+    #     pos_sstep = (sstep).dotprod(scan_rel_pos)/sstep.value()**2
+    #     line_no = int(pos_sstep)
+    #     line = self.data.data[line_no]
+    #     # The needed datapoint is the closest to the clicked pos in the line.
+    #     point = min(line.raw_data, key = lambda x: (x.pos - self.data.blp - pos).value())
+    #     return point
+
+    def select_point(self, point: MeasuredPoint) -> None:
+        """Select given point."""
+
+    def get_point_rect(self, point: MeasuredPoint) -> None:
+        """Get QuantRect for the point."""
 
     def set_scanrange(
             self,

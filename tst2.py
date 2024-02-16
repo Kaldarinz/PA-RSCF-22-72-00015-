@@ -1,5 +1,5 @@
-a = None
-b = 1
-c = 2
+a = [1,200]
+b = [1,200]
 
-print(set([type(x) for x in (a,b,c)]))
+if a == b:
+    print(tuple(b))
