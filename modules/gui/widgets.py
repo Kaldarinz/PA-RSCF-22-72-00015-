@@ -2,7 +2,7 @@
 Base widgets, which are used as parts in other widgets.
 """
 
-from typing import Iterable, Literal, cast
+from typing import Iterable, Literal, cast, overload
 import os
 import logging
 from dataclasses import fields
@@ -916,44 +916,13 @@ class PgMap(pg.GraphicsLayoutWidget):
             (self.data.vaxis, Q_(click_pos.y(), self.vunits))
         ])
         point = self.data.point_from_pos(pos)
-        print(self.data.point_index(point))
+        self.select_point(point)
         
-    # def point_from_pos(self, pos: Position) -> MeasuredPoint | None:
-    #     """
-    #     Get Datapoint for a given position.
-        
-    #     Attributes
-    #     ----------
-    #     `pos` - Position in relative coordinates.
-
-    #     Return
-    #     ------
-    #     A datapoint, which is represented as a pixel on plot
-    #     and the `pos` is located within this pixel.\n
-    #     Relative coordinates are used.
-    #     """
-
-    #     if self.data is None:
-    #         return
-        
-    #     sstep = self.data.sstep
-    #     # Scan starting point in relative coords
-    #     scan_startp = self.data.startp - self.data.blp
-    #     # Vector from scan starting point to clicked_pos
-    #     scan_rel_pos = pos - scan_startp
-    #     # Distance to the pos from start point along slow axis as number of sstep's
-    #     pos_sstep = (sstep).dotprod(scan_rel_pos)/sstep.value()**2
-    #     line_no = int(pos_sstep)
-    #     line = self.data.data[line_no]
-    #     # The needed datapoint is the closest to the clicked pos in the line.
-    #     point = min(line.raw_data, key = lambda x: (x.pos - self.data.blp - pos).value())
-    #     return point
-
     def select_point(self, point: MeasuredPoint) -> None:
         """Select given point."""
 
-    def get_point_rect(self, point: MeasuredPoint) -> None:
-        """Get QuantRect for the point."""
+        rect = self.data.point_rect(point)
+        self.set_selarea(*rect)
 
     def set_scanrange(
             self,

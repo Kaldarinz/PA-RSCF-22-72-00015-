@@ -40,8 +40,8 @@ T = TypeVar('T')
 
 class QuantRect(NamedTuple):
     """Rectangle with quantity values of its bottom left corner, width and height."""
-    x: PlainQuantity | None
-    y: PlainQuantity | None
+    left: PlainQuantity | None
+    bottom: PlainQuantity | None
     width: PlainQuantity | None
     height: PlainQuantity | None
 
@@ -227,6 +227,9 @@ class Position:
                 if not strict:
                     if attr1 is None:
                         setattr(self, fld, attr2)
+
+    def copy(self) -> Self:
+        return copy.copy(self)
 
     def dist(self, point: Self) -> PlainQuantity:
         """
@@ -1282,8 +1285,6 @@ class MapData:
                         line_pos[i] += (line_pos[i+1] - pos)/2
                     elif i == len(line_pos) - 1:
                         line_pos[i] = copy.copy(line.stopp)
-            print('after')
-            print(line_pos)
             # Sort data along fast scan axes.
             # The same sorting should be applied in get_plot_points
             line_pos.sort(key = lambda x: getattr(x, self.faxis).to_base_units())
@@ -1365,13 +1366,13 @@ class MapData:
         
         Attributes
         ----------
-        `pos` - Position in relative coordinates.
+        `pos` - Arbitrary position in relative coordinates within
+        scanned data.
 
         Return
         ------
-        A datapoint, which is represented as a pixel on plot
-        and the `pos` is located within this pixel.\n
-        Relative coordinates are used.
+        A datapoint, which pixel representation on plot
+        contains `pos`.\n
         """
 
         if self.data is None:
@@ -1391,14 +1392,56 @@ class MapData:
         return point
     
     def point_index(self, point: MeasuredPoint) -> PointIndex:
+        """Calculate PointIndex for the given point."""
 
         # Distance to the pos from start point along slow axis as number of sstep's
         pos_sstep = (self.sstep).dotprod(point.pos-self.startp)/self.sstep.value()**2
+        
         line_ind = int(pos_sstep)
         point_ind = self.data[line_ind].raw_data.index(point)
-        index = PointIndex(line_ind, point_ind)
-        logger.info(index)
-        return index
+        
+        return PointIndex(line_ind, point_ind)
+
+    def point_rect(self, point: MeasuredPoint) -> QuantRect:
+        """
+        Calculate a rectangle, which bounds given point on plot.
+        
+        Relative coordinates.
+        """
+
+        index = self.point_index(point)
+
+        # The idea is to calculate diagonal positions of the pixel
+        diag1 = point.pos.copy()
+        diag2 = point.pos.copy()
+        # Calcultaion for fast axis requires special handling of
+        # boundary points
+        line = self.data[index.line_ind]
+        if not index.point_ind:
+            diag1 = line.startp.copy()
+            diag2 = (diag2 + line.raw_data[index.point_ind + 1].pos)/2
+        elif index.point_ind + 1 == line.num_points:
+            diag1 = (diag1 + line.raw_data[index.point_ind - 1].pos)/2
+            diag2 = line.stopp.copy()
+        else:
+            diag1 = (diag1 + line.raw_data[index.point_ind - 1].pos)/2
+            diag2 = (diag2 + line.raw_data[index.point_ind + 1].pos)/2
+        # Calculate position along slow axis is straight forward
+        diag1 += -self.sstep/2
+        diag2 += self.sstep/2
+        # Switch to relative coordinates
+        diag1 += -self.blp
+        diag2 += -self.blp
+        # Get coordinates
+        hcoords = [getattr(x, self.haxis) for x in [diag1, diag2]]
+        vcoords = [getattr(x, self.vaxis) for x in [diag1, diag2]]
+
+        left = min(hcoords)
+        bottom = min(vcoords)
+        width = max(hcoords) - min(hcoords)
+        height = max(vcoords) - min(vcoords)
+        result = QuantRect(left, bottom, width, height)
+        return result
 
     @property
     def startp(self) -> Position:

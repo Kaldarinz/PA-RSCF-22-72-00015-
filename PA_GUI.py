@@ -356,7 +356,7 @@ class Window(QMainWindow,Ui_MainWindow,):
         ### Data view###
         self.action_Data.toggled.connect(self.activate_data_viwer)
         self.action_Open.triggered.connect(self.open_file)
-        
+            
         ### Logs ###
         self.action_Logs.toggled.connect(self.d_log.setVisible)
         self.d_log.visibilityChanged.connect(self.action_Logs.setChecked)
