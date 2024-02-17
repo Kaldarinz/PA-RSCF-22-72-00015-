@@ -867,6 +867,7 @@ class PgMap(pg.GraphicsLayoutWidget):
     """2d map pyqtgraph widget."""
 
     selection_changed = Signal(object)
+    point_selected = Signal(list)
 
     def __init__(self, parent=None):
         
@@ -902,9 +903,9 @@ class PgMap(pg.GraphicsLayoutWidget):
         "Reference to color bar."
         self._boundary_ref: QGraphicsRectItem | None = None
         "Reference to boundary."
-        self.pick_enabled: bool = False
-        self.scene().sigMouseClicked.connect(self.pick_point)
-
+        self._pick_enabled: bool = False
+        "Allow selection of pixels."
+        
     def pick_point(self, event: MouseClickEvent) -> None:
         # This return correct coordinates
         if self.data is None:
@@ -915,14 +916,22 @@ class PgMap(pg.GraphicsLayoutWidget):
             (self.data.haxis, Q_(click_pos.x(), self.hunits)),
             (self.data.vaxis, Q_(click_pos.y(), self.vunits))
         ])
-        point = self.data.point_from_pos(pos)
-        self.select_point(point)
         
-    def select_point(self, point: MeasuredPoint) -> None:
+        self.select_point(pos)
+        
+    def select_point(self, pos: Position) -> None:
         """Select given point."""
 
+        if self.data is None:
+            logger.warning('Point cannot be selected. Data is missing.')
+            return
+        point = self.data.point_from_pos(pos)
+        if point is None:
+            logger.warning(f'Point for {pos} was not found.')
+            return
         rect = self.data.point_rect(point)
         self.set_selarea(*rect)
+        self.point_selected.emit(self.data.point_index(point))
 
     def set_scanrange(
             self,
@@ -1100,7 +1109,15 @@ class PgMap(pg.GraphicsLayoutWidget):
                 (x,y),
                 (width_m, height_m),
                 maxBounds = bounds,
-                removable = True)
+                removable = True,
+                movable = not self.pick_enabled,
+                resizable = not self.pick_enabled)
+            # Remove resize handles if pixel picking enabled
+            if self.pick_enabled:
+                        while len(self._sel_ref.handles) > 0:
+                            self._sel_ref.removeHandle(
+                                self._sel_ref.handles[0]['item']
+                            )
             self._sel_ref.setPen(pg.mkPen('b', width = 3))
             self._sel_ref.hoverPen = pg.mkPen('k', width = 3)
             self.plot_item.addItem(self._sel_ref)
@@ -1359,6 +1376,20 @@ class PgMap(pg.GraphicsLayoutWidget):
             self.selection_changed.emit(None)
             self._abs_coords = state
 
+    @property
+    def pick_enabled(self) -> bool:
+        """Whether data pixel can be selected."""
+        return self._pick_enabled
+    @pick_enabled.setter
+    def pick_enabled(self, state: bool) -> None:
+        if self._pick_enabled:
+            if not state:
+                self._pick_enabled = state
+                self.scene().sigMouseClicked.disconnect(self.pick_point)
+        else:
+            if state:
+                self._pick_enabled = state
+                self.scene().sigMouseClicked.connect(self.pick_point)
 
     def _plot_boundary(self) -> None:
         """Plot map boundary."""

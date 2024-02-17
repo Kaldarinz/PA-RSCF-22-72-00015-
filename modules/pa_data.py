@@ -930,6 +930,19 @@ class PaData:
         # explicit units are required at least for 'nm'
         return pint.Quantity.from_list(dep, f'{dep[0].u:~}')
 
+    @staticmethod
+    def point_by_param(
+        msmnt: Measurement,
+        param: list
+        ) -> DataPoint | None:
+        """Get datapoint from a measurement by its param value."""
+
+        for point in msmnt.data.values():
+            if point.attrs.param_val == param:
+                return point
+        logger.warning(f'Point for param val {param} not found.')
+        return None
+    
     def bp_filter(
             self,
             data: BaseData,

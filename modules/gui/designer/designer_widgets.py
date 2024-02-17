@@ -169,10 +169,12 @@ class DataViewer(QWidget, data_viewer_ui.Ui_Form):
             lambda _ : self.plot_param()
         )
 
-        # Data picker
+        # Data picker in curve plot
         self.p_1d.plot_curve.canvas.fig.canvas.mpl_connect(
             'pick_event', self.pick_event # type: ignore
         )
+        # Data picker for map
+        self.p_2d.plot_map.point_selected.connect(self.map_point_selected)
 
     @Slot(bool)
     def data_updated(self, data_exist: bool) -> None:
@@ -399,6 +401,11 @@ class DataViewer(QWidget, data_viewer_ui.Ui_Form):
         dp_name = PaData._build_name(event.ind[0] + 1) # type: ignore
         self.s_point = self.s_msmnt.data[dp_name] # type: ignore
 
+    def map_point_selected(self, params: list) -> None:
+        """Set selected map pixel."""
+        self.s_point = PaData.point_by_param(self.s_msmnt, params) # type: ignore
+        
+
     def clear_view(self) -> None:
         """Clear whole viewer."""
 
@@ -504,7 +511,11 @@ class DataViewer(QWidget, data_viewer_ui.Ui_Form):
         return self._s_point
     @s_point.setter
     def s_point(self, new_val: DataPoint | None) -> None:
-        if self._s_point is not None and self._s_point != new_val:
+        if self._s_point is not None:
+            if self._s_point is not None and self._s_point != new_val:
+                self._s_point = new_val
+                self.point_selected.emit()
+        elif self._s_point is None and new_val is not None:
             self._s_point = new_val
             self.point_selected.emit()
         else:
@@ -1183,6 +1194,9 @@ class MapView(QWidget, map_data_view_ui.Ui_Map_view):
         self.cb_curve_select.addItems(
             [key for key in MSMNTS_SIGNALS.keys()]
         )
+
+        # Enable pixel selection for map
+        self.plot_map.pick_enabled = True
 
 class CurveView(QWidget,curve_data_view_ui.Ui_Form):
     """Plots for 1D data."""

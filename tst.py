@@ -36,6 +36,7 @@ ureg = pint.get_application_registry()
 Q_ = ureg.Quantity
 rng = np.random.default_rng()
 
-a = np.array((1,2,3,4,5))
-b = [2,3]
-print(a[*b])
+a = [Q_(1, ''), Q_(2., '')]
+b = [1,2]
+if a == b:
+    print('ok')
