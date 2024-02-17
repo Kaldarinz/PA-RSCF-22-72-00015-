@@ -471,18 +471,6 @@ class Measurement:
     "MetaData of the measurement."
     data: dict[str, DataPoint] = field(default_factory = dict, compare=False, repr=False)
 
-def def_pos() -> Position:
-    return Position()
-
-def empty_ndarray():
-    return np.empty(0, dtype=np.int8)
-
-def empty_arr_quantity() -> PlainQuantity:
-    return Q_(np.empty(0), 'uJ')
-
-def empty_arr_quantity_s() -> PlainQuantity:
-    return Q_(np.empty(0), 's')
-
 @dataclass
 class OscMeasurement:
     """
@@ -567,7 +555,7 @@ class EnergyMeasurement:
     datetime: dt = field(compare=False)
     "Date and time of measurement."
     signal: PlainQuantity = field(
-        default_factory=empty_arr_quantity,
+        default_factory=lambda: Q_(np.empty(0), 'uJ'),
         compare = False
     )
     "Sampled PM signal in Volts."
@@ -783,24 +771,11 @@ class MeasuredPoint:
         # Set ``pa_signal``
         self.pa_signal = pa_signal_v/self.sample_en
         # Set ``max_amp``
-        self.max_amp = pa_signal_v.ptp()/self.sample_en
-
-    def _set_pa_offset(self) -> None:
-
-        # Calculate time from start of pm_signal to trigger position
-        pm_offset = self._pm_info.dt*self._pm_info.istart
-        if pm_offset is not None:
-            # Start time of PA data relative to start of laser pulse
-            self.start_time = (self._pm_start - pm_offset) - self._pa_start
-            if self.pa_signal_raw is None:
-                logger.warning('PA signal is missing. Offset was not calculated.')
-                return None
-            # Stop time of PA data relative to start of laser pulse
-            self.stop_time = self.dt*(len(self.pa_signal_raw)-1) + self.start_time # type: ignore
+        self.max_amp = pa_signal_v.ptp()/self.sample_en # type: ignore
 
     @staticmethod
     def decimate_data(
-            data: np.ndarray[np.int8],
+            data: npt.NDArray[np.int8],
             target: int=10_000,
         ) -> tuple[np.ndarray, int]:
         """Downsample data to <target> size.
