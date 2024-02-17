@@ -16,7 +16,7 @@ from PySide6.QtGui import (QBrush, QColor, QConicalGradient, QCursor,
     QImage, QKeySequence, QLinearGradient, QPainter,
     QPalette, QPixmap, QRadialGradient, QTransform)
 from PySide6.QtWidgets import (QApplication, QComboBox, QHBoxLayout, QSizePolicy,
-    QSpacerItem, QVBoxLayout, QWidget)
+    QSpacerItem, QSplitter, QVBoxLayout, QWidget)
 
 from ..widgets import (MplNavCanvas, PgMap)
 
@@ -27,11 +27,17 @@ class Ui_Map_view(object):
         Map_view.resize(940, 739)
         self.horizontalLayout_3 = QHBoxLayout(Map_view)
         self.horizontalLayout_3.setObjectName(u"horizontalLayout_3")
-        self.verticalLayout_2 = QVBoxLayout()
+        self.splitter = QSplitter(Map_view)
+        self.splitter.setObjectName(u"splitter")
+        self.splitter.setOrientation(Qt.Horizontal)
+        self.widget = QWidget(self.splitter)
+        self.widget.setObjectName(u"widget")
+        self.verticalLayout_2 = QVBoxLayout(self.widget)
         self.verticalLayout_2.setObjectName(u"verticalLayout_2")
+        self.verticalLayout_2.setContentsMargins(0, 0, 0, 0)
         self.horizontalLayout_2 = QHBoxLayout()
         self.horizontalLayout_2.setObjectName(u"horizontalLayout_2")
-        self.cb_curve_select = QComboBox(Map_view)
+        self.cb_curve_select = QComboBox(self.widget)
         self.cb_curve_select.setObjectName(u"cb_curve_select")
 
         self.horizontalLayout_2.addWidget(self.cb_curve_select)
@@ -43,24 +49,26 @@ class Ui_Map_view(object):
 
         self.verticalLayout_2.addLayout(self.horizontalLayout_2)
 
-        self.plot_map = PgMap(Map_view)
+        self.plot_map = PgMap(self.widget)
         self.plot_map.setObjectName(u"plot_map")
-        sizePolicy = QSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding)
+        sizePolicy = QSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.plot_map.sizePolicy().hasHeightForWidth())
         self.plot_map.setSizePolicy(sizePolicy)
+        self.plot_map.setMinimumSize(QSize(600, 0))
 
         self.verticalLayout_2.addWidget(self.plot_map)
 
-
-        self.horizontalLayout_3.addLayout(self.verticalLayout_2)
-
-        self.verticalLayout = QVBoxLayout()
+        self.splitter.addWidget(self.widget)
+        self.widget1 = QWidget(self.splitter)
+        self.widget1.setObjectName(u"widget1")
+        self.verticalLayout = QVBoxLayout(self.widget1)
         self.verticalLayout.setObjectName(u"verticalLayout")
+        self.verticalLayout.setContentsMargins(0, 0, 0, 0)
         self.horizontalLayout = QHBoxLayout()
         self.horizontalLayout.setObjectName(u"horizontalLayout")
-        self.cb_detail_select = QComboBox(Map_view)
+        self.cb_detail_select = QComboBox(self.widget1)
         self.cb_detail_select.setObjectName(u"cb_detail_select")
 
         self.horizontalLayout.addWidget(self.cb_detail_select)
@@ -72,15 +80,19 @@ class Ui_Map_view(object):
 
         self.verticalLayout.addLayout(self.horizontalLayout)
 
-        self.plot_detail = MplNavCanvas(Map_view)
+        self.plot_detail = MplNavCanvas(self.widget1)
         self.plot_detail.setObjectName(u"plot_detail")
-        sizePolicy.setHeightForWidth(self.plot_detail.sizePolicy().hasHeightForWidth())
-        self.plot_detail.setSizePolicy(sizePolicy)
+        sizePolicy1 = QSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding)
+        sizePolicy1.setHorizontalStretch(0)
+        sizePolicy1.setVerticalStretch(0)
+        sizePolicy1.setHeightForWidth(self.plot_detail.sizePolicy().hasHeightForWidth())
+        self.plot_detail.setSizePolicy(sizePolicy1)
 
         self.verticalLayout.addWidget(self.plot_detail)
 
+        self.splitter.addWidget(self.widget1)
 
-        self.horizontalLayout_3.addLayout(self.verticalLayout)
+        self.horizontalLayout_3.addWidget(self.splitter)
 
 
         self.retranslateUi(Map_view)

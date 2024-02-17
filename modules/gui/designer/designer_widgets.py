@@ -98,6 +98,8 @@ class DataViewer(QWidget, data_viewer_ui.Ui_Form):
 
     data_changed = Signal(bool)
     "Value is whether new data is valid PaData (not None)."
+    data_opened = Signal()
+    "Emitted when `data` property set from None to not None value."
     msmnt_selected = Signal()
     "Emitted when selected measurement is changed."
     point_selected = Signal()
@@ -142,6 +144,7 @@ class DataViewer(QWidget, data_viewer_ui.Ui_Form):
         """"Connect all signals and slots."""
 
         self.data_changed.connect(self.data_updated)
+        self.data_opened.connect(self.load_data_to_view)
         self.msmnt_selected.connect(self.show_measurement)
         self.point_selected.connect(self.show_point)
         # Measurement selection from interface
@@ -191,24 +194,37 @@ class DataViewer(QWidget, data_viewer_ui.Ui_Form):
             data_title = data_title + '*'
             self.lbl_data_title.setText(data_title)
 
+        if data_exist:
+            self.load_data_to_view()
+        else:
+            self.clear_view()
+            self.lbl_data_title.setText('')
+
+    def load_data_to_view(self) -> None:
+        """Load data to view."""
+
+        if self.data is None:
+            logger.warning(
+                'Data cannot be displayed. Data is missing.'
+            )
+            return
+        data = self.data
         logger.debug('Updating data in viewer...')
         # clear old data view
         self.clear_view()
-        if data_exist:
-            data = cast(PaData, self.data)
-            # Finish for empty data
-            if not len(data.measurements):
-                logger.debug('Data contain no measurements.')
-                return
-            # Set file description
-            self.tv_info.set_file_md(data.attrs)
-            # Load new file content
-            self.content_model.setStringList(
-                [key for key in data.measurements.keys()]
-            )
-            logger.debug(f'{self.content_model.rowCount()} msmnts set.')
-            # Select the first msmnt
-            self.s_msmnt = next(iter(data.measurements.values()))
+        # Finish for empty data
+        if not len(data.measurements):
+            logger.debug('Data contain no measurements.')
+            return
+        # Set file description
+        self.tv_info.set_file_md(data.attrs)
+        # Load new file content
+        self.content_model.setStringList(
+            [key for key in data.measurements.keys()]
+        )
+        logger.debug(f'{self.content_model.rowCount()} msmnts set.')
+        # Select the first msmnt
+        self.s_msmnt = next(iter(data.measurements.values()))
         logger.debug('Data updated in viewer.')
 
     @Slot()
@@ -322,14 +338,11 @@ class DataViewer(QWidget, data_viewer_ui.Ui_Form):
         logger.debug('Starting map view loading')
         # Load curve view
         self.sw_view.setCurrentWidget(self.p_2d) 
-        
         if self.data is not None:
-            logger.debug(
-                f'Setting new map {self.s_msmnt_title}:{self.data.maps[self.s_msmnt_title]}'
-            )
             self.p_2d.plot_map.set_data(
                 self.data.maps[self.s_msmnt_title]
             )
+        self.s_point = None
 
     def show_point(self) -> None:
         """
@@ -338,9 +351,9 @@ class DataViewer(QWidget, data_viewer_ui.Ui_Form):
         Automatically called, when new measurement is seleced.
         """
 
-        if self.s_point is None or self.s_msmnt is None:
-            # We should clear point plot, implement it in future
-            logger.debug('Point cannot be shown. Some info is missing.')
+        if self.s_point is None:
+            self.sw_view.currentWidget().plot_detail.clear_plot() # type: ignore
+            self.tv_info.set_gen_point_md(None)
             return
         
         # Set general point description
@@ -512,7 +525,7 @@ class DataViewer(QWidget, data_viewer_ui.Ui_Form):
     @s_point.setter
     def s_point(self, new_val: DataPoint | None) -> None:
         if self._s_point is not None:
-            if self._s_point is not None and self._s_point != new_val:
+            if new_val is None or self._s_point != new_val:
                 self._s_point = new_val
                 self.point_selected.emit()
         elif self._s_point is None and new_val is not None:
@@ -567,7 +580,7 @@ class DataViewer(QWidget, data_viewer_ui.Ui_Form):
                 logger.debug(f'data attribute is set to {value}')
             elif self._data is None:
                 self._data = value
-                self.data_changed.emit(True)
+                self.data_opened.emit()
                 logger.debug(f'data attribute is set to {value}')
         elif value is None and self._data is not None:
             self._data = None

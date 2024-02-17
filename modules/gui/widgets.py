@@ -241,6 +241,9 @@ class MplCanvas(FigureCanvasQTAgg):
         if self._marker_ref is not None:
             self._marker_ref.remove()
             self._marker_ref = None
+        
+        self.draw()
+        logger.info('Clear plot called')
 
     @property
     def xdata(self) -> npt.NDArray:
@@ -829,11 +832,11 @@ class TreeInfoWidget(QTreeWidget):
             while self.topLevelItemCount() > index:
                 self.takeTopLevelItem(index)
             self.spmd = None
-        # Set top level item as "Measurement attributes" string
-        self.gpmd = QTreeWidgetItem(self, ['General point attributes'])
-        self.gpmd.setExpanded(True)
-        # Add file information
-        self._set_items(self.gpmd, attrs)
+        if attrs is not None:
+            self.gpmd = QTreeWidgetItem(self, ['General point attributes'])
+            self.gpmd.setExpanded(True)
+            # Add file information
+            self._set_items(self.gpmd, attrs)
 
     def set_signal_md(self, attrs) -> None:
         """Set signal specific point metadata from a dataclass."""
@@ -1178,17 +1181,14 @@ class PgMap(pg.GraphicsLayoutWidget):
     def set_data(self, data: MapData) -> None:
         """Set scan data, which will lead to start displaying scan."""
 
+        self.clear_plot()
         self.data = data
         # Set scan range
         self.set_scanrange(
             width = data.width,
             height = data.height
         )
-        # Manualy remove selection to handle case, when scan is started
-        # from selection, made in other scan.
-        self._remove_sel()
         self.selection_changed.emit(None)
-
         if len(data.data):
             self.upd_scan()
 
@@ -1203,6 +1203,9 @@ class PgMap(pg.GraphicsLayoutWidget):
             self._bar = None
         if self.data is not None:
             self.data = None
+        # Manualy remove selection to handle case, when scan is started
+        # from selection, made in other scan.
+        self._remove_sel()
 
     @Slot(ScanLine)
     def upd_scan(

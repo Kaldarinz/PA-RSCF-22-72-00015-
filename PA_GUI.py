@@ -544,16 +544,15 @@ class Window(QMainWindow,Ui_MainWindow,):
         else:
             filename = QFileDialog.getSaveFileName(
                 self,
-                caption='Choose a file',
+                caption='Set filename',
                 dir=initial_dir,
                 filter='Hierarchical Data Format (*.hdf5)'
             )[0]
         if self.data_viewer.data is not None:
             self.data_viewer.data.save(filename)
             # remove marker of changed data from data title
-            data_title = self.data_viewer.lbl_data_title.text()
-            data_title = data_title.split('*')[0]
-            self.data_viewer.lbl_data_title.setText(data_title)
+            basename = os.path.basename(filename)
+            self.data_viewer.lbl_data_title.setText(basename)
 
     @Slot()
     def close_file(self) -> None:

@@ -1,5 +1,3 @@
-a = [1,200]
-b = [1,200]
-
-if a == b:
-    print(tuple(b))
+a = 2
+b = 1
+print((a is None)^(b is None))
