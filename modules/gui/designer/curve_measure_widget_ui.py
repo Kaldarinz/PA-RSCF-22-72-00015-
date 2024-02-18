@@ -3,7 +3,7 @@
 ################################################################################
 ## Form generated from reading UI file 'curve_measure_widget.ui'
 ##
-## Created by: Qt User Interface Compiler version 6.6.0
+## Created by: Qt User Interface Compiler version 6.6.1
 ##
 ## WARNING! All changes made in this file will be lost when recompiling UI file!
 ################################################################################
@@ -23,18 +23,16 @@ from PySide6.QtWidgets import (QAbstractSpinBox, QApplication, QComboBox, QFrame
 from ..widgets import (MplCanvas, QuantSpinBox)
 from . import qt_resources_rc
 
-class Ui_Form(object):
-    def setupUi(self, Form):
-        if not Form.objectName():
-            Form.setObjectName(u"Form")
-        Form.resize(1117, 842)
-        self.verticalLayout_3 = QVBoxLayout(Form)
-        self.verticalLayout_3.setObjectName(u"verticalLayout_3")
-        self.horizontalLayout = QHBoxLayout()
-        self.horizontalLayout.setObjectName(u"horizontalLayout")
+class Ui_Curve_measure_widget(object):
+    def setupUi(self, Curve_measure_widget):
+        if not Curve_measure_widget.objectName():
+            Curve_measure_widget.setObjectName(u"Curve_measure_widget")
+        Curve_measure_widget.resize(1117, 842)
+        self.horizontalLayout_2 = QHBoxLayout(Curve_measure_widget)
+        self.horizontalLayout_2.setObjectName(u"horizontalLayout_2")
         self.verticalLayout_2 = QVBoxLayout()
         self.verticalLayout_2.setObjectName(u"verticalLayout_2")
-        self.lbl_measure_settings = QLabel(Form)
+        self.lbl_measure_settings = QLabel(Curve_measure_widget)
         self.lbl_measure_settings.setObjectName(u"lbl_measure_settings")
         sizePolicy = QSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
         sizePolicy.setHorizontalStretch(0)
@@ -52,14 +50,14 @@ class Ui_Form(object):
         self.lo_parameter.setObjectName(u"lo_parameter")
         self.grid_lo = QGridLayout()
         self.grid_lo.setObjectName(u"grid_lo")
-        self.lbl_mode = QLabel(Form)
+        self.lbl_mode = QLabel(Curve_measure_widget)
         self.lbl_mode.setObjectName(u"lbl_mode")
         sizePolicy.setHeightForWidth(self.lbl_mode.sizePolicy().hasHeightForWidth())
         self.lbl_mode.setSizePolicy(sizePolicy)
 
         self.grid_lo.addWidget(self.lbl_mode, 0, 0, 1, 1)
 
-        self.cb_mode = QComboBox(Form)
+        self.cb_mode = QComboBox(Curve_measure_widget)
         self.cb_mode.addItem("")
         self.cb_mode.addItem("")
         self.cb_mode.addItem("")
@@ -73,51 +71,52 @@ class Ui_Form(object):
 
         self.grid_lo.addWidget(self.cb_mode, 0, 1, 1, 1)
 
-        self.lbl_from = QLabel(Form)
+        self.lbl_from = QLabel(Curve_measure_widget)
         self.lbl_from.setObjectName(u"lbl_from")
         sizePolicy.setHeightForWidth(self.lbl_from.sizePolicy().hasHeightForWidth())
         self.lbl_from.setSizePolicy(sizePolicy)
 
         self.grid_lo.addWidget(self.lbl_from, 1, 0, 1, 1)
 
-        self.sb_from = QuantSpinBox(Form)
+        self.sb_from = QuantSpinBox(Curve_measure_widget)
         self.sb_from.setObjectName(u"sb_from")
         self.sb_from.setDecimals(0)
-        self.sb_from.setMinimum(500.000000000000000)
-        self.sb_from.setMaximum(1000.000000000000000)
+        self.sb_from.setMinimum(0.000000000000000)
+        self.sb_from.setMaximum(10000.000000000000000)
         self.sb_from.setSingleStep(10.000000000000000)
         self.sb_from.setValue(740.000000000000000)
 
         self.grid_lo.addWidget(self.sb_from, 1, 1, 1, 1)
 
-        self.lbl_to = QLabel(Form)
+        self.lbl_to = QLabel(Curve_measure_widget)
         self.lbl_to.setObjectName(u"lbl_to")
         sizePolicy.setHeightForWidth(self.lbl_to.sizePolicy().hasHeightForWidth())
         self.lbl_to.setSizePolicy(sizePolicy)
 
         self.grid_lo.addWidget(self.lbl_to, 2, 0, 1, 1)
 
-        self.sb_to = QuantSpinBox(Form)
+        self.sb_to = QuantSpinBox(Curve_measure_widget)
         self.sb_to.setObjectName(u"sb_to")
         self.sb_to.setDecimals(0)
-        self.sb_to.setMinimum(500.000000000000000)
-        self.sb_to.setMaximum(1000.000000000000000)
+        self.sb_to.setMinimum(0.000000000000000)
+        self.sb_to.setMaximum(10000.000000000000000)
         self.sb_to.setSingleStep(10.000000000000000)
         self.sb_to.setValue(750.000000000000000)
 
         self.grid_lo.addWidget(self.sb_to, 2, 1, 1, 1)
 
-        self.lbl_step = QLabel(Form)
+        self.lbl_step = QLabel(Curve_measure_widget)
         self.lbl_step.setObjectName(u"lbl_step")
         sizePolicy.setHeightForWidth(self.lbl_step.sizePolicy().hasHeightForWidth())
         self.lbl_step.setSizePolicy(sizePolicy)
 
         self.grid_lo.addWidget(self.lbl_step, 3, 0, 1, 1)
 
-        self.sb_step = QuantSpinBox(Form)
+        self.sb_step = QuantSpinBox(Curve_measure_widget)
         self.sb_step.setObjectName(u"sb_step")
         self.sb_step.setDecimals(0)
-        self.sb_step.setMinimum(1.000000000000000)
+        self.sb_step.setMinimum(0.000000000000000)
+        self.sb_step.setMaximum(1000.000000000000000)
         self.sb_step.setValue(10.000000000000000)
 
         self.grid_lo.addWidget(self.sb_step, 3, 1, 1, 1)
@@ -125,7 +124,7 @@ class Ui_Form(object):
 
         self.lo_parameter.addLayout(self.grid_lo)
 
-        self.btn_run = QPushButton(Form)
+        self.btn_run = QPushButton(Curve_measure_widget)
         self.btn_run.setObjectName(u"btn_run")
         sizePolicy2 = QSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
         sizePolicy2.setHorizontalStretch(0)
@@ -140,14 +139,14 @@ class Ui_Form(object):
 
         self.verticalLayout_2.addLayout(self.lo_parameter)
 
-        self.line = QFrame(Form)
+        self.line = QFrame(Curve_measure_widget)
         self.line.setObjectName(u"line")
         self.line.setFrameShape(QFrame.HLine)
         self.line.setFrameShadow(QFrame.Sunken)
 
         self.verticalLayout_2.addWidget(self.line)
 
-        self.w_measure = QWidget(Form)
+        self.w_measure = QWidget(Curve_measure_widget)
         self.w_measure.setObjectName(u"w_measure")
         sizePolicy3 = QSizePolicy(QSizePolicy.Maximum, QSizePolicy.Preferred)
         sizePolicy3.setHorizontalStretch(0)
@@ -240,32 +239,55 @@ class Ui_Form(object):
 
         self.verticalLayout.addWidget(self.line_4)
 
-        self.horizontalLayout_12 = QHBoxLayout()
-        self.horizontalLayout_12.setObjectName(u"horizontalLayout_12")
+        self.horizontalLayout = QHBoxLayout()
+        self.horizontalLayout.setObjectName(u"horizontalLayout")
         self.lbl_cur_param = QLabel(self.w_measure)
         self.lbl_cur_param.setObjectName(u"lbl_cur_param")
-        sizePolicy.setHeightForWidth(self.lbl_cur_param.sizePolicy().hasHeightForWidth())
-        self.lbl_cur_param.setSizePolicy(sizePolicy)
         self.lbl_cur_param.setFont(font)
 
-        self.horizontalLayout_12.addWidget(self.lbl_cur_param)
+        self.horizontalLayout.addWidget(self.lbl_cur_param)
 
         self.sb_cur_param = QuantSpinBox(self.w_measure)
         self.sb_cur_param.setObjectName(u"sb_cur_param")
+        self.sb_cur_param.setMaximumSize(QSize(94, 16777215))
+        self.sb_cur_param.setReadOnly(True)
+        self.sb_cur_param.setButtonSymbols(QAbstractSpinBox.NoButtons)
+        self.sb_cur_param.setMaximum(10000.000000000000000)
+
+        self.horizontalLayout.addWidget(self.sb_cur_param)
+
+
+        self.verticalLayout.addLayout(self.horizontalLayout)
+
+        self.horizontalLayout_12 = QHBoxLayout()
+        self.horizontalLayout_12.setObjectName(u"horizontalLayout_12")
+        self.lbl_cur_wl = QLabel(self.w_measure)
+        self.lbl_cur_wl.setObjectName(u"lbl_cur_wl")
+        sizePolicy.setHeightForWidth(self.lbl_cur_wl.sizePolicy().hasHeightForWidth())
+        self.lbl_cur_wl.setSizePolicy(sizePolicy)
+        font1 = QFont()
+        font1.setBold(False)
+        self.lbl_cur_wl.setFont(font1)
+
+        self.horizontalLayout_12.addWidget(self.lbl_cur_wl)
+
+        self.sb_cur_wl = QuantSpinBox(self.w_measure)
+        self.sb_cur_wl.setObjectName(u"sb_cur_wl")
         sizePolicy5 = QSizePolicy(QSizePolicy.Minimum, QSizePolicy.Fixed)
         sizePolicy5.setHorizontalStretch(0)
         sizePolicy5.setVerticalStretch(0)
-        sizePolicy5.setHeightForWidth(self.sb_cur_param.sizePolicy().hasHeightForWidth())
-        self.sb_cur_param.setSizePolicy(sizePolicy5)
-        self.sb_cur_param.setMinimumSize(QSize(0, 0))
-        self.sb_cur_param.setMaximumSize(QSize(94, 16777215))
-        self.sb_cur_param.setBaseSize(QSize(0, 0))
-        self.sb_cur_param.setReadOnly(True)
-        self.sb_cur_param.setButtonSymbols(QAbstractSpinBox.NoButtons)
-        self.sb_cur_param.setDecimals(0)
-        self.sb_cur_param.setMaximum(10000.000000000000000)
+        sizePolicy5.setHeightForWidth(self.sb_cur_wl.sizePolicy().hasHeightForWidth())
+        self.sb_cur_wl.setSizePolicy(sizePolicy5)
+        self.sb_cur_wl.setMinimumSize(QSize(0, 0))
+        self.sb_cur_wl.setMaximumSize(QSize(94, 16777215))
+        self.sb_cur_wl.setBaseSize(QSize(0, 0))
+        self.sb_cur_wl.setReadOnly(False)
+        self.sb_cur_wl.setButtonSymbols(QAbstractSpinBox.UpDownArrows)
+        self.sb_cur_wl.setDecimals(0)
+        self.sb_cur_wl.setMaximum(10000.000000000000000)
+        self.sb_cur_wl.setValue(740.000000000000000)
 
-        self.horizontalLayout_12.addWidget(self.sb_cur_param)
+        self.horizontalLayout_12.addWidget(self.sb_cur_wl)
 
 
         self.verticalLayout.addLayout(self.horizontalLayout_12)
@@ -389,6 +411,7 @@ class Ui_Form(object):
         self.horizontalLayout_5.setObjectName(u"horizontalLayout_5")
         self.lbl_aver = QLabel(self.w_measure)
         self.lbl_aver.setObjectName(u"lbl_aver")
+        self.lbl_aver.setEnabled(False)
         sizePolicy.setHeightForWidth(self.lbl_aver.sizePolicy().hasHeightForWidth())
         self.lbl_aver.setSizePolicy(sizePolicy)
 
@@ -396,6 +419,7 @@ class Ui_Form(object):
 
         self.sb_aver = QSpinBox(self.w_measure)
         self.sb_aver.setObjectName(u"sb_aver")
+        self.sb_aver.setEnabled(False)
         sizePolicy2.setHeightForWidth(self.sb_aver.sizePolicy().hasHeightForWidth())
         self.sb_aver.setSizePolicy(sizePolicy2)
         self.sb_aver.setMinimumSize(QSize(0, 0))
@@ -426,16 +450,16 @@ class Ui_Form(object):
         self.verticalLayout_2.addWidget(self.w_measure)
 
 
-        self.horizontalLayout.addLayout(self.verticalLayout_2)
+        self.horizontalLayout_2.addLayout(self.verticalLayout_2)
 
-        self.line_2 = QFrame(Form)
+        self.line_2 = QFrame(Curve_measure_widget)
         self.line_2.setObjectName(u"line_2")
         self.line_2.setFrameShape(QFrame.VLine)
         self.line_2.setFrameShadow(QFrame.Sunken)
 
-        self.horizontalLayout.addWidget(self.line_2)
+        self.horizontalLayout_2.addWidget(self.line_2)
 
-        self.lo_measure = QSplitter(Form)
+        self.lo_measure = QSplitter(Curve_measure_widget)
         self.lo_measure.setObjectName(u"lo_measure")
         sizePolicy6 = QSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         sizePolicy6.setHorizontalStretch(0)
@@ -458,76 +482,75 @@ class Ui_Form(object):
         self.plot_measurement.setMinimumSize(QSize(0, 0))
         self.lo_measure.addWidget(self.plot_measurement)
 
-        self.horizontalLayout.addWidget(self.lo_measure)
+        self.horizontalLayout_2.addWidget(self.lo_measure)
 
 
-        self.verticalLayout_3.addLayout(self.horizontalLayout)
+        self.retranslateUi(Curve_measure_widget)
 
-
-        self.retranslateUi(Form)
-
-        QMetaObject.connectSlotsByName(Form)
+        QMetaObject.connectSlotsByName(Curve_measure_widget)
     # setupUi
 
-    def retranslateUi(self, Form):
-        Form.setWindowTitle(QCoreApplication.translate("Form", u"Form", None))
-        self.lbl_measure_settings.setText(QCoreApplication.translate("Form", u"Set Parameter Settings", None))
+    def retranslateUi(self, Curve_measure_widget):
+        Curve_measure_widget.setWindowTitle(QCoreApplication.translate("Curve_measure_widget", u"Form", None))
+        self.lbl_measure_settings.setText(QCoreApplication.translate("Curve_measure_widget", u"Set Parameter Settings", None))
 #if QT_CONFIG(statustip)
-        self.lbl_mode.setStatusTip(QCoreApplication.translate("Form", u"Choose an independent variable", None))
+        self.lbl_mode.setStatusTip(QCoreApplication.translate("Curve_measure_widget", u"Choose an independent variable", None))
 #endif // QT_CONFIG(statustip)
-        self.lbl_mode.setText(QCoreApplication.translate("Form", u"Parameter", None))
-        self.cb_mode.setItemText(0, QCoreApplication.translate("Form", u"Wavelength", None))
-        self.cb_mode.setItemText(1, QCoreApplication.translate("Form", u"Energy", None))
-        self.cb_mode.setItemText(2, QCoreApplication.translate("Form", u"Concentration", None))
+        self.lbl_mode.setText(QCoreApplication.translate("Curve_measure_widget", u"Parameter", None))
+        self.cb_mode.setItemText(0, QCoreApplication.translate("Curve_measure_widget", u"Wavelength", None))
+        self.cb_mode.setItemText(1, QCoreApplication.translate("Curve_measure_widget", u"Energy", None))
+        self.cb_mode.setItemText(2, QCoreApplication.translate("Curve_measure_widget", u"Concentration", None))
 
 #if QT_CONFIG(statustip)
-        self.cb_mode.setStatusTip(QCoreApplication.translate("Form", u"Choose an independent variable", None))
+        self.cb_mode.setStatusTip(QCoreApplication.translate("Curve_measure_widget", u"Choose an independent variable", None))
 #endif // QT_CONFIG(statustip)
 #if QT_CONFIG(statustip)
-        self.lbl_from.setStatusTip(QCoreApplication.translate("Form", u"Start value of the independent variable", None))
+        self.lbl_from.setStatusTip(QCoreApplication.translate("Curve_measure_widget", u"Start value of the independent variable", None))
 #endif // QT_CONFIG(statustip)
-        self.lbl_from.setText(QCoreApplication.translate("Form", u"From", None))
+        self.lbl_from.setText(QCoreApplication.translate("Curve_measure_widget", u"From", None))
 #if QT_CONFIG(statustip)
-        self.sb_from.setStatusTip(QCoreApplication.translate("Form", u"Start value of the independent variable", None))
+        self.sb_from.setStatusTip(QCoreApplication.translate("Curve_measure_widget", u"Start value of the independent variable", None))
 #endif // QT_CONFIG(statustip)
-        self.sb_from.setSuffix(QCoreApplication.translate("Form", u" nm", None))
+        self.sb_from.setSuffix(QCoreApplication.translate("Curve_measure_widget", u" nm", None))
 #if QT_CONFIG(statustip)
-        self.lbl_to.setStatusTip(QCoreApplication.translate("Form", u"End value of the independent variable", None))
+        self.lbl_to.setStatusTip(QCoreApplication.translate("Curve_measure_widget", u"End value of the independent variable", None))
 #endif // QT_CONFIG(statustip)
-        self.lbl_to.setText(QCoreApplication.translate("Form", u"To", None))
+        self.lbl_to.setText(QCoreApplication.translate("Curve_measure_widget", u"To", None))
 #if QT_CONFIG(statustip)
-        self.sb_to.setStatusTip(QCoreApplication.translate("Form", u"End value of the independent variable", None))
+        self.sb_to.setStatusTip(QCoreApplication.translate("Curve_measure_widget", u"End value of the independent variable", None))
 #endif // QT_CONFIG(statustip)
-        self.sb_to.setSuffix(QCoreApplication.translate("Form", u" nm", None))
+        self.sb_to.setSuffix(QCoreApplication.translate("Curve_measure_widget", u" nm", None))
 #if QT_CONFIG(statustip)
-        self.lbl_step.setStatusTip(QCoreApplication.translate("Form", u"Step value of the independent variable", None))
+        self.lbl_step.setStatusTip(QCoreApplication.translate("Curve_measure_widget", u"Step value of the independent variable", None))
 #endif // QT_CONFIG(statustip)
-        self.lbl_step.setText(QCoreApplication.translate("Form", u"Step", None))
+        self.lbl_step.setText(QCoreApplication.translate("Curve_measure_widget", u"Step", None))
 #if QT_CONFIG(statustip)
-        self.sb_step.setStatusTip(QCoreApplication.translate("Form", u"Step value of the independent variable", None))
+        self.sb_step.setStatusTip(QCoreApplication.translate("Curve_measure_widget", u"Step value of the independent variable", None))
 #endif // QT_CONFIG(statustip)
-        self.sb_step.setSuffix(QCoreApplication.translate("Form", u" nm", None))
+        self.sb_step.setSuffix(QCoreApplication.translate("Curve_measure_widget", u" nm", None))
 #if QT_CONFIG(statustip)
-        self.btn_run.setStatusTip(QCoreApplication.translate("Form", u"Start PhotoAcoustic measurement", None))
+        self.btn_run.setStatusTip(QCoreApplication.translate("Curve_measure_widget", u"Start PhotoAcoustic measurement", None))
 #endif // QT_CONFIG(statustip)
-        self.btn_run.setText(QCoreApplication.translate("Form", u"Set Parameter", None))
+        self.btn_run.setText(QCoreApplication.translate("Curve_measure_widget", u"Set Parameter", None))
 #if QT_CONFIG(statustip)
-        self.btn_measure.setStatusTip(QCoreApplication.translate("Form", u"Start PhotoAcoustic measurement", None))
+        self.btn_measure.setStatusTip(QCoreApplication.translate("Curve_measure_widget", u"Start PhotoAcoustic measurement", None))
 #endif // QT_CONFIG(statustip)
-        self.btn_measure.setText(QCoreApplication.translate("Form", u"MEASURE", None))
+        self.btn_measure.setText(QCoreApplication.translate("Curve_measure_widget", u"MEASURE", None))
         self.btn_restart.setText("")
         self.btn_stop.setText("")
-        self.lbl_measured_p.setText(QCoreApplication.translate("Form", u"Measured points", None))
-        self.lbl_pb.setText(QCoreApplication.translate("Form", u"0/0", None))
-        self.lbl_cur_param.setText(QCoreApplication.translate("Form", u"Set Wavelength", None))
-        self.lbl_sample_en.setText(QCoreApplication.translate("Form", u"Sample Energy", None))
-        self.lbl_sample_sp.setText(QCoreApplication.translate("Form", u"SetPoint", None))
+        self.lbl_measured_p.setText(QCoreApplication.translate("Curve_measure_widget", u"Measured points", None))
+        self.lbl_pb.setText(QCoreApplication.translate("Curve_measure_widget", u"0/0", None))
+        self.lbl_cur_param.setText(QCoreApplication.translate("Curve_measure_widget", u"Set Parameter", None))
+        self.lbl_cur_wl.setText(QCoreApplication.translate("Curve_measure_widget", u"Wavelength", None))
+        self.sb_cur_wl.setSuffix(QCoreApplication.translate("Curve_measure_widget", u" nm", None))
+        self.lbl_sample_en.setText(QCoreApplication.translate("Curve_measure_widget", u"Sample Energy", None))
+        self.lbl_sample_sp.setText(QCoreApplication.translate("Curve_measure_widget", u"SetPoint", None))
         self.sb_sample_sp.setPrefix("")
-        self.sb_sample_sp.setSuffix(QCoreApplication.translate("Form", u" uJ", None))
-        self.lbl_pm_en.setText(QCoreApplication.translate("Form", u"Power Meter Energy", None))
-        self.lbl_pm_sp.setText(QCoreApplication.translate("Form", u"SetPoint", None))
-        self.sb_pm_sp.setSuffix(QCoreApplication.translate("Form", u" uJ", None))
-        self.lbl_aver.setText(QCoreApplication.translate("Form", u"Averaging", None))
+        self.sb_sample_sp.setSuffix(QCoreApplication.translate("Curve_measure_widget", u" uJ", None))
+        self.lbl_pm_en.setText(QCoreApplication.translate("Curve_measure_widget", u"Power Meter Energy", None))
+        self.lbl_pm_sp.setText(QCoreApplication.translate("Curve_measure_widget", u"SetPoint", None))
+        self.sb_pm_sp.setSuffix(QCoreApplication.translate("Curve_measure_widget", u" uJ", None))
+        self.lbl_aver.setText(QCoreApplication.translate("Curve_measure_widget", u"Averaging", None))
         self.sb_aver.setSuffix("")
         self.sb_aver.setPrefix("")
     # retranslateUi

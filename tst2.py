@@ -1,3 +1,6 @@
-a = 2
-b = 1
-print((a is None)^(b is None))
+dct = {
+    'a': 1,
+    'b': 2
+}
+
+print(list(dct))

@@ -167,8 +167,7 @@ class MplCanvas(FigureCanvasQTAgg):
             )[0]
         # otherwise just update data
         else:
-            self._plot_ref.set_xdata(self.xdata)
-            self._plot_ref.set_ydata(self.ydata)
+            self._plot_ref.set_data(self.xdata, self.ydata)
         # Update SetPoint if necessary
         if self.sp is not None:
             spdata = np.ones_like(self.xdata)*self.sp.m
@@ -222,6 +221,8 @@ class MplCanvas(FigureCanvasQTAgg):
                 [self.xdata[markers]],
                 [self.ydata[markers]]
             )
+        self.axes.relim()
+        self.axes.autoscale(True, 'both')
         self.draw()
 
     def clear_plot(self) -> None:
@@ -266,7 +267,7 @@ class MplCanvas(FigureCanvasQTAgg):
             self._xdata = np.array(data)
     
     @property
-    def ydata(self) -> np.ndarray:
+    def ydata(self) -> npt.NDArray:
         return np.array(self._ydata)   
     @ydata.setter
     def ydata(self, data: Iterable) -> None:

@@ -3,7 +3,7 @@
 ################################################################################
 ## Form generated from reading UI file 'curve_data_view.ui'
 ##
-## Created by: Qt User Interface Compiler version 6.6.0
+## Created by: Qt User Interface Compiler version 6.6.1
 ##
 ## WARNING! All changes made in this file will be lost when recompiling UI file!
 ################################################################################
@@ -20,23 +20,23 @@ from PySide6.QtWidgets import (QApplication, QComboBox, QHBoxLayout, QSizePolicy
 
 from ..widgets import MplNavCanvas
 
-class Ui_Form(object):
-    def setupUi(self, Form):
-        if not Form.objectName():
-            Form.setObjectName(u"Form")
-        Form.resize(930, 681)
+class Ui_Curve_view(object):
+    def setupUi(self, Curve_view):
+        if not Curve_view.objectName():
+            Curve_view.setObjectName(u"Curve_view")
+        Curve_view.resize(930, 681)
         sizePolicy = QSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(Form.sizePolicy().hasHeightForWidth())
-        Form.setSizePolicy(sizePolicy)
-        self.horizontalLayout_3 = QHBoxLayout(Form)
+        sizePolicy.setHeightForWidth(Curve_view.sizePolicy().hasHeightForWidth())
+        Curve_view.setSizePolicy(sizePolicy)
+        self.horizontalLayout_3 = QHBoxLayout(Curve_view)
         self.horizontalLayout_3.setObjectName(u"horizontalLayout_3")
         self.lo_curve = QVBoxLayout()
         self.lo_curve.setObjectName(u"lo_curve")
         self.horizontalLayout = QHBoxLayout()
         self.horizontalLayout.setObjectName(u"horizontalLayout")
-        self.cb_curve_select = QComboBox(Form)
+        self.cb_curve_select = QComboBox(Curve_view)
         self.cb_curve_select.setObjectName(u"cb_curve_select")
         self.cb_curve_select.setMinimumSize(QSize(140, 0))
 
@@ -49,7 +49,7 @@ class Ui_Form(object):
 
         self.lo_curve.addLayout(self.horizontalLayout)
 
-        self.plot_curve = MplNavCanvas(Form)
+        self.plot_curve = MplNavCanvas(Curve_view)
         self.plot_curve.setObjectName(u"plot_curve")
         sizePolicy.setHeightForWidth(self.plot_curve.sizePolicy().hasHeightForWidth())
         self.plot_curve.setSizePolicy(sizePolicy)
@@ -63,7 +63,7 @@ class Ui_Form(object):
         self.lo_detail.setObjectName(u"lo_detail")
         self.horizontalLayout_2 = QHBoxLayout()
         self.horizontalLayout_2.setObjectName(u"horizontalLayout_2")
-        self.cb_detail_select = QComboBox(Form)
+        self.cb_detail_select = QComboBox(Curve_view)
         self.cb_detail_select.setObjectName(u"cb_detail_select")
         self.cb_detail_select.setMinimumSize(QSize(140, 0))
 
@@ -76,7 +76,7 @@ class Ui_Form(object):
 
         self.lo_detail.addLayout(self.horizontalLayout_2)
 
-        self.plot_detail = MplNavCanvas(Form)
+        self.plot_detail = MplNavCanvas(Curve_view)
         self.plot_detail.setObjectName(u"plot_detail")
         sizePolicy.setHeightForWidth(self.plot_detail.sizePolicy().hasHeightForWidth())
         self.plot_detail.setSizePolicy(sizePolicy)
@@ -87,12 +87,12 @@ class Ui_Form(object):
         self.horizontalLayout_3.addLayout(self.lo_detail)
 
 
-        self.retranslateUi(Form)
+        self.retranslateUi(Curve_view)
 
-        QMetaObject.connectSlotsByName(Form)
+        QMetaObject.connectSlotsByName(Curve_view)
     # setupUi
 
-    def retranslateUi(self, Form):
-        Form.setWindowTitle(QCoreApplication.translate("Form", u"Form", None))
+    def retranslateUi(self, Curve_view):
+        Curve_view.setWindowTitle(QCoreApplication.translate("Curve_view", u"Form", None))
     # retranslateUi
 

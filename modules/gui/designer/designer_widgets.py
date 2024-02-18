@@ -3,7 +3,7 @@ Widgets, built in Qt Designer, and used as a relatively big parts of
 the progamm.
 """
 import logging
-from typing import Literal, cast
+from typing import Literal, cast, Optional
 from collections import deque
 from datetime import datetime
 import math
@@ -31,7 +31,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QLabel,
     QProgressDialog,
-    QTreeWidgetItem
+    QMessageBox
 )
 from PySide6.QtGui import (
     QPixmap,
@@ -66,17 +66,19 @@ from ...data_classes import (
     EnergyMeasurement,
     MapData,
     Worker,
-    WorkerFlags,
+    MeasuredPoint,
     Measurement
 )
 from ...constants import (
     POINT_SIGNALS,
-    MSMNTS_SIGNALS
+    MSMNTS_SIGNALS,
+    CURVE_PARAMS
 )
 from ...utils import (
     upd_plot,
     form_quant,
-    btn_set_silent
+    btn_set_silent,
+    set_layout_enabled
 )
 
 from ..widgets import (
@@ -352,7 +354,10 @@ class DataViewer(QWidget, data_viewer_ui.Ui_Form):
         """
 
         if self.s_point is None:
-            self.sw_view.currentWidget().plot_detail.clear_plot() # type: ignore
+            try:
+                self.sw_view.currentWidget().plot_detail.clear_plot() # type: ignore
+            except:
+                pass
             self.tv_info.set_gen_point_md(None)
             return
         
@@ -418,7 +423,6 @@ class DataViewer(QWidget, data_viewer_ui.Ui_Form):
         """Set selected map pixel."""
         self.s_point = PaData.point_by_param(self.s_msmnt, params) # type: ignore
         
-
     def clear_view(self) -> None:
         """Clear whole viewer."""
 
@@ -442,6 +446,17 @@ class DataViewer(QWidget, data_viewer_ui.Ui_Form):
             self.data = PaData()
         self.data.add_map(scan)
         logger.debug('Map data saved.')
+        self.data_changed.emit(True)
+
+    @Slot(Measurement)
+    def add_curve_to_data(self, curve: Measurement) -> None:
+        """Save measured curve."""
+
+        # create new data structure if necessary
+        if self.data is None:
+            self.data = PaData()
+        self.data.append_measurement(curve)
+        logger.debug('Curve data saved.')
         self.data_changed.emit(True)
 
     @Slot(QModelIndex, QModelIndex, list)
@@ -596,11 +611,15 @@ class LoggerWidget(QDockWidget, log_dock_widget_ui.Ui_d_log):
         super().__init__(parent)
         self.setupUi(self)
 
-class CurveMeasureWidget(QWidget,curve_measure_widget_ui.Ui_Form):
+class CurveMeasureWidget(QWidget,curve_measure_widget_ui.Ui_Curve_measure_widget):
     """1D PhotoAcoustic measurements widget."""
 
     cur_p_changed = Signal()
     "Signal change of current data point."
+    curve_started = Signal(PlainQuantity)
+    point_measured = Signal(MeasuredPoint)
+    "Value indicates whether measured point"
+    curve_obtained = Signal(Measurement)
 
     def __init__(self, parent: QWidget | None=None) -> None:
         super().__init__(parent)
@@ -611,18 +630,210 @@ class CurveMeasureWidget(QWidget,curve_measure_widget_ui.Ui_Form):
             0,
             self.pm_monitor
         )
-        self.parameter: list[str]
-        "List of parameter names."
-        self.max_steps: int = 1
-        "Amount of parameter points in measurement."
+        self.points_num: int = 1
+        "Amount of data points in measurement."
         self.step: PlainQuantity
         "Parameter step value."
         self.param_points: PlainQuantity
         "Array with all param values."
         self._current_point: int = 0
+        self.measurement: Measurement
+
+        self.setup_widgets()
+        self.connect_signals_slots()
+
+    def setup_widgets(self) -> None:
+        """Setup widgets."""
+
+        # Set available params to measure
+        self.cb_mode.clear()
+        self.cb_mode.addItems(list(CURVE_PARAMS))
+        self.set_param_widget(self.cb_mode.currentText())
+
+    def connect_signals_slots(self) -> None:
+        """Connect signals and slots for the widget."""
 
         # Auto update widgets when current_point is changed
         self.cur_p_changed.connect(self.upd_widgets)
+        # Set param btn
+        self.btn_run.clicked.connect(self.setup_measurement)
+        # Measure btn clicked
+        self.btn_measure.clicked.connect(self.start_msmnt)
+        # Point measured
+        self.point_measured.connect(self.add_point)
+        # New parameter choosen
+        self.cb_mode.currentTextChanged.connect(self.set_param_widget)
+        # Stop btn
+        self.btn_stop.clicked.connect(self.curve_finished)
+
+    def start_msmnt(self) -> None:
+        """Start measurement."""
+        
+        # block measure button
+        self.btn_measure.setEnabled(False)
+        # Launch measurement
+        self.curve_started.emit(self.sb_cur_wl.quantity)
+
+    def verify_msmnt(self, data: MeasuredPoint | None) -> bool:
+        """Verify measured datapoint."""
+
+        # Check if data was obtained
+        if data is None:
+            info_dial = QMessageBox()
+            info_dial.setWindowTitle('Bad data')
+            info_dial.setText('Error during data reading!')
+            info_dial.exec()
+            self.btn_measure.setEnabled(True)
+            return False
+
+        ver = PAVerifierDialog()
+        plot_pa = ver.plot_pa
+        plot_pm = ver.plot_pm
+
+        # Power meter plot
+        ydata=data.pm_signal
+        xdata=Q_(
+            np.arange(len(data.pm_signal))*data.dt_pm.m, # type: ignore
+            data.dt_pm.u
+        )
+        plot_pm.plot(ydata = ydata, xdata = xdata)
+
+        # PA signal plot
+        start = data.start_time
+        stop = data.stop_time.to(start.u)
+        plot_pa.plot(
+            ydata = data.pa_signal,
+            xdata = Q_(
+                np.linspace(
+                    start.m,
+                    stop.m,
+                    len(data.pa_signal), # type: ignore
+                    endpoint=True), # type: ignore
+                start.u
+            ) # type: ignore
+        )
+        if ver.exec():
+            self.point_measured.emit(data)
+            return True
+        else:
+            logger.info('Point rejected')
+            self.btn_measure.setEnabled(True)
+            return False
+
+    def add_point(self, point: MeasuredPoint) -> None:
+        """Add measured point to msmnt."""
+
+        PaData.add_point(
+            measurement = self.measurement,
+            data = point,
+            param_val = [self.param_points[self.current_point]] # type: ignore
+        )
+        # Enable measure button
+        self.btn_measure.setEnabled(True)
+        # update current point attribute, which will trigger 
+        # update of realted widgets on parent
+        self.current_point += 1
+
+    def setup_measurement(self) -> None:
+        """
+        Start 1D measurement.
+        
+        Launch energy adjustment.\n
+        Set ``p_curve.step``, ``p_curve.spectral_points`` attributes.
+        Also set progress bar and realted widgets.
+        """
+
+        # Activate curve measure button
+        set_layout_enabled(
+            self.lo_measure_ctrls,
+            True
+        )
+        # But keep restart deactivated
+        self.btn_restart.setEnabled(False)
+
+        # Deactivate paramter controls
+        set_layout_enabled(
+            self.lo_parameter,
+            False
+        )
+
+        # calculate amount of data points
+        start = self.sb_from.quantity
+        stop = self.sb_to.quantity
+        step = self.sb_step.quantity
+        delta = abs(stop - start)
+        self.points_num = math.ceil(delta/step) + 1
+        # create array with all parameter values
+        points = []
+        if start < stop:
+            self.step = step
+            for i in range(self.points_num - 1):
+                points.append(start + i*step)
+            points.append(stop)
+        else:
+            self.step = -1*step
+            for i in range(self.points_num - 1):
+                points.append(start - i*step)
+            points.append(stop)
+        self.param_points = Q_.from_list(points)
+        self.current_point = 0
+        # Set enable state for current wavelength
+        if self.cb_mode.currentText() == 'Wavelength':
+            self.sb_cur_wl.setEnabled(False)
+        else:
+            self.sb_cur_wl.setEnabled(True)
+        # Set param label
+        self.lbl_cur_param.setText('Set ' + self.cb_mode.currentText())
+        # Manually call to update widgets for the first point.
+        # Create measurement
+        self.measurement = PaData.create_measurement(
+            dims = 1,
+            params = [self.cb_mode.currentText()]
+        )
+        self.upd_widgets()
+
+    def upd_widgets(self) -> None:
+        """
+        Update widgets, related to current scan point.
+        
+        Update progress bar, its label and current param."""
+
+        # progress bar
+        pb = int(self.current_point/self.points_num*100)
+        self.pb.setValue(pb)
+
+        # progress bar label
+        text = f'{self.current_point}/{self.points_num}'
+        self.lbl_pb.setText(text)
+
+        
+        if self.current_point < self.points_num:
+            # current param value
+            new_param = self.param_points[self.current_point] # type: ignore
+            self.sb_cur_param.quantity = new_param
+            if self.cb_mode.currentText() == 'Wavelength':
+                self.sb_cur_wl.quantity = new_param
+        # If the last point
+        else:
+            self.curve_finished()
+
+    def curve_finished(self) -> None:
+        
+        # Disable measure btn
+        self.btn_measure.setEnabled(False)
+        # Set state of controls
+        set_layout_enabled(self.lo_parameter, True)
+        set_layout_enabled(self.lo_measure_ctrls, False)
+        self.curve_obtained.emit(self.measurement)
+
+    def set_param_widget(self, param: str) -> None:
+
+        if (vals:=CURVE_PARAMS.get(param, None)) is None:
+            logger.warning('Wrong parameter!')
+            return
+        self.sb_from.quantity = vals['start']
+        self.sb_to.quantity = vals['stop']
+        self.sb_step.quantity = vals['step']
 
     @property
     def current_point(self) -> int:
@@ -634,32 +845,10 @@ class CurveMeasureWidget(QWidget,curve_measure_widget_ui.Ui_Form):
         return self._current_point
     @current_point.setter
     def current_point(self, val: int) -> None:
+        if val != self._current_point:
+            self._current_point = val
+            self.cur_p_changed.emit()
 
-        self._current_point = val
-        self.cur_p_changed.emit()
-
-    def upd_widgets(self) -> None:
-        """
-        Update widgets, related to current scan point.
-        
-        Update progress bar, its label and current param."""
-
-        # progress bar
-        pb = int(self.current_point/self.max_steps*100)
-        self.pb.setValue(pb)
-
-        # progress bar label
-        text = f'{self.current_point}/{self.max_steps}'
-        self.lbl_pb.setText(text)
-
-        
-        if self.current_point < self.max_steps:
-            # current param value
-            new_param = self.param_points[self.current_point] # type: ignore
-            self.sb_cur_param.quantity = new_param
-        else:
-            # disable measure if last point
-            self.btn_measure.setEnabled(False)
 
 class PointMeasureWidget(QWidget,point_measure_widget_ui.Ui_Form):
     """0D PhotoAcoustic measurements widget."""
@@ -1211,7 +1400,7 @@ class MapView(QWidget, map_data_view_ui.Ui_Map_view):
         # Enable pixel selection for map
         self.plot_map.pick_enabled = True
 
-class CurveView(QWidget,curve_data_view_ui.Ui_Form):
+class CurveView(QWidget,curve_data_view_ui.Ui_Curve_view):
     """Plots for 1D data."""
 
     def __init__(self, parent: QWidget | None=None) -> None:
@@ -1230,7 +1419,7 @@ class CurveView(QWidget,curve_data_view_ui.Ui_Form):
         #Enable picker
         self.plot_curve.canvas.enable_pick = True
         
-class PointView(QWidget, point_data_view_ui.Ui_Form):
+class PointView(QWidget, point_data_view_ui.Ui_Point_view):
     """Plots for 1D data."""
 
     def __init__(self, parent: QWidget | None=None) -> None:

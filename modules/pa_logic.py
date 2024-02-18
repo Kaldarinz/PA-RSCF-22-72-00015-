@@ -796,8 +796,6 @@ def measure_point(
     if pm is None:
         logger.warning('...Terminating. Power meter is off in config.')
         return None
-    pa_ch_id = int(config['pa_sensor']['connected_chan']) - 1
-    pm_ch_id = int(config['power_meter']['connected_chan']) - 1
     
     data = _osc_call.submit(
         priority = priority,
@@ -807,8 +805,7 @@ def measure_point(
     if isinstance(data, ActorFail):
         logger.error('Error in measure point function.')
         return None
-    measurement = meas_point_from_osc(data, wavelength, pm_ch_id)
-    logger.debug(f'{measurement.max_amp=}')
+    measurement = meas_point_from_osc(data, wavelength)
     logger.debug('...Finishing PA point measurement.')
     return measurement
 
@@ -821,9 +818,6 @@ def meas_point_from_osc(
     logger.debug('Start creating MeasuredPoint...')
     pm = hardware.power_meter
     pm_ch_id = int(hardware.config['power_meter']['connected_chan']) - 1
-    if pm is None:
-        logger.error('Measure point cannot be calculated. Pm is not connected.')
-        return None
     pm_energy = pm.energy_from_data(
         msmnt.data_raw[pm_ch_id]*msmnt.yincrement, msmnt.dt
     )
@@ -847,6 +841,30 @@ def meas_point_from_osc(
     return measurement
 
 ### Emulation functions
+
+def measure_point_emul(
+        wavelength: PlainQuantity,
+        priority: int=Priority.NORMAL,
+        **kwargs
+    ) -> MeasuredPoint:
+    """
+    Emulate point measurement.
+    
+    Thread safe.
+    """
+
+    result_en: list[OscMeasurement] = []
+    tkwargs_en = {
+        'step': 0.5,
+        'comm': ThreadSignals(),
+        'result': result_en,
+        'max_count': 1
+    }
+    t_en = Thread(target = pa_fast_cont_emul, kwargs = tkwargs_en)
+    t_en.start()
+    t_en.join()
+    msmnt = meas_point_from_osc(result_en[0], wavelength)
+    return msmnt
 
 def scan_2d_emul(
         scan: MapData,
@@ -950,7 +968,7 @@ def pa_fast_cont_emul(
         'rsc',
         'emulations'
     )
-    pm_signal = np.loadtxt(os.path.join(path, 'pm_fast.txt'))
+    pm_signal = np.loadtxt(os.path.join(path, 'pm_fast_norm.txt'))
     pa_signal = np.loadtxt(os.path.join(path, 'pa_fast_norm.txt'))
     
     start = time.time()
@@ -967,8 +985,8 @@ def pa_fast_cont_emul(
         
         # Generate Measurement
         raw_data: list[np.ndarray|None] = [None,None]
-        raw_data[pm_ch_id] = pm_signal[:,1]*(0.4*rng.random()+0.8)
-        raw_data[pa_ch_id] = pa_signal[:,1]*(rng.random()+0.5)*(comm.count + 1)
+        raw_data[pm_ch_id] = (pm_signal[:,1]*(0.4*rng.random()+0.8)*100).astype(np.int8)
+        raw_data[pa_ch_id] = (pa_signal[:,1]*(rng.random()+0.5)*(100/1.5)).astype(np.int8)
         msmnt = OscMeasurement(
             datetime = dt.now(),
             data_raw = raw_data,

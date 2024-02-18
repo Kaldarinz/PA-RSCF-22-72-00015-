@@ -20,16 +20,16 @@ from PySide6.QtWidgets import (QApplication, QComboBox, QHBoxLayout, QSizePolicy
 
 from ..widgets import MplNavCanvas
 
-class Ui_Form(object):
-    def setupUi(self, Form):
-        if not Form.objectName():
-            Form.setObjectName(u"Form")
-        Form.resize(649, 585)
-        self.verticalLayout = QVBoxLayout(Form)
+class Ui_Point_view(object):
+    def setupUi(self, Point_view):
+        if not Point_view.objectName():
+            Point_view.setObjectName(u"Point_view")
+        Point_view.resize(649, 585)
+        self.verticalLayout = QVBoxLayout(Point_view)
         self.verticalLayout.setObjectName(u"verticalLayout")
         self.horizontalLayout = QHBoxLayout()
         self.horizontalLayout.setObjectName(u"horizontalLayout")
-        self.cb_detail_select = QComboBox(Form)
+        self.cb_detail_select = QComboBox(Point_view)
         self.cb_detail_select.setObjectName(u"cb_detail_select")
         self.cb_detail_select.setMinimumSize(QSize(140, 0))
 
@@ -42,7 +42,7 @@ class Ui_Form(object):
 
         self.verticalLayout.addLayout(self.horizontalLayout)
 
-        self.plot_detail = MplNavCanvas(Form)
+        self.plot_detail = MplNavCanvas(Point_view)
         self.plot_detail.setObjectName(u"plot_detail")
         sizePolicy = QSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         sizePolicy.setHorizontalStretch(0)
@@ -53,12 +53,12 @@ class Ui_Form(object):
         self.verticalLayout.addWidget(self.plot_detail)
 
 
-        self.retranslateUi(Form)
+        self.retranslateUi(Point_view)
 
-        QMetaObject.connectSlotsByName(Form)
+        QMetaObject.connectSlotsByName(Point_view)
     # setupUi
 
-    def retranslateUi(self, Form):
-        Form.setWindowTitle(QCoreApplication.translate("Form", u"Form", None))
+    def retranslateUi(self, Point_view):
+        Point_view.setWindowTitle(QCoreApplication.translate("Point_view", u"Form", None))
     # retranslateUi
 

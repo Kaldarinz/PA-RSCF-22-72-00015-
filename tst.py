@@ -1,7 +1,9 @@
 from dataclasses import dataclass, field, fields
 from typing import TypedDict
 from pprint import pprint
+import os
 import re
+import math
 from collections.abc import Iterable, Sequence
 from datetime import datetime
 import time, math
@@ -36,7 +38,11 @@ ureg = pint.get_application_registry()
 Q_ = ureg.Quantity
 rng = np.random.default_rng()
 
-a = [Q_(1, ''), Q_(2., '')]
-b = [1,2]
-if a == b:
-    print('ok')
+path = os.path.join(
+    os.getcwd(),
+    'rsc',
+    'emulations'
+)
+pm_signal = np.loadtxt(os.path.join(path, 'pa_fast_norm.txt'))
+print(pm_signal[:,1].max())
+print(pm_signal[:,1].min())

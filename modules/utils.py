@@ -7,9 +7,10 @@ from PySide6.QtCore import (
     Slot
 )
 from PySide6.QtWidgets import (
-    QPushButton
+    QPushButton,
+    QLayout
 )
-from matplotlib.backends.backend_qtagg import NavigationToolbar2QT # type: ignore
+
 from pint.facets.plain.quantity import PlainQuantity
 import numpy as np
 
@@ -164,3 +165,16 @@ def propvals(instance: object) -> dict:
     props = properties(type(instance))
 
     return {prop: getattr(instance, prop) for prop in props}
+
+def set_layout_enabled(
+        layout: QLayout,
+        enabled: bool
+    ) -> None:
+    """Set enabled for all QWidgets in a layout."""
+
+    for i in range(layout.count()):
+        child = layout.itemAt(i)
+        if child.layout() is not None:
+            set_layout_enabled(child.layout(), enabled)
+        else:
+            child.widget().setEnabled(enabled) # type: ignore

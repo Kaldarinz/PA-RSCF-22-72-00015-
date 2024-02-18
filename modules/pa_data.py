@@ -128,6 +128,38 @@ class PaData:
         "Data changed flag"
         logger.debug('PaData instance created')
 
+    @staticmethod
+    def create_measurement(
+            dims: int,
+            params: list[str]
+    ) -> Measurement:
+        """Create measurement, but do not add it to data."""
+
+        metadata = MeasurementMetadata(
+            measurement_dims = dims,
+            parameter_name = params.copy(),
+            created = PaData._get_cur_time(),
+            updated = PaData._get_cur_time(),
+        )
+        return Measurement(metadata)
+
+    def append_measurement(
+            self,
+            msmnt: Measurement
+        ) -> tuple[str, Measurement]|None:
+        """Append msmnt to data."""
+
+        title = self._build_name(
+            self.attrs.measurements_count + 1,
+            'measurement'
+        )
+        self.measurements.update({title: msmnt})
+        self.attrs.updated = self._get_cur_time()
+        self.attrs.measurements_count += 1
+        self.changed = True
+        logger.debug(f'{title} created.')
+        return (title, msmnt)
+
     def add_measurement(
             self,
             dims: int,
@@ -142,27 +174,10 @@ class PaData:
         and returned.
         """
 
-        if len(params) != dims:
-            logger.warning('Attempt to create a measurements with '
-                           + f'wrong arguments. {dims=}; {params=}')
-            return None
-        metadata = MeasurementMetadata(
-            measurement_dims = dims,
-            parameter_name = params.copy(),
-            created = self._get_cur_time(),
-            updated = self._get_cur_time(),
-        )
-        measurement = Measurement(metadata)
-        title = self._build_name(
-            self.attrs.measurements_count + 1,
-            'measurement'
-        )
-        self.measurements.update({title: measurement})
-        self.attrs.updated = self._get_cur_time()
-        self.attrs.measurements_count += 1
-        self.changed = True
-        logger.debug(f'{title} created.')
-        return (title, measurement)
+        measurement = self.create_measurement(dims, params)
+        if measurement is None:
+            return
+        return self.append_measurement(measurement)
 
     def add_map(
             self,
@@ -194,28 +209,16 @@ class PaData:
                 if lno == 0 and pno == 0:
                     msmnt.attrs.created = self._get_time(point.datetime)
 
+    @staticmethod
     def add_point(
-            self,
             measurement: Measurement,
             data: MeasuredPoint,
             param_val: list[PlainQuantity]
         ) -> None:
-        """
-        Add a single data point to a measuremt.
-        
-        ``measurement`` - Measurement instance, to which data point should be added.
-        ``data`` - Measured PA data.
-        ``param_val`` - List of values, which define this point in its measurement. 
-        """
+        """Add data to measurement."""
 
-        logger.debug('Starting datapoint addition to file...')
-        if not data.pa_signal.ndim:
-            logger.debug('...Terminating datapoint addition. PA signal is missing.')
-            return None
-        if not data.pa_signal_raw.ndim:
-            logger.debug('...Terminating datapoint addition. PA signal_raw is missing.')
-            return None
-        title = self._build_name(measurement.attrs.data_points + 1)
+        logger.debug('Starting datapoint addition to measurement...')
+        title = PaData._build_name(measurement.attrs.data_points + 1)
         if not title:
             logger.error('Max data_points reached! Data cannot be added!')
             return None
@@ -253,7 +256,7 @@ class PaData:
             x_var_start = data.start_time,
             x_var_stop = data.stop_time,
         )
-        filtdata, freqdata = self.bp_filter(rawdata)
+        filtdata, freqdata = PaData.bp_filter(rawdata)
         datapoint = DataPoint(
             attrs = metadata,
             raw_data = rawdata,
@@ -265,19 +268,19 @@ class PaData:
         if len(rawdata.data) > measurement.attrs.max_len: # type: ignore
             measurement.attrs.max_len = len(rawdata.data) # type: ignore
         measurement.attrs.data_points += 1
-        measurement.attrs.updated = self._get_cur_time()
-        self.attrs.updated = self._get_cur_time()
-        self.changed = True
-        logger.debug('...Finishing data point addition to file.')
+        measurement.attrs.updated = PaData._get_cur_time()
+        logger.debug('...Finishing data point addition to measurement.')
 
-    def _get_cur_time(self) -> str:
+    @staticmethod
+    def _get_cur_time() -> str:
         """Return timestamp of current time."""
         
         cur_time = time.time()
         date_time = datetime.fromtimestamp(cur_time)
-        return self._get_time(date_time)
+        return PaData._get_time(date_time)
 
-    def _get_time(self, date_time: datetime) -> str:
+    @staticmethod
+    def _get_time(date_time: datetime) -> str:
         return date_time.strftime("%d-%m-%Y, %H:%M:%S")
 
     def save(self, filename: str) -> None:
@@ -943,8 +946,8 @@ class PaData:
         logger.warning(f'Point for param val {param} not found.')
         return None
     
+    @staticmethod
     def bp_filter(
-            self,
             data: BaseData,
             low: PlainQuantity=Q_(1, 'kHz'),
             high: PlainQuantity=Q_(10, 'MHz')

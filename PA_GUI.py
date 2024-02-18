@@ -59,8 +59,7 @@ from modules.pa_data import (
 
 import modules.pa_logic as pa_logic
 from modules.utils import (
-    upd_plot,
-    form_quant
+    upd_plot
 )   
 from modules.data_classes import (
     Worker,
@@ -301,19 +300,13 @@ class Window(QMainWindow,Ui_MainWindow,):
         )
 
         ### 1D measurements ###
-        # Button Set Parameter
-        self.p_curve.btn_run.clicked.connect(self.run_curve)
-        # Button Measure
-        self.p_curve.btn_measure.clicked.connect(
-            lambda x: self.measure(self.p_curve)
-        )
+        # Curve started
+        self.p_curve.curve_started.connect(self.measure_curve)
+        # Curve finished
+        self.p_curve.curve_obtained.connect(self.data_viewer.add_curve_to_data)
         # Button restart
         self.p_curve.btn_restart.clicked.connect(
             lambda x: self.restart_measurement(self.p_curve)
-        )
-        # Button stop
-        self.p_curve.btn_stop.clicked.connect(
-            lambda x: self.stop_measurement(self.p_curve)
         )
         # Sample energy SetPoint 
         self.p_curve.sb_sample_sp.valueChanged.connect(
@@ -415,29 +408,6 @@ class Window(QMainWindow,Ui_MainWindow,):
         data_title = data_title.split('*')[0]
         if data_title.endswith('hdf5') and data_exist:
             self.action_Save.setEnabled(data_exist)
-
-    @Slot(MapData)
-    def measure_map(self, scan: MapData) -> None:
-        """
-        Start 2D scanning.
-        
-        Implement emulation if hardware is disconnected.
-        """
-
-        logger.info('measure_map slot called.')
-        if self.init_state:
-            scan_worker = Worker(pa_logic.scan_2d, scan = scan)
-        # Emulate scan if hardware is disconnected
-        else:
-            scan_worker = Worker(
-                pa_logic.scan_2d_emul,
-                scan = scan,
-                speed = self.p_map.sb_cur_speed.quantity
-        )
-        self.p_map.scan_worker = scan_worker
-        scan_worker.signals.progess.connect(self.p_map.plot_scan.upd_scan)
-        scan_worker.signals.finished.connect(self.p_map.scan_finished)
-        self.pool.start(scan_worker)
 
     @Slot(PlainQuantity)
     def set_scan_speed(self, speed: PlainQuantity) -> None:
@@ -601,92 +571,41 @@ class Window(QMainWindow,Ui_MainWindow,):
         else:
             self.action_Data.setChecked(True)
 
-    def _set_layout_enabled(
-            self,
-            layout: QLayout,
-            enabled: bool
-        ) -> None:
-        """Set enabled for all QWidgets in a layout."""
-
-        for i in range(layout.count()):
-            child = layout.itemAt(i)
-            if child.layout() is not None:
-                self._set_layout_enabled(child.layout(), enabled)
-            else:
-                child.widget().setEnabled(enabled) # type: ignore
-
-    def run_curve(self) -> None:
+    @Slot(MapData)
+    def measure_map(self, scan: MapData) -> None:
         """
-        Start 1D measurement.
+        Start 2D scanning.
         
-        Launch energy adjustment.\n
-        Set ``p_curve.step``, ``p_curve.spectral_points`` attributes.
-        Also set progress bar and realted widgets.
+        Implement emulation if hardware is disconnected.
         """
 
-        # Activate curve measure button
-        self._set_layout_enabled(
-            self.p_curve.lo_measure_ctrls,
-            True
+        logger.info('measure_map slot called.')
+        if self.init_state:
+            scan_worker = Worker(pa_logic.scan_2d, scan = scan)
+        # Emulate scan if hardware is disconnected
+        else:
+            scan_worker = Worker(
+                pa_logic.scan_2d_emul,
+                scan = scan,
+                speed = self.p_map.sb_cur_speed.quantity
         )
-        # But keep restart deactivated
-        self.p_curve.btn_restart.setEnabled(False)
+        self.p_map.scan_worker = scan_worker
+        scan_worker.signals.progess.connect(self.p_map.plot_scan.upd_scan)
+        scan_worker.signals.finished.connect(self.p_map.scan_finished)
+        self.pool.start(scan_worker)
 
-        # Deactivate paramter controls
-        self._set_layout_enabled(
-            self.p_curve.lo_parameter,
-            False
-        )
-
-        page = self.p_curve
+    def measure_curve(self, wl: PlainQuantity) -> None:
+        """
+        Measure a point for 1D PA measurement.
         
-        # calculate amount of paramter values
-        param_start = page.sb_from.quantity
-        param_end = page.sb_to.quantity
-        step = page.sb_step.quantity
-        delta = abs(param_end-param_start)
-        if delta%step:
-            max_steps = int(delta/step) + 2
+        Implement emulation if hardware is disconnected.
+        """
+        if self.init_state:
+            worker = Worker(pa_logic.measure_point, wl)
         else:
-            max_steps = int(delta/step) + 1
-        page.max_steps = max_steps
-
-        # set paramter name attribute
-        page.parameter = [page.cb_mode.currentText()]
-
-        # create array with all parameter values
-        # and set it as attribute along with step
-        spectral_points = []
-        if param_start < param_end:
-            page.step = step
-            for i in range(max_steps-1):
-                spectral_points.append(param_start+i*step)
-            spectral_points.append(param_end)
-        else:
-            page.step = -step
-            for i in range(max_steps-1):
-                spectral_points.append(param_end+i*step)
-            spectral_points.append(param_start)
-        page.param_points = Q_.from_list(spectral_points)
-        page.current_point = 0
-
-    def measure(
-            self,
-            mode_widget: CurveMeasureWidget | PointMeasureWidget
-        ) -> None:
-        """Measure a point for 1D PA measurement."""
-
-        # block measure button
-        mode_widget.btn_measure.setEnabled(False)
-
-        # Launch measurement
-        wl = mode_widget.sb_cur_param.quantity
-        worker = Worker(pa_logic.measure_point, wl)
+            worker = Worker(pa_logic.measure_point_emul, wl)
         worker.signals.result.connect(
-            lambda data: self.verify_measurement(
-                mode_widget,
-                data
-            )
+            self.p_curve.verify_msmnt
         )
         self.pool.start(worker)
 
@@ -815,27 +734,6 @@ class Window(QMainWindow,Ui_MainWindow,):
         """Restart a measurement."""
 
         msmnt_page.current_point = 0
-
-    def stop_measurement(
-            self,
-            msmnt_page: CurveMeasureWidget
-        ) -> None:
-        """
-        Stop a measurement.
-        
-        Stop the measurement, by activating paramter controls
-        and deactivating measurement controls.
-        """
-
-        msmnt_page.current_point = 0
-        self._set_layout_enabled(
-            msmnt_page.lo_parameter,
-            True
-        )
-        self._set_layout_enabled(
-            msmnt_page.lo_measure_ctrls,
-            False
-        )
 
     def upd_sp(
             self,
