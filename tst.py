@@ -38,11 +38,4 @@ ureg = pint.get_application_registry()
 Q_ = ureg.Quantity
 rng = np.random.default_rng()
 
-path = os.path.join(
-    os.getcwd(),
-    'rsc',
-    'emulations'
-)
-pm_signal = np.loadtxt(os.path.join(path, 'pa_fast_norm.txt'))
-print(pm_signal[:,1].max())
-print(pm_signal[:,1].min())
+print(Q_('1 mm'))

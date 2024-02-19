@@ -67,7 +67,19 @@ PaData:
 |  |  |--attrs: MeasurementMetadata
 |  ...
 
-    """
+
+------------------------------------------------------------------
+Part of programm for photoacoustic measurements using experimental
+setup in BioNanoPhotonics lab., NRNU MEPhI, Moscow, Russia.
+
+Author: Anton Popov
+contact: a.popov.fizte@gmail.com
+            
+Created with financial support from Russian Scince Foundation.
+Grant # 22-72-00015
+
+2024
+"""
 
 from typing import Iterable, Any, Tuple, TypeVar, Type, Self
 from dataclasses import fields, field
@@ -146,7 +158,7 @@ class PaData:
     def append_measurement(
             self,
             msmnt: Measurement
-        ) -> tuple[str, Measurement]|None:
+        ) -> tuple[str, Measurement]:
         """Append msmnt to data."""
 
         title = self._build_name(

@@ -3,7 +3,7 @@
 ################################################################################
 ## Form generated from reading UI file 'point_measure_widget.ui'
 ##
-## Created by: Qt User Interface Compiler version 6.6.0
+## Created by: Qt User Interface Compiler version 6.6.1
 ##
 ## WARNING! All changes made in this file will be lost when recompiling UI file!
 ################################################################################
@@ -65,9 +65,6 @@ class Ui_Form(object):
         sizePolicy1.setHeightForWidth(self.btn_measure.sizePolicy().hasHeightForWidth())
         self.btn_measure.setSizePolicy(sizePolicy1)
         self.btn_measure.setFont(font)
-        icon = QIcon()
-        icon.addFile(u":/icons/qt_resources/control-stop.png", QSize(), QIcon.Normal, QIcon.Off)
-        self.btn_measure.setIcon(icon)
         self.btn_measure.setCheckable(False)
 
         self.verticalLayout.addWidget(self.btn_measure)
@@ -98,11 +95,12 @@ class Ui_Form(object):
         self.sb_cur_param.setMaximumSize(QSize(71, 16777215))
         self.sb_cur_param.setBaseSize(QSize(0, 0))
         self.sb_cur_param.setReadOnly(False)
-        self.sb_cur_param.setButtonSymbols(QAbstractSpinBox.NoButtons)
+        self.sb_cur_param.setButtonSymbols(QAbstractSpinBox.UpDownArrows)
         self.sb_cur_param.setDecimals(0)
         self.sb_cur_param.setMinimum(300.000000000000000)
         self.sb_cur_param.setMaximum(1100.000000000000000)
-        self.sb_cur_param.setValue(700.000000000000000)
+        self.sb_cur_param.setSingleStep(10.000000000000000)
+        self.sb_cur_param.setValue(740.000000000000000)
 
         self.horizontalLayout_12.addWidget(self.sb_cur_param)
 

@@ -1,3 +1,19 @@
+"""
+Global objects.
+
+------------------------------------------------------------------
+Part of programm for photoacoustic measurements using experimental
+setup in BioNanoPhotonics lab., NRNU MEPhI, Moscow, Russia.
+
+Author: Anton Popov
+contact: a.popov.fizte@gmail.com
+            
+Created with financial support from Russian Scince Foundation.
+Grant # 22-72-00015
+
+2024
+"""
+
 import logging
 
 from pylablib.devices.Thorlabs import KinesisMotor

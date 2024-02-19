@@ -1,14 +1,28 @@
-"""General purpose utility functions.
+"""
+General purpose utility functions.
+
+------------------------------------------------------------------
+Part of programm for photoacoustic measurements using experimental
+setup in BioNanoPhotonics lab., NRNU MEPhI, Moscow, Russia.
+
+Author: Anton Popov
+contact: a.popov.fizte@gmail.com
+            
+Created with financial support from Russian Scince Foundation.
+Grant # 22-72-00015
+
+2024
 """
 import logging
 from typing import Iterable
 
 from PySide6.QtCore import (
-    Slot
+    QObject
 )
 from PySide6.QtWidgets import (
     QPushButton,
-    QLayout
+    QLayout,
+    QWidget
 )
 
 from pint.facets.plain.quantity import PlainQuantity
@@ -16,8 +30,10 @@ import numpy as np
 
 from .gui.widgets import (
     MplCanvas,
-    MplNavCanvas
+    MplNavCanvas,
+    QuantSpinBox
 )
+from .hardware import utils as hutils
 
 logger = logging.getLogger(__name__)
 
@@ -178,3 +194,32 @@ def set_layout_enabled(
             set_layout_enabled(child.layout(), enabled)
         else:
             child.widget().setEnabled(enabled) # type: ignore
+
+def set_sb_silent(
+        sb: QuantSpinBox,
+        value: PlainQuantity
+    ) -> None:
+    """Set ``value`` to ``sb`` without firing events."""
+
+    sb.blockSignals(True)
+    sb.quantity = value.to(sb.quantity.u)
+    sb.blockSignals(False)
+
+def get_layout(widget: QWidget) -> QLayout|None:
+        """Return parent layout for a widget."""
+
+        parent = widget.parent()
+        child_layouts = _unpack_layout(parent.children())
+        for layout in child_layouts:
+            if layout.indexOf(widget) > -1:
+                return layout
+
+def _unpack_layout(childs: list[QObject]) -> list[QLayout]:
+        """Recurrent function to find all layouts in a list of widgets."""
+
+        result = []
+        for item in childs:
+            if isinstance(item, QLayout):
+                result.append(item)
+                result.extend(_unpack_layout(item.children()))
+        return result

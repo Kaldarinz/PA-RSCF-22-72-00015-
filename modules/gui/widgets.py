@@ -1,5 +1,17 @@
 """
 Base widgets, which are used as parts in other widgets.
+
+------------------------------------------------------------------
+Part of programm for photoacoustic measurements using experimental
+setup in BioNanoPhotonics lab., NRNU MEPhI, Moscow, Russia.
+
+Author: Anton Popov
+contact: a.popov.fizte@gmail.com
+            
+Created with financial support from Russian Scince Foundation.
+Grant # 22-72-00015
+
+2024
 """
 
 from typing import Iterable, Literal, cast, overload
@@ -242,9 +254,7 @@ class MplCanvas(FigureCanvasQTAgg):
         if self._marker_ref is not None:
             self._marker_ref.remove()
             self._marker_ref = None
-        
         self.draw()
-        logger.info('Clear plot called')
 
     @property
     def xdata(self) -> npt.NDArray:

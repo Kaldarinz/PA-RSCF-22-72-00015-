@@ -1,3 +1,19 @@
+"""
+Contain constants, used in the programm.
+
+------------------------------------------------------------------
+Part of programm for photoacoustic measurements using experimental
+setup in BioNanoPhotonics lab., NRNU MEPhI, Moscow, Russia.
+
+Author: Anton Popov
+contact: a.popov.fizte@gmail.com
+            
+Created with financial support from Russian Scince Foundation.
+Grant # 22-72-00015
+
+2024
+"""
+
 from enum import IntEnum
 
 from . import Q_
@@ -26,6 +42,7 @@ CURVE_PARAMS = {
         'step': Q_(100, 'uJ')
     }
 }
+MSMNT_MODES = ['Single point', 'Curve', 'Map']
 class Priority(IntEnum):
     HIGHEST = 10
     HIGH = 8

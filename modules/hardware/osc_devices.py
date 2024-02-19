@@ -13,6 +13,18 @@ Implementation details.
 1. Calls to private methods should assume that correct results are returned.
 2. Osc exceptions should be handled by a public caller.
 3. <connection_check> and <initialize> do not raise exceptions.
+
+------------------------------------------------------------------
+Part of programm for photoacoustic measurements using experimental
+setup in BioNanoPhotonics lab., NRNU MEPhI, Moscow, Russia.
+
+Author: Anton Popov
+contact: a.popov.fizte@gmail.com
+            
+Created with financial support from Russian Scince Foundation.
+Grant # 22-72-00015
+
+2024
 """
 
 from typing import List, Optional, Tuple, cast

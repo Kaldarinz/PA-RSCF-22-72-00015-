@@ -41,7 +41,6 @@
          <widget class="QLabel" name="lbl_measure_settings">
           <property name="font">
            <font>
-            <weight>75</weight>
             <bold>true</bold>
            </font>
           </property>
@@ -70,7 +69,6 @@
           </property>
           <property name="font">
            <font>
-            <weight>75</weight>
             <bold>true</bold>
            </font>
           </property>
@@ -79,10 +77,6 @@
           </property>
           <property name="text">
            <string>MEASURE</string>
-          </property>
-          <property name="icon">
-           <iconset resource="qt_resources.qrc">
-            <normaloff>:/icons/qt_resources/control-stop.png</normaloff>:/icons/qt_resources/control-stop.png</iconset>
           </property>
           <property name="checkable">
            <bool>false</bool>
@@ -102,7 +96,6 @@
            <widget class="QLabel" name="lbl_cur_param">
             <property name="font">
              <font>
-              <weight>75</weight>
               <bold>true</bold>
              </font>
             </property>
@@ -141,7 +134,7 @@
              <bool>false</bool>
             </property>
             <property name="buttonSymbols">
-             <enum>QAbstractSpinBox::NoButtons</enum>
+             <enum>QAbstractSpinBox::UpDownArrows</enum>
             </property>
             <property name="suffix">
              <string> nm</string>
@@ -155,8 +148,11 @@
             <property name="maximum">
              <double>1100.000000000000000</double>
             </property>
+            <property name="singleStep">
+             <double>10.000000000000000</double>
+            </property>
             <property name="value">
-             <double>700.000000000000000</double>
+             <double>740.000000000000000</double>
             </property>
            </widget>
           </item>

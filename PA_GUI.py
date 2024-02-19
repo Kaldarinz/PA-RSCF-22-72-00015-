@@ -1,5 +1,18 @@
 """
 Latest developing GUI version
+
+Main module.
+
+Part of programm for photoacoustic measurements using experimental
+setup in BioNanoPhotonics lab., NRNU MEPhI, Moscow, Russia.
+
+Author: Anton Popov
+contact: a.popov.fizte@gmail.com
+            
+Created with financial support from Russian Scince Foundation.
+Grant # 22-72-00015
+
+2024
 """
 
 from __future__ import annotations
@@ -9,37 +22,28 @@ import sys
 import time
 import logging, logging.config
 from datetime import datetime
-from typing import Iterable, Callable, cast, Literal
-from dataclasses import field, fields
-from functools import partial
+from typing import Callable, cast, Literal
 
 import pint
 import yaml
 from pint.facets.plain.quantity import PlainQuantity
 
-from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT
 import PySide6
 import pyqtgraph as pg
 from PySide6.QtCore import (
     Qt,
-    QObject,
     QThread,
     QThreadPool,
     Slot,
     Signal,
-    QModelIndex,
     QTimer
 )
 from PySide6.QtWidgets import (
     QApplication,
     QMainWindow,
-    QWidget,
     QMessageBox,
-    QLineEdit,
     QPushButton,
-    QLayout,
     QComboBox,
-    QTreeWidgetItem,
     QFileDialog,
     QMessageBox,
     QProgressDialog
@@ -63,31 +67,21 @@ from modules.utils import (
 )   
 from modules.data_classes import (
     Worker,
-    Measurement,
     EnergyMeasurement,
-    Position,
     MapData
 )
 from modules.constants import (
-    POINT_SIGNALS,
-    MSMNTS_SIGNALS
-)
-from modules.gui.widgets import (
-    MplCanvas,
-    MplNavCanvas,
-    QuantSpinBox,
+    MSMNT_MODES
 )
 from modules.gui.designer.PA_main_window_ui import Ui_MainWindow
 from modules.gui.designer.designer_widgets import (
-    PAVerifierDialog,
     DataViewer,
     LoggerWidget,
+    MeasureWidget,
     PointMeasureWidget,
     CurveMeasureWidget,
     MapMeasureWidget,
     PowerMeterMonitor,
-    CurveView,
-    PointView,
     MotorView
 )
 
@@ -163,73 +157,67 @@ class Window(QMainWindow,Ui_MainWindow,):
         self.init_state: bool = False
         "Hardware connection flag."
 
-        # Initiate widgets
         self.set_widgets()
-
-        #Connect custom signals and slots
         self.connectSignalsSlots()
+        self.set_shortcuts()
 
     def set_widgets(self):
         """Add and configure custom widgets."""
 
-        #Measurement verifier dialog
-        self.pa_verifier = PAVerifierDialog()
-
+        ###############################################################
         ### Data viewer ###
+        ###############################################################
         self.data_viewer = DataViewer()
         self.sw_central.addWidget(self.data_viewer)
 
+        ###############################################################
         ### Log viewer ###
+        ###############################################################
         self.d_log = LoggerWidget()
         self.addDockWidget(
             Qt.DockWidgetArea.BottomDockWidgetArea,
             self.d_log)
 
+        ###############################################################
         ### Motors control ###
+        ###############################################################
         self.d_motors = MotorView(self)
         self.addDockWidget(
             Qt.DockWidgetArea.RightDockWidgetArea,
             self.d_motors
         )
-        self.d_motors.set_range(
-            (Q_(0, 'mm'), Q_(25, 'mm'))
-        )
         self.d_motors.hide()
 
+        ###############################################################
         ### 0D measurements ###
+        ###############################################################
         self.p_point = PointMeasureWidget(self.sw_central)
         self.sw_central.addWidget(self.p_point)
-        # Initial value of SetPoint
-        self.upd_sp(
-            self.p_point,
-            self.p_point.sb_sample_sp
-        )
         # Init power meter monitor
         self.init_pm_monitor(self.p_point.pm_monitor)
 
+        ###############################################################
         ### 1D measurements ###
+        ###############################################################
         self.p_curve = CurveMeasureWidget(self.sw_central)
         self.sw_central.addWidget(self.p_curve)
-        # Initial value of SetPoint
-        self.upd_sp(
-            self.p_curve,
-            self.p_curve.sb_sample_sp
-        )
         # Init power meter monitor
         self.init_pm_monitor(self.p_curve.pm_monitor)
 
+        ###############################################################
         ### 2D measurements ###
+        ###############################################################
         self.p_map = MapMeasureWidget(self.sw_central)
         self.sw_central.addWidget(self.p_map)
 
+        ###############################################################
+        ### General controls ###
+        ###############################################################
         # Scan mode selector
         cb = QComboBox()
-        cb.addItems(
-            ('Single point', 'Curve', 'Map')
-        )
+        cb.addItems(MSMNT_MODES)
         cb.setEditable(False)
         cb.setCurrentIndex(self.sw_central.currentIndex())
-        self.upd_mode(cb.currentText())
         self.tb_mode.addWidget(cb)
         self.cb_mode_select = cb
         self.upd_mode(self.cb_mode_select.currentText())
@@ -237,14 +225,25 @@ class Window(QMainWindow,Ui_MainWindow,):
     def connectSignalsSlots(self):
         """Connect signals and slots."""
 
+        ###############################################################
         ### logs ###
-        self.q_logger.thread.log.connect(self.d_log.te_log.appendPlainText)
+        ###############################################################
+        self.q_logger.thread.log.connect(
+            self.d_log.te_log.appendPlainText
+        )
+        self.action_Logs.toggled.connect(self.d_log.setVisible)
+        self.d_log.visibilityChanged.connect(self.action_Logs.setChecked)
 
-        ### Various actions ###
+        ###############################################################
+        ### actions ###
+        ###############################################################
         # Hardware initialization
         self.action_Init.triggered.connect(self.init_hardware)
         # Date change event
         self.data_viewer.data_changed.connect(self.set_save_btns)
+        # Data view
+        self.action_Data.toggled.connect(self.activate_data_viwer)
+        self.action_Open.triggered.connect(self.open_file)
         # Close file
         self.action_Close.triggered.connect(self.close_file)
         # Save file
@@ -255,89 +254,46 @@ class Window(QMainWindow,Ui_MainWindow,):
         self.actionSave_As.triggered.connect(
             lambda x: self.save_file(True)
         )
-
-        ### Shortcuts ###
-        # Delete measurements
-        del_sc = QShortcut(
-            QKeySequence.StandardKey.Delete,
-            self.data_viewer.lv_content,
-            context = Qt.ShortcutContext.WidgetShortcut
-        )
-        del_sc.activated.connect(self.data_viewer.del_msmsnt)
-
-        ### Mode selection ###
+        # Mode selection
         self.cb_mode_select.currentTextChanged.connect(self.upd_mode)
-        self.action_measure_PA.toggled.connect(self.activate_measure_widget)
+        self.action_measure_PA.toggled.connect(
+            self.activate_measure_widget
+        )
+        # About
+        self.actionAbout.triggered.connect(self.about)
 
+        ###############################################################
         ### 0D measurements ###
-        # Measure button
-        self.p_point.btn_measure.clicked.connect(
-            lambda x: self.measure(self.p_point)
+        ###############################################################
+        # Measure point
+        self.p_point.measure_point.connect(
+            lambda wl: self.measure_point(self.p_point, wl)
         )
-        # Sample SetPoint changed 
-        self.p_point.sb_sample_sp.valueChanged.connect(
-            lambda x: self.upd_sp(
-                self.p_point,
-                self.p_point.sb_sample_sp
-            )
-        )
-        # PM SetPoint changed
-        self.p_point.sb_pm_sp.valueChanged.connect(
-            lambda x: self.upd_sp(
-                self.p_point,
-                self.p_point.sb_pm_sp
-            )
-        )
-        # Current PM energy value
-        self.p_point.pm_monitor.le_cur_en.textChanged.connect(
-            self.p_point.le_pm_en.setText
-        )
-        # Current Sample energy value
-        self.p_point.pm_monitor.le_cur_en.textChanged.connect(
-            lambda val: self.p_point.le_sample_en.setText(
-                str(hutils.glan_calc(ureg(val)))
-            )
+        # Point measured
+        self.p_point.point_measured.connect(
+            self.data_viewer.add_point_to_data
         )
 
+        ###############################################################
         ### 1D measurements ###
-        # Curve started
-        self.p_curve.curve_started.connect(self.measure_curve)
+        ###############################################################
+        # Measure point
+        self.p_curve.measure_point.connect(
+            lambda wl: self.measure_point(self.p_curve, wl))
         # Curve finished
-        self.p_curve.curve_obtained.connect(self.data_viewer.add_curve_to_data)
-        # Button restart
-        self.p_curve.btn_restart.clicked.connect(
-            lambda x: self.restart_measurement(self.p_curve)
-        )
-        # Sample energy SetPoint 
-        self.p_curve.sb_sample_sp.valueChanged.connect(
-            lambda x: self.upd_sp(
-                self.p_curve,
-                self.p_curve.sb_sample_sp
-            )
-        )
-        # Power meter energy SetPoint
-        self.p_curve.sb_pm_sp.valueChanged.connect(
-            lambda x: self.upd_sp(
-                self.p_curve,
-                self.p_curve.sb_pm_sp
-            )
-        )
-        # Current PM energy value
-        self.p_curve.pm_monitor.le_cur_en.textChanged.connect(
-            self.p_curve.le_pm_en.setText
-        )
-        # Current Sample energy value
-        self.p_curve.pm_monitor.le_cur_en.textChanged.connect(
-            lambda val: self.p_curve.le_sample_en.setText(
-                str(hutils.glan_calc(ureg(val)))
-            )
+        self.p_curve.curve_obtained.connect(
+            self.data_viewer.add_curve_to_data
         )
 
+        ###############################################################
         ### 2D measurements ###
-        # Scan
+        ###############################################################
+        # Scan started
         self.p_map.scan_started.connect(self.measure_map)
         # Scan finished
-        self.p_map.scan_obtained.connect(self.data_viewer.add_map_to_data)
+        self.p_map.scan_obtained.connect(
+            self.data_viewer.add_map_to_data
+        )
         # Calculate auto step
         self.p_map.calc_astepClicked.connect(self.calc_astep)
 
@@ -346,15 +302,9 @@ class Window(QMainWindow,Ui_MainWindow,):
             self.set_scan_speed
         )
 
-        ### Data view###
-        self.action_Data.toggled.connect(self.activate_data_viwer)
-        self.action_Open.triggered.connect(self.open_file)
-            
-        ### Logs ###
-        self.action_Logs.toggled.connect(self.d_log.setVisible)
-        self.d_log.visibilityChanged.connect(self.action_Logs.setChecked)
-
+        ###############################################################
         ### Motor dock widget ###
+        ###############################################################
         # Show/hide widget
         self.action_position.toggled.connect(self.d_motors.setVisible)
         self.d_motors.visibilityChanged.connect(
@@ -397,6 +347,16 @@ class Window(QMainWindow,Ui_MainWindow,):
         self._conn_jog_btn(
             self.d_motors.btn_z_right_move, 'z', '+'
         )
+
+    def set_shortcuts(self) -> None:
+
+        # Delete measurements
+        del_sc = QShortcut(
+            QKeySequence.StandardKey.Delete,
+            self.data_viewer.lv_content,
+            context = Qt.ShortcutContext.WidgetShortcut
+        )
+        del_sc.activated.connect(self.data_viewer.del_msmsnt)
 
     @Slot(bool)
     def set_save_btns(self, data_exist: bool) -> None:
@@ -501,6 +461,19 @@ class Window(QMainWindow,Ui_MainWindow,):
             self.data_viewer.lbl_data_title.setText(basename)
             self.data_viewer.data = data
 
+    def get_filename(self) -> str:
+        """Launch a dialog to open a file."""
+
+        path = os.path.dirname(__file__)
+        initial_dir = os.path.join(path, 'measuring results')
+        filename = QFileDialog.getOpenFileName(
+            self,
+            caption='Choose a file',
+            dir=initial_dir,
+            filter='Hierarchical Data Format (*.hdf5)'
+        )[0]
+        return filename
+
     @Slot(bool)
     def save_file(self, new_file: bool) -> None:
         """Save data to file."""
@@ -539,19 +512,6 @@ class Window(QMainWindow,Ui_MainWindow,):
         """Actual file close."""
 
         self.data_viewer.data = None
-
-    def get_filename(self) -> str:
-        """Launch a dialog to open a file."""
-
-        path = os.path.dirname(__file__)
-        initial_dir = os.path.join(path, 'measuring results')
-        filename = QFileDialog.getOpenFileName(
-            self,
-            caption='Choose a file',
-            dir=initial_dir,
-            filter='Hierarchical Data Format (*.hdf5)'
-        )[0]
-        return filename
 
     def activate_data_viwer(self, activated: bool) -> None:
         """Toogle data viewer."""
@@ -594,9 +554,13 @@ class Window(QMainWindow,Ui_MainWindow,):
         scan_worker.signals.finished.connect(self.p_map.scan_finished)
         self.pool.start(scan_worker)
 
-    def measure_curve(self, wl: PlainQuantity) -> None:
+    @Slot(PlainQuantity)
+    def measure_point(
+            self,
+            caller: MeasureWidget,
+            wl: PlainQuantity) -> None:
         """
-        Measure a point for 1D PA measurement.
+        Measure single PA point.
         
         Implement emulation if hardware is disconnected.
         """
@@ -605,7 +569,7 @@ class Window(QMainWindow,Ui_MainWindow,):
         else:
             worker = Worker(pa_logic.measure_point_emul, wl)
         worker.signals.result.connect(
-            self.p_curve.verify_msmnt
+            caller.verify_msmnt
         )
         self.pool.start(worker)
 
@@ -726,49 +690,6 @@ class Window(QMainWindow,Ui_MainWindow,):
         # Enable measure button if measured point is bad
         else:
             parent.btn_measure.setEnabled(True)
-
-    def restart_measurement(
-            self,
-            msmnt_page: CurveMeasureWidget
-        ) -> None:
-        """Restart a measurement."""
-
-        msmnt_page.current_point = 0
-
-    def upd_sp(
-            self,
-            parent: PointMeasureWidget | CurveMeasureWidget,
-            caller: QuantSpinBox) -> None:
-        """Update Set Point data."""
-
-        # Update PM SetPoint if Sample SetPoint was set
-        if caller == parent.sb_sample_sp:
-            new_sp = hutils.glan_calc_reverse(caller.quantity)
-            if new_sp is None:
-                logger.error('New set point cannot be calculated')
-                return
-            self.set_spinbox_silent(parent.sb_pm_sp, new_sp)
-        # Update Sample SetPoint if PM SetPoint was set   
-        elif caller == parent.sb_pm_sp:
-            new_sp = hutils.glan_calc(caller.quantity)
-            if new_sp is None:
-                logger.error('New set point cannot be calculated')
-                return
-            self.set_spinbox_silent(parent.sb_sample_sp, new_sp)
-
-        # Update SetPoint on plot
-        parent.pm_monitor.plot_right.sp = parent.sb_pm_sp.quantity
-                
-    def set_spinbox_silent(
-            self,
-            sb: QuantSpinBox,
-            value: PlainQuantity
-        ) -> None:
-        """Set ``value`` to ``sb`` without firing events."""
-
-        sb.blockSignals(True)
-        sb.quantity = value.to(sb.quantity.u)
-        sb.blockSignals(False)
 
     def upd_mode(self, value: str) -> None:
         """Change sw_main for current measuring mode."""
@@ -937,25 +858,6 @@ class Window(QMainWindow,Ui_MainWindow,):
         if worker is not None:
             worker.kwargs['flags']['pause'] = is_paused
 
-    def get_layout(self, widget: QWidget) -> QLayout|None:
-        """Return parent layout for a widget."""
-
-        parent = widget.parent()
-        child_layouts = self._unpack_layout(parent.children())
-        for layout in child_layouts:
-            if layout.indexOf(widget) > -1:
-                return layout
-
-    def _unpack_layout(self, childs: list[QObject]) -> list[QLayout]:
-        """Recurrent function to find all layouts in a list of widgets."""
-
-        result = []
-        for item in childs:
-            if isinstance(item, QLayout):
-                result.append(item)
-                result.extend(self._unpack_layout(item.children()))
-        return result
-
     def confirm_action(self,
             title: str='Confirm',
             message: str='Are you sure?'
@@ -973,6 +875,27 @@ class Window(QMainWindow,Ui_MainWindow,):
             result = False
         logger.debug(f'{message} = {result}')
         return result
+
+    def about(self) -> None:
+        """About popup window."""
+
+        info = QMessageBox()
+        info.setWindowTitle('About programm')
+        info.setText(
+            """
+            Programm for photoacoustic measurements using experimental
+            setup in BioNanoPhotonics lab., NRNU MEPhI, Moscow, Russia.
+
+            Author: Anton Popov
+            contact: a.popov.fizte@gmail.com
+            
+            Created with financial support from Russian Scince Foundation.
+            Grant # 22-72-00015
+
+            2024
+            """
+        )
+        info.exec()
 
 class LoggerThread(QThread):
     """Thread for logging."""

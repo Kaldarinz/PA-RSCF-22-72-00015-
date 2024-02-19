@@ -1,6 +1,18 @@
 """
 Widgets, built in Qt Designer, and used as a relatively big parts of
 the progamm.
+
+------------------------------------------------------------------
+Part of programm for photoacoustic measurements using experimental
+setup in BioNanoPhotonics lab., NRNU MEPhI, Moscow, Russia.
+
+Author: Anton Popov
+contact: a.popov.fizte@gmail.com
+            
+Created with financial support from Russian Scince Foundation.
+Grant # 22-72-00015
+
+2024
 """
 import logging
 from typing import Literal, cast, Optional
@@ -20,7 +32,8 @@ from PySide6.QtCore import (
     QRect,
     QItemSelectionModel,
     QItemSelection,
-    QModelIndex
+    QModelIndex,
+    QObject
 )
 from PySide6.QtWidgets import (
     QDialog,
@@ -31,7 +44,8 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QLabel,
     QProgressDialog,
-    QMessageBox
+    QMessageBox,
+    QLineEdit
 )
 from PySide6.QtGui import (
     QPixmap,
@@ -78,8 +92,10 @@ from ...utils import (
     upd_plot,
     form_quant,
     btn_set_silent,
-    set_layout_enabled
+    set_layout_enabled,
+    set_sb_silent
 )
+from ...hardware import utils as hutils
 
 from ..widgets import (
     MplCanvas,
@@ -459,6 +475,18 @@ class DataViewer(QWidget, data_viewer_ui.Ui_Form):
         logger.debug('Curve data saved.')
         self.data_changed.emit(True)
 
+    @Slot(MeasuredPoint)
+    def add_point_to_data(self, point: MeasuredPoint) -> None:
+        """SAve single point measurement."""
+
+        # create new data structure if necessary
+        if self.data is None:
+            self.data = PaData()
+        msmnt = self.data.add_measurement(dims = 0, params = [])
+        if msmnt is not None:
+            PaData.add_point(msmnt[1], point, [])
+        self.data_changed.emit(True)
+
     @Slot(QModelIndex, QModelIndex, list)
     def _msmnt_renamed(
             self,
@@ -611,68 +639,30 @@ class LoggerWidget(QDockWidget, log_dock_widget_ui.Ui_d_log):
         super().__init__(parent)
         self.setupUi(self)
 
-class CurveMeasureWidget(QWidget,curve_measure_widget_ui.Ui_Curve_measure_widget):
-    """1D PhotoAcoustic measurements widget."""
-
-    cur_p_changed = Signal()
-    "Signal change of current data point."
-    curve_started = Signal(PlainQuantity)
+class MeasureWidget():
+    """
+    Base class for Curve and Point Measure widgets.
+    
+    Subclasses should implement the following elements:\n
+    `btn_measure`: `QPushButton` - btn, which launches measurement of PA signal.\n
+    `sb_sample_sp`: `QuantSpinBox` - value of setpoint energy on the sample.\n
+    `sb_pm_sp`: `QuantSpinBox` - value of setpoint energy on the sample.\n
+    `pm_monitor`: `PowerMeterMonitor` - Widget for energy monitoring.\n
+    `le_sample_en`: `QLineEdit` - Current energy at sample.\n
+    `le_pm_en`: `QLineEdit` - Current energy at power meter.\n
+    """
     point_measured = Signal(MeasuredPoint)
     "Value indicates whether measured point"
-    curve_obtained = Signal(Measurement)
+    measure_point = Signal(PlainQuantity)
 
-    def __init__(self, parent: QWidget | None=None) -> None:
-        super().__init__(parent)
-        self.setupUi(self)
+    def __init__(self) -> None:
 
-        self.pm_monitor = PowerMeterMonitor(self)
-        self.lo_measure.replaceWidget(
-            0,
-            self.pm_monitor
-        )
-        self.points_num: int = 1
-        "Amount of data points in measurement."
-        self.step: PlainQuantity
-        "Parameter step value."
-        self.param_points: PlainQuantity
-        "Array with all param values."
-        self._current_point: int = 0
-        self.measurement: Measurement
-
-        self.setup_widgets()
-        self.connect_signals_slots()
-
-    def setup_widgets(self) -> None:
-        """Setup widgets."""
-
-        # Set available params to measure
-        self.cb_mode.clear()
-        self.cb_mode.addItems(list(CURVE_PARAMS))
-        self.set_param_widget(self.cb_mode.currentText())
-
-    def connect_signals_slots(self) -> None:
-        """Connect signals and slots for the widget."""
-
-        # Auto update widgets when current_point is changed
-        self.cur_p_changed.connect(self.upd_widgets)
-        # Set param btn
-        self.btn_run.clicked.connect(self.setup_measurement)
-        # Measure btn clicked
-        self.btn_measure.clicked.connect(self.start_msmnt)
-        # Point measured
-        self.point_measured.connect(self.add_point)
-        # New parameter choosen
-        self.cb_mode.currentTextChanged.connect(self.set_param_widget)
-        # Stop btn
-        self.btn_stop.clicked.connect(self.curve_finished)
-
-    def start_msmnt(self) -> None:
-        """Start measurement."""
-        
-        # block measure button
-        self.btn_measure.setEnabled(False)
-        # Launch measurement
-        self.curve_started.emit(self.sb_cur_wl.quantity)
+        self.btn_measure: QPushButton
+        self.sb_sample_sp: QuantSpinBox
+        self.sb_pm_sp: QuantSpinBox
+        self.pm_monitor: PowerMeterMonitor
+        self.le_sample_en: QLineEdit
+        self.le_pm_en: QLineEdit
 
     def verify_msmnt(self, data: MeasuredPoint | None) -> bool:
         """Verify measured datapoint."""
@@ -713,12 +703,135 @@ class CurveMeasureWidget(QWidget,curve_measure_widget_ui.Ui_Curve_measure_widget
             ) # type: ignore
         )
         if ver.exec():
-            self.point_measured.emit(data)
+            self.point_measured.emit(data) # type: ignore
             return True
         else:
             logger.info('Point rejected')
             self.btn_measure.setEnabled(True)
             return False
+
+    def upd_sp(
+        self,
+        caller: QuantSpinBox) -> None:
+        """Update Set Point data."""
+
+        # Update PM SetPoint if Sample SetPoint was set
+        if caller == self.sb_sample_sp:
+            new_sp = hutils.glan_calc_reverse(caller.quantity)
+            if new_sp is None:
+                logger.error('New set point cannot be calculated')
+                return
+            set_sb_silent(self.sb_pm_sp, new_sp)
+        # Update Sample SetPoint if PM SetPoint was set   
+        elif caller == self.sb_pm_sp:
+            new_sp = hutils.glan_calc(caller.quantity)
+            if new_sp is None:
+                logger.error('New set point cannot be calculated')
+                return
+            set_sb_silent(self.sb_sample_sp, new_sp)
+
+        # Update SetPoint on plot
+        self.pm_monitor.plot_right.sp = self.sb_pm_sp.quantity
+
+    def setup_sp(self) -> None:
+        """Setup setpoint controls."""
+
+        # Setpoint initial value
+        self.upd_sp(self.sb_sample_sp)
+        # Sample energy SetPoint 
+        self.sb_sample_sp.valueChanged.connect(
+            lambda x: self.upd_sp(self.sb_sample_sp)
+        )
+        # Power meter energy SetPoint
+        self.sb_pm_sp.valueChanged.connect(
+            lambda x: self.upd_sp(self.sb_pm_sp)
+        )
+    
+    def setup_pm(self) -> None:
+        """Setup energy measurements."""
+
+        # Current PM energy value
+        self.pm_monitor.le_cur_en.textChanged.connect(
+            self.le_pm_en.setText
+        )
+        # Current Sample energy value
+        self.pm_monitor.le_cur_en.textChanged.connect(
+            lambda val: self.le_sample_en.setText(
+                str(hutils.glan_calc(Q_(val)))
+            )
+        )
+
+class CurveMeasureWidget(QWidget, curve_measure_widget_ui.Ui_Curve_measure_widget, MeasureWidget):
+    """1D PhotoAcoustic measurements widget."""
+
+    cur_p_changed = Signal()
+    "Signal change of current data point."
+    curve_obtained = Signal(Measurement)
+
+    def __init__(self, parent: QWidget | None=None) -> None:
+        super().__init__(parent)
+        self.setupUi(self)
+
+        self.pm_monitor = PowerMeterMonitor(self)
+        self.lo_measure.replaceWidget(
+            0,
+            self.pm_monitor
+        )
+        self.points_num: int = 1
+        "Amount of data points in measurement."
+        self.step: PlainQuantity
+        "Parameter step value."
+        self.param_points: PlainQuantity
+        "Array with all param values."
+        self._current_point: int = 0
+        self.measurement: Measurement
+
+        self.setup_widgets()
+        self.connect_signals_slots()
+        self.setup_sp()
+        self.setup_pm()
+
+    def setup_widgets(self) -> None:
+        """Setup widgets."""
+
+        # Set available params to measure
+        self.cb_mode.clear()
+        self.cb_mode.addItems(list(CURVE_PARAMS))
+        self.set_param_widget(self.cb_mode.currentText())
+
+    def connect_signals_slots(self) -> None:
+        """Connect signals and slots for the widget."""
+
+        # Auto update widgets when current_point is changed
+        self.cur_p_changed.connect(self.upd_widgets)
+        # Set param btn
+        self.btn_run.clicked.connect(self.setup_measurement)
+        # Measure btn clicked
+        self.btn_measure.clicked.connect(self.measure)
+        # Point measured
+        self.point_measured.connect(self.add_point)
+        # New parameter choosen
+        self.cb_mode.currentTextChanged.connect(self.set_param_widget)
+        # Stop btn
+        self.btn_stop.clicked.connect(self.curve_finished)
+        # Restart btn
+        self.btn_restart.clicked.connect(self.restart_msmnt)
+
+    def measure(self) -> None:
+        """Start measurement."""
+        
+        # block measure button
+        self.btn_measure.setEnabled(False)
+        # Launch measurement
+        self.measure_point.emit(self.sb_cur_wl.quantity)
+
+    def restart_msmnt(self) -> None:
+
+        self.measurement = PaData.create_measurement(
+            dims = 1,
+            params = [self.cb_mode.currentText()]
+        )
+        self.current_point = 0
 
     def add_point(self, point: MeasuredPoint) -> None:
         """Add measured point to msmnt."""
@@ -813,6 +926,7 @@ class CurveMeasureWidget(QWidget,curve_measure_widget_ui.Ui_Curve_measure_widget
             self.sb_cur_param.quantity = new_param
             if self.cb_mode.currentText() == 'Wavelength':
                 self.sb_cur_wl.quantity = new_param
+            # Restart btn
         # If the last point
         else:
             self.curve_finished()
@@ -849,8 +963,7 @@ class CurveMeasureWidget(QWidget,curve_measure_widget_ui.Ui_Curve_measure_widget
             self._current_point = val
             self.cur_p_changed.emit()
 
-
-class PointMeasureWidget(QWidget,point_measure_widget_ui.Ui_Form):
+class PointMeasureWidget(QWidget,point_measure_widget_ui.Ui_Form, MeasureWidget):
     """0D PhotoAcoustic measurements widget."""
 
     def __init__(self, parent: QWidget | None=None) -> None:
@@ -862,6 +975,19 @@ class PointMeasureWidget(QWidget,point_measure_widget_ui.Ui_Form):
             self.placeholder_pm_monitor,
             self.pm_monitor
         )
+
+        self.connect_signals_slots()
+        self.setup_sp()
+        self.setup_pm()
+
+    def connect_signals_slots(self) -> None:
+        """Connect signals and slots for the widget."""
+
+        # Measure btn clicked
+        self.btn_measure.clicked.connect(self.measure)
+
+    def measure(self) -> None:
+        self.measure_point.emit(self.sb_cur_param.quantity)
 
 class MapMeasureWidget(QWidget,map_measure_widget_ui.Ui_map_measure):
     """2D PhotoAcoustic measurements widget."""
