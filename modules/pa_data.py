@@ -227,10 +227,22 @@ class PaData:
             data: MeasuredPoint,
             param_val: list[PlainQuantity]
         ) -> None:
-        """Add data to measurement."""
+        """
+        Add datapoint to measurement.
+        
+        Replace already measured point with similar `param_val`
+        """
 
         logger.debug('Starting datapoint addition to measurement...')
-        title = PaData._build_name(measurement.attrs.data_points + 1)
+        if (exist_point:=PaData.point_by_param(measurement, param_val)) is not None:
+            for key, val in measurement.data.items():
+                if val == exist_point:
+                    title = key
+                    new_point = False
+                    break
+        else:
+            title = PaData._build_name(measurement.attrs.data_points + 1)
+            new_point = True
         if not title:
             logger.error('Max data_points reached! Data cannot be added!')
             return None
@@ -279,7 +291,8 @@ class PaData:
         # update some technical attributes
         if len(rawdata.data) > measurement.attrs.max_len: # type: ignore
             measurement.attrs.max_len = len(rawdata.data) # type: ignore
-        measurement.attrs.data_points += 1
+        if new_point:
+            measurement.attrs.data_points += 1
         measurement.attrs.updated = PaData._get_cur_time()
         logger.debug('...Finishing data point addition to measurement.')
 
@@ -955,7 +968,7 @@ class PaData:
         for point in msmnt.data.values():
             if point.attrs.param_val == param:
                 return point
-        logger.warning(f'Point for param val {param} not found.')
+        logger.debug(f'Point for param val {param} not found.')
         return None
     
     @staticmethod

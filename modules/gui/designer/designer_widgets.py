@@ -19,8 +19,6 @@ from typing import Literal, cast, Optional
 from collections import deque
 from datetime import datetime
 import math
-from time import sleep, time
-from dataclasses import field, fields
 import re
 
 from PySide6.QtCore import (
@@ -32,8 +30,7 @@ from PySide6.QtCore import (
     QRect,
     QItemSelectionModel,
     QItemSelection,
-    QModelIndex,
-    QObject
+    QModelIndex
 )
 from PySide6.QtWidgets import (
     QDialog,
@@ -48,12 +45,10 @@ from PySide6.QtWidgets import (
     QLineEdit
 )
 from PySide6.QtGui import (
-    QPixmap,
-    QStandardItemModel
+    QPixmap
 )
 import numpy as np
 from pint.facets.plain.quantity import PlainQuantity
-from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT
 from matplotlib.backend_bases import PickEvent
 
 from . import (
@@ -794,6 +789,8 @@ class CurveMeasureWidget(QWidget, curve_measure_widget_ui.Ui_Curve_measure_widge
     def setup_widgets(self) -> None:
         """Setup widgets."""
 
+        # Plot params
+        self.plot_measurement.enable_pick = True
         # Set available params to measure
         self.cb_mode.clear()
         self.cb_mode.addItems(list(CURVE_PARAMS))
@@ -815,7 +812,11 @@ class CurveMeasureWidget(QWidget, curve_measure_widget_ui.Ui_Curve_measure_widge
         # Stop btn
         self.btn_stop.clicked.connect(self.curve_finished)
         # Restart btn
-        self.btn_restart.clicked.connect(self.restart_msmnt)
+        self.btn_redo.clicked.connect(self.redo_msmnt)
+        # Data picker in curve plot
+        self.plot_measurement.fig.canvas.mpl_connect(
+            'pick_event', self.pick_event # type: ignore
+        )
 
     def measure(self) -> None:
         """Start measurement."""
@@ -825,13 +826,10 @@ class CurveMeasureWidget(QWidget, curve_measure_widget_ui.Ui_Curve_measure_widge
         # Launch measurement
         self.measure_point.emit(self.sb_cur_wl.quantity)
 
-    def restart_msmnt(self) -> None:
+    def redo_msmnt(self) -> None:
 
-        self.measurement = PaData.create_measurement(
-            dims = 1,
-            params = [self.cb_mode.currentText()]
-        )
-        self.current_point = 0
+        self.current_point -= 1
+        self.measure()
 
     def add_point(self, point: MeasuredPoint) -> None:
         """Add measured point to msmnt."""
@@ -862,7 +860,7 @@ class CurveMeasureWidget(QWidget, curve_measure_widget_ui.Ui_Curve_measure_widge
             True
         )
         # But keep restart deactivated
-        self.btn_restart.setEnabled(False)
+        self.btn_redo.setEnabled(False)
 
         # Deactivate paramter controls
         set_layout_enabled(
@@ -919,6 +917,21 @@ class CurveMeasureWidget(QWidget, curve_measure_widget_ui.Ui_Curve_measure_widge
         text = f'{self.current_point}/{self.points_num}'
         self.lbl_pb.setText(text)
 
+        if self.current_point:
+            self.btn_redo.setEnabled(True)
+            # Plot data
+            data = PaData.param_data_plot(
+                msmnt = self.measurement,
+                dtype = 'raw_data'
+            )
+            self.plot_measurement.plot(*data)
+            self.plot_measurement.set_marker([self.current_point - 1])
+            detail_data = PaData.point_data_plot(
+                msmnt = self.measurement,
+                index = self.current_point - 1,
+                dtype = 'raw_data'
+            )
+            self.plot_detail.plot(*detail_data)
         
         if self.current_point < self.points_num:
             # current param value
@@ -926,10 +939,17 @@ class CurveMeasureWidget(QWidget, curve_measure_widget_ui.Ui_Curve_measure_widge
             self.sb_cur_param.quantity = new_param
             if self.cb_mode.currentText() == 'Wavelength':
                 self.sb_cur_wl.quantity = new_param
-            # Restart btn
+            # Measure next btn
+            self.btn_measure.setEnabled(True)
         # If the last point
         else:
-            self.curve_finished()
+            self.btn_measure.setEnabled(False)
+
+    def pick_event(self, event: PickEvent):
+        """Callback method for processing data picking on plot."""
+
+        # Update datamarker on plot
+        self.current_point = event.ind[0] + 1
 
     def curve_finished(self) -> None:
         
@@ -1234,8 +1254,8 @@ class MapMeasureWidget(QWidget,map_measure_widget_ui.Ui_map_measure):
             self.plot_scan.set_abs_scan_pos(True)
         else:
             self.plot_scan.set_scanrange(
-                self.plot_scan.data.width,
-                self.plot_scan.data.height
+                self.plot_scan.data.width, # type: ignore
+                self.plot_scan.data.height # type: ignore
             )
             self.plot_scan.set_abs_scan_pos(False)
 
@@ -1271,16 +1291,16 @@ class MapMeasureWidget(QWidget,map_measure_widget_ui.Ui_map_measure):
             return
         # Otherwise update spin boxes
         x, y, width, height = new_sel
-        cx = x + width/2
-        cy = y + height/2
+        cx = x + width/2 # type: ignore
+        cy = y + height/2 # type: ignore
         if self.sb_centerX.quantity != cx:
             self.sb_centerX.quantity = cx # type: ignore
         if self.sb_centerY.quantity != cy:
             self.sb_centerY.quantity = cy # type: ignore
         if self.sb_sizeX.quantity != width:
-            self.sb_sizeX.quantity = width
+            self.sb_sizeX.quantity = width # type: ignore
         if self.sb_sizeY.quantity != height:
-            self.sb_sizeY.quantity = height
+            self.sb_sizeY.quantity = height # type: ignore
 
         # Step size is determined by scan speed and ADC rate, therefore
         # when scan size is changed, points number, but step size 
