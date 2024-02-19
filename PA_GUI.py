@@ -62,9 +62,6 @@ from modules.pa_data import (
 )
 
 import modules.pa_logic as pa_logic
-from modules.utils import (
-    upd_plot
-)   
 from modules.data_classes import (
     Worker,
     EnergyMeasurement,

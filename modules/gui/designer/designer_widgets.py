@@ -42,7 +42,8 @@ from PySide6.QtWidgets import (
     QLabel,
     QProgressDialog,
     QMessageBox,
-    QLineEdit
+    QLineEdit,
+    QSpinBox
 )
 from PySide6.QtGui import (
     QPixmap
@@ -471,7 +472,7 @@ class DataViewer(QWidget, data_viewer_ui.Ui_Form):
         self.data_changed.emit(True)
 
     @Slot(MeasuredPoint)
-    def add_point_to_data(self, point: MeasuredPoint) -> None:
+    def add_point_to_data(self, point: list[MeasuredPoint]) -> None:
         """SAve single point measurement."""
 
         # create new data structure if necessary
@@ -658,6 +659,9 @@ class MeasureWidget():
         self.pm_monitor: PowerMeterMonitor
         self.le_sample_en: QLineEdit
         self.le_pm_en: QLineEdit
+        self.sb_aver: QSpinBox
+        self.cur_rep: int
+        self.sb_cur_param: QuantSpinBox
 
     def verify_msmnt(self, data: MeasuredPoint | None) -> bool:
         """Verify measured datapoint."""
@@ -698,12 +702,19 @@ class MeasureWidget():
             ) # type: ignore
         )
         if ver.exec():
-            self.point_measured.emit(data) # type: ignore
-            return True
+            if self.cur_rep == self.sb_aver.value(): 
+                self.point_measured.emit(data) # type: ignore
+                return True
+            else:
+                self.cur_rep += 1
+                self.measure()
         else:
             logger.info('Point rejected')
             self.btn_measure.setEnabled(True)
             return False
+
+    def measure(self) -> None:
+        self.measure_point.emit(self.sb_cur_param.quantity) # type: ignore
 
     def upd_sp(
         self,
@@ -779,6 +790,7 @@ class CurveMeasureWidget(QWidget, curve_measure_widget_ui.Ui_Curve_measure_widge
         self.param_points: PlainQuantity
         "Array with all param values."
         self._current_point: int = 0
+        self.cur_rep = 1
         self.measurement: Measurement
 
         self.setup_widgets()
@@ -831,7 +843,7 @@ class CurveMeasureWidget(QWidget, curve_measure_widget_ui.Ui_Curve_measure_widge
         self.current_point -= 1
         self.measure()
 
-    def add_point(self, point: MeasuredPoint) -> None:
+    def add_point(self, point: list[MeasuredPoint]) -> None:
         """Add measured point to msmnt."""
 
         PaData.add_point(
@@ -924,7 +936,7 @@ class CurveMeasureWidget(QWidget, curve_measure_widget_ui.Ui_Curve_measure_widge
                 msmnt = self.measurement,
                 dtype = 'raw_data'
             )
-            self.plot_measurement.plot(*data)
+            self.plot_measurement.plot(**data._asdict())
             self.plot_measurement.set_marker([self.current_point - 1])
             detail_data = PaData.point_data_plot(
                 msmnt = self.measurement,
@@ -1005,9 +1017,6 @@ class PointMeasureWidget(QWidget,point_measure_widget_ui.Ui_Form, MeasureWidget)
 
         # Measure btn clicked
         self.btn_measure.clicked.connect(self.measure)
-
-    def measure(self) -> None:
-        self.measure_point.emit(self.sb_cur_param.quantity)
 
 class MapMeasureWidget(QWidget,map_measure_widget_ui.Ui_map_measure):
     """2D PhotoAcoustic measurements widget."""

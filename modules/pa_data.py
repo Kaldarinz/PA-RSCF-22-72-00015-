@@ -111,7 +111,8 @@ from .data_classes import (
     PaEnergyMeasurement,
     MeasuredPoint,
     MapData,
-    ScanLine
+    ScanLine,
+    PlotData
 )
 from modules.exceptions import (
     PlotError
@@ -214,7 +215,7 @@ class PaData:
             for pno, point in enumerate(line.raw_data):
                 self.add_point(
                     measurement = msmnt,
-                    data = point,
+                    data = [point],
                     param_val = [Q_(lno, ''), Q_(pno, '')]
                 )
                 # Set correct created time for measurement
@@ -224,8 +225,9 @@ class PaData:
     @staticmethod
     def add_point(
             measurement: Measurement,
-            data: MeasuredPoint,
-            param_val: list[PlainQuantity]
+            data: list[MeasuredPoint],
+            param_val: list[PlainQuantity],
+            repetitions: int = 1
         ) -> None:
         """
         Add datapoint to measurement.
@@ -257,36 +259,37 @@ class PaData:
                 param_val = [x.to(y.u) for x,y in zip(param_val,exist_params)]
             # get data from any existing datapoint
             exist_data = next(iter(measurement.data.values())).raw_data.data
-            if exist_data.u != data.pa_signal.u:
-                logger.debug(f'Changing units of data from {data.pa_signal.u} '
-                             +f'to {exist_data.u}')
-                data.pa_signal = data.pa_signal.to(exist_data.u)
+            for dp in data:
+                if exist_data.u != dp.pa_signal.u:
+                    logger.debug(f'Changing units of data from {dp.pa_signal.u} '
+                                +f'to {exist_data.u}')
+                    dp.pa_signal = dp.pa_signal.to(exist_data.u)
         
         metadata = PointMetadata(
-            pm_en = data.pm_energy,
-            sample_en = data.sample_en,
-            datetime = data.datetime,
-            wavelength = data.wavelength,
-            pos = data.pos,
+            wavelength = data[0].wavelength,
+            pos = data[0].pos,
             param_val = param_val.copy()
         )
-        
-        rawdata = BaseData(
-            data = data.pa_signal.copy(), # type: ignore
-            data_raw = data.pa_signal_raw.copy(),
-            yincrement = data.yincrement,
-            max_amp = data.pa_signal.ptp(), # type: ignore
-            x_var_step = data.dt,
-            x_var_start = data.start_time,
-            x_var_stop = data.stop_time,
-        )
-        filtdata, freqdata = PaData.bp_filter(rawdata)
-        datapoint = DataPoint(
-            attrs = metadata,
-            raw_data = rawdata,
-            filt_data = filtdata,
-            freq_data = freqdata
-        )
+        datapoint = DataPoint(attrs = metadata)
+        for ind, dp in enumerate(data):
+            dp_title = PaData._build_name(ind, 'repetition')
+            rawdata = BaseData(
+                data = dp.pa_signal.copy(), # type: ignore
+                data_raw = dp.pa_signal_raw.copy(),
+                pm_en = dp.pm_energy,
+                sample_en = dp.sample_en,
+                datetime = dp.datetime,
+                yincrement = dp.yincrement,
+                max_amp = dp.pa_signal.ptp(), # type: ignore
+                x_var_step = dp.dt,
+                x_var_start = dp.start_time,
+                x_var_stop = dp.stop_time,
+            )
+            datapoint.raw_data.update({dp_title: rawdata})
+            filtdata, freqdata = PaData.bp_filter(rawdata)
+            datapoint.filt_data.update({dp_title: filtdata})
+            datapoint.freq_data.update({dp_title: freqdata})
+
         measurement.data.update({title: datapoint})
         # update some technical attributes
         if len(rawdata.data) > measurement.attrs.max_len: # type: ignore
@@ -508,7 +511,8 @@ class PaData:
             # handled, when a field is serialized into several records. 
             if fld.type == list[PlainQuantity]:
                 # Try to construct quantities only for non-empty lists
-                if len(source.get(fld.name, None)):
+                logger.info(f'Loading {fld.name=}')
+                if len(source.get(fld.name, [])):
                     mags = source.get(fld.name, None)
                     units = source.get(fld.name + '_u', None)
                     if mags is not None and units is not None:
@@ -531,9 +535,6 @@ class PaData:
                 value = source.get(fld.name, None)
             if value is not None:
                 init_vals.update({fld.name: value})
-            # Support for file version < 1.4
-            if dtype is PointMetadata and init_vals.get('datetime', None) is None:
-                init_vals['datetime'] = datetime.fromtimestamp(0)
         return dtype(**init_vals)
 
     def _load_basedata(
@@ -548,24 +549,37 @@ class PaData:
             'data': data,
             'data_raw': data_raw
         }
-        for key, val in BaseData.__annotations__.items():
+        for fld in fields(BaseData):
             # this condition check is different from others
-            if key not in ['data', 'data_raw']:
+            if fld.name not in ['data', 'data_raw']:
+                value = None
                 # load old data format
                 if self.attrs.version < 1.4:
-                    if key == 'yincrement':
-                        item = Q_(np.nan, 'V')
-                        init_vals.update({key: item})
+                    if fld.name == 'yincrement':
+                        value = Q_(np.nan, 'V')
+                        if value is not None:
+                            init_vals.update({fld.name: value})
                         continue
-                if val == list[PlainQuantity]:
-                    mags = source[key]
-                    units = source[key + '_u']
-                    item = [Q_(m, u) for m, u in zip(mags, units)]
-                elif val is PlainQuantity:
-                    item = Q_(source[key], source[key + '_u'])
+                if fld.type == list[PlainQuantity]:
+                    mags = source[fld.name]
+                    units = source[fld.name + '_u']
+                    value = [Q_(m, u) for m, u in zip(mags, units)]
+                elif fld.type == PlainQuantity:
+                    try:
+                        value = Q_(source[fld.name], source[fld.name + '_u'])
+                    except:
+                        logger.debug(f'Error in data loading for {fld.name}.')
+                elif fld.type == datetime:
+                    iso_format = source.get(fld.name, None)
+                    if iso_format is not None:
+                        value = datetime.fromisoformat(iso_format)
                 else:
-                    item = source[key]
-                init_vals.update({key: item})
+                    value = source[fld.name]
+                if value is not None:
+                    init_vals.update({fld.name: value})
+                    # Support for file version < 1.4
+        if init_vals.get('datetime', None) is None:
+            init_vals['datetime'] = datetime.fromtimestamp(0)
         return BaseData(**init_vals)
 
     def _calc_data_fit(self,
@@ -640,15 +654,16 @@ class PaData:
                     data_raw = ds[...]
                     y_var_units = ds.attrs['y_var_units']
                     # restore data
+                    base_attrs = dict(ds.attrs.items())
                     if general.get('version', 0) < 1.4:
                         p = np.poly1d([ds.attrs['a'], ds.attrs['b']])
                         data = Q_(p(data_raw), y_var_units)
                     else:
-                        data = data_raw * ds.attrs['yincrement'] / point_attrs.sample_en
+                        data = data_raw * ds.attrs['yincrement'] / ds.attrs['sample_en']
                     basedata = self._load_basedata(
                         data,
                         data_raw,
-                        dict(ds.attrs.items())
+                        base_attrs
                     )
                     filtdata, freqdata = self.bp_filter(basedata)
                     dp = DataPoint(
@@ -683,73 +698,7 @@ class PaData:
                         line.add_measurements(line_points)
                         scan.add_line(line)
                     self.maps.update({msmnt_title: scan})
-
-    def _load_old(self, file: h5py.File) -> None:
-        """Load file with version < 1.2."""
-
-        self.attrs = FileMetadata(
-            version = file.attrs['version'], # type: ignore
-            measurements_count = 1,
-            created = file.attrs['created'], # type: ignore
-            updated = file.attrs['updated'], # type: ignore
-            notes = ''
-        )
-        self.measurements = {}
-
-        raw_data = file['raw_data']
-        msmnt_md = MeasurementMetadata(
-            measurement_dims = file.attrs['measurement_dims'], # type: ignore
-            parameter_name = file.attrs['parameter_name'], # type: ignore
-            data_points = file.attrs['data_points'], # type: ignore
-            max_len = raw_data.attrs['max_len'] # type: ignore
-        )
-        msmnt = Measurement(msmnt_md)
-        self.measurements.update({'measurement001': msmnt})
-        for ds_name, ds in raw_data.items(): # type: ignore
-            data_raw = ds[...]
-            y_var_units = raw_data.attrs['y_var_u']
-            p = np.poly1d([ds.attrs['a']], ds.attrs['b'])
-            data = Q_(p(data_raw), y_var_units) # type: ignore
-            basedata = BaseData(
-                data = data,
-                data_raw = data_raw,
-                a = ds.attrs['a'],
-                b = ds.attrs['b'],
-                max_amp = Q_(
-                    ds.attrs['max_amp'],
-                    ds.attrs['max_amp_u']
-                ),
-                x_var_step = Q_(
-                    ds.attrs['x_var_step'],
-                    raw_data.attrs['x_var_u'] # type: ignore
-                ), # type: ignore
-                x_var_start = Q_(
-                    ds.attrs['x_var_start'],
-                    raw_data.attrs['x_var_u'] # type: ignore
-                ), # type: ignore
-                x_var_stop = Q_(
-                    ds.attrs['x_var_stop'],
-                    raw_data.attrs['x_var_u'] # type: ignore
-                ) # type: ignore
-            )
-            fildata, freqdata = self.bp_filter(basedata)
-            p_md = PointMetadata(
-                pm_en = Q_(ds.attrs['pm_en'], ds.attrs['pm_en_u']),
-                sample_en = Q_(
-                    ds.attrs['sample_en'],
-                    ds.attrs['sample_en_u']
-                ),
-                param_val= [Q_(x,y) for x,y in zip(
-                    ds.attrs['param_val'], file.attrs['parameter_u'])] # type: ignore
-            )
-            dp = DataPoint(
-                p_md,
-                basedata,
-                fildata,
-                freqdata
-            )
-            msmnt.data.update({ds_name:dp})
-        
+     
     @staticmethod
     def _build_name(n: int, name: str='point') -> str:
         """
@@ -774,7 +723,7 @@ class PaData:
             msmnt: Measurement,
             dtype: str='filt_data',
             value: str='max_amp'
-        ) -> tuple[npt.NDArray, npt.NDArray, str, str]:
+        ) -> PlotData:
         """Get main data for plotting.
         
         ``msmnt`` - measurement, from which to plot data.\n
@@ -803,14 +752,21 @@ class PaData:
         
         x_label = (msmnt.attrs.parameter_name[0] 
                 + ', ['
-                + f'{xdata.u:~.2gP}'
+                + f'{xdata[0].u:~.2gP}'
                 + ']')
-        y_label = (msmnt.data['point001'].raw_data.y_var_name
+        y_label = (msmnt.data['point001'].raw_data['repetition001'].y_var_name
                 + ', ['
-                + f'{ydata.u:~.2gP}'
+                + f'{ydata[0].u:~.2gP}'
                 + ']')
-
-        return (ydata.m, xdata.m, y_label, x_label)
+        result = PlotData(
+            ydata = ydata[0],
+            yerr = ydata[1],
+            xdata = xdata[0],
+            xerr = xdata[1],
+            ylabel = y_label,
+            xlabel = x_label
+        )
+        return result
 
     @staticmethod
     def point_data_plot(
@@ -819,7 +775,7 @@ class PaData:
             dtype: str,
             dstart: PlainQuantity | None=None,
             dstop: PlainQuantity | None=None
-        ) -> tuple[npt.NDArray, npt.NDArray, str, str]:
+        ) -> PlotData:
         """
         Get point data for plotting.
         
@@ -833,7 +789,7 @@ class PaData:
         result = empty_data
         ds_name = PaData._build_name(index+1)
 
-        ds = getattr(msmnt.data[ds_name], dtype)
+        ds = getattr(msmnt.data[ds_name], dtype)['repetition001']
         result = PaData._point_data(ds, dstart, dstop)
         return result
 
@@ -842,7 +798,7 @@ class PaData:
             ds: BaseData|ProcessedData,
             dstart: PlainQuantity | None=None,
             dstop: PlainQuantity | None=None
-        ) -> tuple[npt.NDArray, npt.NDArray, str, str]:
+        ) -> PlotData:
         """
         Get point data for plotting.
         
@@ -869,72 +825,37 @@ class PaData:
                    + ', ['
                    + str(ds.data.u)
                    + ']')
-        return (ds.data.m, time_data.m, y_label, x_label)
-
-        if zoom_ax is not None:
-            #marker for max value
-            max_val = np.amax(ds['data'])
-            max_ind = np.flatnonzero(ds['data']==max_val)[0]
-            max_t = time_data[max_ind] #type:ignore
-            ax.plot(max_t.m, max_val.m, **self._marker_style)
-            
-            #marker for min value
-            min_val = np.amin(ds['data'])
-            min_ind = np.flatnonzero(ds['data']==min_val)[0]
-            min_t = time_data[min_ind] #type:ignore
-            ax.plot(min_t.m, min_val.m, **self._marker_style)
-        
-            #marker for zoomed area
-            pre_time = self.attrs['zoom_pre_time']
-            post_time = self.attrs['zoom_post_time']
-            pre_points = int(pre_time.to(step.u).m/step.m)
-            post_points = int(post_time.to(step.u).m/step.m)
-            start_zoom_ind = max_ind-pre_points
-            if start_zoom_ind < 0:
-                start_zoom_ind = 0
-            stop_zoom_ind = min_ind + post_points
-            if stop_zoom_ind > (len(time_data.m) - 1):
-                stop_zoom_ind = len(time_data.m) - 1
-            ax.fill_betweenx(
-                [min_val.m, max_val.m],
-                time_data[start_zoom_ind].m, #type:ignore
-                time_data[stop_zoom_ind].m, #type:ignore
-                **self._fill_style
-            )
-
-            #plot zoomed
-            zoom_ax.clear()
-            # uncomment to change into absolute x_axis for zoomed adrea
-            # z_time_off = time_data[start_zoom_ind].m #type:ignore
-            # zoom_ax.plot(
-            #     time_data[start_zoom_ind:stop_zoom_ind+1].m-z_time_off, #type:ignore
-            #     ds['data'][start_zoom_ind:stop_zoom_ind+1].m
-            # )
-            zoom_ax.plot(
-                time_data[start_zoom_ind:stop_zoom_ind+1].m,
-                ds['data'][start_zoom_ind:stop_zoom_ind+1].m
-            )
-            zoom_ax.set_xlabel(x_label)
-            zoom_ax.set_ylabel(y_label)
-            zoom_ax.set_title('Zoom of ' + title)
+        return PlotData(
+            xdata = time_data.m,
+            ydata = ds.data.m,
+            xlabel = x_label,
+            ylabel = y_label
+        )
 
     @staticmethod
     def get_dependance(
             msmnt: Measurement,
             data_type: str, 
             value: str
-        ) -> PlainQuantity | None:
+        ) -> tuple[PlainQuantity, PlainQuantity] | None:
         """
-        Return ``value`` for each dataPoint in a given measurement.
+        Get mean and str of ``value`` for DataPoints in measurement.
         
+        Attributes
+        ----------
         ``msmnt`` - measurement, from which to read the data.\n
         ``data_type`` - type of data, can have 3 values 
         'raw_data'|'filt_data|'freq_data'.\n
         ``value`` - name of the attribute.
+
+        Return
+        ------
+        A tuple with arrays of mean and std values.
         """
 
         logger.debug(f'Start building array of {value}.')
-        dep = [] #array for return values
+        mean_vals = []
+        std_vals = []
         if not msmnt.attrs.data_points:
             logger.error(f'Measurement contains no data points.')
             return None
@@ -946,17 +867,22 @@ class PaData:
             if dp is None:
                 logger.error(f'Datapoint {dp_name} is missing')
                 return
-            if value in PointMetadata.__annotations__.keys():
-                if PointMetadata.__annotations__[value] == list[PlainQuantity]:
-                    # temporary solution, fix later
-                    dep.append(getattr(dp.attrs, value)[0])
-                else:
-                    dep.append(getattr(dp.attrs, value))
+            if value in [fld.name for fld in fields(PointMetadata)]:
+                quant = getattr(dp.attrs, value)
+                mean_vals.append(quant)
+                std_vals.append(Q_(0, quant.u))
             else:
-                groupd = getattr(dp, data_type)
-                dep.append(getattr(groupd, value))
-        # explicit units are required at least for 'nm'
-        return pint.Quantity.from_list(dep, f'{dep[0].u:~}')
+                groupd = getattr(dp, data_type) # dict
+                all_vals = []
+                for repeat in groupd.items():
+                    all_vals.append(getattr(repeat, value))
+                all_vals = pint.Quantity.from_list(all_vals)
+                mean_vals.append(all_vals.mean()) # type: ignore
+                std_vals.append(all_vals.std()) # type: ignore
+        return (
+            pint.Quantity.from_list(mean_vals),
+            pint.Quantity.from_list(std_vals)
+        )
 
     @staticmethod
     def point_by_param(

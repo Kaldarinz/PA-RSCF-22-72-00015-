@@ -15,7 +15,7 @@ Grant # 22-72-00015
 """
 
 import sys
-from typing import Callable, TypeVar, Any, Literal, cast, TypedDict, NamedTuple
+from typing import Callable, TypeVar, Any, Literal, cast, TypedDict, NamedTuple, Iterable
 from typing_extensions import ParamSpec, Self, Type
 from dataclasses import dataclass, field, fields, asdict
 import traceback
@@ -49,6 +49,14 @@ logger = logging.getLogger(__name__)
 
 P = ParamSpec('P')
 T = TypeVar('T')
+
+class PlotData(NamedTuple):
+    ydata: Iterable
+    yerr: Iterable | None = None
+    xdata: Iterable | None = None
+    xerr: Iterable | None = None
+    ylabel: str | None = None
+    xlabel: str | None = None
 
 class QuantRect(NamedTuple):
     """Rectangle with quantity values of its bottom left corner, width and height."""
@@ -393,6 +401,8 @@ class BaseData:
     'measured PA signal'
     data_raw: npt.NDArray[np.int8]
     'measured PA signal in raw format'
+    datetime: dt
+    "Date and time of measurement."
     yincrement: PlainQuantity
     'Scaling factor to convert raw data to [V]: Data = yincrement*data_raw.'
     max_amp: PlainQuantity
@@ -402,6 +412,10 @@ class BaseData:
     x_var_stop: PlainQuantity
     x_var_name: str = 'Time'
     y_var_name: str = 'PhotoAcoustic Signal'
+    pm_en: PlainQuantity = Q_(np.nan, 'uJ')
+    'laser energy measured by power meter in glass reflection'
+    sample_en: PlainQuantity = Q_(np.nan, 'uJ')
+    'laser energy at sample'
     
 @dataclass
 class ProcessedData:
@@ -421,27 +435,23 @@ class ProcessedData:
 class PointMetadata:
     """General attributes of a single PA measurement."""
 
-    pm_en: PlainQuantity
-    'laser energy measured by power meter in glass reflection'
-    sample_en: PlainQuantity
-    'laser energy at sample'
-    datetime: dt
-    "Date and time of measurement."
     wavelength: PlainQuantity = Q_(np.nan, 'nm')
     'Excitation wavelength'
     pos: Position = field(default_factory=lambda: Position())
     'Position, at which point was measured'
     param_val: list[PlainQuantity] = field(default_factory=list)
     'value of independent parameters'
+    repetitions: int = 1
+    'Number of datapoint measurements for averaging'
 
 @dataclass
 class DataPoint:
     """Single PA measurement for storage."""
 
     attrs: PointMetadata
-    raw_data: BaseData
-    filt_data: ProcessedData
-    freq_data: ProcessedData
+    filt_data: dict[str, ProcessedData] = field(default_factory = dict, compare=False, repr=False)
+    freq_data: dict[str, ProcessedData] = field(default_factory = dict, compare=False, repr=False)
+    raw_data: dict[str, BaseData] = field(default_factory = dict, compare=False, repr=False)
 
 @dataclass
 class MeasurementMetadata:

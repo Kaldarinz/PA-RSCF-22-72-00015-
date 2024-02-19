@@ -29,7 +29,8 @@ from modules.data_classes import (
     Direction,
     DataPoint,
     BaseData,
-    MeasurementMetadata
+    MeasurementMetadata,
+    QuantRect
 )
 from modules.utils import (
     propvals
@@ -38,4 +39,10 @@ ureg = pint.get_application_registry()
 Q_ = ureg.Quantity
 rng = np.random.default_rng()
 
-print(Q_('1 mm'))
+qr = QuantRect(Q_(0,'m'), Q_(20,'m'), Q_(3, 'm'), Q_(4, 'm'))
+
+def foo(bottom, left, height, width):
+    print(f'{bottom=}')
+    print(f'{left=}')
+
+foo(**qr._asdict())

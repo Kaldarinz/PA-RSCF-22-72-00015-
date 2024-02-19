@@ -134,6 +134,8 @@ class MplCanvas(FigureCanvasQTAgg):
             self,
             ydata: Iterable,
             xdata: Iterable | None=None,
+            yerr: Iterable | None=None,
+            xerr: Iterable | None=None,
             ylabel: str | None=None,
             xlabel: str | None=None,
             fmt: str | None=None
@@ -147,6 +149,8 @@ class MplCanvas(FigureCanvasQTAgg):
         be shorter than ``ydata``. If None, then enumeration of 
         ``ydata`` will be used.\n
         ``ydata`` - Iterable containing data for Y axes.\n
+        ``yerr`` - Value of y error bar.\n
+        ``xerr`` - Value of x error bar.\n
         ``fmt`` - Format string.\n
         ``xlabel`` - Optional label for x data.\n
         ``ylabel`` - Optional label for y data.
@@ -170,10 +174,12 @@ class MplCanvas(FigureCanvasQTAgg):
             if fmt is None:
                 fmt = 'r'
             # Actual plot
-            self._plot_ref = self.axes.plot(
-                self.xdata,
-                self.ydata,
-                fmt,
+            self._plot_ref = self.axes.errorbar(
+                x = self.xdata,
+                y = self.ydata, # type: ignore
+                yerr = yerr, # type: ignore
+                xerr = xerr, # type: ignore
+                fmt = fmt,
                 picker = self.enable_pick,
                 pickradius = 10
             )[0]
@@ -361,6 +367,8 @@ class MplNavCanvas(QWidget):
             self,
             ydata: Iterable,
             xdata: Iterable | None=None,
+            yerr: Iterable | None=None,
+            xerr: Iterable | None=None,
             ylabel: str | None=None,
             xlabel: str | None=None,
             fmt: str | None=None
@@ -379,7 +387,15 @@ class MplNavCanvas(QWidget):
         ``ylabel`` - Optional label for y data.
         """
 
-        self.canvas.plot(ydata, xdata, ylabel, xlabel, fmt)
+        self.canvas.plot(
+            ydata = ydata,
+            xdata = xdata,
+            yerr = yerr,
+            xerr = xerr,
+            ylabel = ylabel,
+            xlabel = xlabel,
+            fmt = fmt
+        )
         # Reset history of navigation toolbar
         self.toolbar.update()
 
