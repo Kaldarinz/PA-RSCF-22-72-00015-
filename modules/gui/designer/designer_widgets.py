@@ -181,6 +181,14 @@ class DataViewer(QWidget, data_viewer_ui.Ui_Form):
         self.p_2d.cb_detail_select.currentTextChanged.connect(
             lambda _ : self.show_signal())
         
+        # Sample select
+        self.p_0d.cb_sample.currentTextChanged.connect(
+            lambda _ : self.show_signal())
+        self.p_1d.cb_sample.currentTextChanged.connect(
+            lambda _ : self.show_signal())
+        self.p_2d.cb_sample.currentTextChanged.connect(
+            lambda _ : self.show_signal())
+
         # Signal selection for parameter
         self.p_1d.cb_curve_select.currentTextChanged.connect(
             lambda _ : self.plot_param()
@@ -362,9 +370,11 @@ class DataViewer(QWidget, data_viewer_ui.Ui_Form):
         """
         Show selected point.
 
-        Automatically called, when new measurement is seleced.
+        Automatically called, when new point is seleced.
         """
 
+        view = self.sw_view.currentWidget()
+        view = cast(PointView|CurveView|MapView, view)
         if self.s_point is None:
             try:
                 self.sw_view.currentWidget().plot_detail.clear_plot() # type: ignore
@@ -375,8 +385,11 @@ class DataViewer(QWidget, data_viewer_ui.Ui_Form):
         
         # Set general point description
         self.tv_info.set_gen_point_md(self.s_point.attrs)
-        # Do some stuff with other plots if necessary
-        ...
+        # populate samples combobox
+        view.cb_sample.clear()
+        view.cb_sample.addItems(
+            list(self.s_point.raw_data)
+        )
         self.show_signal()
 
     def show_signal(self) -> None:
@@ -391,16 +404,20 @@ class DataViewer(QWidget, data_viewer_ui.Ui_Form):
         
         # signal data type for plotting
         dtype =  POINT_SIGNALS[view.cb_detail_select.currentText()]
-        # Set signal description
-        sig_attrs = getattr(self.s_point, dtype)
+        # Sample for plotting
+        sample_title = view.cb_sample.currentText()
+        # Get dict with dtype data for all samples in data point
+        dtype_dct = getattr(self.s_point, dtype)
+        # Get relative MD
+        sig_attrs = dtype_dct.get(sample_title, None)
         self.tv_info.set_signal_md(sig_attrs)
         # Plot the data
         detail_data = PaData.point_data_plot(
-            msmnt = self.s_msmnt,
-            index = self.s_point_ind,
-            dtype = dtype
+            point = self.s_point,
+            dtype = dtype,
+            sample = sample_title
         )
-        view.plot_detail.plot(*detail_data)
+        view.plot_detail.plot(**detail_data._asdict())
 
     @Slot()
     def plot_param(self) -> None:
@@ -419,7 +436,7 @@ class DataViewer(QWidget, data_viewer_ui.Ui_Form):
             msmnt = self.s_msmnt,
             dtype = dtype
         )
-        view.plot_curve.plot(*param_data)
+        view.plot_curve.plot(**param_data._asdict())
         view.plot_curve.set_marker([self.s_point_ind])
 
     def pick_event(self, event: PickEvent):
@@ -651,17 +668,19 @@ class MeasureWidget():
     "Value indicates whether measured point"
     measure_point = Signal(PlainQuantity)
 
-    def __init__(self) -> None:
+    btn_measure: QPushButton
+    sb_sample_sp: QuantSpinBox
+    sb_pm_sp: QuantSpinBox
+    pm_monitor: 'PowerMeterMonitor'
+    le_sample_en: QLineEdit
+    le_pm_en: QLineEdit
+    sb_aver: QSpinBox
+    cur_rep: int
+    sb_cur_param: QuantSpinBox
+    data_point: list[MeasuredPoint]
 
-        self.btn_measure: QPushButton
-        self.sb_sample_sp: QuantSpinBox
-        self.sb_pm_sp: QuantSpinBox
-        self.pm_monitor: PowerMeterMonitor
-        self.le_sample_en: QLineEdit
-        self.le_pm_en: QLineEdit
-        self.sb_aver: QSpinBox
-        self.cur_rep: int
-        self.sb_cur_param: QuantSpinBox
+    def __init__(self) -> None:
+        pass
 
     def verify_msmnt(self, data: MeasuredPoint | None) -> bool:
         """Verify measured datapoint."""
@@ -702,8 +721,11 @@ class MeasureWidget():
             ) # type: ignore
         )
         if ver.exec():
+            self.data_point.append(data)
             if self.cur_rep == self.sb_aver.value(): 
-                self.point_measured.emit(data) # type: ignore
+                self.point_measured.emit(self.data_point.copy()) # type: ignore
+                self.data_point = []
+                self.cur_rep = 1
                 return True
             else:
                 self.cur_rep += 1
@@ -790,7 +812,10 @@ class CurveMeasureWidget(QWidget, curve_measure_widget_ui.Ui_Curve_measure_widge
         self.param_points: PlainQuantity
         "Array with all param values."
         self._current_point: int = 0
+        self.s_point: DataPoint
+        'Currently selected datapoint.'
         self.cur_rep = 1
+        self.data_point = []
         self.measurement: Measurement
 
         self.setup_widgets()
@@ -930,6 +955,9 @@ class CurveMeasureWidget(QWidget, curve_measure_widget_ui.Ui_Curve_measure_widge
         self.lbl_pb.setText(text)
 
         if self.current_point:
+            # Set current data point
+            dp_title = PaData._build_name(self.current_point)
+            self.s_point = self.measurement.data[dp_title]
             self.btn_redo.setEnabled(True)
             # Plot data
             data = PaData.param_data_plot(
@@ -939,11 +967,11 @@ class CurveMeasureWidget(QWidget, curve_measure_widget_ui.Ui_Curve_measure_widge
             self.plot_measurement.plot(**data._asdict())
             self.plot_measurement.set_marker([self.current_point - 1])
             detail_data = PaData.point_data_plot(
-                msmnt = self.measurement,
-                index = self.current_point - 1,
-                dtype = 'raw_data'
+                point = self.s_point,
+                dtype = 'raw_data',
+                sample = 'repetition001'
             )
-            self.plot_detail.plot(*detail_data)
+            self.plot_detail.plot(**detail_data._asdict())
         
         if self.current_point < self.points_num:
             # current param value
@@ -1007,6 +1035,9 @@ class PointMeasureWidget(QWidget,point_measure_widget_ui.Ui_Form, MeasureWidget)
             self.placeholder_pm_monitor,
             self.pm_monitor
         )
+
+        self.cur_rep = 1
+        self.data_point = []
 
         self.connect_signals_slots()
         self.setup_sp()

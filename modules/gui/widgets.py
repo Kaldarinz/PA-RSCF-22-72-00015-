@@ -14,7 +14,7 @@ Grant # 22-72-00015
 2024
 """
 
-from typing import Iterable, Literal, cast, overload
+from typing import Iterable, Literal, cast
 import os
 import logging
 from dataclasses import fields
@@ -174,6 +174,7 @@ class MplCanvas(FigureCanvasQTAgg):
             if fmt is None:
                 fmt = 'r'
             # Actual plot
+            logger.info(yerr)
             self._plot_ref = self.axes.errorbar(
                 x = self.xdata,
                 y = self.ydata, # type: ignore
@@ -183,9 +184,12 @@ class MplCanvas(FigureCanvasQTAgg):
                 picker = self.enable_pick,
                 pickradius = 10
             )[0]
+            if yerr is not None:
+                lims = self.axes.set_ylim(min(self.ydata - yerr), max(self.ydata + yerr))
+                logger.info(lims)
         # otherwise just update data
         else:
-            self._plot_ref.set_data(self.xdata, self.ydata)
+            self._plot_ref.set_data(self.xdata, self.ydata) # type: ignore
         # Update SetPoint if necessary
         if self.sp is not None:
             spdata = np.ones_like(self.xdata)*self.sp.m

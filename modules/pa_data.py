@@ -226,8 +226,7 @@ class PaData:
     def add_point(
             measurement: Measurement,
             data: list[MeasuredPoint],
-            param_val: list[PlainQuantity],
-            repetitions: int = 1
+            param_val: list[PlainQuantity]
         ) -> None:
         """
         Add datapoint to measurement.
@@ -258,7 +257,8 @@ class PaData:
             if exist_params:
                 param_val = [x.to(y.u) for x,y in zip(param_val,exist_params)]
             # get data from any existing datapoint
-            exist_data = next(iter(measurement.data.values())).raw_data.data
+            exist_dp = next(iter(measurement.data.values()))
+            exist_data =next(iter(exist_dp.raw_data.values())).data
             for dp in data:
                 if exist_data.u != dp.pa_signal.u:
                     logger.debug(f'Changing units of data from {dp.pa_signal.u} '
@@ -268,7 +268,8 @@ class PaData:
         metadata = PointMetadata(
             wavelength = data[0].wavelength,
             pos = data[0].pos,
-            param_val = param_val.copy()
+            param_val = param_val.copy(),
+            repetitions = len(data)
         )
         datapoint = DataPoint(attrs = metadata)
         for ind, dp in enumerate(data):
@@ -759,10 +760,10 @@ class PaData:
                 + f'{ydata[0].u:~.2gP}'
                 + ']')
         result = PlotData(
-            ydata = ydata[0],
-            yerr = ydata[1],
-            xdata = xdata[0],
-            xerr = xdata[1],
+            ydata = ydata[0].m,
+            yerr = ydata[1].to(ydata[0].u).m,
+            xdata = xdata[0].m,
+            xerr = xdata[1].to(xdata[0].u).m,
             ylabel = y_label,
             xlabel = x_label
         )
@@ -770,34 +771,30 @@ class PaData:
 
     @staticmethod
     def point_data_plot(
-            msmnt: Measurement,
-            index: int,
+            point: DataPoint,
             dtype: str,
-            dstart: PlainQuantity | None=None,
-            dstop: PlainQuantity | None=None
+            sample: str
         ) -> PlotData:
         """
         Get point data for plotting.
         
+        Attributes
+        ----------
         ``index`` - index of data to get the data point.\n
         ``dtype`` - type of data to be returned.\n
         ``dstart`` and ``dstop`` limit plot range.\n
+        ``sample`` and ``dstop`` limit plot range.\n
         Return a tuple, which contain [ydata, xdata, ylabel, xlabel].
         """
 
-        empty_data = (np.array([]),np.array([]),'','')
-        result = empty_data
-        ds_name = PaData._build_name(index+1)
-
-        ds = getattr(msmnt.data[ds_name], dtype)['repetition001']
-        result = PaData._point_data(ds, dstart, dstop)
+        dtype_dct = getattr(point, dtype)
+        ds = dtype_dct.get(sample, None)
+        result = PaData._point_data(ds)
         return result
 
     @staticmethod
     def _point_data(
-            ds: BaseData|ProcessedData,
-            dstart: PlainQuantity | None=None,
-            dstop: PlainQuantity | None=None
+            ds: BaseData|ProcessedData
         ) -> PlotData:
         """
         Get point data for plotting.
@@ -809,9 +806,6 @@ class PaData:
         """
         
         start = ds.x_var_start
-        ### Need to finish it on real data.
-        if dstart is not None and dstart.is_compatible_with(start):
-            pass
         stop = ds.x_var_stop
         step = ds.x_var_step
         num = len(ds.data) # type: ignore
@@ -867,14 +861,20 @@ class PaData:
             if dp is None:
                 logger.error(f'Datapoint {dp_name} is missing')
                 return
+            # First check if requested data is in PointMetaData
             if value in [fld.name for fld in fields(PointMetadata)]:
                 quant = getattr(dp.attrs, value)
+                # This is bad. We imply here that the only list is
+                # param_val, and it's value is only relevant for curve.
+                if isinstance(quant, list):
+                    quant = quant[0]
                 mean_vals.append(quant)
                 std_vals.append(Q_(0, quant.u))
+            # Otherwise requested value should be calculated from samples
             else:
                 groupd = getattr(dp, data_type) # dict
                 all_vals = []
-                for repeat in groupd.items():
+                for repeat in groupd.values():
                     all_vals.append(getattr(repeat, value))
                 all_vals = pint.Quantity.from_list(all_vals)
                 mean_vals.append(all_vals.mean()) # type: ignore

@@ -27,9 +27,9 @@ class Ui_Curve_measure_widget(object):
     def setupUi(self, Curve_measure_widget):
         if not Curve_measure_widget.objectName():
             Curve_measure_widget.setObjectName(u"Curve_measure_widget")
-        Curve_measure_widget.resize(1117, 842)
-        self.horizontalLayout_2 = QHBoxLayout(Curve_measure_widget)
-        self.horizontalLayout_2.setObjectName(u"horizontalLayout_2")
+        Curve_measure_widget.resize(1117, 705)
+        self.horizontalLayout_9 = QHBoxLayout(Curve_measure_widget)
+        self.horizontalLayout_9.setObjectName(u"horizontalLayout_9")
         self.verticalLayout_2 = QVBoxLayout()
         self.verticalLayout_2.setObjectName(u"verticalLayout_2")
         self.lbl_measure_settings = QLabel(Curve_measure_widget)
@@ -450,14 +450,14 @@ class Ui_Curve_measure_widget(object):
         self.verticalLayout_2.addWidget(self.w_measure)
 
 
-        self.horizontalLayout_2.addLayout(self.verticalLayout_2)
+        self.horizontalLayout_9.addLayout(self.verticalLayout_2)
 
         self.line_2 = QFrame(Curve_measure_widget)
         self.line_2.setObjectName(u"line_2")
         self.line_2.setFrameShape(QFrame.VLine)
         self.line_2.setFrameShadow(QFrame.Sunken)
 
-        self.horizontalLayout_2.addWidget(self.line_2)
+        self.horizontalLayout_9.addWidget(self.line_2)
 
         self.lo_measure = QSplitter(Curve_measure_widget)
         self.lo_measure.setObjectName(u"lo_measure")
@@ -473,7 +473,32 @@ class Ui_Curve_measure_widget(object):
         self.splitter = QSplitter(self.lo_measure)
         self.splitter.setObjectName(u"splitter")
         self.splitter.setOrientation(Qt.Horizontal)
-        self.plot_measurement = MplCanvas(self.splitter)
+        self.widget = QWidget(self.splitter)
+        self.widget.setObjectName(u"widget")
+        self.verticalLayout_3 = QVBoxLayout(self.widget)
+        self.verticalLayout_3.setObjectName(u"verticalLayout_3")
+        self.verticalLayout_3.setContentsMargins(0, 0, 0, 0)
+        self.horizontalLayout_2 = QHBoxLayout()
+        self.horizontalLayout_2.setObjectName(u"horizontalLayout_2")
+        self.lbl_curve_select = QLabel(self.widget)
+        self.lbl_curve_select.setObjectName(u"lbl_curve_select")
+
+        self.horizontalLayout_2.addWidget(self.lbl_curve_select)
+
+        self.cb_curve_select = QComboBox(self.widget)
+        self.cb_curve_select.setObjectName(u"cb_curve_select")
+        self.cb_curve_select.setMinimumSize(QSize(140, 0))
+
+        self.horizontalLayout_2.addWidget(self.cb_curve_select)
+
+        self.horizontalSpacer = QSpacerItem(88, 17, QSizePolicy.Expanding, QSizePolicy.Minimum)
+
+        self.horizontalLayout_2.addItem(self.horizontalSpacer)
+
+
+        self.verticalLayout_3.addLayout(self.horizontalLayout_2)
+
+        self.plot_measurement = MplCanvas(self.widget)
         self.plot_measurement.setObjectName(u"plot_measurement")
         sizePolicy7 = QSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         sizePolicy7.setHorizontalStretch(0)
@@ -481,15 +506,57 @@ class Ui_Curve_measure_widget(object):
         sizePolicy7.setHeightForWidth(self.plot_measurement.sizePolicy().hasHeightForWidth())
         self.plot_measurement.setSizePolicy(sizePolicy7)
         self.plot_measurement.setMinimumSize(QSize(0, 0))
-        self.splitter.addWidget(self.plot_measurement)
-        self.plot_detail = MplCanvas(self.splitter)
+
+        self.verticalLayout_3.addWidget(self.plot_measurement)
+
+        self.splitter.addWidget(self.widget)
+        self.widget1 = QWidget(self.splitter)
+        self.widget1.setObjectName(u"widget1")
+        self.verticalLayout_4 = QVBoxLayout(self.widget1)
+        self.verticalLayout_4.setObjectName(u"verticalLayout_4")
+        self.verticalLayout_4.setContentsMargins(0, 0, 0, 0)
+        self.horizontalLayout_8 = QHBoxLayout()
+        self.horizontalLayout_8.setObjectName(u"horizontalLayout_8")
+        self.lbl_detail_select = QLabel(self.widget1)
+        self.lbl_detail_select.setObjectName(u"lbl_detail_select")
+
+        self.horizontalLayout_8.addWidget(self.lbl_detail_select)
+
+        self.cb_detail_select = QComboBox(self.widget1)
+        self.cb_detail_select.setObjectName(u"cb_detail_select")
+        self.cb_detail_select.setMinimumSize(QSize(140, 0))
+
+        self.horizontalLayout_8.addWidget(self.cb_detail_select)
+
+        self.lbl_sample = QLabel(self.widget1)
+        self.lbl_sample.setObjectName(u"lbl_sample")
+
+        self.horizontalLayout_8.addWidget(self.lbl_sample)
+
+        self.cb_sample = QComboBox(self.widget1)
+        self.cb_sample.setObjectName(u"cb_sample")
+        self.cb_sample.setMinimumSize(QSize(140, 0))
+
+        self.horizontalLayout_8.addWidget(self.cb_sample)
+
+        self.horizontalSpacer_2 = QSpacerItem(78, 17, QSizePolicy.Expanding, QSizePolicy.Minimum)
+
+        self.horizontalLayout_8.addItem(self.horizontalSpacer_2)
+
+
+        self.verticalLayout_4.addLayout(self.horizontalLayout_8)
+
+        self.plot_detail = MplCanvas(self.widget1)
         self.plot_detail.setObjectName(u"plot_detail")
         sizePolicy7.setHeightForWidth(self.plot_detail.sizePolicy().hasHeightForWidth())
         self.plot_detail.setSizePolicy(sizePolicy7)
-        self.splitter.addWidget(self.plot_detail)
+
+        self.verticalLayout_4.addWidget(self.plot_detail)
+
+        self.splitter.addWidget(self.widget1)
         self.lo_measure.addWidget(self.splitter)
 
-        self.horizontalLayout_2.addWidget(self.lo_measure)
+        self.horizontalLayout_9.addWidget(self.lo_measure)
 
 
         self.retranslateUi(Curve_measure_widget)
@@ -569,5 +636,8 @@ class Ui_Curve_measure_widget(object):
         self.lbl_aver.setText(QCoreApplication.translate("Curve_measure_widget", u"Averaging", None))
         self.sb_aver.setSuffix("")
         self.sb_aver.setPrefix("")
+        self.lbl_curve_select.setText(QCoreApplication.translate("Curve_measure_widget", u"Curve Signal", None))
+        self.lbl_detail_select.setText(QCoreApplication.translate("Curve_measure_widget", u"Point Signal", None))
+        self.lbl_sample.setText(QCoreApplication.translate("Curve_measure_widget", u"Sample", None))
     # retranslateUi
 

@@ -226,7 +226,7 @@ class Ui_Form(object):
 
         self.sb_aver = QSpinBox(self.w_measure)
         self.sb_aver.setObjectName(u"sb_aver")
-        self.sb_aver.setEnabled(False)
+        self.sb_aver.setEnabled(True)
         sizePolicy2.setHeightForWidth(self.sb_aver.sizePolicy().hasHeightForWidth())
         self.sb_aver.setSizePolicy(sizePolicy2)
         self.sb_aver.setMinimumSize(QSize(71, 0))
@@ -235,7 +235,7 @@ class Ui_Form(object):
         self.sb_aver.setMinimum(1)
         self.sb_aver.setMaximum(10)
         self.sb_aver.setSingleStep(1)
-        self.sb_aver.setValue(1)
+        self.sb_aver.setValue(3)
 
         self.horizontalLayout_5.addWidget(self.sb_aver)
 

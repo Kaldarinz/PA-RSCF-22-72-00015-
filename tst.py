@@ -39,10 +39,8 @@ ureg = pint.get_application_registry()
 Q_ = ureg.Quantity
 rng = np.random.default_rng()
 
-qr = QuantRect(Q_(0,'m'), Q_(20,'m'), Q_(3, 'm'), Q_(4, 'm'))
-
-def foo(bottom, left, height, width):
-    print(f'{bottom=}')
-    print(f'{left=}')
-
-foo(**qr._asdict())
+a = [Q_(1,'mm'), Q_(2,'mm')]
+if isinstance(a, list):
+    print(a)
+else: 
+    print('no')

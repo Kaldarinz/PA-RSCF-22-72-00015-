@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>940</width>
+    <width>1060</width>
     <height>739</height>
    </rect>
   </property>
@@ -19,10 +19,17 @@
      <property name="orientation">
       <enum>Qt::Horizontal</enum>
      </property>
-     <widget class="QWidget" name="">
+     <widget class="QWidget" name="layoutWidget">
       <layout class="QVBoxLayout" name="verticalLayout_2">
        <item>
         <layout class="QHBoxLayout" name="horizontalLayout_2">
+         <item>
+          <widget class="QLabel" name="lbl_curve_select">
+           <property name="text">
+            <string>Map Signal</string>
+           </property>
+          </widget>
+         </item>
          <item>
           <widget class="QComboBox" name="cb_curve_select"/>
          </item>
@@ -59,12 +66,29 @@
        </item>
       </layout>
      </widget>
-     <widget class="QWidget" name="">
+     <widget class="QWidget" name="layoutWidget">
       <layout class="QVBoxLayout" name="verticalLayout">
        <item>
         <layout class="QHBoxLayout" name="horizontalLayout">
          <item>
+          <widget class="QLabel" name="lbl_detail_select">
+           <property name="text">
+            <string>Point Signal</string>
+           </property>
+          </widget>
+         </item>
+         <item>
           <widget class="QComboBox" name="cb_detail_select"/>
+         </item>
+         <item>
+          <widget class="QLabel" name="lbl_sample">
+           <property name="text">
+            <string>Sample</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QComboBox" name="cb_sample"/>
          </item>
          <item>
           <spacer name="horizontalSpacer">

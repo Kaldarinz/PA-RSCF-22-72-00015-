@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>930</width>
-    <height>681</height>
+    <width>860</width>
+    <height>209</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -24,6 +24,13 @@
     <layout class="QVBoxLayout" name="lo_curve">
      <item>
       <layout class="QHBoxLayout" name="horizontalLayout">
+       <item>
+        <widget class="QLabel" name="lbl_curve_select">
+         <property name="text">
+          <string>Curve Signal</string>
+         </property>
+        </widget>
+       </item>
        <item>
         <widget class="QComboBox" name="cb_curve_select">
          <property name="minimumSize">
@@ -66,7 +73,31 @@
      <item>
       <layout class="QHBoxLayout" name="horizontalLayout_2">
        <item>
+        <widget class="QLabel" name="lbl_detail_select">
+         <property name="text">
+          <string>Point Signal</string>
+         </property>
+        </widget>
+       </item>
+       <item>
         <widget class="QComboBox" name="cb_detail_select">
+         <property name="minimumSize">
+          <size>
+           <width>140</width>
+           <height>0</height>
+          </size>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QLabel" name="lbl_sample">
+         <property name="text">
+          <string>Sample</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QComboBox" name="cb_sample">
          <property name="minimumSize">
           <size>
            <width>140</width>
@@ -79,6 +110,9 @@
         <spacer name="horizontalSpacer_2">
          <property name="orientation">
           <enum>Qt::Horizontal</enum>
+         </property>
+         <property name="sizeType">
+          <enum>QSizePolicy::Maximum</enum>
          </property>
          <property name="sizeHint" stdset="0">
           <size>
