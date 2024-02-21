@@ -19,7 +19,7 @@ from PySide6.QtWidgets import (QApplication, QComboBox, QHBoxLayout, QLabel,
     QSizePolicy, QSpacerItem, QSplitter, QVBoxLayout,
     QWidget)
 
-from ..widgets import (MplNavCanvas, PgMap)
+from ..widgets import (PgMap, PgPlot)
 
 class Ui_Map_view(object):
     def setupUi(self, Map_view):
@@ -101,7 +101,7 @@ class Ui_Map_view(object):
 
         self.verticalLayout.addLayout(self.horizontalLayout)
 
-        self.plot_detail = MplNavCanvas(self.layoutWidget1)
+        self.plot_detail = PgPlot(self.layoutWidget1)
         self.plot_detail.setObjectName(u"plot_detail")
         sizePolicy1 = QSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding)
         sizePolicy1.setHorizontalStretch(0)

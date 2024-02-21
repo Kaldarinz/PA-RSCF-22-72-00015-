@@ -39,8 +39,5 @@ ureg = pint.get_application_registry()
 Q_ = ureg.Quantity
 rng = np.random.default_rng()
 
-a = [Q_(1,'mm'), Q_(2,'mm')]
-if isinstance(a, list):
-    print(a)
-else: 
-    print('no')
+a = Q_(1, 'm')
+a.to('s')

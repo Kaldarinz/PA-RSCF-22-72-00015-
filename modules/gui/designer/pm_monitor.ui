@@ -150,7 +150,6 @@
       <widget class="QPushButton" name="btn_start">
        <property name="font">
         <font>
-         <weight>75</weight>
          <bold>true</bold>
         </font>
        </property>
@@ -166,7 +165,6 @@
       <widget class="QPushButton" name="btn_pause">
        <property name="font">
         <font>
-         <weight>75</weight>
          <bold>true</bold>
         </font>
        </property>
@@ -182,7 +180,6 @@
       <widget class="QPushButton" name="btn_stop">
        <property name="font">
         <font>
-         <weight>75</weight>
          <bold>true</bold>
          <underline>false</underline>
          <strikeout>false</strikeout>
@@ -212,7 +209,6 @@
         <widget class="QLabel" name="lbl_signal">
          <property name="font">
           <font>
-           <weight>75</weight>
            <bold>true</bold>
           </font>
          </property>
@@ -225,7 +221,7 @@
         </widget>
        </item>
        <item>
-        <widget class="MplCanvas" name="plot_left" native="true">
+        <widget class="PgPlot" name="plot_left" native="true">
          <property name="sizePolicy">
           <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
            <horstretch>0</horstretch>
@@ -242,7 +238,6 @@
         <widget class="QLabel" name="lbl_tune">
          <property name="font">
           <font>
-           <weight>75</weight>
            <bold>true</bold>
           </font>
          </property>
@@ -255,7 +250,7 @@
         </widget>
        </item>
        <item>
-        <widget class="MplCanvas" name="plot_right" native="true">
+        <widget class="PgPlot" name="plot_right" native="true">
          <property name="sizePolicy">
           <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
            <horstretch>0</horstretch>
@@ -272,7 +267,7 @@
  </widget>
  <customwidgets>
   <customwidget>
-   <class>MplCanvas</class>
+   <class>PgPlot</class>
    <extends>QWidget</extends>
    <header>..widgets</header>
    <container>1</container>

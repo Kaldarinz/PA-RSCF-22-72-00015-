@@ -18,7 +18,7 @@ from PySide6.QtGui import (QBrush, QColor, QConicalGradient, QCursor,
 from PySide6.QtWidgets import (QApplication, QComboBox, QHBoxLayout, QLabel,
     QSizePolicy, QSpacerItem, QVBoxLayout, QWidget)
 
-from ..widgets import MplNavCanvas
+from ..widgets import PgPlot
 
 class Ui_Point_view(object):
     def setupUi(self, Point_view):
@@ -57,7 +57,7 @@ class Ui_Point_view(object):
 
         self.verticalLayout.addLayout(self.horizontalLayout)
 
-        self.plot_detail = MplNavCanvas(Point_view)
+        self.plot_detail = PgPlot(Point_view)
         self.plot_detail.setObjectName(u"plot_detail")
         sizePolicy = QSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         sizePolicy.setHorizontalStretch(0)

@@ -3,7 +3,7 @@
 ################################################################################
 ## Form generated from reading UI file 'pm_monitor.ui'
 ##
-## Created by: Qt User Interface Compiler version 6.6.0
+## Created by: Qt User Interface Compiler version 6.6.1
 ##
 ## WARNING! All changes made in this file will be lost when recompiling UI file!
 ################################################################################
@@ -19,7 +19,7 @@ from PySide6.QtWidgets import (QApplication, QHBoxLayout, QLabel, QLineEdit,
     QPushButton, QSizePolicy, QSpacerItem, QSplitter,
     QVBoxLayout, QWidget)
 
-from ..widgets import MplCanvas
+from ..widgets import PgPlot
 
 class Ui_Form(object):
     def setupUi(self, Form):
@@ -135,7 +135,7 @@ class Ui_Form(object):
 
         self.verticalLayout_2.addWidget(self.lbl_signal)
 
-        self.plot_left = MplCanvas(self.layoutWidget)
+        self.plot_left = PgPlot(self.layoutWidget)
         self.plot_left.setObjectName(u"plot_left")
         sizePolicy1.setHeightForWidth(self.plot_left.sizePolicy().hasHeightForWidth())
         self.plot_left.setSizePolicy(sizePolicy1)
@@ -155,7 +155,7 @@ class Ui_Form(object):
 
         self.verticalLayout.addWidget(self.lbl_tune)
 
-        self.plot_right = MplCanvas(self.layoutWidget1)
+        self.plot_right = PgPlot(self.layoutWidget1)
         self.plot_right.setObjectName(u"plot_right")
         sizePolicy1.setHeightForWidth(self.plot_right.sizePolicy().hasHeightForWidth())
         self.plot_right.setSizePolicy(sizePolicy1)

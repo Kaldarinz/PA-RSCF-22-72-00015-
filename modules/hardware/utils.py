@@ -286,7 +286,7 @@ def glan_calc(
 
     #return the value of polynom at energy
     sample_en = fit(energy.to('uJ').m)*ureg.uJ
-    logger.debug('...Finishing. Sample energy calculated.')
+    logger.debug(f'...Finishing. {sample_en=}.')
     return sample_en
 
 def calc_sample_en(

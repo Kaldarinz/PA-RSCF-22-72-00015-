@@ -59,7 +59,7 @@
     </layout>
    </item>
    <item>
-    <widget class="MplNavCanvas" name="plot_detail" native="true">
+    <widget class="PgPlot" name="plot_detail" native="true">
      <property name="sizePolicy">
       <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
        <horstretch>0</horstretch>
@@ -72,7 +72,7 @@
  </widget>
  <customwidgets>
   <customwidget>
-   <class>MplNavCanvas</class>
+   <class>PgPlot</class>
    <extends>QWidget</extends>
    <header>..widgets</header>
    <container>1</container>

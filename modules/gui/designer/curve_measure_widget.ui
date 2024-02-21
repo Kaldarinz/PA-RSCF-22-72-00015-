@@ -859,7 +859,7 @@
       <property name="orientation">
        <enum>Qt::Horizontal</enum>
       </property>
-      <widget class="QWidget" name="">
+      <widget class="QWidget" name="layoutWidget">
        <layout class="QVBoxLayout" name="verticalLayout_3">
         <item>
          <layout class="QHBoxLayout" name="horizontalLayout_2">
@@ -896,7 +896,7 @@
          </layout>
         </item>
         <item>
-         <widget class="MplCanvas" name="plot_measurement" native="true">
+         <widget class="PgPlot" name="plot_measurement" native="true">
           <property name="sizePolicy">
            <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
             <horstretch>0</horstretch>
@@ -913,7 +913,7 @@
         </item>
        </layout>
       </widget>
-      <widget class="QWidget" name="">
+      <widget class="QWidget" name="layoutWidget">
        <layout class="QVBoxLayout" name="verticalLayout_4">
         <item>
          <layout class="QHBoxLayout" name="horizontalLayout_8">
@@ -970,7 +970,7 @@
          </layout>
         </item>
         <item>
-         <widget class="MplCanvas" name="plot_detail" native="true">
+         <widget class="PgPlot" name="plot_detail" native="true">
           <property name="sizePolicy">
            <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
             <horstretch>0</horstretch>
@@ -993,7 +993,7 @@
    <header>..widgets</header>
   </customwidget>
   <customwidget>
-   <class>MplCanvas</class>
+   <class>PgPlot</class>
    <extends>QWidget</extends>
    <header>..widgets</header>
    <container>1</container>

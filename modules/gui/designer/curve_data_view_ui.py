@@ -18,7 +18,7 @@ from PySide6.QtGui import (QBrush, QColor, QConicalGradient, QCursor,
 from PySide6.QtWidgets import (QApplication, QComboBox, QHBoxLayout, QLabel,
     QSizePolicy, QSpacerItem, QVBoxLayout, QWidget)
 
-from ..widgets import MplNavCanvas
+from ..widgets import PgPlot
 
 class Ui_Curve_view(object):
     def setupUi(self, Curve_view):
@@ -54,7 +54,7 @@ class Ui_Curve_view(object):
 
         self.lo_curve.addLayout(self.horizontalLayout)
 
-        self.plot_curve = MplNavCanvas(Curve_view)
+        self.plot_curve = PgPlot(Curve_view)
         self.plot_curve.setObjectName(u"plot_curve")
         sizePolicy.setHeightForWidth(self.plot_curve.sizePolicy().hasHeightForWidth())
         self.plot_curve.setSizePolicy(sizePolicy)
@@ -97,7 +97,7 @@ class Ui_Curve_view(object):
 
         self.lo_detail.addLayout(self.horizontalLayout_2)
 
-        self.plot_detail = MplNavCanvas(Curve_view)
+        self.plot_detail = PgPlot(Curve_view)
         self.plot_detail.setObjectName(u"plot_detail")
         sizePolicy.setHeightForWidth(self.plot_detail.sizePolicy().hasHeightForWidth())
         self.plot_detail.setSizePolicy(sizePolicy)

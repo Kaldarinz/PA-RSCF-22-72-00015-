@@ -3,7 +3,7 @@
 ################################################################################
 ## Form generated from reading UI file 'verify_measure.ui'
 ##
-## Created by: Qt User Interface Compiler version 6.6.0
+## Created by: Qt User Interface Compiler version 6.6.1
 ##
 ## WARNING! All changes made in this file will be lost when recompiling UI file!
 ################################################################################
@@ -18,7 +18,7 @@ from PySide6.QtGui import (QBrush, QColor, QConicalGradient, QCursor,
 from PySide6.QtWidgets import (QAbstractButton, QApplication, QDialog, QDialogButtonBox,
     QHBoxLayout, QSizePolicy, QVBoxLayout, QWidget)
 
-from ..widgets import MplCanvas
+from ..widgets import PgPlot
 
 class Ui_Dialog(object):
     def setupUi(self, Dialog):
@@ -30,7 +30,7 @@ class Ui_Dialog(object):
         self.verticalLayout.setContentsMargins(6, 6, 6, 6)
         self.horizontalLayout = QHBoxLayout()
         self.horizontalLayout.setObjectName(u"horizontalLayout")
-        self.plot_pm = MplCanvas(Dialog)
+        self.plot_pm = PgPlot(Dialog)
         self.plot_pm.setObjectName(u"plot_pm")
         sizePolicy = QSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         sizePolicy.setHorizontalStretch(0)
@@ -40,7 +40,7 @@ class Ui_Dialog(object):
 
         self.horizontalLayout.addWidget(self.plot_pm)
 
-        self.plot_pa = MplCanvas(Dialog)
+        self.plot_pa = PgPlot(Dialog)
         self.plot_pa.setObjectName(u"plot_pa")
         sizePolicy.setHeightForWidth(self.plot_pa.sizePolicy().hasHeightForWidth())
         self.plot_pa.setSizePolicy(sizePolicy)

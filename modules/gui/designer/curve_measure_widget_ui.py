@@ -20,7 +20,7 @@ from PySide6.QtWidgets import (QAbstractSpinBox, QApplication, QComboBox, QFrame
     QProgressBar, QPushButton, QSizePolicy, QSpacerItem,
     QSpinBox, QSplitter, QVBoxLayout, QWidget)
 
-from ..widgets import (MplCanvas, QuantSpinBox)
+from ..widgets import (PgPlot, QuantSpinBox)
 from . import qt_resources_rc
 
 class Ui_Curve_measure_widget(object):
@@ -473,19 +473,19 @@ class Ui_Curve_measure_widget(object):
         self.splitter = QSplitter(self.lo_measure)
         self.splitter.setObjectName(u"splitter")
         self.splitter.setOrientation(Qt.Horizontal)
-        self.widget = QWidget(self.splitter)
-        self.widget.setObjectName(u"widget")
-        self.verticalLayout_3 = QVBoxLayout(self.widget)
+        self.layoutWidget = QWidget(self.splitter)
+        self.layoutWidget.setObjectName(u"layoutWidget")
+        self.verticalLayout_3 = QVBoxLayout(self.layoutWidget)
         self.verticalLayout_3.setObjectName(u"verticalLayout_3")
         self.verticalLayout_3.setContentsMargins(0, 0, 0, 0)
         self.horizontalLayout_2 = QHBoxLayout()
         self.horizontalLayout_2.setObjectName(u"horizontalLayout_2")
-        self.lbl_curve_select = QLabel(self.widget)
+        self.lbl_curve_select = QLabel(self.layoutWidget)
         self.lbl_curve_select.setObjectName(u"lbl_curve_select")
 
         self.horizontalLayout_2.addWidget(self.lbl_curve_select)
 
-        self.cb_curve_select = QComboBox(self.widget)
+        self.cb_curve_select = QComboBox(self.layoutWidget)
         self.cb_curve_select.setObjectName(u"cb_curve_select")
         self.cb_curve_select.setMinimumSize(QSize(140, 0))
 
@@ -498,7 +498,7 @@ class Ui_Curve_measure_widget(object):
 
         self.verticalLayout_3.addLayout(self.horizontalLayout_2)
 
-        self.plot_measurement = MplCanvas(self.widget)
+        self.plot_measurement = PgPlot(self.layoutWidget)
         self.plot_measurement.setObjectName(u"plot_measurement")
         sizePolicy7 = QSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         sizePolicy7.setHorizontalStretch(0)
@@ -509,31 +509,31 @@ class Ui_Curve_measure_widget(object):
 
         self.verticalLayout_3.addWidget(self.plot_measurement)
 
-        self.splitter.addWidget(self.widget)
-        self.widget1 = QWidget(self.splitter)
-        self.widget1.setObjectName(u"widget1")
-        self.verticalLayout_4 = QVBoxLayout(self.widget1)
+        self.splitter.addWidget(self.layoutWidget)
+        self.layoutWidget1 = QWidget(self.splitter)
+        self.layoutWidget1.setObjectName(u"layoutWidget1")
+        self.verticalLayout_4 = QVBoxLayout(self.layoutWidget1)
         self.verticalLayout_4.setObjectName(u"verticalLayout_4")
         self.verticalLayout_4.setContentsMargins(0, 0, 0, 0)
         self.horizontalLayout_8 = QHBoxLayout()
         self.horizontalLayout_8.setObjectName(u"horizontalLayout_8")
-        self.lbl_detail_select = QLabel(self.widget1)
+        self.lbl_detail_select = QLabel(self.layoutWidget1)
         self.lbl_detail_select.setObjectName(u"lbl_detail_select")
 
         self.horizontalLayout_8.addWidget(self.lbl_detail_select)
 
-        self.cb_detail_select = QComboBox(self.widget1)
+        self.cb_detail_select = QComboBox(self.layoutWidget1)
         self.cb_detail_select.setObjectName(u"cb_detail_select")
         self.cb_detail_select.setMinimumSize(QSize(140, 0))
 
         self.horizontalLayout_8.addWidget(self.cb_detail_select)
 
-        self.lbl_sample = QLabel(self.widget1)
+        self.lbl_sample = QLabel(self.layoutWidget1)
         self.lbl_sample.setObjectName(u"lbl_sample")
 
         self.horizontalLayout_8.addWidget(self.lbl_sample)
 
-        self.cb_sample = QComboBox(self.widget1)
+        self.cb_sample = QComboBox(self.layoutWidget1)
         self.cb_sample.setObjectName(u"cb_sample")
         self.cb_sample.setMinimumSize(QSize(140, 0))
 
@@ -546,14 +546,14 @@ class Ui_Curve_measure_widget(object):
 
         self.verticalLayout_4.addLayout(self.horizontalLayout_8)
 
-        self.plot_detail = MplCanvas(self.widget1)
+        self.plot_detail = PgPlot(self.layoutWidget1)
         self.plot_detail.setObjectName(u"plot_detail")
         sizePolicy7.setHeightForWidth(self.plot_detail.sizePolicy().hasHeightForWidth())
         self.plot_detail.setSizePolicy(sizePolicy7)
 
         self.verticalLayout_4.addWidget(self.plot_detail)
 
-        self.splitter.addWidget(self.widget1)
+        self.splitter.addWidget(self.layoutWidget1)
         self.lo_measure.addWidget(self.splitter)
 
         self.horizontalLayout_9.addWidget(self.lo_measure)

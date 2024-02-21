@@ -29,7 +29,7 @@
    <item>
     <layout class="QHBoxLayout" name="horizontalLayout">
      <item>
-      <widget class="MplCanvas" name="plot_pm" native="true">
+      <widget class="PgPlot" name="plot_pm" native="true">
        <property name="sizePolicy">
         <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
          <horstretch>0</horstretch>
@@ -39,7 +39,7 @@
       </widget>
      </item>
      <item>
-      <widget class="MplCanvas" name="plot_pa" native="true">
+      <widget class="PgPlot" name="plot_pa" native="true">
        <property name="sizePolicy">
         <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
          <horstretch>0</horstretch>
@@ -64,7 +64,7 @@
  </widget>
  <customwidgets>
   <customwidget>
-   <class>MplCanvas</class>
+   <class>PgPlot</class>
    <extends>QWidget</extends>
    <header>..widgets</header>
    <container>1</container>

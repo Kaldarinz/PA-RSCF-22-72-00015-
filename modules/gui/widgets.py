@@ -18,6 +18,7 @@ from typing import Iterable, Literal, cast
 import os
 import logging
 from dataclasses import fields
+import time
 
 import numpy as np
 import numpy.typing as npt
@@ -279,8 +280,9 @@ class MplCanvas(FigureCanvasQTAgg):
         if isinstance(data, PlainQuantity):
             try:
                 data = data.to(self.xunits)
-            except:
-                self.xunits = f'{data.u:~.2gP}'
+            except DimensionalityError:
+                logger.info(f'Setting xunits to {data.u}.')
+                self.xunits = f'{data.u}'
             self._xdata = data.m
         else:
             self.xunits = ''
@@ -886,6 +888,8 @@ class TreeInfoWidget(QTreeWidget):
     def _set_items(self, group: QTreeWidgetItem, attrs) -> None:
         """Fill group with info from a dataclass."""
 
+        if group is None:
+            return
         for field in fields(attrs):
             # For PointMetadata we should not include data iself
             # in the description
@@ -1442,3 +1446,309 @@ class PgMap(pg.GraphicsLayoutWidget):
         )
         self._boundary_ref.setPen(pg.mkPen('r', width = 3))
         self.plot_item.addItem(self._boundary_ref)
+
+class PgPlot(pg.PlotWidget):
+    """Pyqtgraph plot widget."""
+
+    point_picked = Signal(int)
+
+    def __init__(self, parent=None, background='default', plotItem=None, **kargs):
+        super().__init__(parent, background, plotItem, **kargs)
+
+        plot_item = self.getPlotItem()
+        if not isinstance(plot_item, pg.PlotItem):
+            logger.warning('PgPlot cannot be created.')
+            return
+        self.plot_item = plot_item
+
+        self._xdata: np.ndarray | None = None
+        self._ydata: np.ndarray | None = None
+        self._xerr: npt.NDArray | None = None
+        self._yerr: npt.NDArray | None = None
+        self._plot_ref: pg.PlotDataItem | None = None
+        self._scat_ref: pg.ScatterPlotItem | None = None
+        self._err_ref: pg.ErrorBarItem | None = None
+        self._sp_ref: pg.InfiniteLine | None = None
+        self.fixed_scales: bool = False
+        self.enable_pick: bool = False
+        self.sel_ind: int | None = None
+        'Index of selected point'
+
+        # Styles
+        self.pen_def = pg.mkPen(color = 'l', width = 1)
+        self.pen_line = pg.mkPen(color = '#1f77b4', width = 3)
+        self.pen_sel = pg.mkPen(color='y', width = 3)
+        self.pen_hover = pg.mkPen(color='r')
+
+    def plot(
+            self,
+            ydata: npt.NDArray | PlainQuantity,
+            xdata: npt.NDArray | PlainQuantity | None=None,
+            yerr: npt.NDArray | PlainQuantity | None=None,
+            xerr: npt.NDArray | PlainQuantity | None=None,
+            ylabel: str | None=None,
+            xlabel: str | None=None
+        ) -> None:
+        """
+        Set plot data.
+        
+        Attributes
+        ----------
+        ``xdata`` - Iterable containing data for X axes. Should not
+        be shorter than ``ydata``. If None, then enumeration of 
+        ``ydata`` will be used.\n
+        ``ydata`` - Iterable containing data for Y axes.\n
+        ``yerr`` - Value of y error bar.\n
+        ``xerr`` - Value of x error bar.\n
+        ``fmt`` - Format string.\n
+        ``xlabel`` - Optional label for x data.\n
+        ``ylabel`` - Optional label for y data.
+        """
+
+        # Update data
+        self.ydata = ydata
+        if xdata is None:
+            self.xdata = np.arange(self.ydata.size) # type: ignore
+        else:
+            self.xdata = xdata
+        self.xerr = xerr
+        self.yerr = yerr
+        if xlabel is not None:
+            self.xlabel = xlabel
+        if ylabel is not None:
+            self.ylabel = ylabel
+
+        # Plot data
+        # If plot is empty, create reference to 2D line
+        if self._plot_ref is None:
+            # By some reason program crushes if more than one PlotDataItem
+            # is added to the plot
+            # Plot lines
+            self._plot_ref = self.plot_item.plot(
+                x = self.xdata,
+                y = self.ydata,
+                pen = self.pen_line
+            )
+            # Plot points
+            self._scat_ref = pg.ScatterPlotItem(
+                x = self.xdata,
+                y = self.ydata,
+                hoverable = True,
+                hoverPen = self.pen_hover,
+                tip = 'x:{x:.3g} y:{y:.3g}'.format
+            )
+            self.plot_item.addItem(self._scat_ref)
+            # data picker
+            if self.enable_pick:
+                self._scat_ref.sigClicked.connect(self.pick_point)
+                logger.info('Connected')
+        
+        # otherwise just update data
+        else:
+            self._plot_ref.setData(
+                x = self.xdata,
+                y = self.ydata)
+            self._scat_ref.setData( # type: ignore
+                x = self.xdata,
+                y = self.ydata
+            )
+            
+        # Plot error bars
+        if yerr is not None:
+            self.set_errorbars()
+
+    def set_errorbars(self) -> None:
+        
+        err = pg.ErrorBarItem(
+            x = self.xdata,
+            y = self.ydata,
+            width = self.xerr,
+            height = self.yerr
+        )
+        if self._err_ref is not None:
+            self.plot_item.removeItem(self._err_ref)
+        self._err_ref = err
+        self.plot_item.addItem(self._err_ref)
+
+    def set_marker(self, marker: int) -> None:
+        """
+        Add marker to the plot.
+        
+        Atrributes
+        ----------
+        `marker` - index of data.
+        """
+
+        pens = [self.pen_def]*len(self.xdata)
+        sizes = [7]*len(self.xdata)
+        pens[marker] = self.pen_sel
+        sizes[marker] = 20
+        self.sel_ind = marker
+        if self._scat_ref is not None:
+            self._scat_ref.setPen(pens)
+            self._scat_ref.setSize(sizes)
+
+    def clear_plot(self) -> None:
+        """Restore plot to dafault state."""
+
+        self.plot_item.clear()
+        self._plot_ref = None
+        self._err_ref = None
+        self._sp_ref = None
+        self._marker_ref = None
+
+    def pick_point(self, scat_item, points: list, ev: MouseClickEvent) -> None:
+        """Data pick event handler."""
+
+        # Set index of the first point as selected index
+        x_sel = points[0]._data[0]
+        self.sel_ind = np.argwhere(self.xdata == x_sel)[0][0]
+        self.point_picked.emit(self.sel_ind)
+
+    @property
+    def sp(self) -> PlainQuantity | None:
+        """Set point value."""
+        if self._sp_ref is None:
+            return None
+        return Q_(self._sp_ref.value(), self.yunits)
+    @sp.setter
+    def sp(self, value: PlainQuantity | None) -> None:
+        if self._plot_ref is None:
+            return
+        if self._sp_ref is None:
+            if value is not None:
+                self._sp_ref = pg.InfiniteLine(
+                    pos = value.to(self.yunits).m,
+                    angle = 0,
+                    movable = False
+                )
+        else:
+            if value is None:
+                self.plot_item.removeItem(self._sp_ref)
+                self._sp_ref = None
+            else:
+                self._sp_ref.setValue(value.to(self.yunits).m)
+
+    @property
+    def xdata(self) -> npt.NDArray:
+        if self._xdata is None:
+            logger.warning('xdata is not set!')
+            return np.array([])
+        return self._xdata
+    @xdata.setter
+    def xdata(self, data: npt.NDArray | PlainQuantity) -> None:
+        try:
+            iter(data)
+        except TypeError:
+            logger.warning('Attempt to plot non-terable X data.')
+            return
+        if isinstance(data, PlainQuantity):
+            data = data.to_base_units()
+            try:
+                data = data.to(self.xunits)
+            except:
+                self.xunits = f'{data.u:~.2gP}'
+            self._xdata = data.m
+        else:
+            self.xunits = ''
+            self._xdata = data
+
+    @property
+    def ydata(self) -> npt.NDArray:
+        if self._ydata is None:
+            logger.warning('ydata is not set!')
+            return np.array([])
+        return self._ydata
+    @ydata.setter
+    def ydata(self, data: npt.NDArray | PlainQuantity) -> None:
+        try:
+            iter(data)
+        except TypeError:
+            logger.warning('Attempt to plot non-terable Y data.')
+            return
+        if isinstance(data, PlainQuantity):
+            data = data.to_reduced_units()
+            try:
+                data = data.to(self.yunits)
+            except:
+                self.yunits = f'{data.u:~.2gP}'
+            self._ydata = data.m
+        else:
+            self.yunits = ''
+            self._ydata = data
+
+    @property
+    def xerr(self) -> npt.NDArray:
+        if self._xerr is None:
+            logger.warning('x error is not set!')
+            return np.array([])
+        return self._xerr
+    @xerr.setter
+    def xerr(self, data: npt.NDArray | PlainQuantity | None) -> None:
+        if data is None:
+            self._xerr = None
+            return
+        try:
+            iter(data)
+        except TypeError:
+            logger.warning('Attempt to plot non-terable X error.')
+            return
+        if isinstance(data, PlainQuantity):
+            data = data.to(self.xunits)
+            self._xerr = data.m
+        else:
+            self._xerr = data
+
+    @property
+    def yerr(self) -> npt.NDArray:
+        if self._yerr is None:
+            logger.warning('x error is not set!')
+            return np.array([])
+        return self._yerr
+    @yerr.setter
+    def yerr(self, data: npt.NDArray | PlainQuantity | None) -> None:
+        if data is None:
+            self._yerr = None
+            return
+        try:
+            iter(data)
+        except TypeError:
+            logger.warning('Attempt to plot non-terable Y error.')
+            return
+        if isinstance(data, PlainQuantity):
+            data = data.to(self.yunits)
+            self._yerr = data.m
+        else:
+            self._yerr = data
+
+    @property
+    def xlabel(self) -> str:
+        "x label, does not include units."
+        return self.plot_item.getAxis('bottom').labelText
+    @xlabel.setter
+    def xlabel(self, label: str) -> None:
+        self.plot_item.setLabel('bottom', label, self.xunits)
+
+    @property
+    def ylabel(self) -> str:
+        """y label, does not include units."""
+        return self.plot_item.getAxis('left').labelText
+    @ylabel.setter
+    def ylabel(self, label: str) -> None:
+        self.plot_item.setLabel('left', label, self.yunits)
+
+    @property
+    def xunits(self) -> str:
+        """Units of x axis."""
+        return self.plot_item.getAxis('bottom').labelUnits
+    @xunits.setter
+    def xunits(self, units: str) -> None:
+        self.plot_item.setLabel('bottom', self.xlabel, units)
+
+    @property
+    def yunits(self) -> str:
+        """Units of y axis."""
+        return self.plot_item.getAxis('left').labelUnits
+    @yunits.setter
+    def yunits(self, units: str) -> None:
+        self.plot_item.setLabel('left', self.ylabel, units)

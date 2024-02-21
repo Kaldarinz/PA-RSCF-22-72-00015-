@@ -195,9 +195,7 @@ class DataViewer(QWidget, data_viewer_ui.Ui_Form):
         )
 
         # Data picker in curve plot
-        self.p_1d.plot_curve.canvas.fig.canvas.mpl_connect(
-            'pick_event', self.pick_event # type: ignore
-        )
+        self.p_1d.plot_curve.point_picked.connect(self.pick_event)
         # Data picker for map
         self.p_2d.plot_map.point_selected.connect(self.map_point_selected)
 
@@ -379,6 +377,7 @@ class DataViewer(QWidget, data_viewer_ui.Ui_Form):
             try:
                 self.sw_view.currentWidget().plot_detail.clear_plot() # type: ignore
             except:
+                logger.info('Uncaught error.')
                 pass
             self.tv_info.set_gen_point_md(None)
             return
@@ -439,13 +438,13 @@ class DataViewer(QWidget, data_viewer_ui.Ui_Form):
         view.plot_curve.plot(**param_data._asdict())
         view.plot_curve.set_marker([self.s_point_ind])
 
-    def pick_event(self, event: PickEvent):
+    def pick_event(self, sel_ind: int):
         """Callback method for processing data picking on plot."""
 
         # Update datamarker on plot
-        self.p_1d.plot_curve.set_marker([event.ind[0]]) # type: ignore
+        self.p_1d.plot_curve.set_marker(sel_ind) # type: ignore
         # Update index of currently selected data
-        dp_name = PaData._build_name(event.ind[0] + 1) # type: ignore
+        dp_name = PaData._build_name(sel_ind + 1) # type: ignore
         self.s_point = self.s_msmnt.data[dp_name] # type: ignore
 
     def map_point_selected(self, params: list) -> None:
@@ -685,6 +684,7 @@ class MeasureWidget():
     def verify_msmnt(self, data: MeasuredPoint | None) -> bool:
         """Verify measured datapoint."""
 
+        logger.info('Verify msmnt called.')
         # Check if data was obtained
         if data is None:
             info_dial = QMessageBox()
@@ -851,8 +851,8 @@ class CurveMeasureWidget(QWidget, curve_measure_widget_ui.Ui_Curve_measure_widge
         # Restart btn
         self.btn_redo.clicked.connect(self.redo_msmnt)
         # Data picker in curve plot
-        self.plot_measurement.fig.canvas.mpl_connect(
-            'pick_event', self.pick_event # type: ignore
+        self.plot_measurement.point_picked.connect(
+            self.pick_event
         )
 
     def measure(self) -> None:
@@ -965,7 +965,7 @@ class CurveMeasureWidget(QWidget, curve_measure_widget_ui.Ui_Curve_measure_widge
                 dtype = 'raw_data'
             )
             self.plot_measurement.plot(**data._asdict())
-            self.plot_measurement.set_marker([self.current_point - 1])
+            self.plot_measurement.set_marker(self.current_point - 1)
             detail_data = PaData.point_data_plot(
                 point = self.s_point,
                 dtype = 'raw_data',
@@ -985,11 +985,11 @@ class CurveMeasureWidget(QWidget, curve_measure_widget_ui.Ui_Curve_measure_widge
         else:
             self.btn_measure.setEnabled(False)
 
-    def pick_event(self, event: PickEvent):
+    def pick_event(self, sel_ind: int):
         """Callback method for processing data picking on plot."""
 
         # Update datamarker on plot
-        self.current_point = event.ind[0] + 1
+        self.current_point = sel_ind + 1
 
     def curve_finished(self) -> None:
         
@@ -1158,6 +1158,7 @@ class MapMeasureWidget(QWidget,map_measure_widget_ui.Ui_map_measure):
                 try:
                     self.astep_calculated.disconnect(self.scan)
                 except:
+                    logger.info('Uncaught error.')
                     pass
             # Set buttons state
             self.btn_start.setEnabled(False)
@@ -1603,7 +1604,7 @@ class CurveView(QWidget,curve_data_view_ui.Ui_Curve_view):
         )
 
         #Enable picker
-        self.plot_curve.canvas.enable_pick = True
+        self.plot_curve.enable_pick = True
         
 class PointView(QWidget, point_data_view_ui.Ui_Point_view):
     """Plots for 1D data."""

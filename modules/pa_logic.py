@@ -841,7 +841,7 @@ def meas_point_from_osc(
         logger.error('Sample energy cannot be calculated.')
         return None
     en_info = PaEnergyMeasurement(pm_energy, sample_en)
-
+    logger.debug('en_info obtained.')
     measurement = MeasuredPoint.from_msmnts(
         data = msmnt,
         energy_info = en_info,
@@ -865,6 +865,7 @@ def measure_point_emul(
     Thread safe.
     """
 
+    logger.info('Starting EMULATION of point measurement')
     result_en: list[OscMeasurement] = []
     tkwargs_en = {
         'step': 0.5,
@@ -875,6 +876,7 @@ def measure_point_emul(
     t_en = Thread(target = pa_fast_cont_emul, kwargs = tkwargs_en)
     t_en.start()
     t_en.join()
+    logger.info('Emulation result obtained.')
     msmnt = meas_point_from_osc(result_en[0], wavelength)
     return msmnt
 

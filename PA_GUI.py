@@ -561,6 +561,7 @@ class Window(QMainWindow,Ui_MainWindow,):
         
         Implement emulation if hardware is disconnected.
         """
+        
         if self.init_state:
             worker = Worker(pa_logic.measure_point, wl)
         else:
