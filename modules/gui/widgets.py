@@ -68,8 +68,16 @@ from ..data_classes import (
     ScanLine,
     Position,
     MeasuredPoint,
-    QuantRect
+    QuantRect,
+    DataPoint
 )
+from ..constants import (
+    POINT_SIGNALS,
+    MSMNTS_SIGNALS,
+    CURVE_PARAMS
+)
+from ..pa_data import PaData
+
 from modules import ureg, Q_
 rng = np.random.default_rng()
 logger = logging.getLogger(__name__)
@@ -787,6 +795,8 @@ class QuantSpinBox(QDoubleSpinBox):
         if self.value() != value:
             self._stepChanged.emit()
 
+
+
 class StandartItem(QStandardItem):
     """Element of TreeView."""
 
@@ -859,6 +869,7 @@ class TreeInfoWidget(QTreeWidget):
     def set_gen_point_md(self, attrs) -> None:
         """Set general point metadata from a dataclass."""
 
+        logger.info(f'Setting general point md {attrs=}')
         # clear existing information
         if self.gpmd is not None:
             index = self.indexOfTopLevelItem(self.gpmd)
@@ -1476,7 +1487,7 @@ class PgPlot(pg.PlotWidget):
 
         # Styles
         self.pen_def = pg.mkPen(color = 'l', width = 1)
-        self.pen_line = pg.mkPen(color = '#1f77b4', width = 3)
+        self.pen_line = pg.mkPen(color = '#1f77b4', width = 2)
         self.pen_sel = pg.mkPen(color='y', width = 3)
         self.pen_hover = pg.mkPen(color='r')
 
@@ -1604,6 +1615,60 @@ class PgPlot(pg.PlotWidget):
         x_sel = points[0]._data[0]
         self.sel_ind = np.argwhere(self.xdata == x_sel)[0][0]
         self.point_picked.emit(self.sel_ind)
+
+    def set_Xlim(
+            self,
+            min: PlainQuantity | None=None,
+            max: PlainQuantity | None=None
+        ) -> None:
+        """Set hard limit for view range."""
+
+        vb = self.plot_item.getViewBox()
+        if not isinstance(vb, pg.ViewBox):
+            logger.warning('View range cannot be set.')
+            return
+        c_x, c_y = vb.viewRange()
+        c_xmin, c_xmax = c_x
+        c_ymin, c_ymax = c_y 
+        if min is not None:
+            self.xunits = str(min.u)
+        else:
+            min = c_xmin
+        if max is not None:
+            self.xunits = str(max.u)
+        else:
+            max = c_xmax
+        vb.setLimits(
+            xMin = min,
+            xMax = max
+        )
+
+    def set_Ylim(
+            self,
+            min: PlainQuantity | None=None,
+            max: PlainQuantity | None=None
+        ) -> None:
+        """Set hard limit for view range."""
+
+        vb = self.plot_item.getViewBox()
+        if not isinstance(vb, pg.ViewBox):
+            logger.warning('View range cannot be set.')
+            return
+        c_x, c_y = vb.viewRange()
+        c_xmin, c_xmax = c_x
+        c_ymin, c_ymax = c_y
+        if min is not None:
+            self.yunits = str(min.u)
+        else:
+            min = c_ymin
+        if max is not None:
+            self.yunits = str(max.u)
+        else:
+            max = c_ymax
+        vb.setLimits(
+            yMin = min,
+            yMax = max
+        )
 
     @property
     def sp(self) -> PlainQuantity | None:

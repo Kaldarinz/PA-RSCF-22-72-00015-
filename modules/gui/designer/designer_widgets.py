@@ -61,7 +61,6 @@ from . import (
     map_measure_widget_ui,
     pm_monitor_ui,
     curve_data_view_ui,
-    point_data_view_ui,
     motor_control_ui,
     map_data_view_ui
 )
@@ -96,6 +95,9 @@ from ...hardware import utils as hutils
 from ..widgets import (
     MplCanvas,
     QuantSpinBox
+)
+from ..compound_widgets import(
+    PointView
 )
 
 logger = logging.getLogger(__name__)
@@ -175,19 +177,19 @@ class DataViewer(QWidget, data_viewer_ui.Ui_Form):
 
         # Signal selection for point
         self.p_0d.cb_detail_select.currentTextChanged.connect(
-            lambda _ : self.show_signal())
-        self.p_1d.cb_detail_select.currentTextChanged.connect(
-            lambda _ : self.show_signal())
-        self.p_2d.cb_detail_select.currentTextChanged.connect(
-            lambda _ : self.show_signal())
+            lambda _ : self.set_signal_md(self.p_0d))
+        self.p_1d.pv.cb_detail_select.currentTextChanged.connect(
+            lambda _ : self.set_signal_md(self.p_1d.pv))
+        # self.p_2d.cb_detail_select.currentTextChanged.connect(
+        #     lambda _ : self.show_signal())
         
         # Sample select
         self.p_0d.cb_sample.currentTextChanged.connect(
-            lambda _ : self.show_signal())
-        self.p_1d.cb_sample.currentTextChanged.connect(
-            lambda _ : self.show_signal())
-        self.p_2d.cb_sample.currentTextChanged.connect(
-            lambda _ : self.show_signal())
+            lambda _ : self.set_signal_md(self.p_0d))
+        self.p_1d.pv.cb_sample.currentTextChanged.connect(
+            lambda _ : self.set_signal_md(self.p_1d.pv))
+        # self.p_2d.cb_sample.currentTextChanged.connect(
+        #     lambda _ : self.show_signal())
 
         # Signal selection for parameter
         self.p_1d.cb_curve_select.currentTextChanged.connect(
@@ -372,51 +374,36 @@ class DataViewer(QWidget, data_viewer_ui.Ui_Form):
         """
 
         view = self.sw_view.currentWidget()
-        view = cast(PointView|CurveView|MapView, view)
+        if isinstance(view, PointView):
+            point_view = view
+        elif isinstance(view, CurveView | MapView):
+            point_view = view.pv
+            point_view = cast(PointView, point_view)
+        else:
+            logger.warning('Trying to set point data into wrong widget')
+            return
         if self.s_point is None:
-            try:
-                self.sw_view.currentWidget().plot_detail.clear_plot() # type: ignore
-            except:
-                logger.info('Uncaught error.')
-                pass
+            point_view.reset_view()
             self.tv_info.set_gen_point_md(None)
             return
         
         # Set general point description
         self.tv_info.set_gen_point_md(self.s_point.attrs)
-        # populate samples combobox
-        view.cb_sample.clear()
-        view.cb_sample.addItems(
-            list(self.s_point.raw_data)
-        )
-        self.show_signal()
+        point_view.load_dp(self.s_point)
+        self.set_signal_md(point_view)
 
-    def show_signal(self) -> None:
-        """Actually plot point data and set signal description."""
-
-        view = self.sw_view.currentWidget()
-        view = cast(PointView|CurveView|MapView, view)
-        if self.s_point is None or self.s_msmnt is None:
-            view.plot_detail.clear_plot()
-            logger.debug('Signal cannot be shown. Some info is missing.')
-            return
+    def set_signal_md(self, pv: PointView) -> None:
+        """Set signal metadata for the point view."""
         
         # signal data type for plotting
-        dtype =  POINT_SIGNALS[view.cb_detail_select.currentText()]
+        dtype =  POINT_SIGNALS[pv.cb_detail_select.currentText()]
         # Sample for plotting
-        sample_title = view.cb_sample.currentText()
+        sample_title = pv.cb_sample.currentText()
         # Get dict with dtype data for all samples in data point
         dtype_dct = getattr(self.s_point, dtype)
         # Get relative MD
         sig_attrs = dtype_dct.get(sample_title, None)
         self.tv_info.set_signal_md(sig_attrs)
-        # Plot the data
-        detail_data = PaData.point_data_plot(
-            point = self.s_point,
-            dtype = dtype,
-            sample = sample_title
-        )
-        view.plot_detail.plot(**detail_data._asdict())
 
     @Slot()
     def plot_param(self) -> None:
@@ -436,7 +423,7 @@ class DataViewer(QWidget, data_viewer_ui.Ui_Form):
             dtype = dtype
         )
         view.plot_curve.plot(**param_data._asdict())
-        view.plot_curve.set_marker([self.s_point_ind])
+        view.plot_curve.set_marker(self.s_point_ind)
 
     def pick_event(self, sel_ind: int):
         """Callback method for processing data picking on plot."""
@@ -1594,28 +1581,13 @@ class CurveView(QWidget,curve_data_view_ui.Ui_Curve_view):
         super().__init__(parent)
         self.setupUi(self)
 
-        # Point signals
-        self.cb_detail_select.addItems(
-            [key for key in POINT_SIGNALS.keys()]
-        )
-        # Param signals
         self.cb_curve_select.addItems(
-            [key for key in MSMNTS_SIGNALS.keys()]
+            list(MSMNTS_SIGNALS.keys())
         )
 
         #Enable picker
         self.plot_curve.enable_pick = True
         
-class PointView(QWidget, point_data_view_ui.Ui_Point_view):
-    """Plots for 1D data."""
-
-    def __init__(self, parent: QWidget | None=None) -> None:
-        super().__init__(parent)
-        self.setupUi(self)
-
-        self.cb_detail_select.addItems(
-            [key for key in POINT_SIGNALS.keys()]
-        )
 
 class MotorView(QDockWidget, motor_control_ui.Ui_DockWidget):
     """Mechanical positioning widget."""
@@ -1633,9 +1605,6 @@ class MotorView(QDockWidget, motor_control_ui.Ui_DockWidget):
         self.plot_xz.fixed_scales = True
         self.plot_yz.fixed_scales = True
 
-        self.fmt = 'o'
-        "Format string for plotting."
-
         self.pixmap_c = QPixmap(
             u":/icons/qt_resources/plug-connect.png"
         )
@@ -1651,23 +1620,17 @@ class MotorView(QDockWidget, motor_control_ui.Ui_DockWidget):
         )
 
         # Set initial position of plots
-        upd_plot(
-            self.plot_xy,
-            ydata = [self.y.m],
-            xdata = [self.x.m],
-            fmt = self.fmt
+        self.plot_xy.plot(
+            ydata = self.y.m,
+            xdata = self.x.m
         )
-        upd_plot(
-            self.plot_xz,
-            ydata = [self.z.m],
-            xdata = [self.x.m],
-            fmt = self.fmt
+        self.plot_xz.plot(
+            ydata = self.z.m,
+            xdata = self.x.m
         )
-        upd_plot(
-            self.plot_yz,
-            ydata = [self.z.m],
-            xdata = [self.y.m],
-            fmt = self.fmt
+        self.plot_yz.plot(
+            ydata = self.z.m,
+            xdata = self.y.m
         )
 
     @Slot(Position)
@@ -1705,20 +1668,20 @@ class MotorView(QDockWidget, motor_control_ui.Ui_DockWidget):
         max_val = range[1].to('mm').m
         range_mm = [min_val, max_val]
         # Set range for plots
-        self.plot_xy.axes.set_xlim(range_mm) # type: ignore
-        self.plot_xy.axes.set_ylim(range_mm) # type: ignore
-        self.plot_xz.axes.set_xlim(range_mm) # type: ignore
-        self.plot_xz.axes.set_ylim(range_mm) # type: ignore
-        self.plot_yz.axes.set_xlim(range_mm) # type: ignore
-        self.plot_yz.axes.set_ylim(range_mm) # type: ignore
+        self.plot_xy.set_Xlim(*range)
+        self.plot_xy.set_Ylim(*range)
+        self.plot_xz.set_Xlim(*range)
+        self.plot_xz.set_Ylim(*range)
+        self.plot_yz.set_Xlim(*range)
+        self.plot_yz.set_Ylim(*range)
 
         # Set plot titles
-        self.plot_xy.xlabel = 'X, [mm]'
-        self.plot_xy.ylabel = 'Y, [mm]'
-        self.plot_xz.xlabel = 'X, [mm]'
-        self.plot_xz.ylabel = 'Z, [mm]'
-        self.plot_yz.xlabel = 'Z, [mm]'
-        self.plot_yz.ylabel = 'Y, [mm]'
+        self.plot_xy.xlabel = 'X'
+        self.plot_xy.ylabel = 'Y'
+        self.plot_xz.xlabel = 'X'
+        self.plot_xz.ylabel = 'Z'
+        self.plot_yz.xlabel = 'Z'
+        self.plot_yz.ylabel = 'Y'
         # Set range for spin boxes
         for sb in iter([
             self.sb_x_new_pos,

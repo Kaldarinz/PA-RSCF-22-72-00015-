@@ -18,20 +18,21 @@ from PySide6.QtGui import (QBrush, QColor, QConicalGradient, QCursor,
 from PySide6.QtWidgets import (QApplication, QComboBox, QHBoxLayout, QLabel,
     QSizePolicy, QSpacerItem, QVBoxLayout, QWidget)
 
+from ..compound_widgets import PointView
 from ..widgets import PgPlot
 
 class Ui_Curve_view(object):
     def setupUi(self, Curve_view):
         if not Curve_view.objectName():
             Curve_view.setObjectName(u"Curve_view")
-        Curve_view.resize(860, 209)
+        Curve_view.resize(1367, 796)
         sizePolicy = QSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(Curve_view.sizePolicy().hasHeightForWidth())
         Curve_view.setSizePolicy(sizePolicy)
-        self.horizontalLayout_3 = QHBoxLayout(Curve_view)
-        self.horizontalLayout_3.setObjectName(u"horizontalLayout_3")
+        self.horizontalLayout_2 = QHBoxLayout(Curve_view)
+        self.horizontalLayout_2.setObjectName(u"horizontalLayout_2")
         self.lo_curve = QVBoxLayout()
         self.lo_curve.setObjectName(u"lo_curve")
         self.horizontalLayout = QHBoxLayout()
@@ -62,50 +63,14 @@ class Ui_Curve_view(object):
         self.lo_curve.addWidget(self.plot_curve)
 
 
-        self.horizontalLayout_3.addLayout(self.lo_curve)
+        self.horizontalLayout_2.addLayout(self.lo_curve)
 
-        self.lo_detail = QVBoxLayout()
-        self.lo_detail.setObjectName(u"lo_detail")
-        self.horizontalLayout_2 = QHBoxLayout()
-        self.horizontalLayout_2.setObjectName(u"horizontalLayout_2")
-        self.lbl_detail_select = QLabel(Curve_view)
-        self.lbl_detail_select.setObjectName(u"lbl_detail_select")
+        self.pv = PointView(Curve_view)
+        self.pv.setObjectName(u"pv")
+        sizePolicy.setHeightForWidth(self.pv.sizePolicy().hasHeightForWidth())
+        self.pv.setSizePolicy(sizePolicy)
 
-        self.horizontalLayout_2.addWidget(self.lbl_detail_select)
-
-        self.cb_detail_select = QComboBox(Curve_view)
-        self.cb_detail_select.setObjectName(u"cb_detail_select")
-        self.cb_detail_select.setMinimumSize(QSize(140, 0))
-
-        self.horizontalLayout_2.addWidget(self.cb_detail_select)
-
-        self.lbl_sample = QLabel(Curve_view)
-        self.lbl_sample.setObjectName(u"lbl_sample")
-
-        self.horizontalLayout_2.addWidget(self.lbl_sample)
-
-        self.cb_sample = QComboBox(Curve_view)
-        self.cb_sample.setObjectName(u"cb_sample")
-        self.cb_sample.setMinimumSize(QSize(140, 0))
-
-        self.horizontalLayout_2.addWidget(self.cb_sample)
-
-        self.horizontalSpacer_2 = QSpacerItem(373, 17, QSizePolicy.Maximum, QSizePolicy.Minimum)
-
-        self.horizontalLayout_2.addItem(self.horizontalSpacer_2)
-
-
-        self.lo_detail.addLayout(self.horizontalLayout_2)
-
-        self.plot_detail = PgPlot(Curve_view)
-        self.plot_detail.setObjectName(u"plot_detail")
-        sizePolicy.setHeightForWidth(self.plot_detail.sizePolicy().hasHeightForWidth())
-        self.plot_detail.setSizePolicy(sizePolicy)
-
-        self.lo_detail.addWidget(self.plot_detail)
-
-
-        self.horizontalLayout_3.addLayout(self.lo_detail)
+        self.horizontalLayout_2.addWidget(self.pv)
 
 
         self.retranslateUi(Curve_view)
@@ -116,7 +81,5 @@ class Ui_Curve_view(object):
     def retranslateUi(self, Curve_view):
         Curve_view.setWindowTitle(QCoreApplication.translate("Curve_view", u"Form", None))
         self.lbl_curve_select.setText(QCoreApplication.translate("Curve_view", u"Curve Signal", None))
-        self.lbl_detail_select.setText(QCoreApplication.translate("Curve_view", u"Point Signal", None))
-        self.lbl_sample.setText(QCoreApplication.translate("Curve_view", u"Sample", None))
     # retranslateUi
 

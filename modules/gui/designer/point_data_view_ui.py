@@ -27,6 +27,7 @@ class Ui_Point_view(object):
         Point_view.resize(649, 585)
         self.verticalLayout = QVBoxLayout(Point_view)
         self.verticalLayout.setObjectName(u"verticalLayout")
+        self.verticalLayout.setContentsMargins(0, 0, 0, 0)
         self.horizontalLayout = QHBoxLayout()
         self.horizontalLayout.setObjectName(u"horizontalLayout")
         self.lbl_detail_select = QLabel(Point_view)
