@@ -273,7 +273,7 @@ class PaData:
         )
         datapoint = DataPoint(attrs = metadata)
         for ind, dp in enumerate(data):
-            dp_title = PaData._build_name(ind, 'repetition')
+            dp_title = PaData._build_name(ind, 'sample')
             rawdata = BaseData(
                 data = dp.pa_signal.copy(), # type: ignore
                 data_raw = dp.pa_signal_raw.copy(),
@@ -439,14 +439,14 @@ class PaData:
                     # set point metadata
                     s_datapoint.attrs.update(self._to_dict(ds.attrs))
                     # set raw data
-                    new_dataset = s_datapoint.create_dataset(
-                        'data_raw',
-                        data = ds.raw_data.data_raw
-                    )
-                    new_dataset.attrs.update(self._to_dict(ds.raw_data))
-                    
-                    # additionaly save units of data
-                    new_dataset.attrs.update({'y_var_units': str(ds.raw_data.data.u)})
+                    for sample_t, sample in ds.raw_data.items():
+                        new_dataset = s_datapoint.create_dataset(
+                            sample_t,
+                            data = sample.data_raw
+                        )
+                        new_dataset.attrs.update(self._to_dict(sample))
+                        # additionaly save units of data
+                        new_dataset.attrs.update({'y_var_units': str(sample.data.u)})
         self.changed = False
         logger.debug('Data saved to disk')
 
@@ -512,7 +512,6 @@ class PaData:
             # handled, when a field is serialized into several records. 
             if fld.type == list[PlainQuantity]:
                 # Try to construct quantities only for non-empty lists
-                logger.info(f'Loading {fld.name=}')
                 if len(source.get(fld.name, [])):
                     mags = source.get(fld.name, None)
                     units = source.get(fld.name + '_u', None)
@@ -540,27 +539,18 @@ class PaData:
 
     def _load_basedata(
             self,
-            data: PlainQuantity,
             data_raw: npt.NDArray[np.uint8],
             source: dict
         ) -> BaseData:
         """"Load BaseData."""
 
-        init_vals = {
-            'data': data,
+        init_vals: dict[str, Any] = {
             'data_raw': data_raw
         }
         for fld in fields(BaseData):
             # this condition check is different from others
             if fld.name not in ['data', 'data_raw']:
                 value = None
-                # load old data format
-                if self.attrs.version < 1.4:
-                    if fld.name == 'yincrement':
-                        value = Q_(np.nan, 'V')
-                        if value is not None:
-                            init_vals.update({fld.name: value})
-                        continue
                 if fld.type == list[PlainQuantity]:
                     mags = source[fld.name]
                     units = source[fld.name + '_u']
@@ -581,6 +571,9 @@ class PaData:
                     # Support for file version < 1.4
         if init_vals.get('datetime', None) is None:
             init_vals['datetime'] = datetime.fromtimestamp(0)
+        init_vals['data'] = (
+            data_raw*init_vals['yincrement']/init_vals['sample_en']
+        )
         return BaseData(**init_vals)
 
     def _calc_data_fit(self,
@@ -651,27 +644,26 @@ class PaData:
                         PointMetadata,
                         dict(datapoint.attrs.items())
                     )
-                    ds = datapoint['data_raw']
-                    data_raw = ds[...]
-                    y_var_units = ds.attrs['y_var_units']
-                    # restore data
-                    base_attrs = dict(ds.attrs.items())
-                    if general.get('version', 0) < 1.4:
-                        p = np.poly1d([ds.attrs['a'], ds.attrs['b']])
-                        data = Q_(p(data_raw), y_var_units)
-                    else:
-                        data = data_raw * ds.attrs['yincrement'] / ds.attrs['sample_en']
-                    basedata = self._load_basedata(
-                        data,
-                        data_raw,
-                        base_attrs
-                    )
-                    filtdata, freqdata = self.bp_filter(basedata)
+                    raw_data = {}
+                    filt_data = {}
+                    freq_data = {}
+                    for sample_t, sample in datapoint.items():
+                        data_raw = sample[...]
+                        # restore data
+                        base_attrs = dict(sample.attrs.items())
+                        basedata = self._load_basedata(
+                            data_raw,
+                            base_attrs
+                        )
+                        filtdata, freqdata = self.bp_filter(basedata)
+                        raw_data.update({sample_t: basedata})
+                        filt_data.update({sample_t: filtdata})
+                        freq_data.update({sample_t: freqdata})
                     dp = DataPoint(
-                        point_attrs,
-                        basedata,
-                        filtdata,
-                        freqdata
+                        attrs = point_attrs,
+                        raw_data = raw_data,
+                        freq_data = freq_data,
+                        filt_data = freq_data
                     )
                     measurement.data.update({datapoint_title: dp})
                 self.measurements.update({msmnt_title: measurement})
@@ -751,19 +743,16 @@ class PaData:
             logger.debug(err_msg)
             raise PlotError(err_msg)
         
-        x_label = (msmnt.attrs.parameter_name[0] 
-                + ', ['
-                + f'{xdata[0].u:~.2gP}'
-                + ']')
-        y_label = (msmnt.data['point001'].raw_data['repetition001'].y_var_name
-                + ', ['
-                + f'{ydata[0].u:~.2gP}'
-                + ']')
+        x_label = msmnt.attrs.parameter_name[0]
+
+        point = next(iter(msmnt.data.values()))
+        sample = next(iter(getattr(point, dtype).values())) 
+        y_label = sample.y_var_name
         result = PlotData(
-            ydata = ydata[0].m,
-            yerr = ydata[1].to(ydata[0].u).m,
-            xdata = xdata[0].m,
-            xerr = xdata[1].to(xdata[0].u).m,
+            ydata = ydata[0],
+            yerr = ydata[1].to(ydata[0].u),
+            xdata = xdata[0],
+            xerr = xdata[1].to(xdata[0].u),
             ylabel = y_label,
             xlabel = x_label
         )
@@ -789,6 +778,8 @@ class PaData:
 
         dtype_dct = getattr(point, dtype)
         ds = dtype_dct.get(sample, None)
+        if ds is None:
+            logger.warning(f'There is no {sample} for {dtype}')
         result = PaData._point_data(ds)
         return result
 
@@ -811,17 +802,11 @@ class PaData:
         num = len(ds.data) # type: ignore
         time_data = Q_(np.linspace(start.m,stop.m,num), start.u)
 
-        x_label = (ds.x_var_name
-                   + ', ['
-                   + str(start.u)
-                   + ']')
-        y_label = (ds.y_var_name
-                   + ', ['
-                   + str(ds.data.u)
-                   + ']')
+        x_label = ds.x_var_name
+        y_label = ds.y_var_name
         return PlotData(
-            xdata = time_data.m,
-            ydata = ds.data.m,
+            xdata = time_data,
+            ydata = ds.data,
             xlabel = x_label,
             ylabel = y_label
         )

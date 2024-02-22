@@ -180,16 +180,16 @@ class DataViewer(QWidget, data_viewer_ui.Ui_Form):
             lambda _ : self.set_signal_md(self.p_0d))
         self.p_1d.pv.cb_detail_select.currentTextChanged.connect(
             lambda _ : self.set_signal_md(self.p_1d.pv))
-        # self.p_2d.cb_detail_select.currentTextChanged.connect(
-        #     lambda _ : self.show_signal())
+        self.p_2d.pv.cb_detail_select.currentTextChanged.connect(
+            lambda _ : self.set_signal_md(self.p_2d.pv))
         
         # Sample select
         self.p_0d.cb_sample.currentTextChanged.connect(
             lambda _ : self.set_signal_md(self.p_0d))
         self.p_1d.pv.cb_sample.currentTextChanged.connect(
             lambda _ : self.set_signal_md(self.p_1d.pv))
-        # self.p_2d.cb_sample.currentTextChanged.connect(
-        #     lambda _ : self.show_signal())
+        self.p_2d.pv.cb_sample.currentTextChanged.connect(
+            lambda _ : self.set_signal_md(self.p_2d.pv))
 
         # Signal selection for parameter
         self.p_1d.cb_curve_select.currentTextChanged.connect(
@@ -412,7 +412,6 @@ class DataViewer(QWidget, data_viewer_ui.Ui_Form):
         view = self.sw_view.currentWidget()
         view = cast(CurveView, view)
         if self.s_point is None or self.s_msmnt is None:
-            view.plot_detail.clear_plot()
             logger.debug('Signal cannot be shown. Some info is missing.')
             return
         # signal data type for plotting
@@ -638,7 +637,7 @@ class LoggerWidget(QDockWidget, log_dock_widget_ui.Ui_d_log):
         super().__init__(parent)
         self.setupUi(self)
 
-class MeasureWidget():
+class MeasureWidget(QWidget):
     """
     Base class for Curve and Point Measure widgets.
     
@@ -665,13 +664,12 @@ class MeasureWidget():
     sb_cur_param: QuantSpinBox
     data_point: list[MeasuredPoint]
 
-    def __init__(self) -> None:
-        pass
+    def __init__(self, parent: QWidget | None=None) -> None:
+        super().__init__(parent)
 
     def verify_msmnt(self, data: MeasuredPoint | None) -> bool:
         """Verify measured datapoint."""
 
-        logger.info('Verify msmnt called.')
         # Check if data was obtained
         if data is None:
             info_dial = QMessageBox()
@@ -776,7 +774,7 @@ class MeasureWidget():
             )
         )
 
-class CurveMeasureWidget(QWidget, curve_measure_widget_ui.Ui_Curve_measure_widget, MeasureWidget):
+class CurveMeasureWidget(MeasureWidget, curve_measure_widget_ui.Ui_Curve_measure_widget, ):
     """1D PhotoAcoustic measurements widget."""
 
     cur_p_changed = Signal()
@@ -946,6 +944,7 @@ class CurveMeasureWidget(QWidget, curve_measure_widget_ui.Ui_Curve_measure_widge
             dp_title = PaData._build_name(self.current_point)
             self.s_point = self.measurement.data[dp_title]
             self.btn_redo.setEnabled(True)
+            self.pv.load_dp(self.s_point)
             # Plot data
             data = PaData.param_data_plot(
                 msmnt = self.measurement,
@@ -953,12 +952,6 @@ class CurveMeasureWidget(QWidget, curve_measure_widget_ui.Ui_Curve_measure_widge
             )
             self.plot_measurement.plot(**data._asdict())
             self.plot_measurement.set_marker(self.current_point - 1)
-            detail_data = PaData.point_data_plot(
-                point = self.s_point,
-                dtype = 'raw_data',
-                sample = 'repetition001'
-            )
-            self.plot_detail.plot(**detail_data._asdict())
         
         if self.current_point < self.points_num:
             # current param value
@@ -1010,7 +1003,7 @@ class CurveMeasureWidget(QWidget, curve_measure_widget_ui.Ui_Curve_measure_widge
             self._current_point = val
             self.cur_p_changed.emit()
 
-class PointMeasureWidget(QWidget,point_measure_widget_ui.Ui_Form, MeasureWidget):
+class PointMeasureWidget(MeasureWidget, point_measure_widget_ui.Ui_Form):
     """0D PhotoAcoustic measurements widget."""
 
     def __init__(self, parent: QWidget | None=None) -> None:
@@ -1145,7 +1138,6 @@ class MapMeasureWidget(QWidget,map_measure_widget_ui.Ui_map_measure):
                 try:
                     self.astep_calculated.disconnect(self.scan)
                 except:
-                    logger.info('Uncaught error.')
                     pass
             # Set buttons state
             self.btn_start.setEnabled(False)
@@ -1562,10 +1554,6 @@ class MapView(QWidget, map_data_view_ui.Ui_Map_view):
         super().__init__(parent)
         self.setupUi(self)
 
-        # Point signals
-        self.cb_detail_select.addItems(
-            [key for key in POINT_SIGNALS.keys()]
-        )
         # Param signals
         self.cb_curve_select.addItems(
             [key for key in MSMNTS_SIGNALS.keys()]
@@ -1588,7 +1576,6 @@ class CurveView(QWidget,curve_data_view_ui.Ui_Curve_view):
         #Enable picker
         self.plot_curve.enable_pick = True
         
-
 class MotorView(QDockWidget, motor_control_ui.Ui_DockWidget):
     """Mechanical positioning widget."""
 

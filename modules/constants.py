@@ -16,7 +16,7 @@ Grant # 22-72-00015
 
 from enum import IntEnum
 
-from . import Q_
+from . import Q_, ureg
 
 POINT_SIGNALS = {
     'Raw': 'raw_data',
@@ -42,10 +42,18 @@ CURVE_PARAMS = {
         'step': Q_(100, 'uJ')
     }
 }
+
 MSMNT_MODES = ['Single point', 'Curve', 'Map']
+
 class Priority(IntEnum):
     HIGHEST = 10
     HIGH = 8
     NORMAL = 5
     LOW = 2
     LOWEST = 0
+
+BASE_UNITS = [
+    ureg.m,
+    ureg.s,
+    ureg.J
+]

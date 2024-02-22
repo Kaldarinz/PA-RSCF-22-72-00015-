@@ -72,9 +72,7 @@ from ..data_classes import (
     DataPoint
 )
 from ..constants import (
-    POINT_SIGNALS,
-    MSMNTS_SIGNALS,
-    CURVE_PARAMS
+    BASE_UNITS
 )
 from ..pa_data import PaData
 
@@ -843,12 +841,11 @@ class TreeInfoWidget(QTreeWidget):
             self.gpmd = None
             self.spmd = None
             logger.debug('All metadata cleared.')
-        # Set top level item as "File attributes" string
-        self.fmd = QTreeWidgetItem(self, ['File attributes'])
-        self.fmd.setExpanded(True)
-        # Add file information
-        self._set_items(self.fmd, attrs)
-        logger.debug(f'fmd set at {self.indexOfTopLevelItem(self.fmd)}')
+        if attrs is not None:
+            self.fmd = QTreeWidgetItem(self, ['File attributes'])
+            self.fmd.setExpanded(True)
+            # Add file information
+            self._set_items(self.fmd, attrs)
 
     def set_msmnt_md(self, attrs) -> None:
         """Set measurement metadata from a dataclass."""
@@ -860,16 +857,15 @@ class TreeInfoWidget(QTreeWidget):
                 self.takeTopLevelItem(index)
             self.gpmd = None
             self.spmd = None
-        # Set top level item as "Measurement attributes" string
-        self.mmd = QTreeWidgetItem(self, ['Measurement attributes']) # type: ignore
-        self.mmd.setExpanded(True)
-        # Add file information
-        self._set_items(self.mmd, attrs)
+        if attrs is not None:
+            self.mmd = QTreeWidgetItem(self, ['Measurement attributes']) # type: ignore
+            self.mmd.setExpanded(True)
+            # Add file information
+            self._set_items(self.mmd, attrs)
 
     def set_gen_point_md(self, attrs) -> None:
         """Set general point metadata from a dataclass."""
 
-        logger.info(f'Setting general point md {attrs=}')
         # clear existing information
         if self.gpmd is not None:
             index = self.indexOfTopLevelItem(self.gpmd)
@@ -890,11 +886,11 @@ class TreeInfoWidget(QTreeWidget):
             index = self.indexOfTopLevelItem(self.spmd)
             while self.topLevelItemCount() > index:
                 self.takeTopLevelItem(index)
-        # Set top level item as "Measurement attributes" string
-        self.spmd = QTreeWidgetItem(self, ['Signal attributes'])
-        self.spmd.setExpanded(True)
-        # Add file information
-        self._set_items(self.spmd, attrs)
+        if attrs is not None:
+            self.spmd = QTreeWidgetItem(self, ['Signal attributes'])
+            self.spmd.setExpanded(True)
+            # Add file information
+            self._set_items(self.spmd, attrs)
 
     def _set_items(self, group: QTreeWidgetItem, attrs) -> None:
         """Fill group with info from a dataclass."""
@@ -1484,6 +1480,7 @@ class PgPlot(pg.PlotWidget):
         self.enable_pick: bool = False
         self.sel_ind: int | None = None
         'Index of selected point'
+        self.points_visible: bool = True
 
         # Styles
         self.pen_def = pg.mkPen(color = 'l', width = 1)
@@ -1552,7 +1549,6 @@ class PgPlot(pg.PlotWidget):
             # data picker
             if self.enable_pick:
                 self._scat_ref.sigClicked.connect(self.pick_point)
-                logger.info('Connected')
         
         # otherwise just update data
         else:
@@ -1564,6 +1560,7 @@ class PgPlot(pg.PlotWidget):
                 y = self.ydata
             )
             
+        self._scat_ref.setPointsVisible(self.points_visible)
         # Plot error bars
         if yerr is not None:
             self.set_errorbars()
@@ -1670,6 +1667,13 @@ class PgPlot(pg.PlotWidget):
             yMax = max
         )
 
+    def set_visible_points(self, visible: bool) -> None:
+        """Set visibality of data points."""
+
+        self.points_visible = visible
+        if self._scat_ref is not None:
+            self._scat_ref.setPointsVisible(visible)
+
     @property
     def sp(self) -> PlainQuantity | None:
         """Set point value."""
@@ -1708,7 +1712,7 @@ class PgPlot(pg.PlotWidget):
             logger.warning('Attempt to plot non-terable X data.')
             return
         if isinstance(data, PlainQuantity):
-            data = data.to_base_units()
+            data = data.to_preferred(BASE_UNITS)
             try:
                 data = data.to(self.xunits)
             except:

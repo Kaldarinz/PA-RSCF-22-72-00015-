@@ -39,5 +39,4 @@ ureg = pint.get_application_registry()
 Q_ = ureg.Quantity
 rng = np.random.default_rng()
 
-a = Q_(1, 'm')
-a.to('s')
+pprint(dir(ureg.sys.SI))

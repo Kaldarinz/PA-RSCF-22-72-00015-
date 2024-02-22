@@ -72,7 +72,7 @@ class PointView(QWidget, point_data_view_ui.Ui_Point_view):
         self.cb_sample.currentTextChanged.connect(
             lambda _: self.upd_plot()
         )
-
+        self.checkb_showp.toggled.connect(self.plot_detail.set_visible_points)
 
     def reset_view(self) -> None:
         """Reset widget to default state."""
@@ -110,6 +110,11 @@ class PointView(QWidget, point_data_view_ui.Ui_Point_view):
         # Sample for plotting
         sample_title = self.cb_sample.currentText()
         # Prepare data for plotting
+        if not len(dtype)*len(sample_title):
+            logger.debug(
+                'Wrong data type or sample title. Data will not be plot.'
+            )
+            return
         detail_data = PaData.point_data_plot(
             point = self.dp,
             dtype = dtype,

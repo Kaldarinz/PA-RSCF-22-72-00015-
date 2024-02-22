@@ -749,19 +749,21 @@ class MeasuredPoint:
         """
 
         new = cls()
-
-        new.pa_signal = dp.raw_data.data
-        new.max_amp = dp.raw_data.max_amp
-        new.start_time = dp.raw_data.x_var_start
-        new.stop_time = dp.raw_data.x_var_stop
-        new.datetime = dp.attrs.datetime
-        new.pa_signal_raw = dp.raw_data.data_raw
-        new.dt = dp.raw_data.x_var_step
+        # Data loaded from raw_data of the first sample
+        sample = next(iter(getattr(dp, 'raw_data').values()))
+        sample =cast(BaseData, sample)
+        new.pa_signal = sample.data
+        new.max_amp = sample.max_amp
+        new.start_time = sample.x_var_start
+        new.stop_time = sample.x_var_stop
+        new.datetime = sample.datetime
+        new.pa_signal_raw = sample.data_raw
+        new.dt = sample.x_var_step
         new.wavelength = dp.attrs.wavelength
         new.pos = dp.attrs.pos
-        new.yincrement = dp.raw_data.yincrement
-        new.pm_energy = dp.attrs.pm_en
-        new.sample_en = dp.attrs.sample_en
+        new.yincrement = sample.yincrement
+        new.pm_energy = sample.pm_en
+        new.sample_en = sample.sample_en
 
         return new
 

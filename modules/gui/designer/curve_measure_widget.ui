@@ -855,132 +855,76 @@
        </sizepolicy>
       </property>
      </widget>
-     <widget class="QSplitter" name="splitter">
-      <property name="orientation">
-       <enum>Qt::Horizontal</enum>
-      </property>
-      <widget class="QWidget" name="layoutWidget">
-       <layout class="QVBoxLayout" name="verticalLayout_3">
-        <item>
-         <layout class="QHBoxLayout" name="horizontalLayout_2">
-          <item>
-           <widget class="QLabel" name="lbl_curve_select">
-            <property name="text">
-             <string>Curve Signal</string>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QComboBox" name="cb_curve_select">
-            <property name="minimumSize">
-             <size>
-              <width>140</width>
-              <height>0</height>
-             </size>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <spacer name="horizontalSpacer">
-            <property name="orientation">
-             <enum>Qt::Horizontal</enum>
-            </property>
-            <property name="sizeHint" stdset="0">
-             <size>
-              <width>88</width>
-              <height>17</height>
-             </size>
-            </property>
-           </spacer>
-          </item>
-         </layout>
-        </item>
-        <item>
-         <widget class="PgPlot" name="plot_measurement" native="true">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-          <property name="minimumSize">
-           <size>
-            <width>0</width>
-            <height>0</height>
-           </size>
-          </property>
-         </widget>
-        </item>
-       </layout>
-      </widget>
-      <widget class="QWidget" name="layoutWidget">
-       <layout class="QVBoxLayout" name="verticalLayout_4">
-        <item>
-         <layout class="QHBoxLayout" name="horizontalLayout_8">
-          <item>
-           <widget class="QLabel" name="lbl_detail_select">
-            <property name="text">
-             <string>Point Signal</string>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QComboBox" name="cb_detail_select">
-            <property name="minimumSize">
-             <size>
-              <width>140</width>
-              <height>0</height>
-             </size>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QLabel" name="lbl_sample">
-            <property name="text">
-             <string>Sample</string>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QComboBox" name="cb_sample">
-            <property name="minimumSize">
-             <size>
-              <width>140</width>
-              <height>0</height>
-             </size>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <spacer name="horizontalSpacer_2">
-            <property name="orientation">
-             <enum>Qt::Horizontal</enum>
-            </property>
-            <property name="sizeType">
-             <enum>QSizePolicy::Expanding</enum>
-            </property>
-            <property name="sizeHint" stdset="0">
-             <size>
-              <width>78</width>
-              <height>17</height>
-             </size>
-            </property>
-           </spacer>
-          </item>
-         </layout>
-        </item>
-        <item>
-         <widget class="PgPlot" name="plot_detail" native="true">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-         </widget>
-        </item>
-       </layout>
-      </widget>
+     <widget class="QWidget" name="">
+      <layout class="QHBoxLayout" name="horizontalLayout_8">
+       <item>
+        <layout class="QVBoxLayout" name="verticalLayout_3">
+         <item>
+          <layout class="QHBoxLayout" name="horizontalLayout_2">
+           <item>
+            <widget class="QLabel" name="lbl_curve_select">
+             <property name="text">
+              <string>Curve Signal</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QComboBox" name="cb_curve_select">
+             <property name="minimumSize">
+              <size>
+               <width>140</width>
+               <height>0</height>
+              </size>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <spacer name="horizontalSpacer">
+             <property name="orientation">
+              <enum>Qt::Horizontal</enum>
+             </property>
+             <property name="sizeType">
+              <enum>QSizePolicy::Expanding</enum>
+             </property>
+             <property name="sizeHint" stdset="0">
+              <size>
+               <width>88</width>
+               <height>17</height>
+              </size>
+             </property>
+            </spacer>
+           </item>
+          </layout>
+         </item>
+         <item>
+          <widget class="PgPlot" name="plot_measurement" native="true">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+           <property name="minimumSize">
+            <size>
+             <width>0</width>
+             <height>0</height>
+            </size>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </item>
+       <item>
+        <widget class="PointView" name="pv" native="true">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+        </widget>
+       </item>
+      </layout>
      </widget>
     </widget>
    </item>
@@ -988,15 +932,21 @@
  </widget>
  <customwidgets>
   <customwidget>
-   <class>QuantSpinBox</class>
-   <extends>QDoubleSpinBox</extends>
-   <header>..widgets</header>
-  </customwidget>
-  <customwidget>
    <class>PgPlot</class>
    <extends>QWidget</extends>
    <header>..widgets</header>
    <container>1</container>
+  </customwidget>
+  <customwidget>
+   <class>PointView</class>
+   <extends>QWidget</extends>
+   <header>..compound_widgets</header>
+   <container>1</container>
+  </customwidget>
+  <customwidget>
+   <class>QuantSpinBox</class>
+   <extends>QDoubleSpinBox</extends>
+   <header>..widgets</header>
   </customwidget>
  </customwidgets>
  <resources>

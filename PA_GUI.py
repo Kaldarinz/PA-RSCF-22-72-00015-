@@ -536,7 +536,6 @@ class Window(QMainWindow,Ui_MainWindow,):
         Implement emulation if hardware is disconnected.
         """
 
-        logger.info('measure_map slot called.')
         if self.init_state:
             scan_worker = Worker(pa_logic.scan_2d, scan = scan)
         # Emulate scan if hardware is disconnected

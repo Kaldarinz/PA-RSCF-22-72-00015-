@@ -858,7 +858,7 @@ def measure_point_emul(
         wavelength: PlainQuantity,
         priority: int=Priority.NORMAL,
         **kwargs
-    ) -> MeasuredPoint:
+    ) -> MeasuredPoint | None:
     """
     Emulate point measurement.
     
@@ -876,7 +876,6 @@ def measure_point_emul(
     t_en = Thread(target = pa_fast_cont_emul, kwargs = tkwargs_en)
     t_en.start()
     t_en.join()
-    logger.info('Emulation result obtained.')
     msmnt = meas_point_from_osc(result_en[0], wavelength)
     return msmnt
 

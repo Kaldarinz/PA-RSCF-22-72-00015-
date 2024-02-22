@@ -15,8 +15,9 @@ from PySide6.QtGui import (QBrush, QColor, QConicalGradient, QCursor,
     QFont, QFontDatabase, QGradient, QIcon,
     QImage, QKeySequence, QLinearGradient, QPainter,
     QPalette, QPixmap, QRadialGradient, QTransform)
-from PySide6.QtWidgets import (QApplication, QComboBox, QHBoxLayout, QLabel,
-    QSizePolicy, QSpacerItem, QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QHBoxLayout,
+    QLabel, QSizePolicy, QSpacerItem, QVBoxLayout,
+    QWidget)
 
 from ..widgets import PgPlot
 
@@ -37,7 +38,7 @@ class Ui_Point_view(object):
 
         self.cb_detail_select = QComboBox(Point_view)
         self.cb_detail_select.setObjectName(u"cb_detail_select")
-        self.cb_detail_select.setMinimumSize(QSize(140, 0))
+        self.cb_detail_select.setMinimumSize(QSize(100, 0))
 
         self.horizontalLayout.addWidget(self.cb_detail_select)
 
@@ -48,8 +49,15 @@ class Ui_Point_view(object):
 
         self.cb_sample = QComboBox(Point_view)
         self.cb_sample.setObjectName(u"cb_sample")
+        self.cb_sample.setMinimumSize(QSize(100, 0))
 
         self.horizontalLayout.addWidget(self.cb_sample)
+
+        self.checkb_showp = QCheckBox(Point_view)
+        self.checkb_showp.setObjectName(u"checkb_showp")
+        self.checkb_showp.setChecked(True)
+
+        self.horizontalLayout.addWidget(self.checkb_showp)
 
         self.horizontalSpacer = QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum)
 
@@ -78,5 +86,6 @@ class Ui_Point_view(object):
         Point_view.setWindowTitle(QCoreApplication.translate("Point_view", u"Form", None))
         self.lbl_detail_select.setText(QCoreApplication.translate("Point_view", u"Signal", None))
         self.lbl_sample.setText(QCoreApplication.translate("Point_view", u"Sample", None))
+        self.checkb_showp.setText(QCoreApplication.translate("Point_view", u"Show points", None))
     # retranslateUi
 
