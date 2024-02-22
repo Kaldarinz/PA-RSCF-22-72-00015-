@@ -1736,11 +1736,11 @@ class PgPlot(pg.PlotWidget):
             logger.warning('Attempt to plot non-terable Y data.')
             return
         if isinstance(data, PlainQuantity):
-            data = data.to_reduced_units()
+            data = data.to_preferred(BASE_UNITS)
             try:
                 data = data.to(self.yunits)
             except:
-                self.yunits = f'{data.u:~.2gP}'
+                self.yunits = f'{data.u}'
             self._ydata = data.m
         else:
             self.yunits = ''

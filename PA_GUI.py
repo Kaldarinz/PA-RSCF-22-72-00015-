@@ -386,6 +386,7 @@ class Window(QMainWindow,Ui_MainWindow,):
         set_vel_worker.signals.result.connect(
             self.p_map.sb_cur_speed.set_quantity
         )
+        self.pool.start(set_vel_worker)
 
     @Slot(QProgressDialog)
     def calc_astep(self, pb: QProgressDialog) -> None:

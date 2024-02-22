@@ -511,7 +511,7 @@ def break_all_stages(**kwargs) -> None:
 
 def wait_stage(
         axes: Literal['x', 'y', 'z'],
-        timeout: int | None=5,
+        timeout: int | None=10,
         priority: int=Priority.NORMAL,
         **kwargs
     ) -> None:
@@ -539,7 +539,8 @@ def wait_all_stages(
     """Wait untill all stages stop."""
 
     for axes in hardware.stages.keys():
-        wait_stage(axes, timeout, priority)
+        wait_stage(axes, timeout, priority) # type: ignore
+    logger.debug('All stages stopped.')
 
 def move_to(
         new_pos: Position,

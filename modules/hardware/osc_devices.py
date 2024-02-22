@@ -120,7 +120,7 @@ class Oscilloscope:
         
     def initialize(
             self,
-            ra_kernel_size: int=20 #smoothing by rolling average
+            ra_kernel_size: int=6 #smoothing by rolling average, should be even
         ) -> bool:
         """Oscilloscope initializator."""
         
@@ -273,7 +273,7 @@ class Oscilloscope:
             data_raw = self.scr_data_raw.copy(),
             dt = self.xincrement,
             pre_t = [self.xincrement*self.MAX_SCR_POINTS/2]*2,
-            yincrement = Q_(self.yincrement, 'V')
+            yincrement = Q_(self.yincrement, 'V') # problem here, it is different for different channels
         )
         return result
 
@@ -435,6 +435,7 @@ class Oscilloscope:
             self.yincrement = float(preamble_raw[7])
             self.yorigin = float(preamble_raw[8])
             self.yreference = float(preamble_raw[9])
+            logger.info(f'{self.yincrement=}')
             logger.debug(f'...Finishing. Success. {len(preamble_raw)} '
                         + 'parameters read and set.')
         except IndexError:
@@ -464,7 +465,7 @@ class Oscilloscope:
     def _time_to_points (self, duration: PlainQuantity) -> int:
         """Convert duration into amount of data points."""
         
-        points = int((duration*self.sample_rate).magnitude) + 1
+        points = int((duration*self.sample_rate)) + 1
         logger.debug(f'{duration} converted to {points} data points.')
         return points
 

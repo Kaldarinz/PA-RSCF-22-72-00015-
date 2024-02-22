@@ -1465,8 +1465,12 @@ class PowerMeterMonitor(QWidget,pm_monitor_ui.Ui_Form):
         super().__init__(parent)
         self.setupUi(self)
         self.tune_width = tune_width
+        self.qu = deque(maxlen = self.tune_width)
         self.aver = aver
         self.connect_signals_slots()
+
+        self.plot_left.points_visible = False
+        self.plot_right.points_visible = False
 
     def connect_signals_slots(self):
         """Connect signals and slots."""
@@ -1490,10 +1494,10 @@ class PowerMeterMonitor(QWidget,pm_monitor_ui.Ui_Form):
         )
         # Clear plots
         self.btn_stop.clicked.connect(
-            lambda: upd_plot(base_widget=self.plot_left, ydata=[])
+            lambda: self.plot_left.clear_plot()
         )
         self.btn_stop.clicked.connect(
-            lambda: upd_plot(base_widget=self.plot_right, ydata=[])
+            lambda: self.plot_right.clear_plot()
         )
 
     def add_msmnt(self, measurement: EnergyMeasurement) -> None:
@@ -1514,32 +1518,22 @@ class PowerMeterMonitor(QWidget,pm_monitor_ui.Ui_Form):
         ):
             return
         # Plot signal
-        upd_plot(
-            base_widget = self.plot_left,
-            ydata = measurement.signal,
-            marker = [measurement.istart, measurement.istop]
-        )
+        self.plot_left.plot(measurement.signal)
 
         # Plot tune graph
         ytune = self.plot_right.ydata
         # Check if some data already present
-        if ytune.ndim == 0:
-            upd_plot(
-                base_widget = self.plot_right,
-                ydata = PlainQuantity.from_list([measurement.energy])
-            )
+        if not len(ytune):
+            self.plot_right.plot(Q_.from_list([measurement.energy]))
         else:
-            energy = measurement.energy.to(self.plot_right.ylabel)
-            qu = deque(ytune, maxlen = self.tune_width)
-            qu.append(energy.m)
-            ytune = np.array(qu)
-            upd_plot(
-                base_widget = self.plot_right,
-                ydata = ytune
-            )
+            energy = measurement.energy.to(self.plot_right.yunits)
+            #qu = deque(ytune, maxlen = self.tune_width)
+            self.qu.append(energy.m)
+            ytune = np.array(self.qu)
+            self.plot_right.plot(Q_(ytune, energy.u))
         
         # Update line edits with energy info
-        units = self.plot_right.ylabel
+        units = self.plot_right.yunits
         ytune = self.plot_right.ydata
         self.le_cur_en.setText(form_quant(measurement.energy))
         aver = Q_(ytune.mean(), units)

@@ -695,7 +695,7 @@ class MeasuredPoint:
         "Energy at PM in [J]."
         self.sample_en = Q_(np.nan, 'uJ')
         "Energy at sample in [J]."
-
+    
     @classmethod
     def from_msmnts(
             cls: Type[Self],
@@ -777,7 +777,7 @@ class MeasuredPoint:
         if len(self.pm_signal_raw) > len(self.pa_signal_raw):
             pm_signal_raw, pm_decim_factor = self.decimate_data(
                 self.pm_signal_raw,
-                int(len(self.pm_signal_raw)/len(self.pa_signal_raw) + 1)
+                1000
             )
         else:
             pm_signal_raw = self.pm_signal_raw
@@ -820,9 +820,11 @@ class MeasuredPoint:
         iterations = int(math.log10(factor))
         rem = factor//10**iterations
         decim_factor = 1
-        for _ in range(iterations):
+        for i in range(iterations):
             data = decimate(data, 10) # type: ignore
+            logger.debug(f'{len(data)=} after decim step {i}')
             decim_factor *=10
+            logger.debug(f'Curr {decim_factor=}')
         if rem > 1:
             data = decimate(data, rem) # type: ignore
             decim_factor *=rem
