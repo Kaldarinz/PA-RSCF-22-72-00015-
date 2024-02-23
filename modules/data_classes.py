@@ -687,7 +687,9 @@ class MeasuredPoint:
         self.pos = Position()
         "Coordinate of the measured point."
         self.yincrement = Q_(np.nan, 'V')
-        "Scaling factor to convert raw data to [V]."
+        "Scaling factor to convert PA raw data to [V]."
+        self.pm_yin = Q_(np.nan, 'V')
+        "Scaling factor to convert PM raw data to [V]."
         self.pm_energy = Q_(np.nan, 'uJ')
         "Energy at PM in [J]."
         self.sample_en = Q_(np.nan, 'uJ')
@@ -713,7 +715,8 @@ class MeasuredPoint:
         new.wavelength = wavelength
         if pos is not None:
             new.pos = pos
-        new.yincrement = data.yincrement
+        new.yincrement = data.yincrement[pa_ch_ind]
+        new.pm_yin = data.yincrement[pm_ch_ind]
         new.pm_energy = energy_info.energy
         new.sample_en = energy_info.sample_en
 
@@ -782,7 +785,7 @@ class MeasuredPoint:
         # Calculate dt for downsampled data
         self.dt_pm = self.dt*pm_decim_factor
         # Convert downsampled signal to volts
-        self.pm_signal = pm_signal_raw * self.yincrement
+        self.pm_signal = pm_signal_raw * self.pm_yin
 
     def _set_energy(self) -> None:
         """Set energy attributes.
@@ -1853,7 +1856,9 @@ class Worker(QRunnable):
             exctype, value = sys.exc_info()[:2]
             logger.warning(
                 'An error occured while trying to launch worker'
-                + f'{self.func.__name__}: {exctype}, {value}')
+                + f' {self.func.__name__}: {exctype}, {value}\n'
+                + f'{traceback.format_exc()}'
+            )
             self.signals.error.emit(
                 (exctype, value, traceback.format_exc())
             )

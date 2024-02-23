@@ -181,6 +181,7 @@ class Oscilloscope:
     def measure(self,
                 read_ch1: bool=True,
                 read_ch2: bool=True,
+                eq_limits: bool=False,
                 correct_bl: bool=True,
                 smooth: bool=True,
         ) -> OscMeasurement:
@@ -188,11 +189,50 @@ class Oscilloscope:
         Measure data from memory.
         
         Data is saved to ``data_raw`` attribute.\n
+        Attributes
+        ----------
+        `read_ch1`, `read_ch2` - flags for measuring channels.\n
+        `eq_limits` - this flag is checked only if only one of channels
+        is set to measure. In such a case, setting this flag to `True`
+        will result in measure of BOTH channels, but within bounds of
+        a channel which was set to measure. This can be usefull, if one
+        want to measure short PA signal without measuring long PM signal.
+        Measurement of PM signal within bounds of PA signal will allow
+        to correctly calculate time offset of the PA signal.\n
+        `correct_bl` - flag to perform baseline correction of measered
+        data.\n
+        `smooth` - flag to apply signal smoothing (rolling average
+        in current implementation).\n
+        Return
+        ------
+        OscMeasurement instance.
         """
 
         start = time.time()
         logger.debug('Starting measure signal from oscilloscope '
                      + 'memory.')
+        if read_ch1^read_ch2 and eq_limits:
+            if read_ch1:
+                main_ind = 0
+                slave_ind = 1
+                read_ch2 = True
+            else:
+                main_ind = 1
+                slave_ind = 0
+                read_ch1 = True
+            # Save current values of bounds for other channel
+            old_pre = self.pre_t[slave_ind]
+            old_post = self.post_t[slave_ind]
+            old_dur = self.dur_t[slave_ind]
+            # Set main channel bounds for both channels
+            self.pre_t[slave_ind] = self.pre_t[main_ind]
+            self.post_t[slave_ind] = self.post_t[main_ind]
+            self.dur_t[slave_ind] = self.dur_t[main_ind]
+            logger.debug(
+                f'Both channels will be measured using bounds of '
+                +'{self.CH_IDS[main_ind]}'
+            )
+
         self._wait_trig()
         logger.debug('Writing :STOP to enable reading from memory')
         self._write([':STOP'])
@@ -219,6 +259,11 @@ class Oscilloscope:
             pre_t = self.pre_t.copy(),
             yincrement = self.scale.copy()
         )
+        if read_ch1^read_ch2 and eq_limits:
+            logger.debug(f'Restoring bounds for {self.CH_IDS[slave_ind]}')
+            self.pre_t[slave_ind] = old_pre
+            self.post_t[slave_ind] = old_post
+            self.dur_t[slave_ind] = old_dur
         stop = time.time()
         logger.debug(
             f'...Finishing. Measure done in {(stop-start)*1000:.1f} ms.'
@@ -879,7 +924,7 @@ class PowerMeter:
         aver = av_span[av_span > 0].mean()
         ind = None
         for i in np.where(data>(aver*2))[0]:
-            if np.count_nonzero(data[i,i+20][data[i,i+20] > aver*2]) > 15: # type: ignore
+            if np.count_nonzero(data[i:i+20][data[i:i+20] > aver*2]) > 15: # type: ignore
                 ind = i
                 break
         logger.debug(f'Power meter signal starts at {ind}')

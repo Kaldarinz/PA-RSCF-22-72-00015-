@@ -28,9 +28,7 @@ import logging
 import os
 from threading import Thread
 import time
-from datetime import timedelta
 from datetime import datetime as dt
-import random
 
 import yaml
 from pint.facets.plain.quantity import PlainQuantity
@@ -606,7 +604,7 @@ def en_meas_fast(
     return result
 
 def meas_cont(
-        data: Literal['en_fast', 'pa_fast'],
+        data: Literal['en_scr', 'pa_scr', 'pa_short'],
         signals: WorkerSignals,
         flags: WorkerFlags,
         priority: int=Priority.NORMAL,
@@ -637,8 +635,22 @@ def meas_cont(
         return []
     # Funstions, which provide necessary information
     funcs = {
-        'en_fast': hardware.power_meter.get_energy_scr,
-        'pa_fast': hardware.osc.measure_scr
+        'en_scr': hardware.power_meter.get_energy_scr,
+        'pa_scr': hardware.osc.measure_scr,
+        'pa_short': hardware.osc.measure
+    }
+    # Additional arguments for the functions
+    ch_mask = [False, False]
+    pa_ch_id = int(hardware.config['pa_sensor']['connected_chan']) - 1
+    ch_mask[pa_ch_id] = True
+    kwargs = {
+        'en_scr': {},
+        'pa_scr': {},
+        'pa_short': {
+            'read_ch1': ch_mask[0],
+            'read_ch2': ch_mask[1],
+            'eq_limits': True
+        }
     }
     # Object for communication with lower level fucntion
     comm = ThreadSignals()
@@ -653,6 +665,7 @@ def meas_cont(
         'timeout': timeout,
         'result': result
     }
+    tkwargs.update(kwargs[data])
     t = Thread(target = _osc_call.submit, kwargs = tkwargs)
     t.start()
     while flags['is_running']:
@@ -699,11 +712,18 @@ def scan_2d(
         # Object for communication with lower level fucntion
         comm_en = ThreadSignals()
         # List with results
+
         result_en: list[OscMeasurement] = []
+        ch_mask = [False, False]
+        pa_ch_id = int(hardware.config['pa_sensor']['connected_chan']) - 1
+        ch_mask[pa_ch_id] = True
         tkwargs_en = {
             'priority': priority,
             'func': __meas_cont,
-            'called_func': hardware.osc.measure_scr,
+            'called_func': hardware.osc.measure,
+            'read_ch1': ch_mask[0],
+            'read_ch2': ch_mask[1],
+            'eq_limits': True,
             'comm': comm_en,
             'result': result_en
         }
@@ -744,7 +764,9 @@ def __meas_cont(
         comm: ThreadSignals,
         result: list,
         timeout: float | None=100,
-        max_count: int | None=None
+        max_count: int | None=None,
+        *args,
+        **kwargs
     ) -> None:
     """
     Private function which call ``called_func`` non-stop.
@@ -766,7 +788,7 @@ def __meas_cont(
             )
             break
         logger.debug(f'Prepare to measure {comm.count} at {t=}')
-        msmnt = called_func()
+        msmnt = called_func(*args, **kwargs)
         # Skip bad reads
         if msmnt is None:
             continue
@@ -831,25 +853,36 @@ def meas_point_from_osc(
     logger.debug('Start creating MeasuredPoint...')
     pm = hardware.power_meter
     pm_ch_id = int(hardware.config['power_meter']['connected_chan']) - 1
-    pm_energy = pm.energy_from_data(
-        msmnt.data_raw[pm_ch_id]*msmnt.yincrement, msmnt.dt #type: ignore
-    )
-    if pm_energy is None:
-        logger.error('Power meter energy cannot be obtained.')
+    pm_raw_data = msmnt.data_raw[pm_ch_id]
+    pm_yinc = msmnt.yincrement[pm_ch_id]
+    if pm_raw_data is None or pm_yinc is None:
+        logger.warning(
+            'Constructing MeasuredPoint without PM energy not implemented'
+        )
         return None
-    sample_en = calc_sample_en(wl, pm_energy.energy)
-    if sample_en is None:
-        logger.error('Sample energy cannot be calculated.')
-        return None
-    en_info = PaEnergyMeasurement(pm_energy, sample_en)
-    logger.debug('en_info obtained.')
-    measurement = MeasuredPoint.from_msmnts(
-        data = msmnt,
-        energy_info = en_info,
-        wavelength = wl,
-        pa_ch_ind = int(not bool(pm_ch_id)),
-        pm_ch_ind = pm_ch_id
-    )
+    else:
+        # TODO This can potentially produce wrong energy values when
+        # PM signal was not fully measured. Calculation of energy from
+        # derivative of PM signal should be considered.
+        pm_energy = pm.energy_from_data(
+            pm_raw_data*pm_yinc, msmnt.dt
+        )
+        if pm_energy is None:
+            logger.error('Power meter energy cannot be obtained.')
+            return None
+        sample_en = calc_sample_en(wl, pm_energy.energy)
+        if sample_en is None:
+            logger.error('Sample energy cannot be calculated.')
+            return None
+        en_info = PaEnergyMeasurement(pm_energy, sample_en)
+        logger.debug('en_info obtained.')
+        measurement = MeasuredPoint.from_msmnts(
+            data = msmnt,
+            energy_info = en_info,
+            wavelength = wl,
+            pa_ch_ind = int(not bool(pm_ch_id)),
+            pm_ch_ind = pm_ch_id
+        )
     logger.debug('...MeasuredPoint created.')
     return measurement
 
@@ -999,14 +1032,14 @@ def pa_fast_cont_emul(
         
         # Generate Measurement
         raw_data: list[np.ndarray|None] = [None,None]
-        raw_data[pm_ch_id] = (pm_signal[:,1]*(0.4*rng.random()+0.8)*100).astype(np.int8)
-        raw_data[pa_ch_id] = (pa_signal[:,1]*(rng.random()+0.5)*(100/1.5)).astype(np.int8)
+        raw_data[pm_ch_id] = (pm_signal[:,1]*(0.4*rng.random()+0.8)*100).astype(np.int16)
+        raw_data[pa_ch_id] = (pa_signal[:,1]*(rng.random()+0.5)*(100/1.5)).astype(np.int16)
         msmnt = OscMeasurement(
             datetime = dt.now(),
             data_raw = raw_data,
             dt = Q_(10, 'us'),
             pre_t = [Q_(0, 'us'), Q_(0, 'us')],
-            yincrement = Q_(1, 'V')  
+            yincrement = [Q_(1, 'V'), Q_(1, 'V')]
         )
 
         # Add  measurement

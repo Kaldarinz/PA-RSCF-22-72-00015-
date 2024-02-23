@@ -407,7 +407,7 @@ class Window(QMainWindow,Ui_MainWindow,):
         else:
             self.astep_worker = Worker(
                 func = pa_logic.meas_cont,
-                data = 'en_fast',
+                data = 'pa_short',
                 max_count = pb.maximum()
             )
         # Progress signal increase progress bar

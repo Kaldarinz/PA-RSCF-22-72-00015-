@@ -55,13 +55,6 @@ import pyqtgraph as pg
 from pyqtgraph.GraphicsScene.mouseEvents import (
     MouseClickEvent
 )
-from matplotlib.figure import Figure
-from matplotlib.lines import Line2D
-from matplotlib.image import AxesImage
-from matplotlib.patches import Rectangle, Patch
-from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
-from matplotlib.backends.backend_qtagg import NavigationToolbar2QT # type: ignore
-from matplotlib.backend_bases import MouseEvent
 
 from ..data_classes import (
     MapData,
@@ -71,10 +64,6 @@ from ..data_classes import (
     QuantRect,
     DataPoint
 )
-from ..constants import (
-    BASE_UNITS
-)
-from ..pa_data import PaData
 
 from modules import ureg, Q_
 rng = np.random.default_rng()
