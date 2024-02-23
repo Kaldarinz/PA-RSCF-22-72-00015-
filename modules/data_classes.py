@@ -60,10 +60,10 @@ class PlotData(NamedTuple):
 
 class QuantRect(NamedTuple):
     """Rectangle with quantity values of its bottom left corner, width and height."""
-    left: PlainQuantity | None
-    bottom: PlainQuantity | None
-    width: PlainQuantity | None
-    height: PlainQuantity | None
+    left: PlainQuantity
+    bottom: PlainQuantity
+    width: PlainQuantity
+    height: PlainQuantity
 
 class PointIndex(NamedTuple):
     line_ind: int
@@ -519,7 +519,7 @@ class OscMeasurement:
 
     datetime: dt = field(compare=False)
     "Date and time of measurement."
-    data_raw: list[npt.NDArray[np.int8] | None] = field(
+    data_raw: list[npt.NDArray[np.int16] | None] = field(
         default_factory=list
     )
     """
@@ -529,13 +529,13 @@ class OscMeasurement:
     """
     dt: PlainQuantity = Q_(np.nan, 'us')
     "Time step for measurements in `data_raw`."
-    pre_t: list[PlainQuantity] = field(default_factory=list)
+    pre_t: list[PlainQuantity | None] = field(default_factory=list)
     """
     List with time offsets from start
     of sampling to trigger positions, where absolute time of all
     signals match. Length of this list is equal to length of `data_raw`.
     """
-    yincrement: PlainQuantity = Q_(np.nan, 'V')
+    yincrement: list[PlainQuantity | None] = field(default_factory=list)
     """
     Scaling factor to convert raw data to [V]: Data = yincrement*data_raw.
     """
@@ -580,16 +580,14 @@ class EnergyMeasurement:
     datetime: dt = field(compare=False)
     "Date and time of measurement."
     signal: PlainQuantity = field(
-        default_factory=lambda: Q_(np.empty(0), 'uJ'),
+        default_factory=lambda: Q_(np.empty(0), 'V'),
         compare = False
     )
     "Sampled PM signal in Volts."
     dt: PlainQuantity = Q_(np.nan, 'us')
     "Time stamp for data in `signal`."
-    istart: int = -1
+    istart: int | None = -1
     "Index of laser pulse start."
-    istop: int = -1
-    "Index of laser pulse end."
     energy: PlainQuantity = Q_(np.nan, 'uJ')
     "Laser pulse energy in [uJ]."
 
@@ -619,7 +617,6 @@ class PaEnergyMeasurement(EnergyMeasurement):
             signal=en_info.signal,
             dt=en_info.dt,
             istart=en_info.istart,
-            istop=en_info.istop,
             energy=en_info.energy
         )
 
@@ -730,7 +727,7 @@ class MeasuredPoint:
         pm_offset = energy_info.dt*energy_info.istart
         if pm_offset is not None:
             # Start time of PA data relative to start of laser pulse
-            new.start_time = (_pm_start - pm_offset) - _pa_start
+            new.start_time = (_pm_start - pm_offset) - _pa_start # type: ignore
             if new.pa_signal_raw is None:
                 logger.warning('PA signal is missing. Offset was not calculated.')
             # Stop time of PA data relative to start of laser pulse

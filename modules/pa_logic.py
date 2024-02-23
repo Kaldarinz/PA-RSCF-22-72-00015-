@@ -740,12 +740,12 @@ def scan_2d(
     return scan
 
 def __meas_cont(
-        called_func: Callable[P,T],
+        called_func: Callable,
         comm: ThreadSignals,
         result: list,
         timeout: float | None=100,
         max_count: int | None=None
-    ) -> list[T]:
+    ) -> None:
     """
     Private function which call ``called_func`` non-stop.
     
@@ -832,7 +832,7 @@ def meas_point_from_osc(
     pm = hardware.power_meter
     pm_ch_id = int(hardware.config['power_meter']['connected_chan']) - 1
     pm_energy = pm.energy_from_data(
-        msmnt.data_raw[pm_ch_id]*msmnt.yincrement, msmnt.dt
+        msmnt.data_raw[pm_ch_id]*msmnt.yincrement, msmnt.dt #type: ignore
     )
     if pm_energy is None:
         logger.error('Power meter energy cannot be obtained.')

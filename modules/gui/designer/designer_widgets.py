@@ -84,7 +84,6 @@ from ...constants import (
     CURVE_PARAMS
 )
 from ...utils import (
-    upd_plot,
     form_quant,
     btn_set_silent,
     set_layout_enabled,
@@ -93,7 +92,7 @@ from ...utils import (
 from ...hardware import utils as hutils
 
 from ..widgets import (
-    MplCanvas,
+    PgPlot,
     QuantSpinBox
 )
 from ..compound_widgets import(
@@ -667,7 +666,7 @@ class MeasureWidget(QWidget):
     def __init__(self, parent: QWidget | None=None) -> None:
         super().__init__(parent)
 
-    def verify_msmnt(self, data: MeasuredPoint | None) -> bool:
+    def verify_msmnt(self, data: MeasuredPoint | None) -> None:
         """Verify measured datapoint."""
 
         # Check if data was obtained
@@ -677,7 +676,7 @@ class MeasureWidget(QWidget):
             info_dial.setText('Error during data reading!')
             info_dial.exec()
             self.btn_measure.setEnabled(True)
-            return False
+            return
 
         ver = PAVerifierDialog()
         plot_pa = ver.plot_pa
@@ -711,14 +710,14 @@ class MeasureWidget(QWidget):
                 self.point_measured.emit(self.data_point.copy()) # type: ignore
                 self.data_point = []
                 self.cur_rep = 1
-                return True
+                return
             else:
                 self.cur_rep += 1
                 self.measure()
         else:
             logger.info('Point rejected')
-            self.btn_measure.setEnabled(True)
-            return False
+            self.measure()
+            return
 
     def measure(self) -> None:
         self.measure_point.emit(self.sb_cur_param.quantity) # type: ignore
@@ -1582,9 +1581,9 @@ class MotorView(QDockWidget, motor_control_ui.Ui_DockWidget):
         self.z: PlainQuantity = Q_(0, 'mm')
 
         # Set fixed scales for all plots.
-        self.plot_xy.fixed_scales = True
-        self.plot_xz.fixed_scales = True
-        self.plot_yz.fixed_scales = True
+        self.plot_xy.lock_scales()
+        self.plot_xz.lock_scales()
+        self.plot_yz.lock_scales()
 
         self.pixmap_c = QPixmap(
             u":/icons/qt_resources/plug-connect.png"
@@ -1602,16 +1601,16 @@ class MotorView(QDockWidget, motor_control_ui.Ui_DockWidget):
 
         # Set initial position of plots
         self.plot_xy.plot(
-            ydata = self.y.m,
-            xdata = self.x.m
+            ydata = Q_.from_list([self.y]),
+            xdata = Q_.from_list([self.x])
         )
         self.plot_xz.plot(
-            ydata = self.z.m,
-            xdata = self.x.m
+            ydata = Q_.from_list([self.z]),
+            xdata = Q_.from_list([self.x])
         )
         self.plot_yz.plot(
-            ydata = self.z.m,
-            xdata = self.y.m
+            ydata = Q_.from_list([self.z]),
+            xdata = Q_.from_list([self.y])
         )
 
     @Slot(Position)
@@ -1635,9 +1634,9 @@ class MotorView(QDockWidget, motor_control_ui.Ui_DockWidget):
             self.sb_z_new_pos.setValue(self.z.m)
         
         # Update plots if necessary
-        self._upd_plot(self.x.m, self.y.m, self.plot_xy)
-        self._upd_plot(self.x.m, self.z.m, self.plot_xz)
-        self._upd_plot(self.z.m, self.y.m, self.plot_yz)
+        self._upd_plot(self.x, self.y, self.plot_xy)
+        self._upd_plot(self.x, self.z, self.plot_xz)
+        self._upd_plot(self.z, self.y, self.plot_yz)
 
     def set_range(
             self,
@@ -1647,14 +1646,16 @@ class MotorView(QDockWidget, motor_control_ui.Ui_DockWidget):
 
         min_val = range[0].to('mm').m
         max_val = range[1].to('mm').m
-        range_mm = [min_val, max_val]
+        range_mm = QuantRect(
+            range[0],
+            range[0],
+            range[1] - range[0],
+            range[1] - range[0]
+        )
         # Set range for plots
-        self.plot_xy.set_Xlim(*range)
-        self.plot_xy.set_Ylim(*range)
-        self.plot_xz.set_Xlim(*range)
-        self.plot_xz.set_Ylim(*range)
-        self.plot_yz.set_Xlim(*range)
-        self.plot_yz.set_Ylim(*range)
+        self.plot_xy.set_range(range_mm)
+        self.plot_xz.set_range(range_mm)
+        self.plot_yz.set_range(range_mm)
 
         # Set plot titles
         self.plot_xy.xlabel = 'X'
@@ -1699,18 +1700,17 @@ class MotorView(QDockWidget, motor_control_ui.Ui_DockWidget):
 
     def _upd_plot(
             self,
-            x: float,
-            y: float,
-            plot: MplCanvas
+            x: PlainQuantity,
+            y: PlainQuantity,
+            plot: PgPlot
         ) -> None:
         """Update plot coordinate."""
 
-        if x != plot.xdata[0] or y != plot.ydata[0]:
-            upd_plot(
-            base_widget = plot,
-            ydata = [y],
-            xdata = [x],
-            fmt = self.fmt
+        if (x != Q_(plot.xdata[0], plot.xunits) 
+            or y != Q_(plot.ydata[0], plot.yunits)):
+            plot.plot(
+            ydata = Q_.from_list([y]),
+            xdata = Q_.from_list([x])
         )
 
     def _upd_axes_status(

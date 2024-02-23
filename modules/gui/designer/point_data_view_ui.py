@@ -25,7 +25,7 @@ class Ui_Point_view(object):
     def setupUi(self, Point_view):
         if not Point_view.objectName():
             Point_view.setObjectName(u"Point_view")
-        Point_view.resize(649, 585)
+        Point_view.resize(675, 606)
         self.verticalLayout = QVBoxLayout(Point_view)
         self.verticalLayout.setObjectName(u"verticalLayout")
         self.verticalLayout.setContentsMargins(0, 0, 0, 0)
