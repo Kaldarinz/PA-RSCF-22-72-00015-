@@ -328,6 +328,8 @@ class PgMap(pg.GraphicsLayoutWidget):
         """2D array with values of scanned points."""
         self._plot_ref: pg.PColorMeshItem | None = None
         "Reference to plotted data, which could be irregular map."
+        self._pos_ref: pg.ScatterPlotItem | None = None
+        "Current position pointer."
         self._sel_ref: pg.RectROI|None = None
         "Selected area for scanning."
         self._bar: pg.ColorBarItem | None = None
@@ -649,6 +651,32 @@ class PgMap(pg.GraphicsLayoutWidget):
         self.selection_changed.emit(None)
         if len(data.data):
             self.upd_scan()
+
+    def set_cur_pos(self, pos: Position) -> None:
+        """Set current position."""
+
+        # Check if position is valid
+        if ((hcoord:=getattr(pos, self.hlabel.lower())) is None
+            or (vcoords:=getattr(pos, self.vlabel.lower())) is None):
+            logger.warning(f'Wrong motors coordinate: {pos=}')
+            if self._pos_ref is not None:
+                self.plot_item.removeItem(self._pos_ref)
+                self._pos_ref = None
+            return
+        hpos = hcoord.to(self.hunits).m
+        vpos = vcoords.to(self.vunits).m
+        if self._pos_ref is None:
+            self._pos_ref = pg.ScatterPlotItem(
+                x = hpos,
+                y = vpos,
+                hoverable = False
+            )
+            self.plot_item.addItem(self._pos_ref)
+        else:
+            self._pos_ref.setData(
+                x = hpos,
+                y = vpos
+            )
 
     def clear_plot(self) -> None:
         """CLear plot and remove data."""

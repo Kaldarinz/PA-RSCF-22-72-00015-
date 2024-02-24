@@ -303,6 +303,8 @@ class Window(QMainWindow,Ui_MainWindow,):
         self.p_map.sb_speed.quantSet.connect(
             self.set_scan_speed
         )
+        # Update current position
+        self.position_updated.connect(self.p_map.set_cur_pos)
 
         ###############################################################
         ### Motor dock widget ###

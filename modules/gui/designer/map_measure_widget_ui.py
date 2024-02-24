@@ -28,11 +28,10 @@ class Ui_map_measure(object):
         if not map_measure.objectName():
             map_measure.setObjectName(u"map_measure")
         map_measure.resize(1269, 907)
-        self.horizontalLayout_6 = QHBoxLayout(map_measure)
-        self.horizontalLayout_6.setObjectName(u"horizontalLayout_6")
+        self.horizontalLayout_7 = QHBoxLayout(map_measure)
+        self.horizontalLayout_7.setObjectName(u"horizontalLayout_7")
         self.verticalLayout = QVBoxLayout()
         self.verticalLayout.setObjectName(u"verticalLayout")
-        self.verticalLayout.setSizeConstraint(QLayout.SetDefaultConstraint)
         self.lbl_scanarea = QLabel(map_measure)
         self.lbl_scanarea.setObjectName(u"lbl_scanarea")
         sizePolicy = QSizePolicy(QSizePolicy.Minimum, QSizePolicy.Preferred)
@@ -179,13 +178,58 @@ class Ui_map_measure(object):
 
         self.verticalLayout.addLayout(self.gridLayout)
 
-        self.horizontalLayout_4 = QHBoxLayout()
-        self.horizontalLayout_4.setObjectName(u"horizontalLayout_4")
-        self.label_2 = QLabel(map_measure)
-        self.label_2.setObjectName(u"label_2")
+        self.horizontalLayout_6 = QHBoxLayout()
+        self.horizontalLayout_6.setObjectName(u"horizontalLayout_6")
+        self.lbl_pos = QLabel(map_measure)
+        self.lbl_pos.setObjectName(u"lbl_pos")
         sizePolicy2 = QSizePolicy(QSizePolicy.Maximum, QSizePolicy.Preferred)
         sizePolicy2.setHorizontalStretch(0)
         sizePolicy2.setVerticalStretch(0)
+        sizePolicy2.setHeightForWidth(self.lbl_pos.sizePolicy().hasHeightForWidth())
+        self.lbl_pos.setSizePolicy(sizePolicy2)
+
+        self.horizontalLayout_6.addWidget(self.lbl_pos)
+
+        self.lbl_posX = QLabel(map_measure)
+        self.lbl_posX.setObjectName(u"lbl_posX")
+        sizePolicy2.setHeightForWidth(self.lbl_posX.sizePolicy().hasHeightForWidth())
+        self.lbl_posX.setSizePolicy(sizePolicy2)
+        self.lbl_posX.setFont(font)
+
+        self.horizontalLayout_6.addWidget(self.lbl_posX)
+
+        self.le_posX = QLineEdit(map_measure)
+        self.le_posX.setObjectName(u"le_posX")
+        sizePolicy1.setHeightForWidth(self.le_posX.sizePolicy().hasHeightForWidth())
+        self.le_posX.setSizePolicy(sizePolicy1)
+        self.le_posX.setMaximumSize(QSize(100, 16777215))
+
+        self.horizontalLayout_6.addWidget(self.le_posX)
+
+        self.lbl_posY = QLabel(map_measure)
+        self.lbl_posY.setObjectName(u"lbl_posY")
+        sizePolicy2.setHeightForWidth(self.lbl_posY.sizePolicy().hasHeightForWidth())
+        self.lbl_posY.setSizePolicy(sizePolicy2)
+        self.lbl_posY.setFont(font)
+
+        self.horizontalLayout_6.addWidget(self.lbl_posY)
+
+        self.le_posY = QLineEdit(map_measure)
+        self.le_posY.setObjectName(u"le_posY")
+        sizePolicy1.setHeightForWidth(self.le_posY.sizePolicy().hasHeightForWidth())
+        self.le_posY.setSizePolicy(sizePolicy1)
+        self.le_posY.setMaximumSize(QSize(100, 16777215))
+
+        self.horizontalLayout_6.addWidget(self.le_posY)
+
+
+        self.verticalLayout.addLayout(self.horizontalLayout_6)
+
+        self.horizontalLayout_4 = QHBoxLayout()
+        self.horizontalLayout_4.setObjectName(u"horizontalLayout_4")
+        self.horizontalLayout_4.setSizeConstraint(QLayout.SetDefaultConstraint)
+        self.label_2 = QLabel(map_measure)
+        self.label_2.setObjectName(u"label_2")
         sizePolicy2.setHeightForWidth(self.label_2.sizePolicy().hasHeightForWidth())
         self.label_2.setSizePolicy(sizePolicy2)
 
@@ -244,7 +288,14 @@ class Ui_map_measure(object):
 
         self.horizontalLayout_4.addWidget(self.btn_plot_area_sel)
 
-        self.horizontalSpacer = QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum)
+        self.line_5 = QFrame(map_measure)
+        self.line_5.setObjectName(u"line_5")
+        self.line_5.setFrameShape(QFrame.VLine)
+        self.line_5.setFrameShadow(QFrame.Sunken)
+
+        self.horizontalLayout_4.addWidget(self.line_5)
+
+        self.horizontalSpacer = QSpacerItem(40, 20, QSizePolicy.Preferred, QSizePolicy.Minimum)
 
         self.horizontalLayout_4.addItem(self.horizontalSpacer)
 
@@ -530,6 +581,8 @@ class Ui_map_measure(object):
         self.btn_tst = QPushButton(map_measure)
         self.btn_tst.setObjectName(u"btn_tst")
         self.btn_tst.setEnabled(False)
+        sizePolicy1.setHeightForWidth(self.btn_tst.sizePolicy().hasHeightForWidth())
+        self.btn_tst.setSizePolicy(sizePolicy1)
 
         self.verticalLayout.addWidget(self.btn_tst)
 
@@ -538,7 +591,7 @@ class Ui_map_measure(object):
         self.verticalLayout.addItem(self.verticalSpacer)
 
 
-        self.horizontalLayout_6.addLayout(self.verticalLayout)
+        self.horizontalLayout_7.addLayout(self.verticalLayout)
 
         self.plot_scan = PgMap(map_measure)
         self.plot_scan.setObjectName(u"plot_scan")
@@ -548,10 +601,8 @@ class Ui_map_measure(object):
         sizePolicy4.setHeightForWidth(self.plot_scan.sizePolicy().hasHeightForWidth())
         self.plot_scan.setSizePolicy(sizePolicy4)
 
-        self.horizontalLayout_6.addWidget(self.plot_scan)
+        self.horizontalLayout_7.addWidget(self.plot_scan)
 
-        self.horizontalLayout_6.setStretch(0, 1)
-        self.horizontalLayout_6.setStretch(1, 9)
         QWidget.setTabOrder(self.sb_centerX, self.sb_centerY)
         QWidget.setTabOrder(self.sb_centerY, self.sb_sizeX)
         QWidget.setTabOrder(self.sb_sizeX, self.sb_sizeY)
@@ -590,6 +641,9 @@ class Ui_map_measure(object):
         self.sb_centerY.setSuffix(QCoreApplication.translate("map_measure", u" mm", None))
         self.lbl_center.setText(QCoreApplication.translate("map_measure", u"Center", None))
         self.lbl_areaX.setText(QCoreApplication.translate("map_measure", u"X", None))
+        self.lbl_pos.setText(QCoreApplication.translate("map_measure", u"Current position:", None))
+        self.lbl_posX.setText(QCoreApplication.translate("map_measure", u"X", None))
+        self.lbl_posY.setText(QCoreApplication.translate("map_measure", u"Y", None))
         self.label_2.setText(QCoreApplication.translate("map_measure", u"Visible plot area", None))
 #if QT_CONFIG(tooltip)
         self.btn_plot_full_area.setToolTip(QCoreApplication.translate("map_measure", u"Set maximum plot size", None))

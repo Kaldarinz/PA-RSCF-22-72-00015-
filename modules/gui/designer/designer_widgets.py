@@ -1049,6 +1049,9 @@ class MapMeasureWidget(QWidget,map_measure_widget_ui.Ui_map_measure):
         self.XMAX = Q_(25, 'mm')
         self.YMAX = Q_(25, 'mm')
 
+        # Current position
+        self.cur_pos = Position(Q_(0, 'mm'), Q_(0, 'mm'), Q_(0, 'mm'))
+
         # Set Axis titles
         self._new_scan_plane()
 
@@ -1280,6 +1283,21 @@ class MapMeasureWidget(QWidget,map_measure_widget_ui.Ui_map_measure):
             )
             self.plot_scan.set_abs_scan_pos(False)
 
+    @Slot(Position)
+    def set_cur_pos(self, pos: Position) -> None:
+        """Set current position."""
+
+        if not self.isVisible():
+            return
+        
+        self.cur_pos = pos
+        self.plot_scan.set_cur_pos(pos)
+
+        hpos = getattr(pos, self.cb_scanplane.currentText()[0].lower())
+        vpos = getattr(pos, self.cb_scanplane.currentText()[1].lower())
+        self.le_posX.setText(str(hpos.to(self.plot_scan.hunits)))
+        self.le_posY.setText(str(vpos.to(self.plot_scan.vunits)))
+
     def _set_est_dur(self) -> None:
         """Set estimated duration of scan."""
 
@@ -1296,7 +1314,21 @@ class MapMeasureWidget(QWidget,map_measure_widget_ui.Ui_map_measure):
             line_size = self.sb_sizeY.quantity
             spoints = self.sb_pointsX.value()
             est_dur = (line_size*spoints + self.sb_sizeX.quantity)/speed
-        tot_s = est_dur.to('s').m
+        # Calcualte starting point
+        if self.cb_scandir.currentText()[1] == 'L':
+            hs_coord = self.sb_centerX.quantity - self.sb_sizeX.quantity/2
+        else:
+            hs_coord = self.sb_centerX.quantity + self.sb_sizeX.quantity/2
+        if self.cb_scandir.currentText()[2] == 'B':
+            vs_coord = self.sb_centerY.quantity - self.sb_sizeY.quantity/2
+        else:
+            vs_coord = self.sb_centerY.quantity + self.sb_sizeY.quantity/2
+        s_pos = Position.from_tuples([
+            (self.cb_scanplane.currentText()[0].lower(), hs_coord), # type: ignore
+            (self.cb_scanplane.currentText()[1].lower(), vs_coord) # type: ignore
+        ])
+        est_dur += s_pos.dist(self.cur_pos)/speed
+        tot_s = est_dur.to('s').m # type: ignore
         hours = int(tot_s // 3600)
         mins = int((tot_s % 3600) // 60)
         secs = (tot_s % 3600) % 60
@@ -1386,6 +1418,9 @@ class MapMeasureWidget(QWidget,map_measure_widget_ui.Ui_map_measure):
         # Labels for scan area
         self.lbl_areaX.setText(sel_plane[0])
         self.lbl_areaY.setText(sel_plane[1])
+        # Labels for current position
+        self.lbl_posX.setText(sel_plane[0])
+        self.lbl_posY.setText(sel_plane[1])
 
     @Slot()
     def _new_dir(self) -> None:
@@ -1619,6 +1654,8 @@ class MotorView(QDockWidget, motor_control_ui.Ui_DockWidget):
     def set_position(self, position: Position) -> None:
         """Update current coordinate."""
 
+        if not self.isVisible():
+            return
         if position is None:
             logger.warning('Invalid coordinate in set position.')
         # Update current position line edits and attributes.
@@ -1681,6 +1718,8 @@ class MotorView(QDockWidget, motor_control_ui.Ui_DockWidget):
         ) -> None:
         """Update status of motors."""
 
+        if not self.isVisible():
+            return
         self._upd_axes_status(
             status.x_open,
             status.x_status,
