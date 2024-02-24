@@ -678,9 +678,9 @@ class MeasureWidget(QWidget):
             self.btn_measure.setEnabled(True)
             return
 
-        ver = PAVerifierDialog()
-        plot_pa = ver.plot_pa
-        plot_pm = ver.plot_pm
+        self.ver = PAVerifierDialog()
+        plot_pa = self.ver.plot_pa
+        plot_pm = self.ver.plot_pm
 
         # Power meter plot
         ydata=data.pm_signal
@@ -704,7 +704,7 @@ class MeasureWidget(QWidget):
                 start.u
             ) # type: ignore
         )
-        if ver.exec():
+        if self.ver.exec():
             self.data_point.append(data)
             if self.cur_rep == self.sb_aver.value(): 
                 self.point_measured.emit(self.data_point.copy()) # type: ignore
@@ -720,7 +720,8 @@ class MeasureWidget(QWidget):
             return
 
     def measure(self) -> None:
-        self.measure_point.emit(self.sb_cur_param.quantity) # type: ignore
+        param = self.sb_cur_param.quantity
+        self.measure_point.emit(param) # type: ignore
 
     def upd_sp(
         self,
@@ -773,7 +774,7 @@ class MeasureWidget(QWidget):
             )
         )
 
-class CurveMeasureWidget(MeasureWidget, curve_measure_widget_ui.Ui_Curve_measure_widget, ):
+class CurveMeasureWidget(MeasureWidget, curve_measure_widget_ui.Ui_Curve_measure_widget):
     """1D PhotoAcoustic measurements widget."""
 
     cur_p_changed = Signal()

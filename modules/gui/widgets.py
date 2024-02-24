@@ -1080,6 +1080,7 @@ class PgPlot(pg.PlotWidget):
 
         self.plot_item.clear()
         self._plot_ref = None
+        self._scat_ref = None
         self._err_ref = None
         self._sp_ref = None
         self._marker_ref = None
@@ -1093,8 +1094,7 @@ class PgPlot(pg.PlotWidget):
         """Data pick event handler."""
 
         # Set index of the first point as selected index
-        x_sel = points[0].pos().x
-        #x_sel = points[0]._data[0]
+        x_sel = points[0].pos().x()
         self.sel_ind = np.argwhere(self.xdata == x_sel)[0][0]
         self.point_picked.emit(self.sel_ind)
 
@@ -1138,6 +1138,7 @@ class PgPlot(pg.PlotWidget):
     def set_visible_points(self, visible: bool) -> None:
         """Set visibality of data points."""
 
+        logger.info(f'Swithing to {visible=}')
         self.points_visible = visible
         if self._scat_ref is not None:
             self._scat_ref.setPointsVisible(visible)
