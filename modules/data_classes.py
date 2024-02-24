@@ -15,7 +15,17 @@ Grant # 22-72-00015
 """
 
 import sys
-from typing import Callable, TypeVar, Any, Literal, cast, TypedDict, NamedTuple, Iterable
+from typing import (
+    Callable,
+    TypeVar,
+    Any,
+    Literal,
+    cast,
+    TypedDict,
+    NamedTuple,
+    Iterable,
+    Sequence
+)
 from typing_extensions import ParamSpec, Self, Type
 from dataclasses import dataclass, field, fields, asdict
 import traceback
@@ -49,6 +59,8 @@ logger = logging.getLogger(__name__)
 
 P = ParamSpec('P')
 T = TypeVar('T')
+
+Plottable = npt.NDArray | PlainQuantity | Sequence | float | int
 
 class PlotData(NamedTuple):
     ydata: Iterable

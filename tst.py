@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field, fields
 from typing import TypedDict
 from pprint import pprint
+from numbers import Number
 import os
 import re
 import math
@@ -40,5 +41,6 @@ ureg = pint.get_application_registry()
 Q_ = ureg.Quantity
 rng = np.random.default_rng()
 
-pnt = PointIndex(4,5)
-print(list(pnt))
+a = Q_(np.array([1,2,3]), 'mm')
+b = 5
+print(isinstance(b, Number))

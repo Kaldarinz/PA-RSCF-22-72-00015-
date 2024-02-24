@@ -72,7 +72,7 @@ class PointView(QWidget, point_data_view_ui.Ui_Point_view):
         self.cb_sample.currentTextChanged.connect(
             lambda _: self.upd_plot()
         )
-        self.checkb_showp.toggled.connect(self.plot_detail.set_visible_points)
+        self.checkb_showp.toggled.connect(self.plot_detail.set_pts_visible)
 
     def reset_view(self) -> None:
         """Reset widget to default state."""

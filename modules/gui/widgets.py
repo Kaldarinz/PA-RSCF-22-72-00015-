@@ -14,7 +14,12 @@ Grant # 22-72-00015
 2024
 """
 
-from typing import Iterable, Literal, cast
+from typing import (
+    Iterable,
+    Literal, 
+    cast,
+    Sequence
+)
 import os
 import logging
 from dataclasses import fields
@@ -63,7 +68,8 @@ from ..data_classes import (
     MeasuredPoint,
     QuantRect,
     DataPoint,
-    PointIndex
+    PointIndex,
+    Plottable
 )
 
 from modules import ureg, Q_
@@ -928,7 +934,33 @@ class PgPlot(pg.PlotWidget):
     """
     Pyqtgraph plot widget.
     
-    
+    Implements a widget for plotting line, where data points can be 
+    explicitly shown as points (this functionality can toggle on/off).
+    Data points can optionally be picked, which will visually highlight
+    them and fire `point_picked` signal.
+    Additionally SetPoint can be set, which will be painted as infinite
+    horizontal line at specified y position.
+
+    Signals
+    -------
+    `point_picked`:     Emitted if picking point is enabled by
+                        `enable_pick` and a point on the plot was
+                        picked. Send index of picked point. If several
+                        points were picked by a single click, index of
+                        the first point is sent.
+
+    Attributes
+    ----------
+    `pick_enabled`:     `bool` if set to `True` allows to select points.\n
+    `sel_ind`:          `int|None` index of currently selected point.\n
+    `xdata`:            `NDArray`. `Property` - numerical values of
+                        data along X axis. Can be set by either NDArray,
+                        PlainQuantity, sequence, int or float.
+                        Automatically set `xunits` based on the dtype.\n
+    `ydata`:            `NDArray`. `Property` - numerical values of
+                        data along X axis. Can be set by either NDArray,
+                        PlainQuantity, sequence, int or float.
+                        Automatically set `yunits` based on the dtype.\n
     """
 
     point_picked = Signal(int)
@@ -940,39 +972,61 @@ class PgPlot(pg.PlotWidget):
         if not isinstance(plot_item, pg.PlotItem):
             logger.warning('PgPlot cannot be created.')
             return
-        self.plot_item = plot_item
+        self._plot_item = plot_item
+        self._plot_ref: pg.PlotDataItem
+        self._scat_ref: pg.ScatterPlotItem
+        self._err_ref: pg.ErrorBarItem
+        self._sp_ref: pg.InfiniteLine
+
+        self.pick_enabled: bool = False
+        'Flag of point selection by mouse.'
+        self.sel_ind: int | None = None
+        'Index of selected point'
+
+        # Styles
+        self._pen_def = pg.mkPen(color = 'l', width = 1)
+        self._pen_line = pg.mkPen(color = '#1f77b4', width = 2)
+        self._pen_sel = pg.mkPen(color='y', width = 3)
+        self._pen_hover = pg.mkPen(color='r')
 
         self._xdata: np.ndarray | None = None
         self._ydata: np.ndarray | None = None
         self._xerr: npt.NDArray | None = None
         self._yerr: npt.NDArray | None = None
-        self._plot_ref: pg.PlotDataItem | None = None
-        self._scat_ref: pg.ScatterPlotItem | None = None
-        self._err_ref: pg.ErrorBarItem | None = None
-        self._sp_ref: pg.InfiniteLine | None = None
-        self._boundary_ref: QGraphicsRectItem | None = None
-        self.enable_pick: bool = False
-        self.sel_ind: int | None = None
-        'Index of selected point'
-        self.points_visible: bool = True
+        self._points_visible: bool = True
 
-        self.xmin: float
-        self.xmax: float
-        self.ymin: float
-        self.ymax: float
+        self.init_plot()
 
-        # Styles
-        self.pen_def = pg.mkPen(color = 'l', width = 1)
-        self.pen_line = pg.mkPen(color = '#1f77b4', width = 2)
-        self.pen_sel = pg.mkPen(color='y', width = 3)
-        self.pen_hover = pg.mkPen(color='r')
+    def init_plot(self) -> None:
+        """Initiate plot to default state."""
+
+        # Line
+        self._plot_ref = self._plot_item.plot(pen = self._pen_line)
+        # Points
+        self._scat_ref = pg.ScatterPlotItem(
+                x = [],
+                y = [],
+                hoverable = True,
+                hoverPen = self._pen_hover,
+                tip = 'x:{x:.3g} y:{y:.3g}'.format
+            )
+        self._plot_item.addItem(self._scat_ref)
+        self._scat_ref.sigClicked.connect(self.pick_point)
+        # Error bar
+        self._err_ref = pg.ErrorBarItem()
+        self._plot_item.addItem(self._err_ref)
+        # Setpoint
+        self._sp_ref = pg.InfiniteLine(
+            angle = 0,
+            movable = False
+        )
 
     def plot(
             self,
-            ydata: npt.NDArray | PlainQuantity,
-            xdata: npt.NDArray | PlainQuantity | None=None,
-            yerr: npt.NDArray | PlainQuantity | None=None,
-            xerr: npt.NDArray | PlainQuantity | None=None,
+            ydata: Plottable,
+            xdata: Plottable | None=None,
+            yerr: Plottable | None=None,
+            xerr: Plottable | None=None,
             ylabel: str | None=None,
             xlabel: str | None=None
         ) -> None:
@@ -1006,56 +1060,27 @@ class PgPlot(pg.PlotWidget):
             self.ylabel = ylabel
 
         # Plot data
-        if self._plot_ref is None:
-            # Plot lines
-            self._plot_ref = pg.PlotDataItem(
-                x = self.xdata,
-                y = self.ydata,
-                pen = self.pen_line
-            )
-            self.plot_item.addItem(self._plot_ref)
-        else:
-            self._plot_ref.setData(
-                x = self.xdata,
-                y = self.ydata)
+        self._plot_ref.setData(
+            x = self.xdata,
+            y = self.ydata)
         
-        if self._scat_ref is None:
-            # Plot points
-            self._scat_ref = pg.ScatterPlotItem(
-                x = self.xdata,
-                y = self.ydata,
-                hoverable = True,
-                hoverPen = self.pen_hover,
-                tip = 'x:{x:.3g} y:{y:.3g}'.format
-            )
-            self.plot_item.addItem(self._scat_ref)
-            # data picker
-            if self.enable_pick:
-                self._scat_ref.sigClicked.connect(
-                    self.pick_point
-                )
-        else:
-            self._scat_ref.setData(
-                x = self.xdata,
-                y = self.ydata
-            )
-        self._scat_ref.setPointsVisible(self.points_visible)
+        self._scat_ref.setData(
+            x = self.xdata,
+            y = self.ydata
+        )
+        self._scat_ref.setPointsVisible(self._points_visible)
         # Plot error bars
         if yerr is not None:
             self.set_errorbars()
 
     def set_errorbars(self) -> None:
-        
-        err = pg.ErrorBarItem(
+
+        self._err_ref.setData(
             x = self.xdata,
             y = self.ydata,
             width = self.xerr,
             height = self.yerr
         )
-        if self._err_ref is not None:
-            self.plot_item.removeItem(self._err_ref)
-        self._err_ref = err
-        self.plot_item.addItem(self._err_ref)
 
     def set_marker(self, marker: int) -> None:
         """
@@ -1066,9 +1091,9 @@ class PgPlot(pg.PlotWidget):
         `marker` - index of data.
         """
 
-        pens = [self.pen_def]*len(self.xdata)
+        pens = [self._pen_def]*len(self.xdata)
         sizes = [7]*len(self.xdata)
-        pens[marker] = self.pen_sel
+        pens[marker] = self._pen_sel
         sizes[marker] = 20
         self.sel_ind = marker
         if self._scat_ref is not None:
@@ -1078,12 +1103,8 @@ class PgPlot(pg.PlotWidget):
     def clear_plot(self) -> None:
         """Restore plot to dafault state."""
 
-        self.plot_item.clear()
-        self._plot_ref = None
-        self._scat_ref = None
-        self._err_ref = None
-        self._sp_ref = None
-        self._marker_ref = None
+        self._plot_item.clear()
+        self.init_plot()
 
     def pick_point(
             self,
@@ -1093,87 +1114,26 @@ class PgPlot(pg.PlotWidget):
         ) -> None:
         """Data pick event handler."""
 
-        # Set index of the first point as selected index
-        x_sel = points[0].pos().x()
-        self.sel_ind = np.argwhere(self.xdata == x_sel)[0][0]
-        self.point_picked.emit(self.sel_ind)
+        if self.pick_enabled:
+            # Set index of the first point as selected index
+            x_sel = points[0].pos().x()
+            self.sel_ind = np.argwhere(self.xdata == x_sel)[0][0]
+            self.point_picked.emit(self.sel_ind)
 
-    def set_range(self, limit: QuantRect) -> None:
-        """Set hard limit for view range."""
-
-        vb = self.plot_item.getViewBox()
-        if not isinstance(vb, pg.ViewBox):
-            logger.warning('View range cannot be set.')
-            return
-        self.xunits = str(limit.left.to_preferred().u)
-        self.yunits = str(limit.bottom.to_preferred().u)
-        self.xmin = limit.left.to_preferred().m
-        self.xmax = (limit.left + limit.width).to_preferred().m # type: ignore
-        self.ymin = limit.bottom.to_preferred().m
-        self.ymax = (limit.bottom + limit.height).to_preferred().m # type: ignore
-        self.plot_item.setRange(
-            xRange = (self.xmin, self.xmax),
-            yRange = (self.ymin, self.ymax),
-            padding = 0.
-        )
-        self._plot_boundary()
-
-    def _plot_boundary(self) -> None:
-        """Plot map boundary."""
-
-        vb = self.plot_item.getViewBox()
-        
-        if self._boundary_ref is not None:
-            self.plot_item.removeItem(self._boundary_ref)
-            self._boundary_ref = None
-        self._boundary_ref = QGraphicsRectItem(
-            self.xmin,
-            self.ymin,
-            self.xmin + self.xmax,
-            self.ymin + self.ymax
-        )
-        self._boundary_ref.setPen(pg.mkPen('r', width = 3))
-        self.plot_item.addItem(self._boundary_ref)
-
-    def set_visible_points(self, visible: bool) -> None:
+    def set_pts_visible(self, visible: bool) -> None:
         """Set visibality of data points."""
 
         logger.info(f'Swithing to {visible=}')
-        self.points_visible = visible
-        if self._scat_ref is not None:
-            self._scat_ref.setPointsVisible(visible)
+        self._points_visible = visible
+        self._scat_ref.setPointsVisible(visible)
 
     def lock_scales(self) -> None:
         # Set square area
-        self.plot_item.setAspectLocked() # type: ignore
+        self._plot_item.setAspectLocked() # type: ignore
         # Disabe axes movements
-        self.plot_item.setMouseEnabled(x=False, y=False)
+        self._plot_item.setMouseEnabled(x=False, y=False)
         # Hide autoscale button
-        self.plot_item.hideButtons()
-
-    @property
-    def sp(self) -> PlainQuantity | None:
-        """Set point value."""
-        if self._sp_ref is None:
-            return None
-        return Q_(self._sp_ref.value(), self.yunits)
-    @sp.setter
-    def sp(self, value: PlainQuantity | None) -> None:
-        if self._plot_ref is None:
-            return
-        if self._sp_ref is None:
-            if value is not None:
-                self._sp_ref = pg.InfiniteLine(
-                    pos = value.to(self.yunits).m,
-                    angle = 0,
-                    movable = False
-                )
-        else:
-            if value is None:
-                self.plot_item.removeItem(self._sp_ref)
-                self._sp_ref = None
-            else:
-                self._sp_ref.setValue(value.to(self.yunits).m)
+        self._plot_item.hideButtons()
 
     @property
     def xdata(self) -> npt.NDArray:
@@ -1182,22 +1142,28 @@ class PgPlot(pg.PlotWidget):
             return np.array([])
         return self._xdata
     @xdata.setter
-    def xdata(self, data: npt.NDArray | PlainQuantity) -> None:
-        try:
-            iter(data)
-        except TypeError:
-            logger.warning('Attempt to plot non-terable X data.')
-            return
-        if isinstance(data, PlainQuantity):
+    def xdata(self, data: Plottable) -> None:
+        if isinstance(data, (int, float)):
+            self.xunits = ''
+            self._xdata = np.array(data)
+        elif isinstance(data, PlainQuantity):
             data = data.to_preferred()
             try:
                 data = data.to(self.xunits)
-            except:
-                self.xunits = f'{data.u:~.2gP}'
-            self._xdata = data.m
+            except DimensionalityError:
+                self.xunits = str(data.u)
+            self._xdata = np.array(data.m)
+        elif isinstance(data[0], PlainQuantity):
+            data = Q_.from_list(list(data))
+            data = data.to_preferred()
+            try:
+                data = data.to(self.xunits)
+            except DimensionalityError:
+                self.xunits = str(data.u)
+            self._xdata = np.array(data.m)
         else:
             self.xunits = ''
-            self._xdata = data
+            self._xdata = np.array(data)
 
     @property
     def ydata(self) -> npt.NDArray:
@@ -1206,31 +1172,34 @@ class PgPlot(pg.PlotWidget):
             return np.array([])
         return self._ydata
     @ydata.setter
-    def ydata(self, data: npt.NDArray | PlainQuantity) -> None:
-        try:
-            iter(data)
-        except TypeError:
-            logger.warning('Attempt to plot non-terable Y data.')
-            return
-        if isinstance(data, PlainQuantity):
+    def ydata(self, data: Plottable) -> None:
+        if isinstance(data, (int, float)):
+            self.yunits = ''
+            self._ydata = np.array(data)
+        elif isinstance(data, PlainQuantity):
             data = data.to_preferred()
             try:
                 data = data.to(self.yunits)
-            except:
-                self.yunits = f'{data.u}'
-            self._ydata = data.m
+            except DimensionalityError:
+                self.yunits = str(data.u)
+            self._ydata = np.array(data.m)
+        elif isinstance(data[0], PlainQuantity):
+            data = Q_.from_list(list(data))
+            data = data.to_preferred()
+            try:
+                data = data.to(self.yunits)
+            except DimensionalityError:
+                self.yunits = str(data.u)
+            self._ydata = np.array(data.m)
         else:
             self.yunits = ''
-            self._ydata = data
+            self._ydata = np.array(data)
 
     @property
-    def xerr(self) -> npt.NDArray:
-        if self._xerr is None:
-            logger.warning('x error is not set!')
-            return np.array([])
+    def xerr(self) -> npt.NDArray | None:
         return self._xerr
     @xerr.setter
-    def xerr(self, data: npt.NDArray | PlainQuantity | None) -> None:
+    def xerr(self, data: Plottable | None) -> None:
         if data is None:
             self._xerr = None
             return
@@ -1246,13 +1215,10 @@ class PgPlot(pg.PlotWidget):
             self._xerr = data
 
     @property
-    def yerr(self) -> npt.NDArray:
-        if self._yerr is None:
-            logger.warning('x error is not set!')
-            return np.array([])
+    def yerr(self) -> npt.NDArray | None:
         return self._yerr
     @yerr.setter
-    def yerr(self, data: npt.NDArray | PlainQuantity | None) -> None:
+    def yerr(self, data: Plottable | None) -> None:
         if data is None:
             self._yerr = None
             return
@@ -1270,31 +1236,43 @@ class PgPlot(pg.PlotWidget):
     @property
     def xlabel(self) -> str:
         "x label, does not include units."
-        return self.plot_item.getAxis('bottom').labelText
+        return self._plot_item.getAxis('bottom').labelText
     @xlabel.setter
     def xlabel(self, label: str) -> None:
-        self.plot_item.setLabel('bottom', label, self.xunits)
+        self._plot_item.setLabel('bottom', label, self.xunits)
 
     @property
     def ylabel(self) -> str:
         """y label, does not include units."""
-        return self.plot_item.getAxis('left').labelText
+        return self._plot_item.getAxis('left').labelText
     @ylabel.setter
     def ylabel(self, label: str) -> None:
-        self.plot_item.setLabel('left', label, self.yunits)
+        self._plot_item.setLabel('left', label, self.yunits)
 
     @property
     def xunits(self) -> str:
         """Units of x axis."""
-        return self.plot_item.getAxis('bottom').labelUnits
+        return self._plot_item.getAxis('bottom').labelUnits
     @xunits.setter
     def xunits(self, units: str) -> None:
-        self.plot_item.setLabel('bottom', self.xlabel, units)
+        self._plot_item.setLabel('bottom', self.xlabel, units)
 
     @property
     def yunits(self) -> str:
         """Units of y axis."""
-        return self.plot_item.getAxis('left').labelUnits
+        return self._plot_item.getAxis('left').labelUnits
     @yunits.setter
     def yunits(self, units: str) -> None:
-        self.plot_item.setLabel('left', self.ylabel, units)
+        self._plot_item.setLabel('left', self.ylabel, units)
+    
+    @property
+    def sp(self) -> PlainQuantity | None:
+        """Set point value."""
+        if self._sp_ref is None:
+            return None
+        return Q_(self._sp_ref.value(), self.yunits)
+    @sp.setter
+    def sp(self, value: PlainQuantity) -> None:
+        if not len(self.xdata):
+            return
+        self._sp_ref.setValue(value.to(self.yunits).m)

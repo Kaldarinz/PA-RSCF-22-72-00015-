@@ -812,7 +812,7 @@ class CurveMeasureWidget(MeasureWidget, curve_measure_widget_ui.Ui_Curve_measure
         """Setup widgets."""
 
         # Plot params
-        self.plot_measurement.enable_pick = True
+        self.plot_measurement.pick_enabled = True
         # Set available params to measure
         self.cb_mode.clear()
         self.cb_mode.addItems(list(CURVE_PARAMS))
@@ -1506,8 +1506,8 @@ class PowerMeterMonitor(QWidget,pm_monitor_ui.Ui_Form):
         self.aver = aver
         self.connect_signals_slots()
 
-        self.plot_left.points_visible = False
-        self.plot_right.points_visible = False
+        self.plot_left.set_pts_visible(False)
+        self.plot_right.set_pts_visible(False)
 
     def connect_signals_slots(self):
         """Connect signals and slots."""
@@ -1605,7 +1605,7 @@ class CurveView(QWidget,curve_data_view_ui.Ui_Curve_view):
         )
 
         #Enable picker
-        self.plot_curve.enable_pick = True
+        self.plot_curve.pick_enabled = True
         
 class MotorView(QDockWidget, motor_control_ui.Ui_DockWidget):
     """Mechanical positioning widget."""
@@ -1693,9 +1693,9 @@ class MotorView(QDockWidget, motor_control_ui.Ui_DockWidget):
             range[1] - range[0]
         )
         # Set range for plots
-        self.plot_xy.set_range(range_mm)
-        self.plot_xz.set_range(range_mm)
-        self.plot_yz.set_range(range_mm)
+        # self.plot_xy.set_range(range_mm)
+        # self.plot_xz.set_range(range_mm)
+        # self.plot_yz.set_range(range_mm)
 
         # Set plot titles
         self.plot_xy.xlabel = 'X'
