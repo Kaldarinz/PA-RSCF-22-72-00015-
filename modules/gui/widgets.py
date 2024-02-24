@@ -236,14 +236,19 @@ class PgMap(pg.GraphicsLayoutWidget):
     
     2D square map with fixed aspect ratio and fixed axes, which could 
     not be resized by mouse.
-    Designed for plotting maps with differently sized 'pixels' along
-    one axes. Amount of pixels along this line can also vary.
-    Allow drawing selection region and optionally picking of individual
-    'data pixels'. Picking of data pixels internally sets selected area
-    to the boundaries of that pixel.\n
+    Designed for plotting MapData instances with differently sized
+    'pixels' along one axes. Amount of pixels along this line can also
+    vary. Allows drawing selection region and optionally picking of
+    individual 'data pixels' or positions. Picking of data pixels
+    internally sets selected area to the boundaries of that pixel.\n
     Mouse clicking on the map has 2 mutually exclusive modes:
     * Picking data pixels - Allows one to pick scanned data pixels. 
-    * Picking map points - Allows one to pick arbitrary point on the map.
+    * Picking map points - Allows one to pick arbitrary point on the
+    map.\n
+    Also have optional scatter pointer, which is intended to represent
+    current position on the map.\n
+    For basic operation just set data using `set_data()`. To enable
+    data pixel picking set `pick_pixel_enabled` attribute.
 
     Signals
     -------
@@ -342,98 +347,73 @@ class PgMap(pg.GraphicsLayoutWidget):
         "Allow selection of pixels."
 
         self.connectSignalSlots()
-
+    
     def connectSignalSlots(self) -> None:
         """Default connection os signals and slots."""
 
-        self.scene().sigMouseClicked.connect(self.select_pos)
-        
-    def pick_point(self, event: MouseClickEvent) -> Position:
-        """Calculate position of a mouse click."""
-        # This return correct coordinates
+        self.scene().sigMouseClicked.connect(self._select_pos)
+  
+    def set_data(self, data: MapData) -> None:
+        """Set scan data, which will lead to start displaying scan."""
 
-        click_pos = self.plot_item.getViewBox().mapSceneToView(event.scenePos()) # type: ignore
-        click_pos = cast(QPointF, click_pos)
-        pos = Position.from_tuples([
-            (self.hlabel.lower(), Q_(click_pos.x(), self.hunits)),
-            (self.vlabel.lower(), Q_(click_pos.y(), self.vunits))
-        ])
-        return pos
+        self.clear_plot()
+        self.data = data
+        # Set scan range
+        self.set_scanrange(
+            width = data.width,
+            height = data.height
+        )
+        # Set labels
+        self.hlabel = data.haxis
+        self.vlabel = data.vaxis
 
-    def select_pos(self, event: MouseClickEvent) -> None:
-        """
-        Select position at given mouse click.
-        
-        Emit `pos_selected`.
-        """
+        self.selection_changed.emit(None)
+        if len(data.data):
+            self.upd_scan()
 
-        pos = self.pick_point(event)
-        logger.info(f'New position selected {pos}')
-        # Convert relative coordinates to absolute if necessary
-        if not self.abs_coords:
-            pos = pos + self.data.blp # type: ignore
-        self.pos_selected.emit(pos)
-
-    def select_pixel(self, event: MouseClickEvent) -> None:
-        """
-        Select pixel at given mouse click.
-        
-        Draw boundary around selected pixel and Emit `pixel_selected`.
-        """
+    @Slot(ScanLine)
+    def upd_scan(
+        self,
+        line: ScanLine | None=None
+    ) -> None:
+        """Update scan."""
 
         if self.data is None:
-            logger.warning('Point cannot be selected. Data is missing.')
+            logger.error('Scan line cannot be drawn. Data is None.')
             return
-        pos = self.pick_point(event)
-        point = self.data.point_from_pos(pos)
-        if point is None:
-            logger.warning(f'Point for {pos} was not found.')
-            return
-        rect = self.data.point_rect(point)
-        self.set_selarea(*rect)
-        self.pixel_selected.emit(self.data.point_index(point))
-
-    def set_scanrange(
-            self,
-            width: PlainQuantity | None=None,
-            height: PlainQuantity | None=None
-        ) -> None:
-        """Set displayed map area."""
-
-        if width is not None:
-            # if label already set
-            if len(self.hunits):
-                try:
-                    self.width = width.to(self.hunits)
-                except DimensionalityError:
-                    logger.warning('Wrong dimension in scan range.')
-            # if label was not set, then set it
-            else:
-                self.width = width
-                self.hunits = f'{width.u:~.2gP}'
-
-            # update plot
-            if self.width.m is not np.nan:
-                self.plot_item.setXRange(0, self.width.m, padding = 0.)
-
-        if height is not None:
-            # if label already set
-            if len(self.vunits):
-                try:
-                    self.height = height.to(self.vunits)
-                except DimensionalityError:
-                    logger.warning('Wrong dimension in scan range.')
-            # if label was not set, then set it
-            else:
-                self.height = height
-                self.vunits = f'{height.u:~.2gP}'
-
-            # update plot
-            if self.height.m is not np.nan:
-                self.plot_item.setYRange(0, self.height.m, padding = 0.)
-
-        logger.debug(f'Plot size set to ({self.width}:{self.height})')
-        self._plot_boundary()
+        # Convert units
+        x, y, z = self.data.get_plot_data(signal='max_amp')
+        self._hcoords = x.to(self.hunits).m
+        self._vcoords = y.to(self.vunits).m
+        self._signal = z.m
+        # Calc relative or abs coords
+        if self.abs_coords:
+            dh, dv = self._rel_to_abs() # type: ignore
+            hcoords = self._hcoords + dh
+            vcoords = self._vcoords + dv
+        else:
+            hcoords = self._hcoords
+            vcoords = self._vcoords
+        # Plot data
+        # New scanned line changes shape of data, therefore we have to
+        # create new PColorMeshItem
+        if self._plot_ref is not None:
+            self.plot_item.removeItem(self._plot_ref)
+        self._plot_ref = pg.PColorMeshItem(
+            hcoords,
+            vcoords,
+            self._signal)
+        self.plot_item.addItem(self._plot_ref)
+        # Add colorbar
+        if self._bar is not None:
+            self.removeItem(self._bar)
+            self._bar = None
+        self._bar = pg.ColorBarItem(
+            label = 'Signal amplitude',
+            interactive=False,
+            rounding=0.1) # type: ignore
+        self._bar.setImageItem([self._plot_ref])
+        self.addItem(self._bar, 0, 1)
 
     def set_selarea(
             self,
@@ -587,6 +567,89 @@ class PgMap(pg.GraphicsLayoutWidget):
             )
             return self.selected_area # type: ignore
 
+    def set_cur_pos(self, pos: Position) -> None:
+        """Set current position."""
+
+        # Check if position is valid
+        if ((hcoord:=getattr(pos, self.hlabel.lower())) is None
+            or (vcoords:=getattr(pos, self.vlabel.lower())) is None):
+            logger.warning(f'Wrong motors coordinate: {pos=}')
+            if self._pos_ref is not None:
+                self.plot_item.removeItem(self._pos_ref)
+                self._pos_ref = None
+            return
+        hpos = hcoord.to(self.hunits).m
+        vpos = vcoords.to(self.vunits).m
+        if self._pos_ref is None:
+            self._pos_ref = pg.ScatterPlotItem(
+                x = hpos,
+                y = vpos,
+                hoverable = False
+            )
+            self.plot_item.addItem(self._pos_ref)
+        else:
+            self._pos_ref.setData(
+                x = hpos,
+                y = vpos
+            )
+
+    def set_scanrange(
+            self,
+            width: PlainQuantity | None=None,
+            height: PlainQuantity | None=None
+        ) -> None:
+        """Set displayed map area."""
+
+        if width is not None:
+            # if label already set
+            if len(self.hunits):
+                try:
+                    self.width = width.to(self.hunits)
+                except DimensionalityError:
+                    logger.warning('Wrong dimension in scan range.')
+            # if label was not set, then set it
+            else:
+                self.width = width
+                self.hunits = f'{width.u:~.2gP}'
+
+            # update plot
+            if self.width.m is not np.nan:
+                self.plot_item.setXRange(0, self.width.m, padding = 0.)
+
+        if height is not None:
+            # if label already set
+            if len(self.vunits):
+                try:
+                    self.height = height.to(self.vunits)
+                except DimensionalityError:
+                    logger.warning('Wrong dimension in scan range.')
+            # if label was not set, then set it
+            else:
+                self.height = height
+                self.vunits = f'{height.u:~.2gP}'
+
+            # update plot
+            if self.height.m is not np.nan:
+                self.plot_item.setYRange(0, self.height.m, padding = 0.)
+
+        logger.debug(f'Plot size set to ({self.width}:{self.height})')
+        self._plot_boundary()
+    
+    def clear_plot(self) -> None:
+        """CLear plot and remove data."""
+
+        if self._plot_ref is not None:
+            self.plot_item.removeItem(self._plot_ref)
+            self._plot_ref = None
+        if self._bar is not None:
+            self.removeItem(self._bar)
+            self._bar = None
+        if self.data is not None:
+            self.data = None
+        # Manualy remove selection to handle case, when scan is started
+        # from selection, made in other scan.
+        self._remove_sel()
+
     def set_def_selarea(self) -> tuple[PlainQuantity,...]:
         """
         Set default selected area on plot.
@@ -635,111 +698,9 @@ class PgMap(pg.GraphicsLayoutWidget):
         else:
             self.set_def_selarea()
 
-    def set_data(self, data: MapData) -> None:
-        """Set scan data, which will lead to start displaying scan."""
-
-        self.clear_plot()
-        self.data = data
-        # Set scan range
-        self.set_scanrange(
-            width = data.width,
-            height = data.height
-        )
-        # Set labels
-        self.hlabel = data.haxis
-        self.vlabel = data.vaxis
-
-        self.selection_changed.emit(None)
-        if len(data.data):
-            self.upd_scan()
-
-    def set_cur_pos(self, pos: Position) -> None:
-        """Set current position."""
-
-        # Check if position is valid
-        if ((hcoord:=getattr(pos, self.hlabel.lower())) is None
-            or (vcoords:=getattr(pos, self.vlabel.lower())) is None):
-            logger.warning(f'Wrong motors coordinate: {pos=}')
-            if self._pos_ref is not None:
-                self.plot_item.removeItem(self._pos_ref)
-                self._pos_ref = None
-            return
-        hpos = hcoord.to(self.hunits).m
-        vpos = vcoords.to(self.vunits).m
-        if self._pos_ref is None:
-            self._pos_ref = pg.ScatterPlotItem(
-                x = hpos,
-                y = vpos,
-                hoverable = False
-            )
-            self.plot_item.addItem(self._pos_ref)
-        else:
-            self._pos_ref.setData(
-                x = hpos,
-                y = vpos
-            )
-
-    def clear_plot(self) -> None:
-        """CLear plot and remove data."""
-
-        if self._plot_ref is not None:
-            self.plot_item.removeItem(self._plot_ref)
-            self._plot_ref = None
-        if self._bar is not None:
-            self.removeItem(self._bar)
-            self._bar = None
-        if self.data is not None:
-            self.data = None
-        # Manualy remove selection to handle case, when scan is started
-        # from selection, made in other scan.
-        self._remove_sel()
-
-    @Slot(ScanLine)
-    def upd_scan(
-        self,
-        line: ScanLine | None=None
-    ) -> None:
-        """Update scan."""
-
-        if self.data is None:
-            logger.error('Scan line cannot be drawn. Data is None.')
-            return
-        # Convert units
-        x, y, z = self.data.get_plot_data(signal='max_amp')
-        self._hcoords = x.to(self.hunits).m
-        self._vcoords = y.to(self.vunits).m
-        self._signal = z.m
-        # Calc relative or abs coords
-        if self.abs_coords:
-            dh, dv = self._rel_to_abs() # type: ignore
-            hcoords = self._hcoords + dh
-            vcoords = self._vcoords + dv
-        else:
-            hcoords = self._hcoords
-            vcoords = self._vcoords
-        # Plot data
-        # New scanned line changes shape of data, therefore we have to
-        # create new PColorMeshItem
-        if self._plot_ref is not None:
-            self.plot_item.removeItem(self._plot_ref)
-        self._plot_ref = pg.PColorMeshItem(
-            hcoords,
-            vcoords,
-            self._signal)
-        self.plot_item.addItem(self._plot_ref)
-        # Add colorbar
-        if self._bar is not None:
-            self.removeItem(self._bar)
-            self._bar = None
-        self._bar = pg.ColorBarItem(
-            label = 'Signal amplitude',
-            interactive=False,
-            rounding=0.1) # type: ignore
-        self._bar.setImageItem([self._plot_ref])
-        self.addItem(self._bar, 0, 1)
-
     @Slot()
     def set_abs_scan_pos(self, state: bool) -> None:
+        """RePlot data in absolute (State=True) or relative coords."""
 
         if self.data is None:
             logger.warning('Scan cannot be shifted. Data is missing.')
@@ -768,6 +729,51 @@ class PgMap(pg.GraphicsLayoutWidget):
             vcoords,
             self._signal
         )
+
+    def _pick_point(self, event: MouseClickEvent) -> Position:
+        """Calculate position of a mouse click."""
+        # This return correct coordinates
+
+        click_pos = self.plot_item.getViewBox().mapSceneToView(event.scenePos()) # type: ignore
+        click_pos = cast(QPointF, click_pos)
+        pos = Position.from_tuples([
+            (self.hlabel.lower(), Q_(click_pos.x(), self.hunits)),
+            (self.vlabel.lower(), Q_(click_pos.y(), self.vunits))
+        ])
+        return pos
+
+    def _select_pos(self, event: MouseClickEvent) -> None:
+        """
+        Select position at given mouse click.
+        
+        Emit `pos_selected`.
+        """
+
+        pos = self._pick_point(event)
+        logger.info(f'New position selected {pos}')
+        # Convert relative coordinates to absolute if necessary
+        if not self.abs_coords:
+            pos = pos + self.data.blp # type: ignore
+        self.pos_selected.emit(pos)
+
+    def _select_pixel(self, event: MouseClickEvent) -> None:
+        """
+        Select pixel at given mouse click.
+        
+        Draw boundary around selected pixel and Emit `pixel_selected`.
+        """
+
+        if self.data is None:
+            logger.warning('Point cannot be selected. Data is missing.')
+            return
+        pos = self._pick_point(event)
+        point = self.data.point_from_pos(pos)
+        if point is None:
+            logger.warning(f'Point for {pos} was not found.')
+            return
+        rect = self.data.point_rect(point)
+        self.set_selarea(*rect)
+        self.pixel_selected.emit(self.data.point_index(point))
 
     def _rel_to_abs(
             self,
@@ -805,6 +811,24 @@ class PgMap(pg.GraphicsLayoutWidget):
         if self._sel_ref is not None:
             self.plot_item.removeItem(self._sel_ref)
             self._sel_ref = None
+
+    def _plot_boundary(self) -> None:
+        """Plot map boundary."""
+
+        if None in [self.width, self.height]:
+            return
+        
+        if self._boundary_ref is not None:
+            self.plot_item.removeItem(self._boundary_ref)
+            self._boundary_ref = None
+        self._boundary_ref = QGraphicsRectItem(
+            0,
+            0,
+            self.width.to(self.hunits).m,
+            self.height.to(self.vunits).m
+        )
+        self._boundary_ref.setPen(pg.mkPen('r', width = 3))
+        self.plot_item.addItem(self._boundary_ref)
 
     @property
     def hlabel(self) -> str:
@@ -877,12 +901,12 @@ class PgMap(pg.GraphicsLayoutWidget):
         if self._pick_pixel_enabled:
             if not state:
                 self._pick_pixel_enabled = state
-                self.scene().sigMouseClicked.disconnect(self.select_pixel)
+                self.scene().sigMouseClicked.disconnect(self._select_pixel)
         else:
             if state:
                 self._pick_pixel_enabled = state
                 self.pick_pos_enabled = False
-                self.scene().sigMouseClicked.connect(self.select_pixel)
+                self.scene().sigMouseClicked.connect(self._select_pixel)
 
     @property
     def pick_pos_enabled(self) -> bool:
@@ -893,33 +917,19 @@ class PgMap(pg.GraphicsLayoutWidget):
         if self._pick_pos_enabled:
             if not state:
                 self._pick_pos_enabled = state
-                self.scene().sigMouseClicked.disconnect(self.select_pos)
+                self.scene().sigMouseClicked.disconnect(self._select_pos)
         else:
             if state:
                 self._pick_pos_enabled = state
                 self.pick_pixel_enabled = False
-                self.scene().sigMouseClicked.connect(self.select_pos)
-
-    def _plot_boundary(self) -> None:
-        """Plot map boundary."""
-
-        if None in [self.width, self.height]:
-            return
-        
-        if self._boundary_ref is not None:
-            self.plot_item.removeItem(self._boundary_ref)
-            self._boundary_ref = None
-        self._boundary_ref = QGraphicsRectItem(
-            0,
-            0,
-            self.width.to(self.hunits).m,
-            self.height.to(self.vunits).m
-        )
-        self._boundary_ref.setPen(pg.mkPen('r', width = 3))
-        self.plot_item.addItem(self._boundary_ref)
+                self.scene().sigMouseClicked.connect(self._select_pos)
 
 class PgPlot(pg.PlotWidget):
-    """Pyqtgraph plot widget."""
+    """
+    Pyqtgraph plot widget.
+    
+    
+    """
 
     point_picked = Signal(int)
 
@@ -996,16 +1006,20 @@ class PgPlot(pg.PlotWidget):
             self.ylabel = ylabel
 
         # Plot data
-        # If plot is empty, create reference to 2D line
         if self._plot_ref is None:
-            # By some reason program crushes if more than one PlotDataItem
-            # is added to the plot
             # Plot lines
-            self._plot_ref = self.plot_item.plot(
+            self._plot_ref = pg.PlotDataItem(
                 x = self.xdata,
                 y = self.ydata,
                 pen = self.pen_line
             )
+            self.plot_item.addItem(self._plot_ref)
+        else:
+            self._plot_ref.setData(
+                x = self.xdata,
+                y = self.ydata)
+        
+        if self._scat_ref is None:
             # Plot points
             self._scat_ref = pg.ScatterPlotItem(
                 x = self.xdata,
@@ -1017,19 +1031,15 @@ class PgPlot(pg.PlotWidget):
             self.plot_item.addItem(self._scat_ref)
             # data picker
             if self.enable_pick:
-                self._scat_ref.sigClicked.connect(self.pick_point)
-        
-        # otherwise just update data
+                self._scat_ref.sigClicked.connect(
+                    self.pick_point
+                )
         else:
-            self._plot_ref.setData(
-                x = self.xdata,
-                y = self.ydata)
-            self._scat_ref.setData( # type: ignore
+            self._scat_ref.setData(
                 x = self.xdata,
                 y = self.ydata
             )
-            
-        self._scat_ref.setPointsVisible(self.points_visible) # type: ignore
+        self._scat_ref.setPointsVisible(self.points_visible)
         # Plot error bars
         if yerr is not None:
             self.set_errorbars()
@@ -1074,11 +1084,17 @@ class PgPlot(pg.PlotWidget):
         self._sp_ref = None
         self._marker_ref = None
 
-    def pick_point(self, scat_item, points: list, ev: MouseClickEvent) -> None:
+    def pick_point(
+            self,
+            scat_item: pg.ScatterPlotItem,
+            points: list[pg.SpotItem],
+            ev: MouseClickEvent
+        ) -> None:
         """Data pick event handler."""
 
         # Set index of the first point as selected index
-        x_sel = points[0]._data[0]
+        x_sel = points[0].pos().x
+        #x_sel = points[0]._data[0]
         self.sel_ind = np.argwhere(self.xdata == x_sel)[0][0]
         self.point_picked.emit(self.sel_ind)
 
