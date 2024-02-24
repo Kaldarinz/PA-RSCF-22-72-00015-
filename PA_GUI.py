@@ -305,6 +305,12 @@ class Window(QMainWindow,Ui_MainWindow,):
         )
         # Update current position
         self.position_updated.connect(self.p_map.set_cur_pos)
+        # Move to click
+        self.p_map.plot_scan.pos_selected.connect(
+            lambda pos: self.start_worker(
+                pa_logic.move_to,
+                new_pos = pos)
+        )
 
         ###############################################################
         ### Motor dock widget ###

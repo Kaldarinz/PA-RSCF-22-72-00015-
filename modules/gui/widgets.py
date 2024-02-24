@@ -368,6 +368,7 @@ class PgMap(pg.GraphicsLayoutWidget):
         """
 
         pos = self.pick_point(event)
+        logger.info(f'New position selected {pos}')
         # Convert relative coordinates to absolute if necessary
         if not self.abs_coords:
             pos = pos + self.data.blp # type: ignore
