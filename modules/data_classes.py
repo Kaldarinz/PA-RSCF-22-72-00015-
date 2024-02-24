@@ -1076,51 +1076,63 @@ class MapData:
     There are two kinds of attributes: `setted` and `measured`. The
     former are parameters defined at initialization, the latter are
     actually measured values.\n
-    `data`: `list[ScanLine]` - All `measured` scan lines.\n
-    `wavelength`: `PlainQuantity` - `setted` excitation wavelength.
+    `data`:         `list[ScanLine]` - All `measured` scan lines.\n
+    `wavelength`:   `PlainQuantity` - `setted` excitation wavelength.
 
-    `centp`: `Position` - `setted` center point of scan in absolute
-    coordinates.\n
-    `startp`: `Position` - `Property`. Read only. Calculated `setted` 
-    starting position of scan in absolute coordinates.\n
-    `blp`: `Position` - `Property`. Read only. Calculated `setted` 
-    position of bottom-left corner of scan in absolute coordinates.
+    `centp`:        `Position` - `setted` center point of scan in
+                    absolute coordinates.\n
+    `startp`:       `Position` - `Property`. Read only. Calculated
+                    `setted` starting position of scan in absolute
+                    coordinates.\n
+    `blp`:          `Position` - `Property`. Read only. Calculated 
+                    `setted` position of bottom-left corner of scan
+                    in absolute coordinates.
 
-    `width`: `PlainQuantity` - `setted` scan size along `horizontal` axis.\n
-    `height`: `PlainQuantity` - `setted` scan size along `vertical` axis.\n
-    `hpoints`: `int` - `setted` number of scan points along `horizontal` axis.\n
-    `vpoints`: `int` - `setted` number of scan points along `vertical` axis.\n
-    `hstep`: `PlainQuantity` - `Property`. Read only. Calculated `setted`
-    step along `horizontal` scan axis.\n
-    `vstep`: `PlainQuantity` - `Property`. Read only. Calculated `setted`
-    step along `vertical` scan axis.\n
-    `haxis`: `str` - `Property`. Read only. Title of `horizontal` scan axis.\n
-    `vaxis`: `str` - `Property`. Read only. Title of `vertical` scan axis.
+    `width`:        `PlainQuantity` - `setted` scan size along 
+                    `horizontal` axis.\n
+    `height`:       `PlainQuantity` - `setted` scan size along 
+                    `vertical` axis.\n
+    `hpoints`:      `int` - `setted` number of scan points along
+                    `horizontal` axis.\n
+    `vpoints`:      `int` - `setted` number of scan points along
+                    `vertical` axis.\n
+    `hstep`:        `PlainQuantity` - `Property`. Read only. Calculated
+                    `setted` step along `horizontal` scan axis.\n
+    `vstep`:        `PlainQuantity` - `Property`. Read only. Calculated
+                    `setted` step along `vertical` scan axis.\n
+    `haxis`:        `str` - `Property`. Read only. Title of `horizontal`
+                    scan axis.\n
+    `vaxis`:        `str` - `Property`. Read only. Title of `vertical`
+                    scan axis.
 
-    `fstep`: `Position` - `Property`. Read only. Calculated `setted` step
-    along `fast` scan axis.\n
-    `sstep`: `Position` - `Property`. Read only. Calculated `setted` step
-    along `slow` scan axis.\n
-    `fsize`: `PlainQuantity` - `Property`. Read only. Calcualted `setted`
-    scan size along `fast` scan axis.\n
-    `fpoints`: `int` - `Property`. Read only. Calcualted `setted`
-    number of scan points along `fast` scan axis.\n
-    `fpoints_raw_max`: `int` - `Property`. Read only. Maximum number
-    of points in measured scan lines.\n
-    `spoints`: `int` - `Property`. Read only. Calcualted `setted`
-    number of scan points along `slow` scan axis.\n
-    `faxis`: `str` - `Property`. Read only. Title of `fast` scan axis.\n
-    `saxis`: `str` - `Property`. Read only. Title of `slow` scan axis.
+    `fstep`:        `Position` - `Property`. Read only. Calculated
+                    `setted` step along `fast` scan axis.\n
+    `sstep`:        `Position` - `Property`. Read only. Calculated
+                    `setted` step along `slow` scan axis.\n
+    `fsize`:        `PlainQuantity` - `Property`. Read only. Calcualted
+                    `setted` scan size along `fast` scan axis.\n
+    `fpoints`:      `int` - `Property`. Read only. Calcualted `setted`
+                    number of scan points along `fast` scan axis.\n
+    `fp_raw_max`:   `int` - `Property`. Read only. Maximum number
+                    of points in measured scan lines.\n
+    `spoints`:      `int` - `Property`. Read only. Calcualted `setted`
+                    number of scan points along `slow` scan axis.\n
+    `faxis`:        `str` - `Property`. Read only. Title of `fast` scan
+                    axis.\n
+    `saxis`:        `str` - `Property`. Read only. Title of `slow` scan
+                    axis.
 
-    `scan_dir`: `str` - `Property`. `setted` 3-letter direction and
-    starting point of scan. All letters are automatically converted
-    to upper case. First letter ['H'|'V"] - Horizontal or Vertical
-    direction of fast scan axis. Second letter ['L'|'R'] - horizontal
-    position of starting point (Left or Right). Third letter ['B'|'T'] -
-    vertical position of starting point (Bottom or Top).\n
-    `scan_plane`: `Literal['XY', 'YZ', 'ZX']` - `Property`. `setted`
-    Pair of axis along which scan is done. First letter is horizontal
-    axis, second is vertical.\n
+    `scan_dir`:     `str` - `Property`. `setted` 3-letter direction and
+                    starting point of scan. All letters are
+                    automatically converted to upper case. First letter
+                    ['H'|'V"] - Horizontal or Vertical direction of
+                    fast scan axis. Second letter ['L'|'R'] -
+                    horizontal position of starting point (Left or
+                    Right). Third letter ['B'|'T'] - vertical position
+                    of starting point (Bottom or Top).\n
+    `scan_plane`:   `Literal['XY', 'YZ', 'ZX']` - `Property`. `setted`
+                    Pair of axis along which scan is done. First letter
+                    is horizontal axis, second is vertical.\n
     """
     
     def __init__(
@@ -1287,7 +1299,7 @@ class MapData:
         data = copy.deepcopy(self.data[icashed:])
         # New lines can have more points than old,
         # therefore copy last point necessary amount of times in cashed data
-        max_fpoints = self.fpoints_raw_max
+        max_fpoints = self.fp_raw_max
         for line in self._plot_coords:
             while (j:=max_fpoints - len(line) + 1) > 0:
                 line.append(copy.copy(line[-1]))
@@ -1359,7 +1371,7 @@ class MapData:
         data = copy.deepcopy(self.data[icashed:])
         # New lines can have more points than old,
         # therefore copy last point necessary amount of times
-        max_fpoints = self.fpoints_raw_max
+        max_fpoints = self.fp_raw_max
         for line in self._plot_sigs:
             while (j:=max_fpoints- len(line)) > 0:
                 line.append(copy.deepcopy(line[-1]))
@@ -1600,7 +1612,7 @@ class MapData:
         logger.warning('fpoints is read only.')
 
     @property
-    def fpoints_raw_max(self) -> int:
+    def fp_raw_max(self) -> int:
         """
         Maximum number of points in measured scan lines.
         
@@ -1611,8 +1623,8 @@ class MapData:
             if line.num_points > points:
                 points = line.num_points
         return points
-    @fpoints_raw_max.setter
-    def fpoints_raw_max(self, val: Any) -> None:
+    @fp_raw_max.setter
+    def fp_raw_max(self, val: Any) -> None:
         logger.warning('fpoints_raw_max is read only.')
 
     @property

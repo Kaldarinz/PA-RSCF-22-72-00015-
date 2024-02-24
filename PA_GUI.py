@@ -57,15 +57,16 @@ import numpy as np
 from modules import ureg, Q_
 from modules.hardware import utils as hutils
 from modules.pa_data import (
-    PaData,
-    MeasuredPoint
+    PaData
 )
 
 import modules.pa_logic as pa_logic
 from modules.data_classes import (
     Worker,
     EnergyMeasurement,
-    MapData
+    MapData,
+    StagesStatus,
+    Position
 )
 from modules.constants import (
     MSMNT_MODES
@@ -119,7 +120,11 @@ class Window(QMainWindow,Ui_MainWindow,):
     """Application MainWindow."""
 
     energy_measured = Signal(EnergyMeasurement)
-    "Signal, emitted when PM data is obtained."
+    "Emitted when PM data is read."
+    motors_status_updated = Signal(StagesStatus)
+    "Emitted, when new stages status is read."
+    position_updated = Signal(Position)
+    "Emitted, when new current position is measured"
 
     def __init__(
             self,
@@ -136,9 +141,9 @@ class Window(QMainWindow,Ui_MainWindow,):
 
         # Timers
         self.timer_motor = QTimer()
-        self.timer_motor.setInterval(100)
+        self.timer_motor.setInterval(200)
         self.timer_pm = QTimer()
-        self.timer_pm.setInterval(200)
+        self.timer_pm.setInterval(250)
 
         # Icons
         self.pixmap_c = QPixmap(
@@ -344,6 +349,9 @@ class Window(QMainWindow,Ui_MainWindow,):
         self._conn_jog_btn(
             self.d_motors.btn_z_right_move, 'z', '+'
         )
+        ### Update status and position
+        self.position_updated.connect(self.d_motors.set_position)
+        self.motors_status_updated.connect(self.d_motors.upd_status)
 
     def set_shortcuts(self) -> None:
 
@@ -666,13 +674,13 @@ class Window(QMainWindow,Ui_MainWindow,):
         
         # Update position information
         self.start_cb_worker(
-            self.d_motors.set_position,
+            self.position_updated.emit,
             pa_logic.stages_position
         )
 
         # Update status information
         self.start_cb_worker(
-            self.d_motors.upd_status,
+            self.motors_status_updated.emit,
             pa_logic.stages_status
         )
 

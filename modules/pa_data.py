@@ -112,7 +112,8 @@ from .data_classes import (
     MeasuredPoint,
     MapData,
     ScanLine,
-    PlotData
+    PlotData,
+    PointIndex
 )
 from modules.exceptions import (
     PlotError
@@ -781,10 +782,12 @@ class PaData:
     @staticmethod
     def point_by_param(
         msmnt: Measurement,
-        param: list
+        param: list | PointIndex
         ) -> DataPoint | None:
         """Get datapoint from a measurement by its param value."""
 
+        if isinstance(param, PointIndex):
+            param = list(param)
         for point in msmnt.data.values():
             if point.attrs.param_val == param:
                 return point

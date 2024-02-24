@@ -62,7 +62,8 @@ from ..data_classes import (
     Position,
     MeasuredPoint,
     QuantRect,
-    DataPoint
+    DataPoint,
+    PointIndex
 )
 
 from modules import ureg, Q_
@@ -230,10 +231,74 @@ class TreeInfoWidget(QTreeWidget):
             QTreeWidgetItem(group, [field.name, str(val)])
 
 class PgMap(pg.GraphicsLayoutWidget):
-    """2d map pyqtgraph widget."""
+    """
+    2D map pyqtgraph widget.
+    
+    2D square map with fixed aspect ratio and fixed axes, which could 
+    not be resized by mouse.
+    Designed for plotting maps with differently sized 'pixels' along
+    one axes. Amount of pixels along this line can also vary.
+    Allow drawing selection region and optionally picking of individual
+    'data pixels'. Picking of data pixels internally sets selected area
+    to the boundaries of that pixel.\n
+    Mouse clicking on the map has 2 mutually exclusive modes:
+    * Picking data pixels - Allows one to pick scanned data pixels. 
+    * Picking map points - Allows one to pick arbitrary point on the map.
+
+    Signals
+    -------
+    `selection_changed`:    Emitted, when `selected_area` property is 
+                            changed (only when there are some real
+                            changes). Send tuple of `PlainQuantity`,
+                            which contain x, y, width, height of the
+                            new selection. This is also emitted, when
+                            selection is removed, in this case None is
+                            sent.
+    `pixel_selected`:       Emitted, when picking data pixels is
+                            enabled (`pick_pixel_enabled` is True).
+                            Send PointIndex named tuple, which contains
+                            indexes of line and point in this line for
+                            the data pixel, which was selected on the
+                            map by mouse click.
+    `pos_selected`:         Emitted, when picking map points is enabled
+                            (`pick_pos_enabled` is True, which is
+                            default option). Send position of the
+                            picked point.
+
+    Attributes
+    ----------
+    `data`:                 Optional `MapData` instance, which contain
+                            scanned data.\n
+    `width`:                `PlainQuantity` - Width of the displayed
+                            map area. This value can be larger than
+                            width of the scanned data.
+    `height`:               `PlainQuantity` - Height of the displayed
+                            map area. This value can be larger than
+                            height of the scanned data.
+    `hlabel`:               `str`. `Property` - horizontal map label,
+                            does not contain units.
+    `vlabel`:               `str`. `Property` - vertical map label,
+                            does not contain units.
+    `hunits`:               `str`. `Property` - horizontal axis units.\n
+    `vunits`:               `str`. `Property` - vertical axis units.\n
+    `selected_area`:        `tuple[PlainQuantity,...]`. `Property`.
+                            Contain `x`, `y`, `width`, `height`. Redraw
+                            selection and emit `selection_changed`,
+                            when new value is set.\n
+    `abs_coords`:           `bool`. `Property` - flag for plotting data
+                            in absolute coordinates. Remove area
+                            selection, when set to `False`.\n
+    `pick_pixel_enabled`:   `bool`. `Property` - flag to allow data
+                            pixel selection. Dasiables pos picking,
+                            when set to `True`.
+    `pick_pos_enabled`:     `bool`. `Property` - flag to allow position
+                            selection. Disables pixel picking, when set
+                            to `True`.
+    """
 
     selection_changed = Signal(object)
-    point_selected = Signal(list)
+    pixel_selected = Signal(PointIndex)
+    pos_selected = Signal(Position)
 
     def __init__(self, parent=None):
         
@@ -251,16 +316,16 @@ class PgMap(pg.GraphicsLayoutWidget):
         """Data to display."""
         self._abs_coords: bool = False
 
-        self.hcoords: npt.NDArray | None = None
-        """2D array with horizontal axis coords of scanned points."""
-        self.vcoords: npt.NDArray | None = None
-        """2D array with vertical axis coords of scanned points."""
-        self.signal: npt.NDArray | None = None
-        """2D array with values of scanned points."""
         self.width: PlainQuantity = Q_(np.nan, 'mm')
         "Width of the displayed map area."
         self.height: PlainQuantity = Q_(np.nan, 'mm')
         "Height of the displayed map area."
+        self._hcoords: npt.NDArray | None = None
+        """2D array with horizontal axis coords of scanned points."""
+        self._vcoords: npt.NDArray | None = None
+        """2D array with vertical axis coords of scanned points."""
+        self._signal: npt.NDArray | None = None
+        """2D array with values of scanned points."""
         self._plot_ref: pg.PColorMeshItem | None = None
         "Reference to plotted data, which could be irregular map."
         self._sel_ref: pg.RectROI|None = None
@@ -269,35 +334,61 @@ class PgMap(pg.GraphicsLayoutWidget):
         "Reference to color bar."
         self._boundary_ref: QGraphicsRectItem | None = None
         "Reference to boundary."
-        self._pick_enabled: bool = False
+        self._pick_pos_enabled: bool = True
+        "Allow selection of positions."
+        self._pick_pixel_enabled: bool = False
         "Allow selection of pixels."
+
+        self.connectSignalSlots()
+
+    def connectSignalSlots(self) -> None:
+        """Default connection os signals and slots."""
+
+        self.scene().sigMouseClicked.connect(self.select_pos)
         
-    def pick_point(self, event: MouseClickEvent) -> None:
+    def pick_point(self, event: MouseClickEvent) -> Position:
+        """Calculate position of a mouse click."""
         # This return correct coordinates
-        if self.data is None:
-            return
-        click_pos = self._plot_ref.getViewBox().mapSceneToView(event.scenePos()) # type: ignore
+
+        click_pos = self.plot_item.getViewBox().mapSceneToView(event.scenePos()) # type: ignore
         click_pos = cast(QPointF, click_pos)
         pos = Position.from_tuples([
-            (self.data.haxis, Q_(click_pos.x(), self.hunits)),
-            (self.data.vaxis, Q_(click_pos.y(), self.vunits))
+            (self.hlabel.lower(), Q_(click_pos.x(), self.hunits)),
+            (self.vlabel.lower(), Q_(click_pos.y(), self.vunits))
         ])
+        return pos
+
+    def select_pos(self, event: MouseClickEvent) -> None:
+        """
+        Select position at given mouse click.
         
-        self.select_point(pos)
+        Emit `pos_selected`.
+        """
+
+        pos = self.pick_point(event)
+        # Convert relative coordinates to absolute if necessary
+        if not self.abs_coords:
+            pos = pos + self.data.blp # type: ignore
+        self.pos_selected.emit(pos)
+
+    def select_pixel(self, event: MouseClickEvent) -> None:
+        """
+        Select pixel at given mouse click.
         
-    def select_point(self, pos: Position) -> None:
-        """Select given point."""
+        Draw boundary around selected pixel and Emit `pixel_selected`.
+        """
 
         if self.data is None:
             logger.warning('Point cannot be selected. Data is missing.')
             return
+        pos = self.pick_point(event)
         point = self.data.point_from_pos(pos)
         if point is None:
             logger.warning(f'Point for {pos} was not found.')
             return
         rect = self.data.point_rect(point)
         self.set_selarea(*rect)
-        self.point_selected.emit(self.data.point_index(point))
+        self.pixel_selected.emit(self.data.point_index(point))
 
     def set_scanrange(
             self,
@@ -476,10 +567,10 @@ class PgMap(pg.GraphicsLayoutWidget):
                 (width_m, height_m),
                 maxBounds = bounds,
                 removable = True,
-                movable = not self.pick_enabled,
-                resizable = not self.pick_enabled)
+                movable = not self.pick_pixel_enabled,
+                resizable = not self.pick_pixel_enabled)
             # Remove resize handles if pixel picking enabled
-            if self.pick_enabled:
+            if self.pick_pixel_enabled:
                         while len(self._sel_ref.handles) > 0:
                             self._sel_ref.removeHandle(
                                 self._sel_ref.handles[0]['item']
@@ -551,6 +642,10 @@ class PgMap(pg.GraphicsLayoutWidget):
             width = data.width,
             height = data.height
         )
+        # Set labels
+        self.hlabel = data.haxis
+        self.vlabel = data.vaxis
+
         self.selection_changed.emit(None)
         if len(data.data):
             self.upd_scan()
@@ -582,17 +677,17 @@ class PgMap(pg.GraphicsLayoutWidget):
             return
         # Convert units
         x, y, z = self.data.get_plot_data(signal='max_amp')
-        self.hcoords = x.to(self.hunits).m
-        self.vcoords = y.to(self.vunits).m
-        self.signal = z.m
+        self._hcoords = x.to(self.hunits).m
+        self._vcoords = y.to(self.vunits).m
+        self._signal = z.m
         # Calc relative or abs coords
         if self.abs_coords:
             dh, dv = self._rel_to_abs() # type: ignore
-            hcoords = self.hcoords + dh
-            vcoords = self.vcoords + dv
+            hcoords = self._hcoords + dh
+            vcoords = self._vcoords + dv
         else:
-            hcoords = self.hcoords
-            vcoords = self.vcoords
+            hcoords = self._hcoords
+            vcoords = self._vcoords
         # Plot data
         # New scanned line changes shape of data, therefore we have to
         # create new PColorMeshItem
@@ -601,7 +696,7 @@ class PgMap(pg.GraphicsLayoutWidget):
         self._plot_ref = pg.PColorMeshItem(
             hcoords,
             vcoords,
-            self.signal)
+            self._signal)
         self.plot_item.addItem(self._plot_ref)
         # Add colorbar
         if self._bar is not None:
@@ -623,16 +718,16 @@ class PgMap(pg.GraphicsLayoutWidget):
         # Calculate shift values
         if state:
             dx, dy = self._rel_to_abs() # type: ignore
-            if self.vcoords is None or self.hcoords is None:
+            if self._vcoords is None or self._hcoords is None:
                 logger.warning(
                     'Scan cannot be shifted. Coord array is missing.'
             )
                 return
-            hcoords = self.hcoords + dx
-            vcoords = self.vcoords + dy
+            hcoords = self._hcoords + dx
+            vcoords = self._vcoords + dy
         else:
-            hcoords = self.hcoords
-            vcoords = self.vcoords
+            hcoords = self._hcoords
+            vcoords = self._vcoords
         # Shift the data
         if self._plot_ref is None:
             logger.warning(
@@ -642,7 +737,7 @@ class PgMap(pg.GraphicsLayoutWidget):
         self._plot_ref.setData(
             hcoords,
             vcoords,
-            self.signal
+            self._signal
         )
 
     def _rel_to_abs(
@@ -719,7 +814,9 @@ class PgMap(pg.GraphicsLayoutWidget):
         """
         Currently selected area.
         
-        Contains: ``x``, ``y``, ``width``, ``height``.
+        Contain: ``x``, ``y``, ``width``, ``height``.
+        Redraw area selection and emit `selection_changed`, when new
+        value is set.
         """
         if self._sel_ref is None:
             return None
@@ -743,19 +840,36 @@ class PgMap(pg.GraphicsLayoutWidget):
             self._abs_coords = state
 
     @property
-    def pick_enabled(self) -> bool:
+    def pick_pixel_enabled(self) -> bool:
         """Whether data pixel can be selected."""
-        return self._pick_enabled
-    @pick_enabled.setter
-    def pick_enabled(self, state: bool) -> None:
-        if self._pick_enabled:
+        return self._pick_pixel_enabled
+    @pick_pixel_enabled.setter
+    def pick_pixel_enabled(self, state: bool) -> None:
+        if self._pick_pixel_enabled:
             if not state:
-                self._pick_enabled = state
-                self.scene().sigMouseClicked.disconnect(self.pick_point)
+                self._pick_pixel_enabled = state
+                self.scene().sigMouseClicked.disconnect(self.select_pixel)
         else:
             if state:
-                self._pick_enabled = state
-                self.scene().sigMouseClicked.connect(self.pick_point)
+                self._pick_pixel_enabled = state
+                self.pick_pos_enabled = False
+                self.scene().sigMouseClicked.connect(self.select_pixel)
+
+    @property
+    def pick_pos_enabled(self) -> bool:
+        """Whether data position can be selected."""
+        return self._pick_pos_enabled
+    @pick_pos_enabled.setter
+    def pick_pos_enabled(self, state: bool) -> None:
+        if self._pick_pos_enabled:
+            if not state:
+                self._pick_pos_enabled = state
+                self.scene().sigMouseClicked.disconnect(self.select_pos)
+        else:
+            if state:
+                self._pick_pos_enabled = state
+                self.pick_pixel_enabled = False
+                self.scene().sigMouseClicked.connect(self.select_pos)
 
     def _plot_boundary(self) -> None:
         """Plot map boundary."""

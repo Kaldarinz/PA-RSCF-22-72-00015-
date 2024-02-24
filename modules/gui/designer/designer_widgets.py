@@ -198,7 +198,7 @@ class DataViewer(QWidget, data_viewer_ui.Ui_Form):
         # Data picker in curve plot
         self.p_1d.plot_curve.point_picked.connect(self.pick_event)
         # Data picker for map
-        self.p_2d.plot_map.point_selected.connect(self.map_point_selected)
+        self.p_2d.plot_map.pixel_selected.connect(self.map_point_selected)
 
     @Slot(bool)
     def data_updated(self, data_exist: bool) -> None:
@@ -1265,6 +1265,8 @@ class MapMeasureWidget(QWidget,map_measure_widget_ui.Ui_map_measure):
             return
         if not state and not self._zoomed_out:
             return
+        if not state and self.plot_scan.data is None:
+            return
         
         self._zoomed_out = state
         self.plot_scan.abs_coords = state
@@ -1553,7 +1555,7 @@ class MapView(QWidget, map_data_view_ui.Ui_Map_view):
         )
 
         # Enable pixel selection for map
-        self.plot_map.pick_enabled = True
+        self.plot_map.pick_pixel_enabled = True
 
 class CurveView(QWidget,curve_data_view_ui.Ui_Curve_view):
     """Plots for 1D data."""

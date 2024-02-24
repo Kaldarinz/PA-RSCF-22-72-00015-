@@ -30,7 +30,8 @@ from modules.data_classes import (
     DataPoint,
     BaseData,
     MeasurementMetadata,
-    QuantRect
+    QuantRect,
+    PointIndex
 )
 from modules.utils import (
     propvals
@@ -39,4 +40,5 @@ ureg = pint.get_application_registry()
 Q_ = ureg.Quantity
 rng = np.random.default_rng()
 
-print(True^False)
+pnt = PointIndex(4,5)
+print(list(pnt))
