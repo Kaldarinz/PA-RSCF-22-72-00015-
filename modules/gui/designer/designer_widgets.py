@@ -1610,6 +1610,8 @@ class CurveView(QWidget,curve_data_view_ui.Ui_Curve_view):
 class MotorView(QDockWidget, motor_control_ui.Ui_DockWidget):
     """Mechanical positioning widget."""
 
+    pos_selected = Signal(Position)
+
     def __init__(self, parent: QWidget | None=None) -> None:
         super().__init__(parent)
         self.setupUi(self)
@@ -1619,9 +1621,9 @@ class MotorView(QDockWidget, motor_control_ui.Ui_DockWidget):
         self.z: PlainQuantity = Q_(0, 'mm')
 
         # Set fixed scales for all plots.
-        self.plot_xy.lock_scales()
-        self.plot_xz.lock_scales()
-        self.plot_yz.lock_scales()
+        self.plot_xy.abs_coords = True
+        self.plot_xz.abs_coords = True
+        self.plot_yz.abs_coords = True
 
         self.pixmap_c = QPixmap(
             u":/icons/qt_resources/plug-connect.png"
@@ -1634,22 +1636,23 @@ class MotorView(QDockWidget, motor_control_ui.Ui_DockWidget):
 
         # Set default range
         self.set_range(
-            (Q_(0, 'mm'), Q_(25, 'mm'))
+            (Q_(25, 'mm'), Q_(25, 'mm'))
         )
 
         # Set initial position of plots
-        self.plot_xy.plot(
-            ydata = Q_.from_list([self.y]),
-            xdata = Q_.from_list([self.x])
+        self.plot_xy.set_cur_pos(Position(x = self.x, y = self.y))
+        self.plot_xz.set_cur_pos(Position(x = self.x, z = self.z))
+        self.plot_yz.set_cur_pos(Position(y = self.y, z = self.z))
+
+    def connectSignalsSlots(self) -> None:
+        """Connect default signals and slots."""
+
+        self.btn_go.clicked.connect(
+            lambda: self.pos_selected.emit(self.current_pos())
         )
-        self.plot_xz.plot(
-            ydata = Q_.from_list([self.z]),
-            xdata = Q_.from_list([self.x])
-        )
-        self.plot_yz.plot(
-            ydata = Q_.from_list([self.z]),
-            xdata = Q_.from_list([self.y])
-        )
+        self.plot_xy.pos_selected.connect(self.pos_selected.emit)
+        self.plot_xz.pos_selected.connect(self.pos_selected.emit)
+        self.plot_yz.pos_selected.connect(self.pos_selected.emit)
 
     @Slot(Position)
     def set_position(self, position: Position) -> None:
@@ -1674,9 +1677,9 @@ class MotorView(QDockWidget, motor_control_ui.Ui_DockWidget):
             self.sb_z_new_pos.setValue(self.z.m)
         
         # Update plots if necessary
-        self._upd_plot(self.x, self.y, self.plot_xy)
-        self._upd_plot(self.x, self.z, self.plot_xz)
-        self._upd_plot(self.z, self.y, self.plot_yz)
+        self.plot_xy.set_cur_pos(position)
+        self.plot_xz.set_cur_pos(position)
+        self.plot_yz.set_cur_pos(position)
 
     def set_range(
             self,
@@ -1686,24 +1689,18 @@ class MotorView(QDockWidget, motor_control_ui.Ui_DockWidget):
 
         min_val = range[0].to('mm').m
         max_val = range[1].to('mm').m
-        range_mm = QuantRect(
-            range[0],
-            range[0],
-            range[1] - range[0],
-            range[1] - range[0]
-        )
-        # Set range for plots
-        # self.plot_xy.set_range(range_mm)
-        # self.plot_xz.set_range(range_mm)
-        # self.plot_yz.set_range(range_mm)
+        
+        self.plot_xy.set_scanrange(*range)
+        self.plot_xz.set_scanrange(*range)
+        self.plot_yz.set_scanrange(*range)
 
         # Set plot titles
-        self.plot_xy.xlabel = 'X'
-        self.plot_xy.ylabel = 'Y'
-        self.plot_xz.xlabel = 'X'
-        self.plot_xz.ylabel = 'Z'
-        self.plot_yz.xlabel = 'Z'
-        self.plot_yz.ylabel = 'Y'
+        self.plot_xy.hlabel = 'X'
+        self.plot_xy.vlabel = 'Y'
+        self.plot_xz.hlabel = 'X'
+        self.plot_xz.vlabel = 'Z'
+        self.plot_yz.hlabel = 'Z'
+        self.plot_yz.vlabel = 'Y'
         # Set range for spin boxes
         for sb in iter([
             self.sb_x_new_pos,
@@ -1738,21 +1735,6 @@ class MotorView(QDockWidget, motor_control_ui.Ui_DockWidget):
             status.z_status,
             self.icon_z_status,
             self.lbl_z_status
-        )
-
-    def _upd_plot(
-            self,
-            x: PlainQuantity,
-            y: PlainQuantity,
-            plot: PgPlot
-        ) -> None:
-        """Update plot coordinate."""
-
-        if (x != Q_(plot.xdata[0], plot.xunits) 
-            or y != Q_(plot.ydata[0], plot.yunits)):
-            plot.plot(
-            ydata = Q_.from_list([y]),
-            xdata = Q_.from_list([x])
         )
 
     def _upd_axes_status(

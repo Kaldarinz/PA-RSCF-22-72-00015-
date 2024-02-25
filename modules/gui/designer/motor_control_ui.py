@@ -20,7 +20,7 @@ from PySide6.QtWidgets import (QApplication, QDockWidget, QDoubleSpinBox, QFormL
     QLayout, QLineEdit, QPushButton, QSizePolicy,
     QSpacerItem, QVBoxLayout, QWidget)
 
-from ..widgets import PgPlot
+from ..widgets import PgMap
 from . import qt_resources_rc
 from . import qt_resources_rc
 
@@ -399,7 +399,7 @@ class Ui_DockWidget(object):
         self.gridLayout_6.setObjectName(u"gridLayout_6")
         self.gridLayout_4 = QGridLayout()
         self.gridLayout_4.setObjectName(u"gridLayout_4")
-        self.plot_xz = PgPlot(self.dockWidgetContents)
+        self.plot_xz = PgMap(self.dockWidgetContents)
         self.plot_xz.setObjectName(u"plot_xz")
         sizePolicy5 = QSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         sizePolicy5.setHorizontalStretch(0)
@@ -414,7 +414,7 @@ class Ui_DockWidget(object):
 
         self.gridLayout_3 = QGridLayout()
         self.gridLayout_3.setObjectName(u"gridLayout_3")
-        self.plot_xy = PgPlot(self.dockWidgetContents)
+        self.plot_xy = PgMap(self.dockWidgetContents)
         self.plot_xy.setObjectName(u"plot_xy")
         sizePolicy5.setHeightForWidth(self.plot_xy.sizePolicy().hasHeightForWidth())
         self.plot_xy.setSizePolicy(sizePolicy5)
@@ -426,7 +426,7 @@ class Ui_DockWidget(object):
 
         self.gridLayout_5 = QGridLayout()
         self.gridLayout_5.setObjectName(u"gridLayout_5")
-        self.plot_yz = PgPlot(self.dockWidgetContents)
+        self.plot_yz = PgMap(self.dockWidgetContents)
         self.plot_yz.setObjectName(u"plot_yz")
         sizePolicy5.setHeightForWidth(self.plot_yz.sizePolicy().hasHeightForWidth())
         self.plot_yz.setSizePolicy(sizePolicy5)

@@ -326,10 +326,10 @@ class Window(QMainWindow,Ui_MainWindow,):
             lambda: self.start_worker(pa_logic.home)
         )
         # Move to
-        self.d_motors.btn_go.clicked.connect(
-            lambda: self.start_worker(
+        self.d_motors.pos_selected.connect(
+            lambda pos: self.start_worker(
                 pa_logic.move_to,
-                new_pos = self.d_motors.current_pos())
+                new_pos = pos)
         )
         # Break al stages
         self.d_motors.btn_stop.clicked.connect(

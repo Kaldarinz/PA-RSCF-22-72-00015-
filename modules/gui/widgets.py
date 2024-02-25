@@ -588,8 +588,8 @@ class PgMap(pg.GraphicsLayoutWidget):
         vpos = vcoords.to(self.vunits).m
         if self._pos_ref is None:
             self._pos_ref = pg.ScatterPlotItem(
-                x = hpos,
-                y = vpos,
+                x = [hpos],
+                y = [vpos],
                 hoverable = False
             )
             self.plot_item.addItem(self._pos_ref)
@@ -997,7 +997,7 @@ class PgPlot(pg.PlotWidget):
 
         self.pick_enabled: bool = False
         'Flag of point selection by mouse.'
-        self.sel_ind: int | None = None
+        self._sel_ind: npt.NDArray | None = None
         'Index of selected point'
 
         # Styles
@@ -1085,7 +1085,7 @@ class PgPlot(pg.PlotWidget):
             x = self.xdata,
             y = self.ydata
         )
-        self._scat_ref.set_pts_visible(self._points_visible)
+        self.set_pts_visible(self._points_visible)
         # Plot error bars
         self.set_errorbars()
 
@@ -1098,7 +1098,7 @@ class PgPlot(pg.PlotWidget):
             height = self.yerr
         )
 
-    def set_marker(self, marker: int) -> None:
+    def set_marker(self, marker: int | npt.NDArray | None) -> None:
         """
         Add marker to the plot.
         
@@ -1107,11 +1107,12 @@ class PgPlot(pg.PlotWidget):
         `marker` - index of data.
         """
 
+        self.sel_ind = marker
         pens = [self._pen_def]*len(self.xdata)
         sizes = [7]*len(self.xdata)
-        pens[marker] = self._pen_sel
-        sizes[marker] = 20
-        self.sel_ind = marker
+        if (ind:=self.sel_ind) is not None:
+            pens[ind] = self._pen_sel
+            sizes[ind] = 20 
         if self._scat_ref is not None:
             self._scat_ref.setPen(pens)
             self._scat_ref.setSize(sizes)
@@ -1134,7 +1135,7 @@ class PgPlot(pg.PlotWidget):
             # Set index of the first point as selected index
             x_sel = points[0].pos().x()
             self.sel_ind = np.argwhere(self.xdata == x_sel)[0][0]
-            self.point_picked.emit(self.sel_ind)
+            self.point_picked.emit(self.sel_ind[0]) # type: ignore
 
     def set_pts_visible(self, visible: bool) -> None:
         """Set visibality of data points."""
@@ -1324,3 +1325,13 @@ class PgPlot(pg.PlotWidget):
         if not len(self.yunits):
             return
         self._sp_ref.setValue(value.to(self.yunits).m)
+
+    @property
+    def sel_ind(self) -> npt.NDArray | None:
+        """Indexes of selected points."""
+        return self._sel_ind
+    @sel_ind.setter
+    def sel_ind(self, val: int | npt.NDArray[np.int_] | None) -> None:
+        if isinstance(val, int):
+            val = np.array(val)
+        self._sel_ind = val

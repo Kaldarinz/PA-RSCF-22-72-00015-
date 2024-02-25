@@ -43,6 +43,6 @@ rng = np.random.default_rng()
 
 a = Q_(np.array([1,2,3]), 'mm')
 b = 5
-arr = np.array([1,2,3])
-lst = [1,2,3]
-print(isinstance(lst, Sequence))
+nums = np.arange(10)*2
+ind = np.array([1,5,7])
+print(nums[ind])
