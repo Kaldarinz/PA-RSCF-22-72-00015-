@@ -937,7 +937,8 @@ class PgPlot(pg.PlotWidget):
     Implements a widget for plotting line, where data points can be 
     explicitly shown as points (this functionality can toggle on/off).
     Data points can optionally be picked, which will visually highlight
-    them and fire `point_picked` signal.
+    them and fire `point_picked` signal. The picked point will be
+    highlighted regardless of visibility of other points.
     Additionally SetPoint can be set, which will be painted as infinite
     horizontal line at specified y position.
 
@@ -952,15 +953,31 @@ class PgPlot(pg.PlotWidget):
     Attributes
     ----------
     `pick_enabled`:     `bool` if set to `True` allows to select points.\n
-    `sel_ind`:          `int|None` index of currently selected point.\n
+    `sel_ind`:          `int|None` index of currently selected point.
+                        Marker of the selected point is always visible.\n
     `xdata`:            `NDArray`. `Property` - numerical values of
-                        data along X axis. Can be set by either NDArray,
-                        PlainQuantity, sequence, int or float.
+                        data along X axis. Can be set by any `Plottable`.
                         Automatically set `xunits` based on the dtype.\n
     `ydata`:            `NDArray`. `Property` - numerical values of
-                        data along X axis. Can be set by either NDArray,
-                        PlainQuantity, sequence, int or float.
+                        data along X axis. Can be set by any `Plottable`.
                         Automatically set `yunits` based on the dtype.\n
+    `xerr`:             `NDArray|int|float|None`. `Property` - Error
+                        along x axis. Can be set by a `Plottable|None`.
+                        `None` or empty `NDArray` mean no error,
+                        single value the same error bar for all values,
+                        array type should have the same size as xdata
+                        and provide individual error bars for all
+                        points.\n
+    `yerr`:             `NDArray|int|float|None`. `Property` - the same
+                        as `xerr`, but for y axis.\n
+    `xlabel`:           `str`. `Property` - x axis label, does not
+                        contain units.\n
+    `ylabel`:           `str`. `Property` - y axis label, does not
+                        contain units.\n
+    `xunits`:           `str`. `Property` - x axis units.\n
+    `yunits`:           `str`. `Property` - y axis units.\n
+    `sp`:               `PlainQuantity`. `Property` - set point value,
+                        which is plotted as infinite horizontal line.                                            
     """
 
     point_picked = Signal(int)
@@ -991,8 +1008,8 @@ class PgPlot(pg.PlotWidget):
 
         self._xdata: np.ndarray | None = None
         self._ydata: np.ndarray | None = None
-        self._xerr: npt.NDArray | None = None
-        self._yerr: npt.NDArray | None = None
+        self._xerr: npt.NDArray | int | float | None = None
+        self._yerr: npt.NDArray | int | float | None = None
         self._points_visible: bool = True
 
         self.init_plot()
@@ -1068,10 +1085,9 @@ class PgPlot(pg.PlotWidget):
             x = self.xdata,
             y = self.ydata
         )
-        self._scat_ref.setPointsVisible(self._points_visible)
+        self._scat_ref.set_pts_visible(self._points_visible)
         # Plot error bars
-        if yerr is not None:
-            self.set_errorbars()
+        self.set_errorbars()
 
     def set_errorbars(self) -> None:
 
@@ -1123,9 +1139,13 @@ class PgPlot(pg.PlotWidget):
     def set_pts_visible(self, visible: bool) -> None:
         """Set visibality of data points."""
 
-        logger.info(f'Swithing to {visible=}')
         self._points_visible = visible
-        self._scat_ref.setPointsVisible(visible)
+        if self.sel_ind is not None:
+            vis_vals = [visible]*len(self.xdata)
+            vis_vals[self.sel_ind] = True
+        else:
+            vis_vals = visible
+        self._scat_ref.setPointsVisible(vis_vals)
 
     def lock_scales(self) -> None:
         # Set square area
@@ -1137,6 +1157,12 @@ class PgPlot(pg.PlotWidget):
 
     @property
     def xdata(self) -> npt.NDArray:
+        """
+        Numerical values of data along X axis.
+        
+        Can be set by any `Plottable`. Automatically set `xunits` based
+        on the dtype.
+        """
         if self._xdata is None:
             logger.warning('xdata is not set!')
             return np.array([])
@@ -1167,6 +1193,12 @@ class PgPlot(pg.PlotWidget):
 
     @property
     def ydata(self) -> npt.NDArray:
+        """
+        Numerical values of data along X axis.
+        
+        Can be set by any `Plottable`. Automatically set `xunits` based
+        on the dtype.
+        """
         if self._ydata is None:
             logger.warning('ydata is not set!')
             return np.array([])
@@ -1196,42 +1228,58 @@ class PgPlot(pg.PlotWidget):
             self._ydata = np.array(data)
 
     @property
-    def xerr(self) -> npt.NDArray | None:
+    def xerr(self) -> npt.NDArray | int | float | None:
+        """
+        Error along x axis. Can be set by a `Plottable|None`.
+        
+        `None` or empty `NDArray` mean no error,
+        single value - the same error bar for all values,
+        array type should have the same size as xdata
+        and provide individual error bars for all
+        points.
+        """
         return self._xerr
     @xerr.setter
     def xerr(self, data: Plottable | None) -> None:
-        if data is None:
-            self._xerr = None
-            return
-        try:
-            iter(data)
-        except TypeError:
-            logger.warning('Attempt to plot non-terable X error.')
-            return
-        if isinstance(data, PlainQuantity):
-            data = data.to(self.xunits)
-            self._xerr = data.m
-        else:
+        if data is None or isinstance(data, (int, float, np.ndarray)):
             self._xerr = data
+        elif isinstance(data, PlainQuantity) or isinstance(data[0], PlainQuantity):
+            if isinstance(data, Sequence):
+                data = Q_.from_list(list(data))
+            try:
+                data = data.to(self.xunits)
+            except DimensionalityError:
+                logger.warning('Wrong units for x error.')
+                self._xerr = None
+                return
+            self._xerr = data.m
 
     @property
-    def yerr(self) -> npt.NDArray | None:
+    def yerr(self) -> npt.NDArray | int | float | None:
+        """
+        Error along y axis. Can be set by a `Plottable|None`.
+        
+        `None` or empty `NDArray` mean no error,
+        single value - the same error bar for all values,
+        array type should have the same size as xdata
+        and provide individual error bars for all
+        points.
+        """
         return self._yerr
     @yerr.setter
     def yerr(self, data: Plottable | None) -> None:
-        if data is None:
-            self._yerr = None
-            return
-        try:
-            iter(data)
-        except TypeError:
-            logger.warning('Attempt to plot non-terable Y error.')
-            return
-        if isinstance(data, PlainQuantity):
-            data = data.to(self.yunits)
-            self._yerr = data.m
-        else:
+        if data is None or isinstance(data, (int, float, np.ndarray)):
             self._yerr = data
+        elif isinstance(data, PlainQuantity) or isinstance(data[0], PlainQuantity):
+            if isinstance(data, Sequence):
+                data = Q_.from_list(list(data))
+            try:
+                data = data.to(self.yunits)
+            except DimensionalityError:
+                logger.warning('Wrong units for y error.')
+                self._yerr = None
+                return
+            self._yerr = data.m
 
     @property
     def xlabel(self) -> str:
@@ -1273,6 +1321,6 @@ class PgPlot(pg.PlotWidget):
         return Q_(self._sp_ref.value(), self.yunits)
     @sp.setter
     def sp(self, value: PlainQuantity) -> None:
-        if not len(self.xdata):
+        if not len(self.yunits):
             return
         self._sp_ref.setValue(value.to(self.yunits).m)

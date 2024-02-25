@@ -1781,3 +1781,4 @@ class MotorView(QDockWidget, motor_control_ui.Ui_DockWidget):
         pos.y = Q_(self.sb_y_new_pos.value(), 'mm')
         pos.z = Q_(self.sb_z_new_pos.value(), 'mm')
         return pos
+        
