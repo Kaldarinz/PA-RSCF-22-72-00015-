@@ -1108,8 +1108,8 @@ class PgPlot(pg.PlotWidget):
         """
 
         self.sel_ind = marker
-        pens = [self._pen_def]*len(self.xdata)
-        sizes = [7]*len(self.xdata)
+        pens = np.full(len(self.xdata), self._pen_def, dtype=object)
+        sizes = np.full(len(self.xdata), 7)
         if (ind:=self.sel_ind) is not None:
             pens[ind] = self._pen_sel
             sizes[ind] = 20 
@@ -1142,7 +1142,7 @@ class PgPlot(pg.PlotWidget):
 
         self._points_visible = visible
         if self.sel_ind is not None:
-            vis_vals = [visible]*len(self.xdata)
+            vis_vals = np.full(len(self.xdata), None, dtype=object)
             vis_vals[self.sel_ind] = True
         else:
             vis_vals = visible
@@ -1332,6 +1332,6 @@ class PgPlot(pg.PlotWidget):
         return self._sel_ind
     @sel_ind.setter
     def sel_ind(self, val: int | npt.NDArray[np.int_] | None) -> None:
-        if isinstance(val, int):
-            val = np.array(val)
-        self._sel_ind = val
+        if np.issubdtype(type(val), np.integer):
+            val = np.array([val])
+        self._sel_ind = val # type: ignore

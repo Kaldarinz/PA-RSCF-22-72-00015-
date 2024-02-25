@@ -21,8 +21,6 @@ from . import Q_, ureg
 POINT_SIGNALS = {
     'Raw': 'raw_data',
     'Filtered': 'filt_data',
-    'Zoomed Raw': 'raw_data',
-    'Zoomed_Filtered': 'filt_data',
     'FFT': 'freq_data'
 }
 
@@ -51,9 +49,3 @@ class Priority(IntEnum):
     NORMAL = 5
     LOW = 2
     LOWEST = 0
-
-BASE_UNITS = [
-    ureg.m,
-    ureg.s,
-    ureg.J
-]
