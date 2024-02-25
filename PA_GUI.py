@@ -840,12 +840,6 @@ if __name__ == '__main__':
     win = Window()
     
     logger.info('Starting application')
-
-    ureg = pint.UnitRegistry(auto_reduce_dimensions=True) # type: ignore
-    ureg.default_format = '~P'
-    logger.debug('Pint activated (measured values with units)')
-    ureg.setup_matplotlib(True)
-    logger.debug('MatplotLib handlers for pint activated')
     pa_logic.load_config()
     win.showMaximized()
     sys.exit(app.exec())
