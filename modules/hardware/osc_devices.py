@@ -193,24 +193,26 @@ class Oscilloscope:
         ----------
         `read_ch1`, `read_ch2` - flags for measuring channels.\n
         `eq_limits` - this flag is checked only if only one of channels
-        is set to measure. In such a case, setting this flag to `True`
-        will result in measure of BOTH channels, but within bounds of
-        a channel which was set to measure. This can be usefull, if one
-        want to measure short PA signal without measuring long PM signal.
-        Measurement of PM signal within bounds of PA signal will allow
-        to correctly calculate time offset of the PA signal.\n
+            is set to measure. In such a case, setting this flag to
+            `True` will result in measure of BOTH channels, but within
+            bounds of a channel which was set to measure. This can be
+            usefull, if one want to measure short PA signal without
+            measuring long PM signal. Measurement of PM signal within
+            bounds of PA signal will allow one to correctly calculate
+            time offset of the PA signal.\n
         `correct_bl` - flag to perform baseline correction of measered
-        data.\n
+            data.\n
         `smooth` - flag to apply signal smoothing (rolling average
-        in current implementation).\n
+            in current implementation).\n
         Return
         ------
         OscMeasurement instance.
         """
 
         start = time.time()
-        logger.debug('Starting measure signal from oscilloscope '
-                     + 'memory.')
+        logger.debug(
+            'Starting measure signal from oscilloscope memory.'
+        )
         if read_ch1^read_ch2 and eq_limits:
             if read_ch1:
                 main_ind = 0
@@ -230,17 +232,14 @@ class Oscilloscope:
             self.dur_t[slave_ind] = self.dur_t[main_ind]
             logger.debug(
                 f'Both channels will be measured using bounds of '
-                +f'{self.CH_IDS[main_ind]}'
+                + f'{self.CH_IDS[main_ind]}'
             )
-
-        logger.debug('Switch to single mode')
         self._write([':SING'])
         self._wait_trig()
         scan_datatime = datetime.now()
         for i, read_flag in enumerate([read_ch1, read_ch2]):
             if read_flag:
-                logger.debug('Resetting data_raw attribute '
-                             + f'for CHAN{i+1}.')
+                logger.debug(f'Starting memory read from {self.CH_IDS[i]}.')
                 self.data_raw[i] = None
                 data_raw = self._read_data(i)
                 if smooth:
@@ -249,9 +248,10 @@ class Oscilloscope:
                     data_raw = self._baseline_correction(data_raw)
                 data_raw = self._trail_correction(data_raw)
                 self.data_raw[i] = data_raw
-                logger.debug(f'Data for channel {self.CH_IDS[i]} set.')
-        
-        logger.debug('Writing :RUN to enable oscilloscope')
+                logger.debug(
+                    f'Data for channel {self.CH_IDS[i]} set. '
+                    + f'min = {data_raw.min()}, max = {data_raw.max()}'
+                )
         self._write([':RUN'])
         result = OscMeasurement(
             datetime = scan_datatime,
@@ -266,8 +266,9 @@ class Oscilloscope:
             self.post_t[slave_ind] = old_post
             self.dur_t[slave_ind] = old_dur
         stop = time.time()
+        delta = (stop-start)*1000
         logger.debug(
-            f'...Finishing. Measure done in {(stop-start)*1000:.1f} ms.'
+            f'...Finishing measure from memory in {delta:.1f} ms.'
         )
         return result
 
@@ -287,12 +288,14 @@ class Oscilloscope:
         """
 
         start = time.time()
-        logger.debug('Starting measure signal from oscilloscope '
-                     + 'screen.')
-        logger.debug('Resetting scr_data_raw attribute.')
+        logger.debug(
+            'Starting measure signal from oscilloscope screen. '
+            + f'{smooth=}, {correct_bl=}'
+        )
         self.scr_data_raw = [None]*self.CHANNELS
         for i, read_flag in enumerate([read_ch1, read_ch2]):
             if read_flag:
+                logger.debug(f'Starting screen read from {self.CH_IDS[i]}')
                 data_raw = self._read_scr_data(i)
                 if smooth:
                     data_raw = self.rolling_average(data_raw)
@@ -300,7 +303,10 @@ class Oscilloscope:
                     data_raw = self._baseline_correction(data_raw)
                 data_raw = self._trail_correction(data_raw)
                 self.scr_data_raw[i] = data_raw
-                logger.debug(f'Screen data for channel {self.CH_IDS[i]} set.')
+                logger.debug(
+                    f'Screen data for channel {self.CH_IDS[i]} set. '
+                    + f'min = {data_raw.min()}, max = {data_raw.max()}'
+                )  
         
         result = OscMeasurement(
             datetime = datetime.now(),
@@ -311,7 +317,7 @@ class Oscilloscope:
         )
         stop = time.time()
         logger.debug(
-            f'...Finishing. Measure screen done in {(stop-start)*1000:.1f} ms.'
+            f'...Finishing measure screen in {(stop-start)*1000:.1f} ms.'
         )
         return result
 
@@ -368,7 +374,7 @@ class Oscilloscope:
                 err_msg = 'Trigger timeout reached.'
                 logger.debug(err_msg)
                 raise OscIOError(err_msg)
-            time.sleep(0.01)
+            time.sleep(0.05)
             trig = self._query(':TRIG:POS?')
             try:
                 trig = int(trig)
@@ -460,7 +466,6 @@ class Oscilloscope:
     def _set_preamble(self) -> None:
         """Set osc params for the current channel."""
 
-        logger.debug('Start reading osc params...')
         query_results = self._query(':WAV:PRE?')
         try:
             preamble_raw = query_results.split(',')
@@ -474,8 +479,6 @@ class Oscilloscope:
             self.yincrement = float(preamble_raw[7])
             self.yorigin = float(preamble_raw[8])
             self.yreference = float(preamble_raw[9])
-            logger.debug(f'...Finishing. Success. {len(preamble_raw)} '
-                        + 'parameters read and set.')
         except IndexError:
             err_msg = 'Wrong amount of params read.'
             logger.debug(err_msg)
@@ -498,7 +501,7 @@ class Oscilloscope:
             logger.debug(err_msg)
             raise OscIOError(err_msg)
         self.sample_rate = Q_(sample_rate, 'Hz')
-        logger.debug(f'Sample rate updated to {self.sample_rate}')
+        # logger.debug(f'Sample rate updated to {self.sample_rate}')
 
     def _time_to_points (self, duration: PlainQuantity) -> int:
         """Convert duration into amount of data points."""
@@ -556,7 +559,7 @@ class Oscilloscope:
         Does not modify any attributes.
         """
         
-        logger.debug('Starting _rolling_average smoothing...')
+        # logger.debug('Starting _rolling_average smoothing...')
         if auto_kernel:
             kernel_size = int(len(data)*self.BL_LENGTH)   
         else:
@@ -575,7 +578,7 @@ class Oscilloscope:
         tmp_array[:border] = tmp_array[border]
         tmp_array[-(border):] = tmp_array[-border]
         result = tmp_array.astype(np.int16)
-        logger.debug(f'...Finishing smoothing. {result.min()=}, {result.max()=}')
+        # logger.debug(f'...Finishing smoothing. {result.min()=}, {result.max()=}')
         return result
         
     def _read_chunk(
@@ -598,9 +601,9 @@ class Oscilloscope:
         self._write(msg)
         data = self._read()
         self._ok_read(dur, data)
-        logger.debug(f'...Finishing. Signal with {len(data)} '
-                        + f'data points read. {data.min()=},'
-                        + f'{data.max()=}')
+        # logger.debug(f'...Finishing. Signal with {len(data)} '
+        #                 + f'data points read. {data.min()=},'
+        #                 + f'{data.max()=}')
         return data
 
     def _multi_chunk_read(self,
@@ -626,9 +629,9 @@ class Oscilloscope:
                 dur_i = dur - 1 - start_i
             data_chunk = self._read_chunk(start + start_i, dur_i)
             data[start_i:start_i+dur_i] = data_chunk
-        logger.debug(f'...Finishing. Full signal with {len(data)} '
-                     + f'points read. {data.min()=}, {data.max()=}'
-        )
+        # logger.debug(f'...Finishing. Full signal with {len(data)} '
+        #              + f'points read. {data.min()=}, {data.max()=}'
+        # )
         return data
 
     def _to_volts(self, data: npt.NDArray[np.int16]) -> PlainQuantity:
@@ -647,7 +650,6 @@ class Oscilloscope:
         If verification fails, raise OscIOError."""
 
         if dur == len(data_chunk):
-            logger.debug('Data length is OK.')
             return 
         else:
             err_msg = ('Data length is wrong, '
@@ -662,7 +664,6 @@ class Oscilloscope:
         Return read data.
         """
 
-        logger.debug(f'Starting read from {self.CH_IDS[ch_id]}.')
         cmd = []
         cmd.append(':WAV:SOUR ' + self.CH_IDS[ch_id])
         cmd.append(':WAV:MODE RAW')
@@ -695,23 +696,21 @@ class Oscilloscope:
         """
 
         bl_points = int(len(data)*self.BL_LENGTH)
-        logger.debug('Starting baseline correction on signal with '
-                     + f'{len(data)} data points... '
-                     + f'Baseline length is {bl_points}.')
+        # logger.debug('Starting baseline correction on signal with '
+        #              + f'{len(data)} data points... '
+        #              + f'Baseline length is {bl_points}.')
         baseline = np.average(data[:bl_points])
         data -= int(baseline)
-        logger.debug('...Finishing baseline correction., '
-                     + f'{data.min()=}, {data.max()=}')
+        # logger.debug('...Finishing baseline correction., '
+        #              + f'{data.min()=}, {data.max()=}')
         return data
 
     def _read_scr_data(self, ch_id: int) -> npt.NDArray[np.int16]:
         """Read screen data for the channel."""
 
         chan = self.CH_IDS[ch_id]
-        logger.debug(f'Starting screen read from {chan}')
         self._set_preamble()
         self.scale[ch_id] = Q_(self.yincrement, 'V')
-        
         cmd = []
         cmd.append(':WAV:SOUR ' + chan)
         cmd.append(':WAV:MODE NORM')
@@ -721,10 +720,7 @@ class Oscilloscope:
         cmd.append(':WAV:DATA?')
         self._write(cmd)
         data = self._read()
-        self._ok_read(self.MAX_SCR_POINTS, data)
-        logger.debug(f'...Finishing screen read with {len(data)} points'
-                        + f'{data.min()=}, {data.max()=}'
-        )                        
+        self._ok_read(self.MAX_SCR_POINTS, data)                      
         return data
 
 class PowerMeter:
@@ -778,7 +774,7 @@ class PowerMeter:
             msg = 'Data cannot be read from osc.'
             logger.warning(msg)
             raise OscIOError(msg)
-        logger.debug('PowerMeter response obtained')
+        # logger.debug('PowerMeter response obtained')
         result = self.energy_from_data(
             pm_data,
             self.osc.xincrement
@@ -842,7 +838,6 @@ class PowerMeter:
             istart= start_ind,
             energy = laser_amp
         )
-        logger.debug(f'...Finishing. Laser amplitude = {laser_amp}')
         return result
     
     @staticmethod

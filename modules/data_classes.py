@@ -1879,7 +1879,7 @@ class Worker(QRunnable):
             self.result = self.func(*self.args, **self.kwargs)
         except:
             exctype, value = sys.exc_info()[:2]
-            logger.warning(
+            logger.error(
                 'An error occured while trying to launch worker'
                 + f' {self.func.__name__}: {exctype}, {value}\n'
                 + f'{traceback.format_exc()}'
@@ -1929,7 +1929,7 @@ class PriorityQueue:
         Return operation status.
         """
 
-        if priority < 3 and len(self._queue) > 5:
+        if priority < 3 and self.nitems > 5:
             logger.debug('Too many calls, skipping low priority task.')
             return False
         with self._cv:
@@ -2070,14 +2070,16 @@ class Actor:
         self.enabled = True
         while True:
             func, args, kwargs, r = self.recv()
-            logger.debug(f'Actor Starting {func.__name__}')
+            logger.debug(f'Actor Starting: {func.__name__}')
             try:
                 r.set_result(func(*args, **kwargs))
             except:
                 exctype, value = sys.exc_info()[:2]
-                msg = f'Error in call: {exctype}, {value}'
+                msg = (f'Error in call: {exctype}, {value}'
+                + f'{traceback.format_exc()}')
+                logger.error(msg)
                 r.set_result(ActorFail(msg))
-            logger.debug(f'{func.__name__} ready')
+            logger.debug(f'{func.__name__} is ready')
 
     def show_tasks(self):
 
