@@ -1207,7 +1207,7 @@ class MapMeasureWidget(QWidget,map_measure_widget_ui.Ui_map_measure):
         self.le_dur.setText('')
         self.set_zoomed_out(True)
 
-    def calc_astep(self, count: int=30) -> QProgressDialog:
+    def calc_astep(self, count: int=10) -> QProgressDialog:
         """Launch auto step calculation."""
 
         # Create progress bar dialog
@@ -1247,12 +1247,7 @@ class MapMeasureWidget(QWidget,map_measure_widget_ui.Ui_map_measure):
 
         # Calculate duration of all measurements
         delta = data[-1].datetime - data[0].datetime
-        # Multiplication by 2 is current implementation detail.
-        # Currently signal is measured from only one channel during
-        # the test. But actuall PA measurements will require both 
-        # channels, which are similar in all params hence multiplication
-        # by 2.
-        dt = Q_(delta.total_seconds()*2, 's')
+        dt = Q_(delta.total_seconds(), 's')
         # Force update of the current stage speed. Do not remove it!!!
         self.sb_speed.quantSet.emit(self.sb_speed.quantity)
         # Average time per 1 step
@@ -1296,8 +1291,10 @@ class MapMeasureWidget(QWidget,map_measure_widget_ui.Ui_map_measure):
 
         hpos = getattr(pos, self.cb_scanplane.currentText()[0].lower())
         vpos = getattr(pos, self.cb_scanplane.currentText()[1].lower())
-        self.le_posX.setText(str(hpos.to(self.plot_scan.hunits)))
-        self.le_posY.setText(str(vpos.to(self.plot_scan.vunits)))
+        if hpos is None or vpos is None:
+            return
+        self.le_posX.setText(f'{hpos.to(self.plot_scan.hunits):~.2fP}')
+        self.le_posY.setText(f'{vpos.to(self.plot_scan.vunits):~.2fP}')
 
     def _set_est_dur(self) -> None:
         """Set estimated duration of scan."""
@@ -1542,7 +1539,6 @@ class PowerMeterMonitor(QWidget,pm_monitor_ui.Ui_Form):
 
         # Update information only if Start btn is checked 
         # and widget is visible
-        logger.debug(f'add_msmnt called for {self.objectName()}')
         if (not self.btn_start.isChecked()) or (not self.isVisible()):
             return
         # Check if measurement is not empty
@@ -1556,6 +1552,7 @@ class PowerMeterMonitor(QWidget,pm_monitor_ui.Ui_Form):
             return
         # Plot signal
         self.plot_left.plot(measurement.signal)
+        self.plot_left.set_marker(measurement.istart)
 
         # Plot tune graph
         ytune = self.plot_right.ydata

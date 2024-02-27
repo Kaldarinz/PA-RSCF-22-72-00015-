@@ -611,15 +611,7 @@ class PaData:
         ``name`` - base name.
         """
         
-        if n <10:
-            n_str = '00' + str(n)
-        elif n<100:
-            n_str = '0' + str(n)
-        elif n<1000:
-            n_str = str(n)
-        else:
-            return ''
-        return name + n_str
+        return name + f'{n:05d}'
     
     @staticmethod
     def param_data_plot(

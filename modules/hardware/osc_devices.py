@@ -230,12 +230,13 @@ class Oscilloscope:
             self.dur_t[slave_ind] = self.dur_t[main_ind]
             logger.debug(
                 f'Both channels will be measured using bounds of '
-                +'{self.CH_IDS[main_ind]}'
+                +f'{self.CH_IDS[main_ind]}'
             )
 
+        logger.debug('Switch to single mode')
+        self._write([':SING'])
         self._wait_trig()
-        logger.debug('Writing :STOP to enable reading from memory')
-        self._write([':STOP'])
+        scan_datatime = datetime.now()
         for i, read_flag in enumerate([read_ch1, read_ch2]):
             if read_flag:
                 logger.debug('Resetting data_raw attribute '
@@ -253,7 +254,7 @@ class Oscilloscope:
         logger.debug('Writing :RUN to enable oscilloscope')
         self._write([':RUN'])
         result = OscMeasurement(
-            datetime = datetime.now(),
+            datetime = scan_datatime,
             data_raw = self.data_raw.copy(),
             dt = (1/self.sample_rate).to('us'),
             pre_t = self.pre_t.copy(),
@@ -367,7 +368,7 @@ class Oscilloscope:
                 err_msg = 'Trigger timeout reached.'
                 logger.debug(err_msg)
                 raise OscIOError(err_msg)
-            time.sleep(0.1)
+            time.sleep(0.01)
             trig = self._query(':TRIG:POS?')
             try:
                 trig = int(trig)
@@ -387,7 +388,10 @@ class Oscilloscope:
             logger.debug(err_msg)
             raise OscConnectError(err_msg)
         try:
+            start = time.time()
             answer = self.__osc.query(message)
+            stop = time.time()
+            logger.debug(f'Query {message} took {(stop-start)*1000} ms.')
             return answer
         except pv.errors.VisaIOError:
             self.not_found = True
@@ -450,7 +454,8 @@ class Oscilloscope:
                            ) -> npt.NDArray[np.int16]:
         """Convert data type for an array."""
 
-        return (data-128).astype(np.int16)
+        data = data.astype(np.int16)
+        return (data-128)
 
     def _set_preamble(self) -> None:
         """Set osc params for the current channel."""
@@ -469,7 +474,6 @@ class Oscilloscope:
             self.yincrement = float(preamble_raw[7])
             self.yorigin = float(preamble_raw[8])
             self.yreference = float(preamble_raw[9])
-            logger.info(f'{self.yincrement=}')
             logger.debug(f'...Finishing. Success. {len(preamble_raw)} '
                         + 'parameters read and set.')
         except IndexError:
@@ -718,7 +722,7 @@ class Oscilloscope:
         self._write(cmd)
         data = self._read()
         self._ok_read(self.MAX_SCR_POINTS, data)
-        logger.debug('...Finishing screen read with {len(data)} points'
+        logger.debug(f'...Finishing screen read with {len(data)} points'
                         + f'{data.min()=}, {data.max()=}'
         )                        
         return data
@@ -828,7 +832,8 @@ class PowerMeter:
             noise_neg = data[:bl_length][data[:bl_length]<0].mean() # type: ignore
         else:
             noise_neg = 0
-        laser_amp = data[data>(2*noise_neg)].sum()*step.to('s').m*self.SENS # type: ignore
+        signal_data = data[start_ind:] # type: ignore
+        laser_amp = signal_data[signal_data>(2*noise_neg)].sum()*step.to('s').m*self.SENS # type: ignore
         laser_amp = Q_(laser_amp.m, 'mJ')
         result = EnergyMeasurement(
             datetime.now(),

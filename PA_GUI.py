@@ -141,7 +141,7 @@ class Window(QMainWindow,Ui_MainWindow,):
 
         # Timers
         self.timer_motor = QTimer()
-        self.timer_motor.setInterval(200)
+        self.timer_motor.setInterval(100)
         self.timer_pm = QTimer()
         self.timer_pm.setInterval(250)
 
@@ -295,6 +295,9 @@ class Window(QMainWindow,Ui_MainWindow,):
         # Scan finished
         self.p_map.scan_obtained.connect(
             self.data_viewer.add_map_to_data
+        )
+        self.p_map.scan_obtained.connect(
+            pa_logic.show_stage_tasks
         )
         # Calculate auto step
         self.p_map.calc_astepClicked.connect(self.calc_astep)
@@ -661,6 +664,8 @@ class Window(QMainWindow,Ui_MainWindow,):
                 self.timer_motor.timeout.connect(self.upd_motor)
                 self.timer_motor.start()
             logger.info('Motors position and status cycle started!')
+            # update motor speed
+            self.set_scan_speed(self.p_map.sb_speed.quantity)
         else:
             logger.info('Failed to start motors measureemnts cycle!')
 
@@ -676,10 +681,6 @@ class Window(QMainWindow,Ui_MainWindow,):
     def upd_motor(self) -> None:
         """Update information on motors widget."""
 
-        # Request information only if dock with motors is visible
-        if not self.d_motors.isVisible():
-            return
-        
         # Update position information
         self.start_cb_worker(
             self.position_updated.emit,

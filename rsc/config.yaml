@@ -10,8 +10,8 @@ hardware:
     connected: !!bool True
     connected_chan: !!int 1
     damage_thr: !!int 800 # in [uJ]
-    pre_time: !!int 200 # in [us]
-    post_time: !!int 200 # in [us]
+    pre_time: !!int 50 # in [us]
+    post_time: !!int 150 # in [us]
   energy:
     max_filters: !!int 2
   stages:

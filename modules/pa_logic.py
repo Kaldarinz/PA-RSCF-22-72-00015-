@@ -523,7 +523,7 @@ def wait_stage(
     if stage is None:
         logger.warning(f'Invalid axes ({axes}) for waiting.')
         return
-    _stage_call.submit(
+    wait = _stage_call.submit(
         priority,
         stage.wait_for_stop,
         timeout = timeout
@@ -576,6 +576,11 @@ def home(**kwargs) -> None:
             sync = False,
             force = True
         )
+
+def show_stage_tasks(
+        **kwargs
+):
+    _stage_call.show_tasks()
 
 def en_meas_fast(
         priority: int=Priority.LOW,

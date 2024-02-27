@@ -41,9 +41,5 @@ ureg = pint.get_application_registry()
 Q_ = ureg.Quantity
 rng = np.random.default_rng()
 
-a = Q_(np.array([1,2,3]), 'mm')
-b = 5
-nums = [1,2,3,4,5]
-arr = np.array(nums, dtype=object)
-ind = np.array([1,5,7])
-print(arr[(ind)])
+a = 1
+print(f'{a:04d}')

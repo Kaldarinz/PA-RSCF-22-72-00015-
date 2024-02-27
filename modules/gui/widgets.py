@@ -364,6 +364,7 @@ class PgMap(pg.GraphicsLayoutWidget):
 
         self.clear_plot()
         self.data = data
+        logger.info(f'{self.data.blp=}')
         # Set scan range
         self.set_scanrange(
             width = data.width,
@@ -416,7 +417,7 @@ class PgMap(pg.GraphicsLayoutWidget):
             self._bar = None
         self._bar = pg.ColorBarItem(
             label = 'Signal amplitude',
-            interactive=False,
+            #interactive=False,
             rounding=0.1) # type: ignore
         self._bar.setImageItem([self._plot_ref])
         self.addItem(self._bar, 0, 1)
@@ -577,15 +578,16 @@ class PgMap(pg.GraphicsLayoutWidget):
         """Set current position."""
 
         # Check if position is valid
+        if not self.abs_coords:
+            pos = pos - self.data.blp # type: ignore
         if ((hcoord:=getattr(pos, self.hlabel.lower())) is None
-            or (vcoords:=getattr(pos, self.vlabel.lower())) is None):
-            logger.warning(f'Wrong motors coordinate: {pos=}')
+            or (vcoord:=getattr(pos, self.vlabel.lower())) is None):
             if self._pos_ref is not None:
                 self.plot_item.removeItem(self._pos_ref)
                 self._pos_ref = None
             return
         hpos = hcoord.to(self.hunits).m
-        vpos = vcoords.to(self.vunits).m
+        vpos = vcoord.to(self.vunits).m
         if self._pos_ref is None:
             self._pos_ref = pg.ScatterPlotItem(
                 x = [hpos],
@@ -595,8 +597,8 @@ class PgMap(pg.GraphicsLayoutWidget):
             self.plot_item.addItem(self._pos_ref)
         else:
             self._pos_ref.setData(
-                x = hpos,
-                y = vpos
+                x = [hpos],
+                y = [vpos]
             )
 
     def set_scanrange(
@@ -1002,7 +1004,7 @@ class PgPlot(pg.PlotWidget):
 
         # Styles
         self._pen_def = pg.mkPen(color = 'l', width = 1)
-        self._pen_line = pg.mkPen(color = '#1f77b4', width = 2)
+        self._pen_line = pg.mkPen(color = '#1f77b4', width = 1)
         self._pen_sel = pg.mkPen(color='y', width = 3)
         self._pen_hover = pg.mkPen(color='r')
 
@@ -1018,7 +1020,11 @@ class PgPlot(pg.PlotWidget):
         """Initiate plot to default state."""
 
         # Line
-        self._plot_ref = self._plot_item.plot(pen = self._pen_line)
+        self._plot_ref = self._plot_item.plot(
+            pen = self._pen_line,
+            downsampleMethod = 'mean',
+            autoDownsample = True
+        )
         # Points
         self._scat_ref = pg.ScatterPlotItem(
                 x = [],
@@ -1075,6 +1081,8 @@ class PgPlot(pg.PlotWidget):
             self.xlabel = xlabel
         if ylabel is not None:
             self.ylabel = ylabel
+        # Reset marker
+        self.sel_ind = None
 
         # Plot data
         self._plot_ref.setData(
@@ -1116,6 +1124,7 @@ class PgPlot(pg.PlotWidget):
         if self._scat_ref is not None:
             self._scat_ref.setPen(pens)
             self._scat_ref.setSize(sizes)
+        self.set_pts_visible(self._points_visible)
 
     def clear_plot(self) -> None:
         """Restore plot to dafault state."""

@@ -28,6 +28,7 @@ from typing import (
 )
 from typing_extensions import ParamSpec, Self, Type
 from dataclasses import dataclass, field, fields, asdict
+from pprint import pprint
 import traceback
 import logging
 import heapq
@@ -1928,7 +1929,7 @@ class PriorityQueue:
         Return operation status.
         """
 
-        if priority < 3 and len(self._queue) > 10:
+        if priority < 3 and len(self._queue) > 5:
             logger.debug('Too many calls, skipping low priority task.')
             return False
         with self._cv:
@@ -2077,3 +2078,7 @@ class Actor:
                 msg = f'Error in call: {exctype}, {value}'
                 r.set_result(ActorFail(msg))
             logger.debug(f'{func.__name__} ready')
+
+    def show_tasks(self):
+
+        logger.info(pprint(self._mailbox._queue))
