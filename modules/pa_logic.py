@@ -642,7 +642,7 @@ def meas_cont(
     funcs = {
         'en_scr': hardware.power_meter.get_energy_scr,
         'pa_scr': hardware.osc.measure_scr,
-        'pa_short': hardware.osc.measure
+        'pa_short': hardware.osc.fast_measure
     }
     # Additional arguments for the functions
     ch_mask = [False, False]

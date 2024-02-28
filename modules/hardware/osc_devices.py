@@ -90,6 +90,7 @@ class Oscilloscope:
         self.yincrement: float # the waveform increment in the Y direction
         self.yorigin: float # vertical offset relative to the yreference
         self.yreference: float # vertical reference position in the Y direction
+        self.trig: int # trigger position in points
 
         #channels attributes
         # time before trig to save data
@@ -144,6 +145,7 @@ class Oscilloscope:
         try:
             self._set_preamble()
             self._set_sample_rate()
+            self.set_measurement()
         except (OscConnectError, OscIOError, OscValueError) as err:
             logger.debug(f'...Terminating. {err.value}')
             return False
@@ -178,12 +180,102 @@ class Oscilloscope:
             self.not_found = True
             return False
 
+    def set_measurement(
+            self,
+            srat: PlainQuantity = Q_(25, 'MHz'),
+            duration: PlainQuantity = Q_(2.4, 'ms'),
+            trig_offset: PlainQuantity = Q_(200, 'us') 
+        ) -> None:
+        """
+        Set measurement parameters.
+        
+        * Set sample rate, duration measured signal and position of
+        trigger.
+        * Set Y scale (`self.scale`) for both channels.
+        * Verify and correct `pre_t` and `post_t` for both channels. 
+
+        WARNING
+        -------
+        In current implementation this method does not accept any
+        parameters and work only with default values.\n
+        Internal logic of the osc makes it hard to support arbitrary
+        values.
+        """
+
+        logger.debug('Start setting measurement params.')
+        cmd = []
+        # Changes to time scale and memory depth cannot be applied in
+        # Stop mode
+        cmd.append(':RUN')
+        # In current implementation measured signal duration is equal
+        # to signal on display. :TIM:SCAL: command set length of single
+        # div on the screen, which have 12 divs in horizontal axis.
+        div_dur = f'{(duration/12).to("s").m:f}'
+        cmd.append(':TIM:SCAL ' + div_dur)
+        # Amount of points is just product of sample rate and signal duration
+        pts = int(srat*duration)
+        cmd.append(':ACQ:MDEP ' + str(pts))
+        # Trigger offset is set from the middle of the screen
+        trig_pos = f'{(duration/2 - trig_offset).to("s").m:f}'
+        cmd.append(':TIM:OFFS ' + trig_pos)
+        self._write(cmd)
+
+        # Read sampel rate
+        self._set_sample_rate()
+
+        # Verify pre and post time
+        for i in range(self.CHANNELS):
+            if self.pre_t[i] > trig_offset:
+                self.pre_t[i] = trig_offset
+            if self.post_t[i] > (duration - trig_offset):
+                self.post_t[i] = (duration - trig_offset)
+        self._ch_points()
+        
+        # Set Y scales for both channels
+        for i in range(self.CHANNELS):
+            self._write([':WAV:SOUR ' + self.CH_IDS[i]])
+            yinc = self._query(':WAV:YINC?')
+            try:
+                self.scale[i] = Q_(float(yinc), 'V')
+            except ValueError:
+                err_msg = f'Bad yincrement for {self.CH_IDS[i]} read.'
+                logger.debug(err_msg)
+                raise OscIOError(err_msg)
+
+    def fast_measure(self,
+                read_ch1: bool=True,
+                read_ch2: bool=True,
+                eq_limits: bool=False,
+                correct_bl: bool=True,
+                smooth: bool=False
+        ) -> OscMeasurement:
+        """
+        Fast measurement of data from memory.
+
+        Accept the same arguments as `measure` and functions similarly,
+        but assume that oscilloscope parameters did not change since
+        last `set_measurement` call and do not request any additional
+        data.
+        """
+        start = time.time()
+        logger.debug(
+            'Starting fast measure signal from oscilloscope memory.'
+        )
+        result = self._measure(
+            read_ch1, read_ch2, eq_limits, correct_bl, smooth)
+        stop = time.time()
+        delta = (stop-start)*1000
+        logger.debug(
+            f'...Finishing fast measure from memory in {delta:.1f} ms.'
+        )
+        return result
+
     def measure(self,
                 read_ch1: bool=True,
                 read_ch2: bool=True,
                 eq_limits: bool=False,
                 correct_bl: bool=True,
-                smooth: bool=True,
+                smooth: bool=False
         ) -> OscMeasurement:
         """
         Measure data from memory.
@@ -213,58 +305,9 @@ class Oscilloscope:
         logger.debug(
             'Starting measure signal from oscilloscope memory.'
         )
-        if read_ch1^read_ch2 and eq_limits:
-            if read_ch1:
-                main_ind = 0
-                slave_ind = 1
-                read_ch2 = True
-            else:
-                main_ind = 1
-                slave_ind = 0
-                read_ch1 = True
-            # Save current values of bounds for other channel
-            old_pre = self.pre_t[slave_ind]
-            old_post = self.post_t[slave_ind]
-            old_dur = self.dur_t[slave_ind]
-            # Set main channel bounds for both channels
-            self.pre_t[slave_ind] = self.pre_t[main_ind]
-            self.post_t[slave_ind] = self.post_t[main_ind]
-            self.dur_t[slave_ind] = self.dur_t[main_ind]
-            logger.debug(
-                f'Both channels will be measured using bounds of '
-                + f'{self.CH_IDS[main_ind]}'
-            )
-        self._write([':SING'])
-        self._wait_trig()
-        scan_datatime = datetime.now()
-        for i, read_flag in enumerate([read_ch1, read_ch2]):
-            if read_flag:
-                logger.debug(f'Starting memory read from {self.CH_IDS[i]}.')
-                self.data_raw[i] = None
-                data_raw = self._read_data(i)
-                if smooth:
-                    data_raw = self.rolling_average(data_raw)
-                if correct_bl:
-                    data_raw = self._baseline_correction(data_raw)
-                data_raw = self._trail_correction(data_raw)
-                self.data_raw[i] = data_raw
-                logger.debug(
-                    f'Data for channel {self.CH_IDS[i]} set. '
-                    + f'min = {data_raw.min()}, max = {data_raw.max()}'
-                )
-        self._write([':RUN'])
-        result = OscMeasurement(
-            datetime = scan_datatime,
-            data_raw = self.data_raw.copy(),
-            dt = (1/self.sample_rate).to('us'),
-            pre_t = self.pre_t.copy(),
-            yincrement = self.scale.copy()
-        )
-        if read_ch1^read_ch2 and eq_limits:
-            logger.debug(f'Restoring bounds for {self.CH_IDS[slave_ind]}')
-            self.pre_t[slave_ind] = old_pre
-            self.post_t[slave_ind] = old_post
-            self.dur_t[slave_ind] = old_dur
+        self.set_measurement()
+        result = self._measure(
+            read_ch1, read_ch2, eq_limits, correct_bl, smooth)
         stop = time.time()
         delta = (stop-start)*1000
         logger.debug(
@@ -321,6 +364,70 @@ class Oscilloscope:
         )
         return result
 
+    def _measure(self,
+                read_ch1: bool=True,
+                read_ch2: bool=True,
+                eq_limits: bool=False,
+                correct_bl: bool=True,
+                smooth: bool=False,
+        ) -> OscMeasurement:
+
+        if read_ch1^read_ch2 and eq_limits:
+            if read_ch1:
+                main_ind = 0
+                slave_ind = 1
+                read_ch2 = True
+            else:
+                main_ind = 1
+                slave_ind = 0
+                read_ch1 = True
+            # Save current values of bounds for other channel
+            old_pre = self.pre_t[slave_ind]
+            old_post = self.post_t[slave_ind]
+            old_dur = self.dur_t[slave_ind]
+            # Set main channel bounds for both channels
+            self.pre_t[slave_ind] = self.pre_t[main_ind]
+            self.post_t[slave_ind] = self.post_t[main_ind]
+            self.dur_t[slave_ind] = self.dur_t[main_ind]
+            logger.debug(
+                f'Both channels will be measured using bounds of '
+                + f'{self.CH_IDS[main_ind]}'
+            )
+        self._write([':SING'])
+        self._wait_trig()
+        scan_datatime = datetime.now()
+        for i, read_flag in enumerate([read_ch1, read_ch2]):
+            if read_flag:
+                logger.debug(f'Starting memory read from {self.CH_IDS[i]}.')
+                self.data_raw[i] = None
+                data_raw = self._read_data(i)
+                logger.debug(
+                    f'min = {data_raw.min()}, max = {data_raw.max()}'
+                )
+                if smooth:
+                    data_raw = self.rolling_average(data_raw)
+                if correct_bl:
+                    data_raw = self._baseline_correction(data_raw)
+                data_raw = self._trail_correction(data_raw)
+                self.data_raw[i] = data_raw
+                logger.debug(
+                    f'Memory data for channel {self.CH_IDS[i]} set. '
+                    + f'min = {data_raw.min()}, max = {data_raw.max()}'
+                )
+        result = OscMeasurement(
+            datetime = scan_datatime,
+            data_raw = self.data_raw.copy(),
+            dt = (1/self.sample_rate).to('us'),
+            pre_t = self.pre_t.copy(),
+            yincrement = self.scale.copy()
+        )
+        if read_ch1^read_ch2 and eq_limits:
+            logger.debug(f'Restoring bounds for {self.CH_IDS[slave_ind]}')
+            self.pre_t[slave_ind] = old_pre
+            self.post_t[slave_ind] = old_post
+            self.dur_t[slave_ind] = old_dur
+        return result
+
     def _trail_correction(
             self,
             data: npt.NDArray[np.int16],
@@ -332,7 +439,7 @@ class Oscilloscope:
         ``w`` - amount of trailing points to be corrected.
         """
         
-        logger.debug('Starting trail correction procedure.')
+        # logger.debug('Starting trail correction procedure.')
         if len(data) < 2*w:
             logger.warning(
                 'Trail correction cannot be done. Data too short.'
@@ -374,7 +481,7 @@ class Oscilloscope:
                 err_msg = 'Trigger timeout reached.'
                 logger.debug(err_msg)
                 raise OscIOError(err_msg)
-            time.sleep(0.05)
+            time.sleep(0.01)
             trig = self._query(':TRIG:POS?')
             try:
                 trig = int(trig)
@@ -383,6 +490,7 @@ class Oscilloscope:
                 logger.debug(err_msg)
                 raise OscIOError(err_msg)
         stop = int(time.time()*1000)
+        self.trig = trig
         logger.debug(f'...Trigger set in {stop-start} ms.')
         return True
 
@@ -408,7 +516,7 @@ class Oscilloscope:
     def _write(self, message: List[str]) -> int:
         """Send a querry to the oscilloscope.
         
-        Return number of written bytes].
+        Return number of written bytes.
         """
 
         if self.not_found:
@@ -518,10 +626,9 @@ class Oscilloscope:
         """
 
         logger.debug('Starting set amount of data points for each channel...')
-        self._set_sample_rate()
         all_upd = True
         for i in range(self.CHANNELS):
-            logger.debug(f'Setting points for channel {i+1}')
+            logger.debug(f'Setting points for {self.CH_IDS[i]}')
             pre_t = self.pre_t[i]
             if pre_t is not None:
                 self.pre_p[i] = self._time_to_points(pre_t)
@@ -669,17 +776,11 @@ class Oscilloscope:
         cmd.append(':WAV:MODE RAW')
         cmd.append(':WAV:FORM BYTE')
         self._write(cmd)
-        self._set_preamble()
-        self.scale[ch_id] = Q_(self.yincrement, 'V')
-        if not self._ch_points():
-            err_msg = (f'Points for channel. {self.CH_IDS[ch_id]} '
-                         + 'cannot be calculated.')
-            raise OscIOError(err_msg)
-        # _ch_points ensured that values are calculated
         pre_points = cast(int, self.pre_p[ch_id])
         dur_points = cast(int, self.dur_p[ch_id])
-        # trigger is in the mid of osc memory
-        data_start = (int(self.points/2) - pre_points)
+        data_start = (self.trig - pre_points)
+        if data_start < 1:
+            data_start = 1
         #if one can read the whole data in 1 read
         if self.MAX_MEMORY_READ > dur_points:
             data = self._read_chunk(data_start, dur_points)
