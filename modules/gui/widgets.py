@@ -418,7 +418,8 @@ class PgMap(pg.GraphicsLayoutWidget):
         self._bar = pg.ColorBarItem(
             label = 'Signal amplitude',
             #interactive=False,
-            rounding=0.1) # type: ignore
+            rounding=self._signal.min()
+            ) # type: ignore
         self._bar.setImageItem([self._plot_ref])
         self.addItem(self._bar, 0, 1)
 

@@ -30,7 +30,8 @@ from PySide6.QtCore import (
     QRect,
     QItemSelectionModel,
     QItemSelection,
-    QModelIndex
+    QModelIndex,
+    QThreadPool
 )
 from PySide6.QtWidgets import (
     QDialog,
@@ -49,6 +50,7 @@ from PySide6.QtGui import (
     QPixmap
 )
 import numpy as np
+import pyqtgraph as pg
 from pint.facets.plain.quantity import PlainQuantity
 from matplotlib.backend_bases import PickEvent
 
@@ -62,7 +64,8 @@ from . import (
     pm_monitor_ui,
     curve_data_view_ui,
     motor_control_ui,
-    map_data_view_ui
+    map_data_view_ui,
+    tst_dialog_ui
 )
 
 from ... import Q_
@@ -87,7 +90,9 @@ from ...utils import (
     form_quant,
     btn_set_silent,
     set_layout_enabled,
-    set_sb_silent
+    set_sb_silent,
+    start_worker,
+    start_cb_worker
 )
 from ...hardware import utils as hutils
 
@@ -100,6 +105,7 @@ from ..compound_widgets import(
 )
 
 logger = logging.getLogger(__name__)
+
 
 class PAVerifierDialog(QDialog, verify_measure_ui.Ui_Dialog):
     """Dialog window for verification of a PA measurement."""
@@ -199,6 +205,25 @@ class DataViewer(QWidget, data_viewer_ui.Ui_Form):
         self.p_1d.plot_curve.point_picked.connect(self.pick_event)
         # Data picker for map
         self.p_2d.plot_map.pixel_selected.connect(self.map_point_selected)
+        # Test
+        self.p_2d.btn_tst.clicked.connect(
+            lambda: start_cb_worker(
+                callback = self.show_Image,
+                func = self.data.maps[self.s_msmnt_title].get_image_data,
+                signal = 'max_amp'
+            )
+        )
+
+    def show_Image(self, data: np.ndarray) -> None:
+
+        self.diag = QDialog()
+        
+        lo = QHBoxLayout()
+        image = pg.ImageView()
+        image.setImage(data)
+        lo.addWidget(image)
+        self.diag.setLayout(lo)
+        self.diag.exec()
 
     @Slot(bool)
     def data_updated(self, data_exist: bool) -> None:

@@ -16,8 +16,8 @@ from PySide6.QtGui import (QBrush, QColor, QConicalGradient, QCursor,
     QImage, QKeySequence, QLinearGradient, QPainter,
     QPalette, QPixmap, QRadialGradient, QTransform)
 from PySide6.QtWidgets import (QApplication, QComboBox, QHBoxLayout, QLabel,
-    QSizePolicy, QSpacerItem, QSplitter, QVBoxLayout,
-    QWidget)
+    QPushButton, QSizePolicy, QSpacerItem, QSplitter,
+    QVBoxLayout, QWidget)
 
 from ..compound_widgets import PointView
 from ..widgets import PgMap
@@ -48,6 +48,11 @@ class Ui_Map_view(object):
         self.cb_curve_select.setObjectName(u"cb_curve_select")
 
         self.horizontalLayout_2.addWidget(self.cb_curve_select)
+
+        self.btn_tst = QPushButton(self.layoutWidget)
+        self.btn_tst.setObjectName(u"btn_tst")
+
+        self.horizontalLayout_2.addWidget(self.btn_tst)
 
         self.horizontalSpacer_2 = QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum)
 
@@ -85,5 +90,6 @@ class Ui_Map_view(object):
     def retranslateUi(self, Map_view):
         Map_view.setWindowTitle(QCoreApplication.translate("Map_view", u"Form", None))
         self.lbl_curve_select.setText(QCoreApplication.translate("Map_view", u"Map Signal", None))
+        self.btn_tst.setText(QCoreApplication.translate("Map_view", u"test", None))
     # retranslateUi
 

@@ -1,85 +1,80 @@
 """
-Demonstrates some customized mouse interaction by drawing a crosshair that follows 
-the mouse.
+Display a non-uniform image.
+This example displays 2-d data as an image with non-uniformly
+distributed sample points.
 """
 
 import numpy as np
 
 import pyqtgraph as pg
+from pyqtgraph.graphicsItems.GradientEditorItem import Gradients
+from pyqtgraph.graphicsItems.NonUniformImage import NonUniformImage
+from pyqtgraph.Qt import QtWidgets
 
-#generate layout
-app = pg.mkQApp("Crosshair Example")
-win = pg.GraphicsLayoutWidget(show=True)
-win.setWindowTitle('pyqtgraph example: crosshair')
-label = pg.LabelItem(justify='right')
-win.addItem(label)
-p1 = win.addPlot(row=1, col=0)
-# customize the averaged curve that can be activated from the context menu:
-p1.avgPen = pg.mkPen('#FFFFFF')
-p1.avgShadowPen = pg.mkPen('#8080DD', width=10)
+RPM2RADS = 2 * np.pi / 60
+RADS2RPM = 1 / RPM2RADS
 
-p2 = win.addPlot(row=2, col=0)
+kfric  = 1       # [Ws/rad] angular damping coefficient [0;100]
+kfric3 = 1.5e-6  # [Ws3/rad3] angular damping coefficient (3rd order) [0;10-3]
+psi    = 0.2     # [Vs] flux linkage [0.001;10]
+res    = 5e-3    # [Ohm] resistance [0;100]
+v_ref  = 200     # [V] reference DC voltage [0;1000]
+k_v    = 5       # linear voltage coefficient [-100;100]
 
-region = pg.LinearRegionItem()
-region.setZValue(10)
-# Add the LinearRegionItem to the ViewBox, but tell the ViewBox to exclude this 
-# item when doing auto-range calculations.
-p2.addItem(region, ignoreBounds=True)
+# create the (non-uniform) scales
+tau = np.array([0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 120, 140, 160, 180, 200, 220], dtype=np.float32)
+w = np.array([0, 250, 500, 750, 1000, 1500, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 10000], dtype=np.float32) * RPM2RADS
+v = 380
 
-#pg.dbg()
-p1.setAutoVisible(y=True)
+# calculate the power losses
+TAU, W = np.meshgrid(tau, w, indexing='ij')
+V = np.ones_like(TAU) * v
 
+P_loss = kfric * W + kfric3 * W ** 3 + (res * (TAU / psi) ** 2) + k_v * (V - v_ref)
 
-#create numpy arrays
-#make the numbers large to show that the range shows data from 10000 to all the way 0
-data1 = 10000 + 15000 * pg.gaussianFilter(np.random.random(size=10000), 10) + 3000 * np.random.random(size=10000)
-data2 = 15000 + 15000 * pg.gaussianFilter(np.random.random(size=10000), 10) + 3000 * np.random.random(size=10000)
+P_mech = TAU * W
+P_loss[P_mech > 1.5e5] = np.NaN
 
-p1.plot(data1, pen="r")
-p1.plot(data2, pen="g")
+# green - orange - red
+Gradients['gor'] = {'ticks': [(0.0, (74, 158, 71)), (0.5, (255, 230, 0)), (1, (191, 79, 76))], 'mode': 'rgb'}
 
-p2d = p2.plot(data1, pen="w")
-# bound the LinearRegionItem to the plotted data
-region.setClipItem(p2d)
+app = pg.mkQApp("NonUniform Image Example")
 
-def update():
-    region.setZValue(10)
-    minX, maxX = region.getRegion()
-    p1.setXRange(minX, maxX, padding=0)    
+win = QtWidgets.QMainWindow()
+cw = pg.GraphicsLayoutWidget()
+win.show()
+win.resize(600, 400)
+win.setCentralWidget(cw)
+win.setWindowTitle('pyqtgraph example: Non-uniform Image')
 
-region.sigRegionChanged.connect(update)
+p = cw.addPlot(title="Power Losses [W]", row=0, col=0)
 
-def updateRegion(window, viewRange):
-    rgn = viewRange[0]
-    region.setRegion(rgn)
+lut = pg.HistogramLUTItem(orientation="horizontal")
 
-p1.sigRangeChanged.connect(updateRegion)
+p.setMouseEnabled(x=False, y=False)
 
-region.setRegion([1000, 2000])
+cw.nextRow()
+cw.addItem(lut)
 
-#cross hair
-vLine = pg.InfiniteLine(angle=90, movable=False)
-hLine = pg.InfiniteLine(angle=0, movable=False)
-p1.addItem(vLine, ignoreBounds=True)
-p1.addItem(hLine, ignoreBounds=True)
+# load the gradient
+lut.gradient.loadPreset('gor')
 
+image = NonUniformImage(w * RADS2RPM, tau, P_loss.T)
+image.setLookupTable(lut, autoLevel=True)
+image.setZValue(-1)
+p.addItem(image)
 
-vb = p1.vb
+h = image.getHistogram()
+lut.plot.setData(*h)
 
-def mouseMoved(evt):
-    pos = evt
-    if p1.sceneBoundingRect().contains(pos):
-        mousePoint = vb.mapSceneToView(pos)
-        index = int(mousePoint.x())
-        if index > 0 and index < len(data1):
-            label.setText("<span style='font-size: 12pt'>x=%0.1f,   <span style='color: red'>y1=%0.1f</span>,   <span style='color: green'>y2=%0.1f</span>" % (mousePoint.x(), data1[index], data2[index]))
-        vLine.setPos(mousePoint.x())
-        hLine.setPos(mousePoint.y())
+p.showGrid(x=True, y=True)
 
+p.setLabel(axis='bottom', text='Speed [rpm]')
+p.setLabel(axis='left', text='Torque [Nm]')
 
-print(type(p1.scene()))
-p1.scene().sigMouseMoved.connect(mouseMoved)
-
+# elevate the grid lines
+p.axes['bottom']['item'].setZValue(1000)
+p.axes['left']['item'].setZValue(1000)
 
 if __name__ == '__main__':
     pg.exec()

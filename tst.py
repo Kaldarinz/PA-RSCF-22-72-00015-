@@ -41,3 +41,6 @@ ureg = pint.get_application_registry()
 Q_ = ureg.Quantity
 rng = np.random.default_rng()
 
+a = Q_(np.nan, 's')
+if a.m is np.nan:
+    print('ok')

@@ -14,9 +14,13 @@ Grant # 22-72-00015
 2024
 """
 import logging
+from typing import (
+    Callable
+)
 
 from PySide6.QtCore import (
-    QObject
+    QObject,
+    QThreadPool
 )
 from PySide6.QtWidgets import (
     QPushButton,
@@ -30,8 +34,43 @@ import numpy as np
 from .gui.widgets import (
     QuantSpinBox
 )
+from .data_classes import (
+    Worker
+)
 
 logger = logging.getLogger(__name__)
+
+def start_worker(
+        func: Callable,
+        *args,
+        **kwargs
+    ) -> None:
+    """
+    Execute ``func`` in a separate thread.
+
+    This usually used for sending simple hardware commands.
+    """
+    pool = QThreadPool.globalInstance()
+    worker = Worker(func, *args, **kwargs)
+    pool.start(worker)
+
+def start_cb_worker(
+            callback: Callable,
+            func: Callable,
+            *args,
+            **kwargs
+    ) -> None:
+        """
+        Execute `func` in a separate thread, return value to `callback`.
+
+        `callback` function is called when `func` emit `results` signal.
+        Value returned by `results` is sent as `callback` arguments.
+        """
+
+        pool = QThreadPool.globalInstance()
+        worker = Worker(func, *args, **kwargs)
+        worker.signals.result.connect(callback)
+        pool.start(worker)
 
 def form_quant(quant: PlainQuantity) -> str:
     """Format str representation of a quantity."""

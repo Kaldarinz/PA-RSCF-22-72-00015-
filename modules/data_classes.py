@@ -43,12 +43,14 @@ from pint.errors import UndefinedUnitError as UnitError
 import numpy.typing as npt
 import numpy as np
 from scipy.signal import decimate
+from scipy.interpolate import griddata
 from pylablib.devices.Thorlabs import KinesisMotor
 from PySide6.QtCore import (
     QObject,
     Signal,
     Slot,
-    QRunnable
+    QRunnable,
+    QThreadPool
 )
 
 from . import Q_
@@ -1083,6 +1085,8 @@ class MapData:
     actually measured values.\n
     `data`:         `list[ScanLine]` - All `measured` scan lines.\n
     `wavelength`:   `PlainQuantity` - `setted` excitation wavelength.
+    `num_points`:   `int` - `Property`. Read only `measured` number
+                    of scanned points.
 
     `centp`:        `Position` - `setted` center point of scan in
                     absolute coordinates.\n
@@ -1410,6 +1414,84 @@ class MapData:
         logger.debug(f'{np.array(res, dtype=object).shape=}')
         return np.array(res, dtype=object)
 
+    def get_scanned_pos(self) -> np.ndarray:
+        """
+        Coordinates of all scanned points as 2D array of floats in 'mm'.
+        """
+        res = []
+        for line in self.data:
+            for point in line.raw_data:
+                pos = point.pos - self.blp
+                res.append(
+                    [
+                        getattr(pos, self.haxis).to('mm').m,
+                        getattr(pos, self.vaxis).to('mm').m
+                    ]
+                )
+        return np.array(res)
+
+    def get_image_data(
+            self,
+            signal: str,
+            dpm: int=300,
+            method: Literal['nearest', 'linear', 'cubic']='cubic',
+            **kwargs
+        ) -> np.ndarray:
+        """
+        Prepared smooth image of the scanned data.
+
+        Perform interpolation using `griddata` method from scipy.
+
+        Attributes
+        ----------
+        `signal` - valid attributes of MeasuredPoint, which will be
+            shown.\n
+        `dpm` - number of points per mm in the image.
+        `method` - interpolation technique.
+
+        Return
+        ------
+        ndarray with data.
+        """
+
+        strart = time.time()
+        width = self.width.to('mm').m
+        height = self.height.to('mm').m
+        x_coords = np.linspace(0, width, int(width*dpm)).reshape((1, -1))
+        y_coords = np.linspace(0, height, int(height*dpm)).reshape((-1, 1))
+        scanned_pos = self.get_scanned_pos()
+        scanned_sig = self.get_scanned_sig(signal)
+
+        result = griddata(
+            points = scanned_pos,
+            values = scanned_sig,
+            xi = (x_coords, y_coords),
+            method = method,
+            fill_value = 0
+        )
+        delta = int((time.time() - strart)*1000)
+        logger.info(f'Get_image_data done in {delta} ms.')
+        return result
+
+    def get_scanned_sig(self, signal: str) -> np.ndarray:
+        """
+        Signal from all scanned points.
+
+        Attributes
+        ----------
+        `signal` should be valid attribute of measured points.
+
+        Return
+        ------
+        1D ndarray with floats in preferred units.
+        """
+
+        res = []
+        for line in self.data:
+            for point in line.raw_data:
+                res.append(getattr(point, signal).to_preferred().m)
+        return np.array(res)
+    
     def point_from_pos(self, pos: Position) -> MeasuredPoint | None:
         """
         Get Datapoint for a given position.
@@ -1492,6 +1574,15 @@ class MapData:
         height = max(vcoords) - min(vcoords)
         result = QuantRect(left, bottom, width, height)
         return result
+
+    @property
+    def num_points(self) -> int:
+        """Number of scanned points."""
+
+        pts = 0
+        for line in self.data:
+            pts += line.num_points
+        return pts
 
     @property
     def startp(self) -> Position:

@@ -352,7 +352,7 @@ class PaData:
                     for sample_t, sample in ds.raw_data.items():
                         new_dataset = s_datapoint.create_dataset(
                             sample_t,
-                            data = sample.data_raw
+                            data = sample.data_raw.astype(np.int8)
                         )
                         new_dataset.attrs.update(self._to_dict(sample))
                         # additionaly save units of data
@@ -481,9 +481,13 @@ class PaData:
                     # Support for file version < 1.4
         if init_vals.get('datetime', None) is None:
             init_vals['datetime'] = datetime.fromtimestamp(0)
-        init_vals['data'] = (
-            data_raw*init_vals['yincrement']/init_vals['sample_en']
-        )
+        # Enegy data is optional
+        if init_vals['sample_en'].m is np.nan:
+            init_vals['data'] = (
+                data_raw * init_vals['yincrement'] / init_vals['sample_en']
+            )
+        else:
+            init_vals['data'] = data_raw * init_vals['yincrement']
         return BaseData(**init_vals)
 
     def _calc_data_fit(self,
@@ -573,7 +577,7 @@ class PaData:
                         attrs = point_attrs,
                         raw_data = raw_data,
                         freq_data = freq_data,
-                        filt_data = freq_data
+                        filt_data = filt_data
                     )
                     measurement.data.update({datapoint_title: dp})
                 self.measurements.update({msmnt_title: measurement})
@@ -789,7 +793,7 @@ class PaData:
     @staticmethod
     def bp_filter(
             data: BaseData,
-            low: PlainQuantity=Q_(1, 'kHz'),
+            low: PlainQuantity=Q_(1, 'MHz'),
             high: PlainQuantity=Q_(10, 'MHz')
         ) -> tuple[ProcessedData, ProcessedData]:
         """
