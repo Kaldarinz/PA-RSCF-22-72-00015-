@@ -624,7 +624,11 @@ class PaEnergyMeasurement(EnergyMeasurement):
     `sample_en`: `PlainQuantity` - laser pulse energy [J] at sample.
     """
 
-    def __init__(self, en_info: EnergyMeasurement, sample_en: PlainQuantity):
+    def __init__(
+            self,
+            en_info: EnergyMeasurement,
+            sample_en: PlainQuantity
+        ):
         super().__init__(
             datetime=en_info.datetime,
             signal=en_info.signal,
@@ -672,29 +676,29 @@ class MeasuredPoint:
         create a functional instance or set all attributes manually.
         """
         
-        self.dt_pm: PlainQuantity = Q_(np.nan, 'us')
-        """
-        Sampling interval for PM data, could differ from `dt` due 
-        to downsampling of PM data.
-        """
+        self.datetime = dt.now()
+        "Date and time of measurement."
         self.pa_signal = Q_(np.empty(0), 'V/mJ')
         "Sampled PA signal in [V/mJ]."
         self.pm_signal = Q_(np.empty(0), 'V')
         "Sampled PM signal in [V]. This signal is downsampled from `pm_signal_raw`."
         self.max_amp = Q_(np.nan, 'V/uJ')
         "Maximum PA amplitude in [V/J]."
-        self.start_time = Q_(np.nan, 'us')
+        self.start_time = Q_(0, 'us')
         "Start of PA signal sampling interval relative to begining of laser pulse."
         self.stop_time = Q_(np.nan, 'us')
         "Stop of PA signal sampling interval relative to begining of laser pulse."
-        self.datetime = dt.now()
-        "Date and time of measurement."
         self.pa_signal_raw = np.empty(0, dtype=np.int8)
         "Raw PA signal."
         self.pm_signal_raw = np.empty(0, dtype=np.int8)
         "Raw PM signal."
         self.dt = Q_(np.nan, 'us')
         "Sampling interval for PA data."
+        self.dt_pm: PlainQuantity = Q_(np.nan, 'us')
+        """
+        Sampling interval for PM data, could differ from `dt` due 
+        to downsampling of PM data.
+        """
         self.wavelength = Q_(np.nan, 'nm')
         "Excitation laser wavelength."
         self.pos = Position()
@@ -712,41 +716,45 @@ class MeasuredPoint:
     def from_msmnts(
             cls: Type[Self],
             data: OscMeasurement,
-            energy_info: PaEnergyMeasurement,
+            energy_info: PaEnergyMeasurement | None,
             wavelength: PlainQuantity,
             pa_ch_ind: int=0,
             pm_ch_ind: int=1,
             pos: Position | None=None
         ) -> Self:
+        """
+        Create MeasuredPoint instance from measurements.
+        """
 
         new = cls()
-        # Direct attribute initiation
+        # Init general data
         new.datetime = data.datetime
-        new.pa_signal_raw = data.data_raw[pa_ch_ind]
-        new.pm_signal_raw = data.data_raw[pm_ch_ind]
-        new.dt = data.dt
         new.wavelength = wavelength
         if pos is not None:
             new.pos = pos
+        # Init PA data
+        new.pa_signal_raw = data.data_raw[pa_ch_ind]
         new.yincrement = data.yincrement[pa_ch_ind]
-        new.pm_yin = data.yincrement[pm_ch_ind]
-        new.pm_energy = energy_info.energy
-        new.sample_en = energy_info.sample_en
+        new.pa_signal = new.pa_signal_raw * new.yincrement # type: ignore
+        new.max_amp = new.pa_signal.ptp()
+        new.dt = data.dt
+        new.stop_time = len(new.pa_signal_raw - 1)*new.dt #type: ignore
 
-        # Init pm data
-        new._set_pm_data()
-        # Calculate energy 
-        new._set_energy()
-        # Calculate time from start of pm_signal to trigger position
-        _pm_start = data.pre_t[pm_ch_ind]
-        _pa_start = data.pre_t[pa_ch_ind]
-        pm_offset = energy_info.dt*energy_info.istart
-        if pm_offset is not None:
-            # Start time of PA data relative to start of laser pulse
+        # If PM data is present, include it
+        if energy_info is not None:
+            new.pm_signal_raw = data.data_raw[pm_ch_ind]
+            new.pm_yin = data.yincrement[pm_ch_ind]
+            new._set_pm_data()
+            new.pm_energy = energy_info.energy
+            new.sample_en = energy_info.sample_en
+            # Normalize PA signal to sample energy
+            new.pa_signal = new.pa_signal/new.sample_en
+            new.max_amp = new.max_amp/new.sample_en
+            # Calculate time from start of pm_signal to trigger position
+            _pm_start = data.pre_t[pm_ch_ind]
+            _pa_start = data.pre_t[pa_ch_ind]
+            pm_offset = energy_info.dt*energy_info.istart
             new.start_time = (_pm_start - pm_offset) - _pa_start # type: ignore
-            if new.pa_signal_raw is None:
-                logger.warning('PA signal is missing. Offset was not calculated.')
-            # Stop time of PA data relative to start of laser pulse
             new.stop_time = new.dt*(len(new.pa_signal_raw)-1) + new.start_time # type: ignore
         return new
 
@@ -783,9 +791,6 @@ class MeasuredPoint:
     def _set_pm_data(self) -> None:
         """Set ``dt_pm`` and ``pm_signal`` attributes."""
 
-        if self.pm_signal_raw is None or self.pa_signal_raw is None:
-            logger.warning('Power meter data cannot be set. Data is missing.')
-            return None
         # Downsample power meter data if it is too long
         if len(self.pm_signal_raw) > len(self.pa_signal_raw):
             pm_signal_raw, pm_decim_factor = self.decimate_data(
@@ -799,19 +804,6 @@ class MeasuredPoint:
         self.dt_pm = self.dt*pm_decim_factor
         # Convert downsampled signal to volts
         self.pm_signal = pm_signal_raw * self.pm_yin
-
-    def _set_energy(self) -> None:
-        """Set energy attributes.
-        
-        Actually set:``max_amp`` and ``pa_signal``.
-        """
-
-        # PA signal in volts
-        pa_signal_v = self.pa_signal_raw*self.yincrement
-        # Set ``pa_signal``
-        self.pa_signal = pa_signal_v/self.sample_en
-        # Set ``max_amp``
-        self.max_amp = pa_signal_v.ptp()/self.sample_en # type: ignore
 
     @staticmethod
     def decimate_data(
@@ -1146,6 +1138,10 @@ class MapData:
     `scan_plane`:   `Literal['XY', 'YZ', 'ZX']` - `Property`. `setted`
                     Pair of axis along which scan is done. First letter
                     is horizontal axis, second is vertical.\n
+    `mode`:         `Literal['Normal', 'Fast']` - `setted` PA signal
+                    measurement method. `Fast` method implies 
+                    measurement of PA signal only, therefore no energy
+                    information available in this mode. 
     """
     
     def __init__(
@@ -1157,6 +1153,7 @@ class MapData:
             vpoints: int,
             scan_plane: Literal['XY', 'YZ', 'ZX']='XY',
             scan_dir: str='HLB',
+            mode: str='Normal',
             wavelength: PlainQuantity=Q_(100, 'nm'),
             **kwargs
         ) -> None:
@@ -1173,6 +1170,8 @@ class MapData:
         "`setted` number of scan points along `vertical` axis."
         self.scan_dir = scan_dir
         self.scan_plane = scan_plane
+        self.mode = mode
+        "`setted` signal measurement method."
         self.wavelength = wavelength
         "`setted` excitation wavelength."
         self.data: list[ScanLine] = []
@@ -1839,6 +1838,15 @@ class WorkerSignals(QObject):
     error = Signal(tuple)
     result = Signal(object)
     progess = Signal(object)
+
+    def disconnect_all(self):
+        try:
+            self.finished.disconnect()
+            self.error.disconnect()
+            self.result.disconnect()
+            self.progess.disconnect()
+        except:
+            logger.debug('Unable to disconect some signals.')
 
 class Worker(QRunnable):
 

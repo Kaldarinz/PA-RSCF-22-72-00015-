@@ -146,6 +146,7 @@ class Oscilloscope:
             self._set_preamble()
             self._set_sample_rate()
             self.set_measurement()
+            self.run_normal()
         except (OscConnectError, OscIOError, OscValueError) as err:
             logger.debug(f'...Terminating. {err.value}')
             return False
@@ -179,6 +180,16 @@ class Oscilloscope:
             logger.debug(f'Communiation failed with error {type(err)}')
             self.not_found = True
             return False
+
+    def run_normal(self) -> None:
+        """Force osc to run normally."""
+
+        self._write(
+            [
+                ':TRIG:SWE NORM',
+                ':RUN'
+            ]
+        )
 
     def set_measurement(
             self,

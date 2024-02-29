@@ -568,6 +568,18 @@ class Ui_map_measure(object):
 
         self.formLayout.setWidget(5, QFormLayout.FieldRole, self.sb_wl)
 
+        self.lbl_mode = QLabel(map_measure)
+        self.lbl_mode.setObjectName(u"lbl_mode")
+
+        self.formLayout.setWidget(6, QFormLayout.LabelRole, self.lbl_mode)
+
+        self.cb_mode = QComboBox(map_measure)
+        self.cb_mode.addItem("")
+        self.cb_mode.addItem("")
+        self.cb_mode.setObjectName(u"cb_mode")
+
+        self.formLayout.setWidget(6, QFormLayout.FieldRole, self.cb_mode)
+
 
         self.verticalLayout.addLayout(self.formLayout)
 
@@ -709,6 +721,10 @@ class Ui_map_measure(object):
 
         self.lbl_wl.setText(QCoreApplication.translate("map_measure", u"Wavelength", None))
         self.sb_wl.setSuffix(QCoreApplication.translate("map_measure", u" nm", None))
+        self.lbl_mode.setText(QCoreApplication.translate("map_measure", u"Mode", None))
+        self.cb_mode.setItemText(0, QCoreApplication.translate("map_measure", u"Fast", None))
+        self.cb_mode.setItemText(1, QCoreApplication.translate("map_measure", u"Normal", None))
+
         self.btn_tst.setText(QCoreApplication.translate("map_measure", u"Test", None))
     # retranslateUi
 

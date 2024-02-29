@@ -61,7 +61,8 @@ from .data_classes import (
     WorkerFlags
 )
 from .constants import (
-    Priority
+    Priority,
+    SCAN_MODES
 )
 from . import ureg, Q_
 
@@ -509,7 +510,7 @@ def break_all_stages(**kwargs) -> None:
 
 def wait_stage(
         axes: Literal['x', 'y', 'z'],
-        timeout: int | None=10,
+        timeout: int | None=100,
         priority: int=Priority.NORMAL,
         **kwargs
     ) -> None:
@@ -531,7 +532,7 @@ def wait_stage(
 
 def wait_all_stages(
         priority: int=Priority.NORMAL,
-        timeout: int | None=5,
+        timeout: int | None=100,
         **kwargs
     ) -> None:
     """Wait untill all stages stop."""
@@ -609,7 +610,7 @@ def en_meas_fast(
     return result
 
 def meas_cont(
-        data: Literal['en_scr', 'pa_scr', 'pa_short'],
+        data: Literal['en_scr', 'pa_scr', 'pa_short', 'pa'],
         signals: WorkerSignals,
         flags: WorkerFlags,
         priority: int=Priority.NORMAL,
@@ -638,39 +639,12 @@ def meas_cont(
     if hardware.power_meter is None:
         logger.warning('Power meter is not connected')
         return []
-    # Funstions, which provide necessary information
-    funcs = {
-        'en_scr': hardware.power_meter.get_energy_scr,
-        'pa_scr': hardware.osc.measure_scr,
-        'pa_short': hardware.osc.fast_measure
-    }
-    # Additional arguments for the functions
-    ch_mask = [False, False]
-    pa_ch_id = int(hardware.config['pa_sensor']['connected_chan']) - 1
-    ch_mask[pa_ch_id] = True
-    kwargs = {
-        'en_scr': {},
-        'pa_scr': {},
-        'pa_short': {
-            'read_ch1': ch_mask[0],
-            'read_ch2': ch_mask[1],
-            'eq_limits': True
-        }
-    }
-    # Object for communication with lower level fucntion
-    comm = ThreadSignals()
-    # List with results
-    result = []
-    tkwargs = {
-        'priority': priority,
-        'func': __meas_cont,
-        'called_func': funcs[data],
-        'comm': comm,
-        'max_count': max_count,
-        'timeout': timeout,
-        'result': result
-    }
-    tkwargs.update(kwargs[data])
+    comm, result, tkwargs = set_cont(
+        dtype = data,
+        priority = priority,
+        max_count = max_count,
+        timeout = timeout
+    )
     t = Thread(target = _osc_call.submit, kwargs = tkwargs)
     t.start()
     while flags['is_running']:
@@ -687,6 +661,72 @@ def meas_cont(
 
     return result
 
+def osc_run_normal(
+        priority: int=Priority.NORMAL,
+        **kwargs
+    ) -> None:
+    """Force oscilloscope to run normally."""
+
+    _osc_call.submit(
+        priority = priority,
+        func = hardware.osc.run_normal
+    )
+
+def set_cont(
+        dtype: str,
+        priority: int,
+        max_count: int | None=None,
+        timeout: float | None=None
+    ) -> tuple[ThreadSignals, list, dict]:
+    """
+    Prepare objects for continous measurement of data.
+
+    Return
+    ------
+    A tuple with 3 objects:
+    * ThreadSignals object for interthread communication.
+    * List, which will contain results of measurement.
+    * Dict, whith all necessary information to start measurement in a 
+    new thread.
+    """
+
+    # Funstions, which provide necessary information
+    funcs = {
+        'en_scr': hardware.power_meter.get_energy_scr,
+        'pa_scr': hardware.osc.measure_scr,
+        'pa_short': hardware.osc.fast_measure,
+        'pa': hardware.osc.fast_measure
+    }
+    # Additional arguments for the functions
+    ch_mask = [False, False]
+    pa_ch_id = int(hardware.config['pa_sensor']['connected_chan']) - 1
+    ch_mask[pa_ch_id] = True
+    kwargs = {
+        'en_scr': {},
+        'pa_scr': {},
+        'pa_short': {
+            'read_ch1': ch_mask[0],
+            'read_ch2': ch_mask[1],
+            'eq_limits': False
+        },
+        'pa': {}
+    }
+    # Object for communication with lower level fucntion
+    comm = ThreadSignals()
+    # List with results
+    result = []
+    tkwargs = {
+        'priority': priority,
+        'func': __meas_cont,
+        'called_func': funcs[dtype],
+        'comm': comm,
+        'max_count': max_count,
+        'timeout': timeout,
+        'result': result
+    }
+    tkwargs.update(kwargs[dtype])
+    return (comm, result, tkwargs)
+
 def scan_2d(
         scan: MapData,
         signals: WorkerSignals,
@@ -701,38 +741,35 @@ def scan_2d(
     """
 
     logger.info('Starting scanning procedure.')
+    # Set osc params
+    _osc_call.submit(
+        priority = priority,
+        func = hardware.osc.set_measurement
+    )
     # Scan loop
-    for _ in range(scan.spoints):
+    for line_ind in range(scan.spoints):
         # Create scan line
         line = scan.create_line()
         if line is None:
             logger.error('Unexpected end of scan.')
             return scan
         # move to line  starting point
-        logger.info('Moving to scan start position.')
+        if not line_ind:
+            logger.info('Moving to scan start position.')
+        else:
+            logger.info('Moving to next line.')
         move_to(line.startp)
         wait_all_stages()
-        logger.info('At scan start position.')
-        # First launch energy measurements
-        # Object for communication with lower level fucntion
-        comm_en = ThreadSignals()
-        # List with results
-
-        result_en: list[OscMeasurement] = []
-        ch_mask = [False, False]
-        pa_ch_id = int(hardware.config['pa_sensor']['connected_chan']) - 1
-        ch_mask[pa_ch_id] = True
-        tkwargs_en = {
-            'priority': priority,
-            'func': __meas_cont,
-            'called_func': hardware.osc.measure,
-            'read_ch1': ch_mask[0],
-            'read_ch2': ch_mask[1],
-            'eq_limits': True,
-            'comm': comm_en,
-            'result': result_en
-        }
-        t_en = Thread(target = _osc_call.submit, kwargs = tkwargs_en)
+        if not line_ind:
+            logger.info('At scan start position.')
+        else:
+            logger.info('Line scan strating.')
+        # Launch energy measurements
+        comm_en, result_en, tkwargs = set_cont(
+            dtype = SCAN_MODES[scan.mode],
+            priority = priority
+        )
+        t_en = Thread(target = _osc_call.submit, kwargs = tkwargs)
         t_en.start()
         # Then send stages to scan the line
         move_to(line.stopp)
@@ -745,6 +782,7 @@ def scan_2d(
                 # Stop signal measurements
                 comm_en.is_running = False
                 t_en.join()
+                osc_run_normal()
                 # Return what was scanned so far
                 return scan
             line.add_pos_point(stages_position(priority))
@@ -762,13 +800,15 @@ def scan_2d(
         scan.add_line(line)
         signals.progess.emit(line)
         logger.info(f'Scanned {line}.')
+    
+    osc_run_normal()
     return scan
 
 def __meas_cont(
         called_func: Callable,
         comm: ThreadSignals,
         result: list,
-        timeout: float | None=100,
+        timeout: float | None=None,
         max_count: int | None=None,
         *args,
         **kwargs
@@ -787,7 +827,8 @@ def __meas_cont(
     # execution loop
     while comm.is_running:
         # exit by timeout
-        if timeout and (t := (time.time() - start)) > timeout:
+        t = time.time() - start
+        if timeout and t > timeout:
             logger.warning(
                 'Timeout expired during fast PA signal cont measure.'
             )
@@ -860,34 +901,27 @@ def meas_point_from_osc(
     pm_ch_id = int(hardware.config['power_meter']['connected_chan']) - 1
     pm_raw_data = msmnt.data_raw[pm_ch_id]
     pm_yinc = msmnt.yincrement[pm_ch_id]
-    if pm_raw_data is None or pm_yinc is None:
-        logger.warning(
-            'Constructing MeasuredPoint without PM energy not implemented'
-        )
-        return None
-    else:
+    en_info = None
+    if pm_raw_data is not None and pm_yinc is not None:
         # TODO This can potentially produce wrong energy values when
         # PM signal was not fully measured. Calculation of energy from
         # derivative of PM signal should be considered.
         pm_energy = pm.energy_from_data(
             pm_raw_data*pm_yinc, msmnt.dt
         )
-        if pm_energy is None:
-            logger.error('Power meter energy cannot be obtained.')
-            return None
-        sample_en = calc_sample_en(wl, pm_energy.energy)
-        if sample_en is None:
-            logger.error('Sample energy cannot be calculated.')
-            return None
-        en_info = PaEnergyMeasurement(pm_energy, sample_en)
-        logger.debug('en_info obtained.')
-        measurement = MeasuredPoint.from_msmnts(
-            data = msmnt,
-            energy_info = en_info,
-            wavelength = wl,
-            pa_ch_ind = int(not bool(pm_ch_id)),
-            pm_ch_ind = pm_ch_id
-        )
+        if pm_energy is not None:
+            sample_en = calc_sample_en(wl, pm_energy.energy)
+        else:
+            sample_en = None
+        if sample_en is not None:
+            en_info = PaEnergyMeasurement(pm_energy, sample_en) # type: ignore
+    measurement = MeasuredPoint.from_msmnts(
+        data = msmnt,
+        energy_info = en_info,
+        wavelength = wl,
+        pa_ch_ind = int(not bool(pm_ch_id)),
+        pm_ch_ind = pm_ch_id
+    )
     logger.debug('...MeasuredPoint created.')
     return measurement
 

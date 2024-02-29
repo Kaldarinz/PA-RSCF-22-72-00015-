@@ -41,6 +41,3 @@ ureg = pint.get_application_registry()
 Q_ = ureg.Quantity
 rng = np.random.default_rng()
 
-a = Q_(10, 'us')
-b = Q_(10, 'MHz')
-print(f'{(a*b).to_base_units()}')

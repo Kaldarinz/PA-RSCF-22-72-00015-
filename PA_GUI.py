@@ -69,7 +69,8 @@ from modules.data_classes import (
     Position
 )
 from modules.constants import (
-    MSMNT_MODES
+    MSMNT_MODES,
+    SCAN_MODES
 )
 from modules.gui.designer.PA_main_window_ui import Ui_MainWindow
 from modules.gui.designer.designer_widgets import (
@@ -138,6 +139,9 @@ class Window(QMainWindow,Ui_MainWindow,):
 
         #Threadpool
         self.pool = QThreadPool()
+
+        # Workers
+        self.astep_worker: Worker | None = None
 
         # Timers
         self.timer_motor = QTimer()
@@ -416,6 +420,9 @@ class Window(QMainWindow,Ui_MainWindow,):
         calculation.\n
         Implement emulation if hardware is disconnected.
         """
+        if self.astep_worker is not None:
+            self.astep_worker.signals.disconnect_all()
+            self.astep_worker = None
 
         # Start emulation if hardware is not init
         if not self.init_state:
@@ -426,7 +433,7 @@ class Window(QMainWindow,Ui_MainWindow,):
         else:
             self.astep_worker = Worker(
                 func = pa_logic.meas_cont,
-                data = 'pa_short',
+                data = SCAN_MODES[self.p_map.cb_mode.currentText()],
                 max_count = pb.maximum()
             )
         # Progress signal increase progress bar
@@ -436,6 +443,10 @@ class Window(QMainWindow,Ui_MainWindow,):
         # Set results
         self.astep_worker.signals.result.connect(
             self.p_map.set_astep
+        )
+        # Resume normal osc operation after procedure finished
+        self.astep_worker.signals.finished.connect(
+            self.start_worker(pa_logic.osc_run_normal)
         )
         # if progress bar was cancelled or finished, stop measurements
         pb.canceled.connect(

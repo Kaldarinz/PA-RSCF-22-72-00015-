@@ -43,6 +43,11 @@ CURVE_PARAMS = {
 
 MSMNT_MODES = ['Single point', 'Curve', 'Map']
 
+SCAN_MODES = {
+    'Normal': 'pa',
+    'Fast': 'pa_short'
+}
+
 class Priority(IntEnum):
     HIGHEST = 10
     HIGH = 8

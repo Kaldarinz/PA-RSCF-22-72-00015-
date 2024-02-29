@@ -1154,6 +1154,7 @@ class MapMeasureWidget(QWidget,map_measure_widget_ui.Ui_map_measure):
                 vpoints = int(self.sb_pointsY.value()),
                 scan_plane = self.cb_scanplane.currentText(), # type: ignore
                 scan_dir = self.cb_scandir.currentText(),
+                mode = self.cb_mode.currentText(),
                 wavelength = self.sb_wl.quantity
             )
             # Load scan data to plot
