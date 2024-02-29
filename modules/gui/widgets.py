@@ -279,7 +279,7 @@ class PgMap(pg.GraphicsLayoutWidget):
     Attributes
     ----------
     `data`:                 Optional `MapData` instance, which contain
-                            scanned data.\n
+                            scanned data.
     `width`:                `PlainQuantity` - Width of the displayed
                             map area. This value can be larger than
                             width of the scanned data.
@@ -290,21 +290,23 @@ class PgMap(pg.GraphicsLayoutWidget):
                             does not contain units.
     `vlabel`:               `str`. `Property` - vertical map label,
                             does not contain units.
-    `hunits`:               `str`. `Property` - horizontal axis units.\n
-    `vunits`:               `str`. `Property` - vertical axis units.\n
+    `hunits`:               `str`. `Property` - horizontal axis units.
+    `vunits`:               `str`. `Property` - vertical axis units.
     `selected_area`:        `tuple[PlainQuantity,...]`. `Property`.
                             Contain `x`, `y`, `width`, `height`. Redraw
                             selection and emit `selection_changed`,
-                            when new value is set.\n
+                            when new value is set.
     `abs_coords`:           `bool`. `Property` - flag for plotting data
                             in absolute coordinates. Remove area
-                            selection, when set to `False`.\n
+                            selection, when set to `False`.
     `pick_pixel_enabled`:   `bool`. `Property` - flag to allow data
                             pixel selection. Dasiables pos picking,
                             when set to `True`.
     `pick_pos_enabled`:     `bool`. `Property` - flag to allow position
                             selection. Disables pixel picking, when set
                             to `True`.
+    `highres`:              `bool` - flag to switch data representation
+                            from high resolution to raw data.
     """
 
     selection_changed = Signal(object)
@@ -337,13 +339,13 @@ class PgMap(pg.GraphicsLayoutWidget):
         """2D array with vertical axis coords of scanned points."""
         self._signal: npt.NDArray | None = None
         """2D array with values of scanned points."""
-        self._plot_ref: pg.PColorMeshItem | None = None
+        self._plot_ref: pg.PColorMeshItem
         "Reference to plotted data, which could be irregular map."
         self._pos_ref: pg.ScatterPlotItem | None = None
         "Current position pointer."
         self._sel_ref: pg.RectROI|None = None
         "Selected area for scanning."
-        self._bar: pg.ColorBarItem | None = None
+        self._bar: pg.ColorBarItem
         "Reference to color bar."
         self._boundary_ref: QGraphicsRectItem | None = None
         "Reference to boundary."
@@ -351,9 +353,22 @@ class PgMap(pg.GraphicsLayoutWidget):
         "Allow selection of positions."
         self._pick_pixel_enabled: bool = False
         "Allow selection of pixels."
+        self._highres: bool = False
 
+        self.init_plot()
         self.connectSignalSlots()
     
+    def init_plot(self) -> None:
+        """Initiate plot to default state."""
+
+        # Raw data
+        self._plot_ref = pg.PColorMeshItem()
+        self.plot_item.addItem(self._plot_ref)
+        # Color bar
+        self._bar = pg.ColorBarItem(label = 'Signal amplitude')
+        self._bar.setImageItem([self._plot_ref])
+        self.addItem(self._bar, 0, 1)
+
     def connectSignalSlots(self) -> None:
         """Default connection os signals and slots."""
 
@@ -402,26 +417,29 @@ class PgMap(pg.GraphicsLayoutWidget):
             hcoords = self._hcoords
             vcoords = self._vcoords
         # Plot data
-        # New scanned line changes shape of data, therefore we have to
-        # create new PColorMeshItem
-        if self._plot_ref is not None:
-            self.plot_item.removeItem(self._plot_ref)
-        self._plot_ref = pg.PColorMeshItem(
-            hcoords,
-            vcoords,
-            self._signal)
-        self.plot_item.addItem(self._plot_ref)
-        # Add colorbar
-        if self._bar is not None:
-            self.removeItem(self._bar)
-            self._bar = None
-        self._bar = pg.ColorBarItem(
-            label = 'Signal amplitude',
-            #interactive=False,
-            rounding=self._signal.min()
-            ) # type: ignore
-        self._bar.setImageItem([self._plot_ref])
-        self.addItem(self._bar, 0, 1)
+            ###########################################################
+            ### ATTENTION ###
+            ###########################################################
+            # for version pyqtgraph 0.13.3
+            # setData does not work correctly with differently shaped
+            # data. To fix, one should correct setData method of 
+            # PColorMeshItem to the following code
+            # elif len(args)==3:
+            #     if self.x.shape != args[0].shape or self.y.shape != args[1].shape:
+            #         shapeChanged = True
+            #     else:
+            #         if np.any(self.x != args[0]) or np.any(self.y != args[1]):
+            #             shapeChanged = True
+            ###########################################################
+        self._plot_ref.setData(
+            hcoords, vcoords, self._signal
+        )
+        # Update color bar info
+        self._bar.rounding = self._signal.min() # type: ignore
+        self._bar.getAxis('left').setLabel( # type: ignore
+            f'Signal Amplitude ({z.to_preferred().u})'
+        )
+
 
     def set_selarea(
             self,
@@ -647,12 +665,9 @@ class PgMap(pg.GraphicsLayoutWidget):
     def clear_plot(self) -> None:
         """CLear plot and remove data."""
 
-        if self._plot_ref is not None:
-            self.plot_item.removeItem(self._plot_ref)
-            self._plot_ref = None
-        if self._bar is not None:
-            self.removeItem(self._bar)
-            self._bar = None
+        self.plot_item.removeItem(self._plot_ref)
+        self.removeItem(self._bar)
+        self.init_plot()
         if self.data is not None:
             self.data = None
         # Manualy remove selection to handle case, when scan is started
@@ -711,28 +726,20 @@ class PgMap(pg.GraphicsLayoutWidget):
     def set_abs_scan_pos(self, state: bool) -> None:
         """RePlot data in absolute (State=True) or relative coords."""
 
-        if self.data is None:
-            logger.warning('Scan cannot be shifted. Data is missing.')
+        if (self.data is None
+            or self._vcoords is None
+            or self._hcoords is None):
+            logger.debug('Scan cannot be shifted. Data is missing.')
             return
         # Calculate shift values
         if state:
             dx, dy = self._rel_to_abs() # type: ignore
-            if self._vcoords is None or self._hcoords is None:
-                logger.warning(
-                    'Scan cannot be shifted. Coord array is missing.'
-            )
-                return
             hcoords = self._hcoords + dx
             vcoords = self._vcoords + dy
         else:
             hcoords = self._hcoords
             vcoords = self._vcoords
         # Shift the data
-        if self._plot_ref is None:
-            logger.warning(
-                'Scan cannot be shifted. Plot reference is mising.'
-            )
-            return
         self._plot_ref.setData(
             hcoords,
             vcoords,
