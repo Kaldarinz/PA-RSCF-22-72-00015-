@@ -41,6 +41,20 @@
           </widget>
          </item>
          <item>
+          <widget class="QPushButton" name="btn_hres">
+           <property name="text">
+            <string/>
+           </property>
+           <property name="icon">
+            <iconset resource="qt_resources.qrc">
+             <normaloff>:/icons/qt_resources/image-blur.png</normaloff>:/icons/qt_resources/image-blur.png</iconset>
+           </property>
+           <property name="checkable">
+            <bool>true</bool>
+           </property>
+          </widget>
+         </item>
+         <item>
           <spacer name="horizontalSpacer_2">
            <property name="orientation">
             <enum>Qt::Horizontal</enum>
@@ -99,6 +113,8 @@
    <container>1</container>
   </customwidget>
  </customwidgets>
- <resources/>
+ <resources>
+  <include location="qt_resources.qrc"/>
+ </resources>
  <connections/>
 </ui>

@@ -346,6 +346,7 @@ class Oscilloscope:
             'Starting measure signal from oscilloscope screen. '
             + f'{smooth=}, {correct_bl=}'
         )
+        self.run_normal()
         self.scr_data_raw = [None]*self.CHANNELS
         for i, read_flag in enumerate([read_ch1, read_ch2]):
             if read_flag:

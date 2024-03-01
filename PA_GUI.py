@@ -300,9 +300,6 @@ class Window(QMainWindow,Ui_MainWindow,):
         self.p_map.scan_obtained.connect(
             self.data_viewer.add_map_to_data
         )
-        self.p_map.scan_obtained.connect(
-            pa_logic.show_stage_tasks
-        )
         # Calculate auto step
         self.p_map.calc_astepClicked.connect(self.calc_astep)
 
@@ -445,9 +442,10 @@ class Window(QMainWindow,Ui_MainWindow,):
             self.p_map.set_astep
         )
         # Resume normal osc operation after procedure finished
-        self.astep_worker.signals.finished.connect(
-            self.start_worker(pa_logic.osc_run_normal)
-        )
+        if self.init_state:
+            self.astep_worker.signals.finished.connect(
+                self.start_worker(pa_logic.osc_run_normal)
+            )
         # if progress bar was cancelled or finished, stop measurements
         pb.canceled.connect(
             lambda: self.stop_worker(self.astep_worker)

@@ -341,12 +341,16 @@ class PgMap(pg.GraphicsLayoutWidget):
         """2D array with values of scanned points."""
         self._plot_ref: pg.PColorMeshItem
         "Reference to plotted data, which could be irregular map."
+        self._image_ref: pg.ImageItem
+        "Reference to imaged data."
         self._pos_ref: pg.ScatterPlotItem | None = None
         "Current position pointer."
         self._sel_ref: pg.RectROI|None = None
         "Selected area for scanning."
         self._bar: pg.ColorBarItem
         "Reference to color bar."
+        self._hist: pg.HistogramLUTItem
+        "Reference to histogram."
         self._boundary_ref: QGraphicsRectItem | None = None
         "Reference to boundary."
         self._pick_pos_enabled: bool = True
@@ -367,7 +371,16 @@ class PgMap(pg.GraphicsLayoutWidget):
         # Color bar
         self._bar = pg.ColorBarItem(label = 'Signal amplitude')
         self._bar.setImageItem([self._plot_ref])
-        self.addItem(self._bar, 0, 1)
+        # Image data
+        self._image_ref = pg.ImageItem(
+            axisOrder = 'row-major'
+        )
+        self.plot_item.addItem(self._image_ref)
+        # Histogram
+        self._hist = pg.HistogramLUTItem(self._image_ref)
+        self._hist.gradient.loadPreset('viridis')
+        # Update visibility
+        self.highres = self._highres
 
     def connectSignalSlots(self) -> None:
         """Default connection os signals and slots."""
@@ -390,7 +403,7 @@ class PgMap(pg.GraphicsLayoutWidget):
         self.vlabel = data.vaxis
 
         self.selection_changed.emit(None)
-        if len(data.data):
+        if len(data.lines):
             self.upd_scan()
 
     @Slot(ScanLine)
@@ -439,7 +452,20 @@ class PgMap(pg.GraphicsLayoutWidget):
         self._bar.getAxis('left').setLabel( # type: ignore
             f'Signal Amplitude ({z.to_preferred().u})'
         )
+        # Set image data
+        self._im_data = self.data.get_image_data(signal='max_amp')
+        x = hcoords.min()
+        y = vcoords.min()
+        w = hcoords.max() - x
+        h = vcoords.max() - y
+        self._image_ref.setImage(
+            self._im_data,
+            autoLevels = True,
+            rect = [x, y, w, h]
+        )
 
+    def set_highres(self, state: bool) -> None:
+        self.highres = state
 
     def set_selarea(
             self,
@@ -666,7 +692,12 @@ class PgMap(pg.GraphicsLayoutWidget):
         """CLear plot and remove data."""
 
         self.plot_item.removeItem(self._plot_ref)
-        self.removeItem(self._bar)
+        self.plot_item.removeItem(self._image_ref)
+        try:
+            self.removeItem(self._bar)
+            self.removeItem(self._hist)
+        except:
+            pass
         self.init_plot()
         if self.data is not None:
             self.data = None
@@ -744,6 +775,15 @@ class PgMap(pg.GraphicsLayoutWidget):
             hcoords,
             vcoords,
             self._signal
+        )
+        x = hcoords.min()
+        y = vcoords.min()
+        w = hcoords.max() - x
+        h = vcoords.max() - y
+        self._image_ref.setImage(
+            self._im_data,
+            autoLevels = True,
+            rect = [x, y, w, h]
         )
 
     def _pick_point(self, event: MouseClickEvent) -> Position:
@@ -939,6 +979,29 @@ class PgMap(pg.GraphicsLayoutWidget):
                 self._pick_pos_enabled = state
                 self.pick_pixel_enabled = False
                 self.scene().sigMouseClicked.connect(self._select_pos)
+
+    @property
+    def highres(self) -> bool:
+        return self._highres
+    @highres.setter
+    def highres(self, state) -> None:
+        self._highres = state
+        if state:
+            self._plot_ref.setVisible(False)
+            try:
+                self.removeItem(self._bar)
+            except:
+                pass
+            self._image_ref.setVisible(True)
+            self.addItem(self._hist, 0, 1)
+        else:
+            self._image_ref.setVisible(False)
+            try:
+                self.removeItem(self._hist)
+            except:
+                pass
+            self._plot_ref.setVisible(True)
+            self.addItem(self._bar, 0, 1)
 
 class PgPlot(pg.PlotWidget):
     """

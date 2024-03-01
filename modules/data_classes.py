@@ -219,6 +219,15 @@ class Position:
             setattr(pos, fld, default)
         return pos
 
+    def to(self, val: str) -> Self:
+        """Return copy with all coordinates converted to new units."""
+
+        new = type(self)()
+        for axis in self._FIELDS:
+            if (ax:=getattr(self, axis)) is not None:
+                setattr(new, axis, ax.to(val))
+        return new
+    
     def value(self) -> PlainQuantity:
         """Sqrt of squares of non-None coordinates."""
         
@@ -783,7 +792,7 @@ class MeasuredPoint:
         new.pa_signal_raw = sample.data_raw
         new.dt = sample.x_var_step
         new.wavelength = dp.attrs.wavelength
-        new.pos = dp.attrs.pos
+        new.pos = dp.attrs.pos.to('mm')
         new.yincrement = sample.yincrement
         new.pm_energy = sample.pm_en
         new.sample_en = sample.sample_en
@@ -1001,18 +1010,18 @@ class ScanLine:
             # and iterate only on those fields.
             if getattr(start, fld) is not None:
                 # Values of measured coordinates
-                coord = np.array([getattr(x[1], fld).to('m').m for x in poses])
+                coord = np.array([getattr(x[1], fld).to('mm').m for x in poses])
                 # Array with calculated axes
                 en_coord = np.interp(
                     x = en_time,
                     xp = pos_time,
                     fp = coord,
-                    left = getattr(start, fld).to('m').m,
-                    right = getattr(stop, fld).to('m').m
+                    left = getattr(start, fld).to('mm').m,
+                    right = getattr(stop, fld).to('mm').m
                 )
                 # Set axes values to result
                 for i, res in enumerate(result):
-                    setattr(res.pos, fld, Q_(en_coord[i], 'm'))
+                    setattr(res.pos, fld, Q_(en_coord[i], 'mm'))
 
         # Remove duplicated edge values
         dups = 0
@@ -1083,7 +1092,8 @@ class MapData:
     There are two kinds of attributes: `setted` and `measured`. The
     former are parameters defined at initialization, the latter are
     actually measured values.\n
-    `data`:         `list[ScanLine]` - All `measured` scan lines.\n
+    `lines`:         `list[ScanLine]` - All `measured` scan lines.\n
+    `points`:       `list[MeasuredPoint]` - All `measured point.\n
     `wavelength`:   `PlainQuantity` - `setted` excitation wavelength.
     `num_points`:   `int` - `Property`. Read only `measured` number
                     of scanned points.
@@ -1178,7 +1188,7 @@ class MapData:
         "`setted` signal measurement method."
         self.wavelength = wavelength
         "`setted` excitation wavelength."
-        self.data: list[ScanLine] = []
+        self.lines: list[ScanLine] = []
         "All `measured` scan lines."
         self._raw_points_sig: list[list[MeasuredPoint]] = []
         "Cashed lines for signal."
@@ -1208,8 +1218,8 @@ class MapData:
         Reference to the created scan line.
         """
 
-        logger.debug(f'Starting addition of scan line number {len(self.data)}')
-        if (lines:=len(self.data)) >= self.spoints:
+        logger.debug(f'Starting addition of scan line number {len(self.lines)}')
+        if (lines:=len(self.lines)) >= self.spoints:
             logger.warning(
                 'Cannot add new line. Maximum scan lines reached.'
             )
@@ -1238,7 +1248,7 @@ class MapData:
         Line is actually appended to `data` attribute.
         """
 
-        self.data.append(line)
+        self.lines.append(line)
 
     def get_plot_data(
             self, signal: str
@@ -1270,17 +1280,17 @@ class MapData:
                 for index, pos in np.ndenumerate(coord_data):
                     pos = cast(Position, pos)
                     pos = pos - self.blp
-                    coords[index] = getattr(pos, self.haxis).to_base_units().m
+                    coords[index] = getattr(pos, self.haxis).m
                     if units is None:
-                        units = getattr(pos, self.haxis).to_base_units().u
+                        units = getattr(pos, self.haxis).u
             else:
                 units = None
                 for index, pos in np.ndenumerate(coord_data):
                     pos = cast(Position, pos)
                     pos = pos - self.blp
-                    coords[index] = getattr(pos, self.vaxis).to_base_units().m
+                    coords[index] = getattr(pos, self.vaxis).m
                     if units is None:
-                        units = getattr(pos, self.vaxis).to_base_units().u
+                        units = getattr(pos, self.vaxis).u
             return Q_(coords, units)
         
         def get_signal(signal: str):
@@ -1290,9 +1300,9 @@ class MapData:
                 point = cast(MeasuredPoint|None, point)
                 if point is not None:
                     # Assume that signal attribute is PlainQuantity
-                    arr[index] = getattr(point, signal).to_base_units().m
+                    arr[index] = getattr(point, signal).m
                     if units is None:
-                        units = getattr(point, signal).to_base_units().u
+                        units = getattr(point, signal).u
             return Q_(arr, units)
         
         x = get_coord('h')
@@ -1312,7 +1322,7 @@ class MapData:
         # Amount of cashed scan lines
         icashed = int(len(self._plot_coords)/2)
         # Create a deep copy of _new_ (not cashed) data
-        data = copy.deepcopy(self.data[icashed:])
+        data = copy.deepcopy(self.lines[icashed:])
         # New lines can have more points than old,
         # therefore copy last point necessary amount of times in cashed data
         max_fpoints = self.fp_raw_max
@@ -1380,11 +1390,11 @@ class MapData:
 
         tstart = time.time()
         if len(self._plot_sigs) == 0:
-            self._plot_sigs.append(copy.deepcopy(self.data[0].raw_data))
+            self._plot_sigs.append(copy.deepcopy(self.lines[0].raw_data))
         # Amount of cashed scan lines
         icashed = int((len(self._plot_sigs) + 1)/2)
         # Create a deep copy of new data
-        data = copy.deepcopy(self.data[icashed:])
+        data = copy.deepcopy(self.lines[icashed:])
         # New lines can have more points than old,
         # therefore copy last point necessary amount of times
         max_fpoints = self.fp_raw_max
@@ -1419,21 +1429,23 @@ class MapData:
         Coordinates of all scanned points as 2D array of floats in 'mm'.
         """
         res = []
-        for line in self.data:
+        start = time.time()
+        for line in self.lines:
             for point in line.raw_data:
-                pos = point.pos - self.blp
+                pos = point.pos
                 res.append(
                     [
-                        getattr(pos, self.haxis).to('mm').m,
-                        getattr(pos, self.vaxis).to('mm').m
+                        getattr(pos, self.haxis).m,
+                        getattr(pos, self.vaxis).m
                     ]
                 )
+        logger.debug(f'get_scanned_pos took {int((time.time()-start)*1000)} ms')
         return np.array(res)
 
     def get_image_data(
             self,
             signal: str,
-            dpm: int=300,
+            dpm: int=100,
             method: Literal['nearest', 'linear', 'cubic']='cubic',
             **kwargs
         ) -> np.ndarray:
@@ -1455,10 +1467,23 @@ class MapData:
         """
 
         strart = time.time()
-        width = self.width.to('mm').m
-        height = self.height.to('mm').m
-        x_coords = np.linspace(0, width, int(width*dpm)).reshape((1, -1))
-        y_coords = np.linspace(0, height, int(height*dpm)).reshape((-1, 1))
+        startp = self.startp
+        diagp = startp + Direction(self.fstep)*self.fsize + self.sstep*len(self.lines)
+        x1 = getattr(startp, self.haxis).m
+        x2 = getattr(diagp, self.haxis).m
+        y1 = getattr(startp, self.vaxis).m
+        y2 = getattr(diagp, self.vaxis).m
+        logger.info(f'{x1=}; {x2=}; {y1=}; {y2=}')
+        x_coords = np.linspace(
+            start = min(x1, x2),
+            stop = max(x1, x2),
+            num = int(abs(x2 - x1)*dpm)
+        ).reshape((1, -1))
+        y_coords = np.linspace(
+            start = min(y1, y2),
+            stop = max(y1, y2),
+            num = int(abs(y1 - y2)*dpm)
+        ).reshape((-1, 1))
         scanned_pos = self.get_scanned_pos()
         scanned_sig = self.get_scanned_sig(signal)
 
@@ -1467,7 +1492,7 @@ class MapData:
             values = scanned_sig,
             xi = (x_coords, y_coords),
             method = method,
-            fill_value = 0
+            fill_value = scanned_sig.mean()
         )
         delta = int((time.time() - strart)*1000)
         logger.info(f'Get_image_data done in {delta} ms.')
@@ -1487,9 +1512,11 @@ class MapData:
         """
 
         res = []
-        for line in self.data:
+        start = time.time()
+        for line in self.lines:
             for point in line.raw_data:
-                res.append(getattr(point, signal).to_preferred().m)
+                res.append(getattr(point, signal).m)
+        logger.debug(f'get_scanned_sig took {int((time.time()-start)*1000)} ms')
         return np.array(res)
     
     def point_from_pos(self, pos: Position) -> MeasuredPoint | None:
@@ -1507,7 +1534,7 @@ class MapData:
         contains `pos`.\n
         """
 
-        if self.data is None:
+        if self.lines is None:
             return
         
         sstep = self.sstep
@@ -1518,7 +1545,7 @@ class MapData:
         # Distance to the pos from start point along slow axis as number of sstep's
         pos_sstep = (sstep).dotprod(scan_rel_pos)/sstep.value()**2
         line_no = int(pos_sstep)
-        line = self.data[line_no]
+        line = self.lines[line_no]
         # The needed datapoint is the closest to the clicked pos in the line.
         point = min(line.raw_data, key = lambda x: (x.pos - self.blp - pos).value())
         return point
@@ -1530,7 +1557,7 @@ class MapData:
         pos_sstep = (self.sstep).dotprod(point.pos-self.startp)/self.sstep.value()**2
         
         line_ind = int(pos_sstep)
-        point_ind = self.data[line_ind].raw_data.index(point)
+        point_ind = self.lines[line_ind].raw_data.index(point)
         
         return PointIndex(line_ind, point_ind)
 
@@ -1548,7 +1575,7 @@ class MapData:
         diag2 = point.pos.copy()
         # Calcultaion for fast axis requires special handling of
         # boundary points
-        line = self.data[index.line_ind]
+        line = self.lines[index.line_ind]
         if not index.point_ind:
             diag1 = line.startp.copy()
             diag2 = (diag2 + line.raw_data[index.point_ind + 1].pos)/2
@@ -1580,7 +1607,7 @@ class MapData:
         """Number of scanned points."""
 
         pts = 0
-        for line in self.data:
+        for line in self.lines:
             pts += line.num_points
         return pts
 
@@ -1637,13 +1664,13 @@ class MapData:
         """
         fstep = Position()
         if self.scan_dir.startswith('H'):
-            setattr(fstep, self.vaxis, Q_(0, 'm'))
+            setattr(fstep, self.vaxis, Q_(0, 'mm'))
             if self.scan_dir[1] == 'L':
                 setattr(fstep, self.haxis, self.hstep)
             else:
                 setattr(fstep, self.haxis, -1*self.hstep)
         else:
-            setattr(fstep, self.haxis, Q_(0, 'm'))
+            setattr(fstep, self.haxis, Q_(0, 'mm'))
             if self.scan_dir[2] == 'B':
                 setattr(fstep, self.vaxis, self.vstep)
             else:
@@ -1663,13 +1690,13 @@ class MapData:
         """
         sstep = Position()
         if self.scan_dir.startswith('H'):
-            setattr(sstep, self.haxis, Q_(0, 'm'))
+            setattr(sstep, self.haxis, Q_(0, 'mm'))
             if self.scan_dir[2] == 'B':
                 setattr(sstep, self.vaxis, self.vstep)
             else:
                 setattr(sstep, self.vaxis, -1*self.vstep)
         else:
-            setattr(sstep, self.vaxis, Q_(0, 'm'))
+            setattr(sstep, self.vaxis, Q_(0, 'mm'))
             if self.scan_dir[1] == 'L':
                 setattr(sstep, self.haxis, self.hstep)
             else:
@@ -1722,7 +1749,7 @@ class MapData:
         Read only.
         """
         points = 0
-        for line in self.data:
+        for line in self.lines:
             if line.num_points > points:
                 points = line.num_points
         return points
@@ -1872,7 +1899,7 @@ class MapData:
         self._scan_plane = val.upper()
 
     def __str__(self):
-        return (f'Center={self.centp}. Scanned points={sum(map(lambda x: x.num_points, self.data))}')
+        return (f'Center={self.centp}. Scanned points={sum(map(lambda x: x.num_points, self.lines))}')
 
 @dataclass
 class StagesStatus:

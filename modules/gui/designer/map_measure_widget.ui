@@ -448,6 +448,9 @@
        </item>
        <item>
         <widget class="QPushButton" name="btn_plot_clear">
+         <property name="enabled">
+          <bool>false</bool>
+         </property>
          <property name="sizePolicy">
           <sizepolicy hsizetype="Maximum" vsizetype="Fixed">
            <horstretch>0</horstretch>
@@ -468,6 +471,9 @@
        </item>
        <item>
         <widget class="QPushButton" name="btn_plot_fit">
+         <property name="enabled">
+          <bool>false</bool>
+         </property>
          <property name="sizePolicy">
           <sizepolicy hsizetype="Maximum" vsizetype="Fixed">
            <horstretch>0</horstretch>
@@ -526,6 +532,32 @@
         <widget class="Line" name="line_5">
          <property name="orientation">
           <enum>Qt::Vertical</enum>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QPushButton" name="btn_hres">
+         <property name="enabled">
+          <bool>false</bool>
+         </property>
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Maximum" vsizetype="Fixed">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+         <property name="toolTip">
+          <string>Toogle image smoothing</string>
+         </property>
+         <property name="text">
+          <string/>
+         </property>
+         <property name="icon">
+          <iconset resource="qt_resources.qrc">
+           <normaloff>:/icons/qt_resources/image-sharpen.png</normaloff>:/icons/qt_resources/image-sharpen.png</iconset>
+         </property>
+         <property name="checkable">
+          <bool>true</bool>
          </property>
         </widget>
        </item>
@@ -1149,15 +1181,15 @@
  </widget>
  <customwidgets>
   <customwidget>
-   <class>QuantSpinBox</class>
-   <extends>QDoubleSpinBox</extends>
-   <header>..widgets</header>
-  </customwidget>
-  <customwidget>
    <class>PgMap</class>
    <extends>QWidget</extends>
    <header>..widgets</header>
    <container>1</container>
+  </customwidget>
+  <customwidget>
+   <class>QuantSpinBox</class>
+   <extends>QDoubleSpinBox</extends>
+   <header>..widgets</header>
   </customwidget>
  </customwidgets>
  <tabstops>

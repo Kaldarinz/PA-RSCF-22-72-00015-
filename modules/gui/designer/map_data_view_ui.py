@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (QApplication, QComboBox, QHBoxLayout, QLabel,
 
 from ..compound_widgets import PointView
 from ..widgets import PgMap
+from . import qt_resources_rc
 
 class Ui_Map_view(object):
     def setupUi(self, Map_view):
@@ -53,6 +54,15 @@ class Ui_Map_view(object):
         self.btn_tst.setObjectName(u"btn_tst")
 
         self.horizontalLayout_2.addWidget(self.btn_tst)
+
+        self.btn_hres = QPushButton(self.layoutWidget)
+        self.btn_hres.setObjectName(u"btn_hres")
+        icon = QIcon()
+        icon.addFile(u":/icons/qt_resources/image-blur.png", QSize(), QIcon.Normal, QIcon.Off)
+        self.btn_hres.setIcon(icon)
+        self.btn_hres.setCheckable(True)
+
+        self.horizontalLayout_2.addWidget(self.btn_hres)
 
         self.horizontalSpacer_2 = QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum)
 
@@ -91,5 +101,6 @@ class Ui_Map_view(object):
         Map_view.setWindowTitle(QCoreApplication.translate("Map_view", u"Form", None))
         self.lbl_curve_select.setText(QCoreApplication.translate("Map_view", u"Map Signal", None))
         self.btn_tst.setText(QCoreApplication.translate("Map_view", u"test", None))
+        self.btn_hres.setText("")
     # retranslateUi
 

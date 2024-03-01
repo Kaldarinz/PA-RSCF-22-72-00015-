@@ -213,6 +213,7 @@ class DataViewer(QWidget, data_viewer_ui.Ui_Form):
                 signal = 'max_amp'
             )
         )
+        self.p_2d.btn_hres.toggled.connect(self.p_2d.plot_map.set_highres)
 
     def show_Image(self, data: np.ndarray) -> None:
 
@@ -1138,6 +1139,8 @@ class MapMeasureWidget(QWidget,map_measure_widget_ui.Ui_map_measure):
         self.btn_plot_fit.pressed.connect(lambda: self.set_zoomed_out(False))
         # Clear plot
         self.btn_plot_clear.clicked.connect(self.clear_data)
+        # Data smoothing
+        self.btn_hres.toggled.connect(self.smooth_data)
         # Scan plane changed
         self.cb_scanplane.currentTextChanged.connect(
             lambda _: self._new_scan_plane()
@@ -1170,6 +1173,8 @@ class MapMeasureWidget(QWidget,map_measure_widget_ui.Ui_map_measure):
             # Set buttons state
             self.btn_start.setEnabled(False)
             self.btn_plot_clear.setEnabled(False)
+            self.btn_hres.setEnabled(True)
+            self.btn_plot_fit.setEnabled(True)
             # Create MapData object
             scan = MapData(
                 center = self.center,
@@ -1217,13 +1222,18 @@ class MapMeasureWidget(QWidget,map_measure_widget_ui.Ui_map_measure):
         else:
             self.scan_timer.stop()
         if self.plot_scan.data is not None:
-            lines = len(self.plot_scan.data.data)
+            lines = len(self.plot_scan.data.lines)
             dur = self.le_dur.text()
             logger.info(f'{lines} lines scanned. Scan duration {dur}')
             # Save scan data
             if lines:
                 self.scan_obtained.emit(self.plot_scan.data)
         logger.info('Scanning finished.')
+
+    @Slot(bool)
+    def smooth_data(self, state: bool) -> None:
+        if self.plot_scan.data is not None:
+            self.plot_scan.set_highres(state)
 
     @Slot()
     def clear_data(self) -> None:
@@ -1232,6 +1242,8 @@ class MapMeasureWidget(QWidget,map_measure_widget_ui.Ui_map_measure):
         self.plot_scan.clear_plot()
         self.le_dur.setText('')
         self.set_zoomed_out(True)
+        self.btn_hres.setEnabled(False)
+        self.btn_plot_fit.setEnabled(False)
 
     def calc_astep(self, count: int=10) -> QProgressDialog:
         """Launch auto step calculation."""

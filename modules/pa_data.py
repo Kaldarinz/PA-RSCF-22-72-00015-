@@ -212,7 +212,7 @@ class PaData:
         # Add scan to list of scans
         self.maps[title] = map
         # Add all scanned points
-        for lno, line in enumerate(map.data):
+        for lno, line in enumerate(map.lines):
             for pno, point in enumerate(line.raw_data):
                 self.add_point(
                     measurement = msmnt,
