@@ -1192,9 +1192,8 @@ class PgPlot(pg.PlotWidget):
         if (ind:=self.sel_ind) is not None:
             pens[ind] = self._pen_sel
             sizes[ind] = 20 
-        if self._scat_ref is not None:
-            self._scat_ref.setPen(pens)
-            self._scat_ref.setSize(sizes)
+        self._scat_ref.setPen(pens)
+        self._scat_ref.setSize(sizes)
         self.set_pts_visible(self._points_visible)
 
     def clear_plot(self) -> None:
@@ -1221,11 +1220,9 @@ class PgPlot(pg.PlotWidget):
         """Set visibality of data points."""
 
         self._points_visible = visible
+        vis_vals = np.full(len(self.xdata), visible, dtype=bool)
         if self.sel_ind is not None:
-            vis_vals = np.full(len(self.xdata), None, dtype=object)
             vis_vals[self.sel_ind] = True
-        else:
-            vis_vals = visible
         self._scat_ref.setPointsVisible(vis_vals)
 
     def lock_scales(self) -> None:

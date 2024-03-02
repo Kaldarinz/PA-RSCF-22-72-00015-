@@ -1,133 +1,154 @@
 """
-Demonstrates very basic use of PColorMeshItem
+This example demonstrates the use of pyqtgraph's parametertree system. This provides
+a simple way to generate user interfaces that control sets of parameters. The example
+demonstrates a variety of different parameter types (int, float, list, etc.)
+as well as some customized parameter types
 """
 
-import time
-
-import numpy as np
+# `makeAllParamTypes` creates several parameters from a dictionary of config specs.
+# This contains information about the options for each parameter so they can be directly
+# inserted into the example parameter tree. To create your own parameters, simply follow
+# the guidelines demonstrated by other parameters created here.
+from _buildParamTypes import makeAllParamTypes
 
 import pyqtgraph as pg
-from pyqtgraph.Qt import QtCore
+from pyqtgraph.Qt import QtWidgets
 
-app = pg.mkQApp("PColorMesh Example")
-
-## Create window with GraphicsView widget
-win = pg.GraphicsLayoutWidget()
-win.show()  ## show widget alone in its own window
-win.setWindowTitle('pyqtgraph example: pColorMeshItem')
-view_auto_scale = win.addPlot(0,0,1,1, title="Auto-scaling colorscheme", enableMenu=False)
-view_consistent_scale = win.addPlot(1,0,1,1, title="Consistent colorscheme", enableMenu=False)
+app = pg.mkQApp("Parameter Tree Example")
+import pyqtgraph.parametertree.parameterTypes as pTypes
+from pyqtgraph.parametertree import Parameter, ParameterTree
 
 
-## Create data
+## test subclassing parameters
+## This parameter automatically generates two child parameters which are always reciprocals of each other
+class ComplexParameter(pTypes.GroupParameter):
+    def __init__(self, **opts):
+        opts['type'] = 'bool'
+        opts['value'] = True
+        pTypes.GroupParameter.__init__(self, **opts)
+        
+        self.addChild({'name': 'A = 1/B', 'type': 'float', 'value': 7, 'suffix': 'Hz', 'siPrefix': True})
+        self.addChild({'name': 'B = 1/A', 'type': 'float', 'value': 1/7., 'suffix': 's', 'siPrefix': True})
+        self.a = self.param('A = 1/B')
+        self.b = self.param('B = 1/A')
+        self.a.sigValueChanged.connect(self.aChanged)
+        self.b.sigValueChanged.connect(self.bChanged)
+        
+    def aChanged(self):
+        self.b.setValue(1.0 / self.a.value(), blockSignal=self.bChanged)
 
-# To enhance the non-grid meshing, we randomize the polygon vertices per and 
-# certain amount
-randomness = 5
-
-# x and y being the vertices of the polygons, they share the same shape
-# However the shape can be different in both dimension
-xn = 50 # nb points along x
-yn = 40 # nb points along y
+    def bChanged(self):
+        self.a.setValue(1.0 / self.b.value(), blockSignal=self.aChanged)
 
 
-x = np.repeat(np.arange(1, xn+1), yn).reshape(xn, yn)\
-    + np.random.random((xn, yn))*randomness
-y = np.tile(np.arange(1, yn+1), xn).reshape(xn, yn)\
-    + np.random.random((xn, yn))*randomness
-x.sort(axis=0)
-y.sort(axis=0)
-
-
-# z being the color of the polygons its shape must be decreased by one in each dimension
-z = np.exp(-(x*xn)**2/1000)[:-1,:-1]
-
-## Create autoscaling image item
-edgecolors   = None
-antialiasing = False
-cmap         = pg.colormap.get('viridis')
-levels       = (-2,2) # Will be overwritten unless enableAutoLevels is set to False
-# edgecolors = {'color':'w', 'width':2} # May be uncommented to see edgecolor effect
-# antialiasing = True # May be uncommented to see antialiasing effect
-# cmap         = pg.colormap.get('plasma') # May be uncommented to see a different colormap than the default 'viridis'
-pcmi_auto = pg.PColorMeshItem(edgecolors=edgecolors, antialiasing=antialiasing, colorMap=cmap, levels=levels, enableAutoLevels=True)
-view_auto_scale.addItem(pcmi_auto)
-
-# Add colorbar
-bar = pg.ColorBarItem(
-    label = "Z value [arbitrary unit]",
-    interactive=False, # Setting `interactive=True` would override `enableAutoLevels=True` of pcmi_auto (resulting in consistent colors)
-    rounding=0.1)
-bar.setImageItem( [pcmi_auto] )
-win.addItem(bar, 0,1,1,1)
-
-# Create image item with consistent colors and an interactive colorbar
-pcmi_consistent = pg.PColorMeshItem(edgecolors=edgecolors, antialiasing=antialiasing, colorMap=cmap, levels=levels, enableAutoLevels=False)
-view_consistent_scale.addItem(pcmi_consistent)
-
-# Add colorbar
-bar_static = pg.ColorBarItem(
-    label = "Z value [arbitrary unit]",
-    interactive=True,
-    rounding=0.1)
-bar_static.setImageItem( [pcmi_consistent] )
-win.addItem(bar_static,1,1,1,1)
-
-# Add timing label to the autoscaling view
-textitem = pg.TextItem(anchor=(1, 0))
-view_auto_scale.addItem(textitem)
-
-## Set the animation
-fps = 25 # Frame per second of the animation
-
-# Wave parameters
-wave_amplitude  = 3
-wave_speed      = 0.3
-wave_length     = 10
-color_speed     = 0.3
-color_noise_freq = 0.05
-
-# display info in top-right corner
-miny = np.min(y) - wave_amplitude
-maxy = np.max(y) + wave_amplitude
-view_auto_scale.setYRange(miny, maxy)
-textitem.setPos(np.max(x), maxy)
-
-timer = QtCore.QTimer()
-timer.setSingleShot(True)
-# not using QTimer.singleShot() because of persistence on PyQt. see PR #1605
-
-textpos = None
-i=0
-def updateData():
-    global i
-    global textpos
+## test add/remove
+## this group includes a menu allowing the user to add new parameters into its child list
+class ScalableGroup(pTypes.GroupParameter):
+    def __init__(self, **opts):
+        opts['type'] = 'group'
+        opts['addText'] = "Add"
+        opts['addList'] = ['str', 'float', 'int']
+        pTypes.GroupParameter.__init__(self, **opts)
     
-    ## Display the new data set
-    t0 = time.perf_counter()
-    color_noise = np.sin(i * 2*np.pi*color_noise_freq) 
-    new_x = x
-    new_y = y+wave_amplitude*np.cos(x/wave_length+i)
-    new_z = np.exp(-(x-np.cos(i*color_speed)*xn)**2/1000)[:-1,:-1] + color_noise
-    t1 = time.perf_counter()
-    pcmi_auto.setData(new_x,
-                 new_y,
-                 new_z)
-    pcmi_consistent.setData(new_x,
-                 new_y,
-                 new_z)
-    t2 = time.perf_counter()
+    def addNew(self, typ):
+        val = {
+            'str': '',
+            'float': 0.0,
+            'int': 0
+        }[typ]
+        self.addChild(dict(name="ScalableParam %d" % (len(self.childs)+1), type=typ, value=val, removable=True, renamable=True))
 
-    i += wave_speed
 
-    textitem.setText(f'{(t2 - t1)*1000:.1f} ms')
 
-    # cap update rate at fps
-    delay = max(1000/fps - (t2 - t0), 0)
-    timer.start(int(delay))
 
-timer.timeout.connect(updateData)
-updateData()
+params = [
+    makeAllParamTypes(),
+    {'name': 'Save/Restore functionality', 'type': 'group', 'children': [
+        {'name': 'Save State', 'type': 'action'},
+        {'name': 'Restore State', 'type': 'action', 'children': [
+            {'name': 'Add missing items', 'type': 'bool', 'value': True},
+            {'name': 'Remove extra items', 'type': 'bool', 'value': True},
+        ]},
+    ]},
+    {'name': 'Custom context menu', 'type': 'group', 'children': [
+        {'name': 'List contextMenu', 'type': 'float', 'value': 0, 'context': [
+            'menu1',
+            'menu2'
+        ]},
+        {'name': 'Dict contextMenu', 'type': 'float', 'value': 0, 'context': {
+            'changeName': 'Title',
+            'internal': 'What the user sees',
+        }},
+    ]},
+    ComplexParameter(name='Custom parameter group (reciprocal values)'),
+    ScalableGroup(name="Expandable Parameter Group", tip='Click to add children', children=[
+        {'name': 'ScalableParam 1', 'type': 'str', 'value': "default param 1"},
+        {'name': 'ScalableParam 2', 'type': 'str', 'value': "default param 2"},
+    ]),
+]
+
+## Create tree of Parameter objects
+p = Parameter.create(name='params', type='group', children=params)
+
+## If anything changes in the tree, print a message
+def change(param, changes):
+    print("tree changes:")
+    for param, change, data in changes:
+        path = p.childPath(param)
+        if path is not None:
+            childName = '.'.join(path)
+        else:
+            childName = param.name()
+        print('  parameter: %s'% childName)
+        print('  change:    %s'% change)
+        print('  data:      %s'% str(data))
+        print('  ----------')
+    
+p.sigTreeStateChanged.connect(change)
+
+
+def valueChanging(param, value):
+    print("Value changing (not finalized): %s %s" % (param, value))
+    
+# Only listen for changes of the 'widget' child:
+for child in p.child('Example Parameters'):
+    if 'widget' in child.names:
+        child.child('widget').sigValueChanging.connect(valueChanging)
+        
+
+def save():
+    global state
+    state = p.saveState()
+
+def restore():
+    global state
+    add = p['Save/Restore functionality', 'Restore State', 'Add missing items']
+    rem = p['Save/Restore functionality', 'Restore State', 'Remove extra items']
+    p.restoreState(state, addChildren=add, removeChildren=rem)
+p.param('Save/Restore functionality', 'Save State').sigActivated.connect(save)
+p.param('Save/Restore functionality', 'Restore State').sigActivated.connect(restore)
+
+
+## Create two ParameterTree widgets, both accessing the same data
+t = ParameterTree()
+t.setParameters(p, showTop=False)
+t.setWindowTitle('pyqtgraph example: Parameter Tree')
+t2 = ParameterTree()
+t2.setParameters(p, showTop=False)
+
+win = QtWidgets.QWidget()
+layout = QtWidgets.QGridLayout()
+win.setLayout(layout)
+layout.addWidget(QtWidgets.QLabel("These are two views of the same data. They should always display the same values."), 0,  0, 1, 2)
+layout.addWidget(t, 1, 0, 1, 1)
+layout.addWidget(t2, 1, 1, 1, 1)
+win.show()
+
+## test save/restore
+state = p.saveState()
+p.restoreState(state)
+compareState = p.saveState()
+assert pg.eq(compareState, state)
 
 if __name__ == '__main__':
     pg.exec()

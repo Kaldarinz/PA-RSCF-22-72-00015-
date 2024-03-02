@@ -88,7 +88,7 @@ import time
 import math
 import os, os.path
 import logging
-from itertools import zip_longest
+from collections import OrderedDict
 
 from scipy.fftpack import rfft, irfft, fftfreq
 import pint
@@ -163,9 +163,10 @@ class PaData:
         ) -> tuple[str, Measurement]:
         """Append msmnt to data."""
 
+        base_titles = ['Single', 'Line', 'Map']
         title = self._build_name(
             self.attrs.measurements_count + 1,
-            'measurement'
+            base_titles[msmnt.attrs.measurement_dims]
         )
         self.measurements.update({title: msmnt})
         self.attrs.updated = self._get_cur_time()
@@ -487,7 +488,7 @@ class PaData:
                 data_raw * init_vals['yincrement'] / init_vals['sample_en']
             )
         else:
-            init_vals['data'] = data_raw * init_vals['yincrement']
+            init_vals['data'] = (data_raw * init_vals['yincrement']).astype(np.float64)
         return BaseData(**init_vals)
 
     def _calc_data_fit(self,
@@ -605,7 +606,94 @@ class PaData:
                         line.add_measurements(line_points)
                         scan.add_line(line)
                     self.maps.update({msmnt_title: scan})
-     
+
+    def get_content(self) -> list:
+        """Prepare content of the file for export data."""
+
+        params = []
+        for msmnt_title, msmnt in self.measurements.items():
+            points = []
+            for pnt_title, pnt in msmnt.data.items():
+                samples = []
+                for sample_title in pnt.raw_data:
+                    samples.append(
+                        {
+                            'name': sample_title,
+                            'type': 'bool',
+                            'value': False
+                        }
+                    )
+                points.append(
+                    {
+                        'name': pnt_title,
+                        'type': 'group',
+                        'children': samples
+                    }
+                )
+            params.append(
+                {
+                    'name': msmnt_title,
+                    'type': 'group',
+                    'children': points
+                }
+            )
+        
+        return params
+
+    def export_data(
+            self,
+            filename: str,
+            selected: OrderedDict) -> None:
+
+        hdr_msmnts = []
+        hdr_pts = []
+        hdr_sample = []
+        hdr_units = []
+        data = None
+        for msmnt_title, msmnt in selected.items():
+            if (e_msmnt:=self.measurements.get(msmnt_title, None)) is not None:
+                for pnt_title, pnt in e_msmnt.data.items():
+                    for sample_title, sample in pnt.raw_data.items():
+                        if msmnt[1][pnt_title][1][sample_title][0]:
+                            hdr_msmnts += [msmnt_title]*2
+                            hdr_pts += [pnt_title]*2
+                            hdr_sample += [sample_title]*2
+                            hdr_units.append(str(sample.x_var_step.u))
+                            hdr_units.append(str(sample.data.u))
+                            if data is None:
+                                data = np.linspace(
+                                    sample.x_var_start.m,
+                                    sample.x_var_stop.m,
+                                    e_msmnt.attrs.max_len
+                                )[:, np.newaxis]
+                            else:
+                                data = np.hstack(
+                                    (
+                                        data,
+                                        np.linspace(
+                                            sample.x_var_start.m,
+                                            sample.x_var_stop.m,
+                                            e_msmnt.attrs.max_len
+                                        )[:, np.newaxis]
+                                    )
+                                )
+                            data = np.hstack((data, sample.data.m[:,np.newaxis]))
+        if data is not None:
+            delim = selected['Config'][1]['delimeter'][0]
+            fmt = selected['Config'][1]['format'][0]
+            header = delim.join(hdr_msmnts) + '\n'
+            header += delim.join(hdr_pts) + '\n'
+            header += delim.join(hdr_sample) + '\n'
+            header += delim.join(hdr_units)
+            np.savetxt(
+                fname = filename,
+                X = data,
+                delimiter = delim,
+                fmt = fmt,
+                header = header
+            )    
+
+
     @staticmethod
     def _build_name(n: int, name: str='point') -> str:
         """
@@ -793,7 +881,7 @@ class PaData:
     @staticmethod
     def bp_filter(
             data: BaseData,
-            low: PlainQuantity=Q_(1, 'MHz'),
+            low: PlainQuantity=Q_(1, 'kHz'),
             high: PlainQuantity=Q_(10, 'MHz')
         ) -> tuple[ProcessedData, ProcessedData]:
         """

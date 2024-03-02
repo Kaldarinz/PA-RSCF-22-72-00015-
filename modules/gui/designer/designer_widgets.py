@@ -339,7 +339,7 @@ class DataViewer(QWidget, data_viewer_ui.Ui_Form):
         
         Automatically called, when new measurement is seleced.
         """
-
+        
         if self.s_msmnt is None:
             self.sw_view.setCurrentWidget(self.p_empty)
             return
@@ -407,6 +407,8 @@ class DataViewer(QWidget, data_viewer_ui.Ui_Form):
         else:
             logger.warning('Trying to set point data into wrong widget')
             return
+        # Set title
+        point_view.lbl_title.setText('Title: ' + self.s_point_title)
         if self.s_point is None:
             point_view.reset_view()
             self.tv_info.set_gen_point_md(None)
