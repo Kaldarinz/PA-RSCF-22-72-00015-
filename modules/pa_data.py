@@ -690,7 +690,8 @@ class PaData:
                 X = data,
                 delimiter = delim,
                 fmt = fmt,
-                header = header
+                header = header,
+                comments=''
             )    
 
 
