@@ -1,10 +1,16 @@
 from pint import UnitRegistry
+import pint
 import logging
 
 logger = logging.getLogger(__name__)
 
-ureg = UnitRegistry(auto_reduce_dimensions=True) # type: ignore
+ureg = UnitRegistry()
+ureg.default_preferred_units = [ # type: ignore
+    ureg.m,
+    ureg.s,
+    ureg.J,
+    ureg.V
+] 
+pint.set_application_registry(ureg)
 ureg.default_format = '~.2gP'
-ureg.setup_matplotlib(True)
 Q_ = ureg.Quantity
-Q_.default_format = '~.2gP'

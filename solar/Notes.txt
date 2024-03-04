@@ -1,8 +1,0 @@
-64-bit DevCtrl version requires that calibration files are in compatible format.
-Calibration files of the first version have the extention .WLC,
-calibration files of the second version have the extention .WL2;
-The conversion is done automatically by running the included SOL_CC.exe, which needs to be in the same folder as DevCtrl.
-This program searches for .WLC files in the current folder and then creates .WL2 files from them. .WLC files are also preserved for backup purposes,
-but are not used by the 64-bit version.
-Newer 32-bit versions of DevCtrl also performs this calibration files conversion to provide consistency. WL2 files are preferred over WLC files if both are in the same directory.
-Changes to calibration, that user makes, are only written to WL2 files.

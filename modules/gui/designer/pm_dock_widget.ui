@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>d_pm</class>
+ <widget class="QDockWidget" name="d_pm">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>893</width>
+    <height>304</height>
+   </rect>
+  </property>
+  <property name="floating">
+   <bool>true</bool>
+  </property>
+  <property name="windowTitle">
+   <string>Power Meter</string>
+  </property>
+  <widget class="PowerMeterMonitor" name="pm"/>
+ </widget>
+ <customwidgets>
+  <customwidget>
+   <class>PowerMeterMonitor</class>
+   <extends>QWidget</extends>
+   <header>.designer_widgets</header>
+   <container>1</container>
+  </customwidget>
+ </customwidgets>
+ <resources/>
+ <connections/>
+</ui>

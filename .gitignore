@@ -1,9 +1,10 @@
 #user folder
 .DS_Store
 backup files/
-measuring results/
 typings/
+measuring results/
 test.py
+tst.py
 .gitignore
 .vscode
 

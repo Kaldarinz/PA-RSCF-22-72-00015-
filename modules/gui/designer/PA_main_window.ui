@@ -1,0 +1,309 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>MainWindow</class>
+ <widget class="QMainWindow" name="MainWindow">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>1033</width>
+    <height>570</height>
+   </rect>
+  </property>
+  <property name="sizePolicy">
+   <sizepolicy hsizetype="Expanding" vsizetype="Minimum">
+    <horstretch>0</horstretch>
+    <verstretch>0</verstretch>
+   </sizepolicy>
+  </property>
+  <property name="maximumSize">
+   <size>
+    <width>16777215</width>
+    <height>16777215</height>
+   </size>
+  </property>
+  <property name="windowTitle">
+   <string>Photoacoustics</string>
+  </property>
+  <property name="statusTip">
+   <string>Set PhotoAcoustic measuring mode</string>
+  </property>
+  <property name="dockNestingEnabled">
+   <bool>true</bool>
+  </property>
+  <widget class="QWidget" name="centralwidget">
+   <property name="sizePolicy">
+    <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+     <horstretch>0</horstretch>
+     <verstretch>0</verstretch>
+    </sizepolicy>
+   </property>
+   <layout class="QHBoxLayout" name="horizontalLayout">
+    <item>
+     <widget class="QStackedWidget" name="sw_central">
+      <property name="currentIndex">
+       <number>0</number>
+      </property>
+      <widget class="QWidget" name="page"/>
+      <widget class="QWidget" name="page_2"/>
+     </widget>
+    </item>
+   </layout>
+  </widget>
+  <widget class="QMenuBar" name="menubar">
+   <property name="geometry">
+    <rect>
+     <x>0</x>
+     <y>0</y>
+     <width>1033</width>
+     <height>22</height>
+    </rect>
+   </property>
+   <widget class="QMenu" name="menu_Data">
+    <property name="title">
+     <string>&amp;Data</string>
+    </property>
+    <addaction name="action_New"/>
+    <addaction name="action_Open"/>
+    <addaction name="actionO_pen_recent"/>
+    <addaction name="separator"/>
+    <addaction name="action_Save"/>
+    <addaction name="actionSave_As"/>
+    <addaction name="separator"/>
+    <addaction name="action_Close"/>
+    <addaction name="separator"/>
+    <addaction name="action_Exit"/>
+   </widget>
+   <widget class="QMenu" name="menu_Hardware">
+    <property name="title">
+     <string>&amp;Hardware</string>
+    </property>
+    <addaction name="action_Init"/>
+    <addaction name="separator"/>
+    <addaction name="action_position"/>
+   </widget>
+   <widget class="QMenu" name="menu_Measurements">
+    <property name="title">
+     <string>&amp;Measurements</string>
+    </property>
+    <addaction name="action_measure_PA"/>
+    <addaction name="separator"/>
+    <addaction name="action_Power_Meter"/>
+    <addaction name="separator"/>
+   </widget>
+   <widget class="QMenu" name="menu_Tools">
+    <property name="title">
+     <string>&amp;Tools</string>
+    </property>
+    <addaction name="action_Logs"/>
+    <addaction name="separator"/>
+   </widget>
+   <widget class="QMenu" name="menuHelp">
+    <property name="title">
+     <string>Help</string>
+    </property>
+    <addaction name="actionAbout"/>
+   </widget>
+   <addaction name="menu_Data"/>
+   <addaction name="menu_Hardware"/>
+   <addaction name="menu_Measurements"/>
+   <addaction name="menu_Tools"/>
+   <addaction name="menuHelp"/>
+  </widget>
+  <widget class="QStatusBar" name="statusbar"/>
+  <widget class="QToolBar" name="tb_main">
+   <property name="windowTitle">
+    <string>Main</string>
+   </property>
+   <property name="statusTip">
+    <string>Basic operations</string>
+   </property>
+   <property name="allowedAreas">
+    <set>Qt::TopToolBarArea</set>
+   </property>
+   <property name="floatable">
+    <bool>false</bool>
+   </property>
+   <attribute name="toolBarArea">
+    <enum>TopToolBarArea</enum>
+   </attribute>
+   <attribute name="toolBarBreak">
+    <bool>false</bool>
+   </attribute>
+   <addaction name="action_Init"/>
+   <addaction name="separator"/>
+   <addaction name="action_Data"/>
+   <addaction name="separator"/>
+   <addaction name="action_measure_PA"/>
+   <addaction name="separator"/>
+  </widget>
+  <widget class="QToolBar" name="tb_mode">
+   <property name="windowTitle">
+    <string>Measuring mode</string>
+   </property>
+   <property name="statusTip">
+    <string>Set PhotoAcoustic measuring mode</string>
+   </property>
+   <attribute name="toolBarArea">
+    <enum>TopToolBarArea</enum>
+   </attribute>
+   <attribute name="toolBarBreak">
+    <bool>false</bool>
+   </attribute>
+  </widget>
+  <widget class="QToolBar" name="tb_tools">
+   <property name="windowTitle">
+    <string>Tools</string>
+   </property>
+   <property name="statusTip">
+    <string>Tools</string>
+   </property>
+   <attribute name="toolBarArea">
+    <enum>TopToolBarArea</enum>
+   </attribute>
+   <attribute name="toolBarBreak">
+    <bool>false</bool>
+   </attribute>
+   <addaction name="action_Logs"/>
+   <addaction name="action_Power_Meter"/>
+   <addaction name="action_position"/>
+  </widget>
+  <action name="action_Open">
+   <property name="text">
+    <string>&amp;Open</string>
+   </property>
+  </action>
+  <action name="action_New">
+   <property name="text">
+    <string>&amp;New</string>
+   </property>
+  </action>
+  <action name="actionO_pen_recent">
+   <property name="text">
+    <string>O&amp;pen Recent</string>
+   </property>
+  </action>
+  <action name="action_Save">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
+   <property name="text">
+    <string>&amp;Save</string>
+   </property>
+  </action>
+  <action name="actionSave_As">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
+   <property name="text">
+    <string>Save &amp;As</string>
+   </property>
+  </action>
+  <action name="action_Close">
+   <property name="text">
+    <string>&amp;Close</string>
+   </property>
+  </action>
+  <action name="action_Exit">
+   <property name="text">
+    <string>&amp;Exit</string>
+   </property>
+  </action>
+  <action name="action_Init">
+   <property name="icon">
+    <iconset resource="qt_resources.qrc">
+     <normaloff>:/icons/qt_resources/plug-disconnect-prohibition.png</normaloff>:/icons/qt_resources/plug-disconnect-prohibition.png</iconset>
+   </property>
+   <property name="text">
+    <string>&amp;Init All</string>
+   </property>
+   <property name="statusTip">
+    <string>Initialize hardware</string>
+   </property>
+   <property name="whatsThis">
+    <string>Start initialization procedure to start working with the system</string>
+   </property>
+  </action>
+  <action name="action_measure_PA">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="icon">
+    <iconset resource="qt_resources.qrc">
+     <normaloff>:/icons/qt_resources/spectrum.png</normaloff>:/icons/qt_resources/spectrum.png</iconset>
+   </property>
+   <property name="text">
+    <string>Measure PA Signal</string>
+   </property>
+  </action>
+  <action name="action_Power_Meter">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="icon">
+    <iconset resource="qt_resources.qrc">
+     <normaloff>:/icons/qt_resources/application-monitor.png</normaloff>:/icons/qt_resources/application-monitor.png</iconset>
+   </property>
+   <property name="text">
+    <string>&amp;Power Meter</string>
+   </property>
+   <property name="statusTip">
+    <string>Start laser energy measurement</string>
+   </property>
+  </action>
+  <action name="action_Logs">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="icon">
+    <iconset resource="qt_resources.qrc">
+     <normaloff>:/icons/qt_resources/sticky-note-text.png</normaloff>:/icons/qt_resources/sticky-note-text.png</iconset>
+   </property>
+   <property name="text">
+    <string>&amp;Logs</string>
+   </property>
+   <property name="statusTip">
+    <string>Open logs</string>
+   </property>
+  </action>
+  <action name="action_Data">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="icon">
+    <iconset resource="qt_resources.qrc">
+     <normaloff>:/icons/qt_resources/television-image.png</normaloff>:/icons/qt_resources/television-image.png</iconset>
+   </property>
+   <property name="text">
+    <string>Data</string>
+   </property>
+   <property name="toolTip">
+    <string>Open data viewer</string>
+   </property>
+   <property name="statusTip">
+    <string>Data viewer</string>
+   </property>
+  </action>
+  <action name="action_position">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="icon">
+    <iconset resource="qt_resources.qrc">
+     <normaloff>:/icons/qt_resources/joystick.png</normaloff>:/icons/qt_resources/joystick.png</iconset>
+   </property>
+   <property name="text">
+    <string>Positioning</string>
+   </property>
+  </action>
+  <action name="actionAbout">
+   <property name="text">
+    <string>About</string>
+   </property>
+  </action>
+ </widget>
+ <resources>
+  <include location="qt_resources.qrc"/>
+ </resources>
+ <connections/>
+</ui>

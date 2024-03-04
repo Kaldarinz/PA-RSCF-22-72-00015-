@@ -5,3 +5,9 @@ AttributeError: module 'pylablib.core.devio.backend' has no attribute 'FT232Devi
 
 Solution: copy ftd2xx64.dll from C:\Program Files\Thorlabs\APT\Drivers\APT\USB Driver\amd64
 to C:\Windows\System32 and rename it to ftd2xx.dll
+
+2. Programm does not start, with the first warning: "Matplotlib is using PyQt5 which wraps ... Mixing major versions may not work as expected.
+
+Solution: QT_API env variable should be set to "PySide6". 
+Steps to do it: press 'win + r' -> sysdm.cpl -> advanced -> Enviroment variables -> Create new variable -> restart PC
+ 

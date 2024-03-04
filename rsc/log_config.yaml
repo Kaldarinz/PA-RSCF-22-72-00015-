@@ -3,7 +3,7 @@ official:
   disable_existing_loggers: true
   formatters:
     simple:
-      format: '%(asctime)s - %(name)s.%(funcName)s - line:%(lineno)s - %(levelname)s - %(message)s'
+      format: '%(asctime)s.%(msecs)03d - %(name)s.%(funcName)s - thred:%(thread)d -  line:%(lineno)s - %(levelname)s - %(message)s'
       datefmt: '%I:%M:%S'
     inline:
       format: '%(levelname)s - %(message)s'
