@@ -144,7 +144,7 @@ class PaData:
     _ax_filt_zoom: plt.Axes
     "Axes for plotting a region containing actual FILTERED signal."
 
-    def __init__(self, dims: int=-1, params: List[str]=[]) -> None:
+    def __init__(self, dims: int=-1, params: list[str]=[]) -> None:
         """Class init.
         
         <dims> dimensionality of the stored measurement.
