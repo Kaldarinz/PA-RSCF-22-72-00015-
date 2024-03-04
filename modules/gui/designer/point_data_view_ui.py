@@ -15,9 +15,9 @@ from PySide6.QtGui import (QBrush, QColor, QConicalGradient, QCursor,
     QFont, QFontDatabase, QGradient, QIcon,
     QImage, QKeySequence, QLinearGradient, QPainter,
     QPalette, QPixmap, QRadialGradient, QTransform)
-from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QHBoxLayout,
-    QLabel, QSizePolicy, QSpacerItem, QVBoxLayout,
-    QWidget)
+from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QFrame,
+    QHBoxLayout, QLabel, QSizePolicy, QSpacerItem,
+    QVBoxLayout, QWidget)
 
 from ..widgets import PgPlot
 
@@ -25,12 +25,27 @@ class Ui_Point_view(object):
     def setupUi(self, Point_view):
         if not Point_view.objectName():
             Point_view.setObjectName(u"Point_view")
-        Point_view.resize(675, 606)
+        Point_view.resize(1089, 731)
         self.verticalLayout = QVBoxLayout(Point_view)
         self.verticalLayout.setObjectName(u"verticalLayout")
         self.verticalLayout.setContentsMargins(0, 0, 0, 0)
         self.horizontalLayout = QHBoxLayout()
         self.horizontalLayout.setObjectName(u"horizontalLayout")
+        self.lbl_title = QLabel(Point_view)
+        self.lbl_title.setObjectName(u"lbl_title")
+        font = QFont()
+        font.setBold(True)
+        self.lbl_title.setFont(font)
+
+        self.horizontalLayout.addWidget(self.lbl_title)
+
+        self.line = QFrame(Point_view)
+        self.line.setObjectName(u"line")
+        self.line.setFrameShape(QFrame.VLine)
+        self.line.setFrameShadow(QFrame.Sunken)
+
+        self.horizontalLayout.addWidget(self.line)
+
         self.lbl_detail_select = QLabel(Point_view)
         self.lbl_detail_select.setObjectName(u"lbl_detail_select")
 
@@ -84,6 +99,7 @@ class Ui_Point_view(object):
 
     def retranslateUi(self, Point_view):
         Point_view.setWindowTitle(QCoreApplication.translate("Point_view", u"Form", None))
+        self.lbl_title.setText(QCoreApplication.translate("Point_view", u"Title: None ", None))
         self.lbl_detail_select.setText(QCoreApplication.translate("Point_view", u"Signal", None))
         self.lbl_sample.setText(QCoreApplication.translate("Point_view", u"Sample", None))
         self.checkb_showp.setText(QCoreApplication.translate("Point_view", u"Show points", None))

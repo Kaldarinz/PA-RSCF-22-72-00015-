@@ -30,6 +30,8 @@ from pint.facets.plain.quantity import PlainQuantity
 
 import PySide6
 import pyqtgraph as pg
+from pyqtgraph.parametertree import Parameter, ParameterTree
+from pyqtgraph.parametertree.parameterTypes import GroupParameter
 from PySide6.QtCore import (
     Qt,
     QThread,
@@ -39,6 +41,8 @@ from PySide6.QtCore import (
     QTimer
 )
 from PySide6.QtWidgets import (
+    QDialog,
+    QWidget,
     QApplication,
     QMainWindow,
     QMessageBox,
@@ -46,7 +50,8 @@ from PySide6.QtWidgets import (
     QComboBox,
     QFileDialog,
     QMessageBox,
-    QProgressDialog
+    QProgressDialog,
+    QVBoxLayout
 )
 from PySide6.QtGui import (
     QKeySequence,
@@ -260,6 +265,8 @@ class Window(QMainWindow,Ui_MainWindow,):
         self.actionSave_As.triggered.connect(
             lambda x: self.save_file(True)
         )
+        # Export data
+        self.actionExport_Data.triggered.connect(self.export_data)
         # Mode selection
         self.cb_mode_select.currentTextChanged.connect(self.upd_mode)
         self.action_measure_PA.toggled.connect(
@@ -522,6 +529,60 @@ class Window(QMainWindow,Ui_MainWindow,):
             # remove marker of changed data from data title
             basename = os.path.basename(filename)
             self.data_viewer.lbl_data_title.setText(basename)
+
+    @Slot()
+    def export_data(self) -> None:
+        """Export data to txt."""
+
+        self.export_diag = QWidget()
+        self.export_diag.setWindowFlag(Qt.WindowType.WindowStaysOnTopHint)
+        self.export_diag.setWindowTitle('Choose data to export')
+        layout = QVBoxLayout()
+        self.export_diag.setLayout(layout)
+        p = Parameter.create(
+            name = 'Choose data to export',
+            type = 'group',
+            children = self.data_viewer.data.get_content() # type: ignore
+        )
+        config = Parameter.create(
+            name = 'Config',
+            type = 'group',
+            children = [
+                {'name': 'delimeter', 'type': 'str', 'value': ';'},
+                {'name': 'format', 'type': 'str', 'value': r'%10.6e'}
+            ]
+        )
+        p.insertChild(0, config)
+        # Collapse all
+        def activate(param):
+            for ch in param:
+                if isinstance(ch, GroupParameter):
+                    ch.setOpts(expanded=False)
+                    activate(ch)
+        activate(p)
+
+        # Save btn
+        def _export(_):
+            path = os.path.dirname(__file__)
+            initial_dir = os.path.join(path, 'measuring results')
+            filename = QFileDialog.getSaveFileName(
+                self,
+                caption='Set filename',
+                dir=initial_dir,
+                filter='Text file (*.txt)'
+            )[0]
+            self.data_viewer.data.export_data(filename, p.getValues()) # type: ignore
+        btn = Parameter.create(
+            name = 'Export Data',
+            type = 'action'
+        )
+        btn.sigActivated.connect(_export)
+
+        p.insertChild(0, btn)
+        t = ParameterTree()
+        t.setParameters(p, showTop = False)
+        layout.addWidget(t)
+        self.export_diag.show()
 
     @Slot()
     def close_file(self) -> None:

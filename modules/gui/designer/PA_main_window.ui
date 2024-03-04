@@ -67,6 +67,8 @@
     <addaction name="action_Open"/>
     <addaction name="actionO_pen_recent"/>
     <addaction name="separator"/>
+    <addaction name="actionExport_Data"/>
+    <addaction name="separator"/>
     <addaction name="action_Save"/>
     <addaction name="actionSave_As"/>
     <addaction name="separator"/>
@@ -299,6 +301,11 @@
   <action name="actionAbout">
    <property name="text">
     <string>About</string>
+   </property>
+  </action>
+  <action name="actionExport_Data">
+   <property name="text">
+    <string>Export Data</string>
    </property>
   </action>
  </widget>
