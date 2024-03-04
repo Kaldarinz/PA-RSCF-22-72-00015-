@@ -24,7 +24,6 @@ import logging, logging.config
 from datetime import datetime
 from typing import Callable, cast, Literal
 
-import pint
 import yaml
 from pint.facets.plain.quantity import PlainQuantity
 

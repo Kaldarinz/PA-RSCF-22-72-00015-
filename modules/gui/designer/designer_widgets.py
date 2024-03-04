@@ -209,7 +209,7 @@ class DataViewer(QWidget, data_viewer_ui.Ui_Form):
         self.p_2d.btn_tst.clicked.connect(
             lambda: start_cb_worker(
                 callback = self.show_Image,
-                func = self.data.maps[self.s_msmnt_title].get_image_data,
+                func = self.data.maps[self.s_msmnt_title].get_image_data, # type: ignore
                 signal = 'max_amp'
             )
         )

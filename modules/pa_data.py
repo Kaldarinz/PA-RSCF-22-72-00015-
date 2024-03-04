@@ -4,8 +4,8 @@ Requires Python > 3.10
 
 Workflow with PaData:
 1. init class instance.
-2. Set 'measurement_dims' and 'parameter_name' in root metadata.
-3. Add data points.
+2. Create measuremnt.
+3. Add data points to measurement.
 
 Data structure of PaData class:
 PaData:
@@ -90,9 +90,6 @@ import os, os.path
 import logging
 from collections import OrderedDict
 
-import matplotlib.pyplot as plt
-import matplotlib.gridspec as gridspec
-from matplotlib import MatplotlibDeprecationWarning # type: ignore
 from scipy.fftpack import rfft, irfft, fftfreq
 import pint
 from pint.facets.plain.quantity import PlainQuantity
@@ -131,24 +128,7 @@ class PaData:
 
     VERSION = 1.4
 
-    _ax_sp: plt.Axes
-    "Axes for plotting dependence of max_amp on parameter."
-    _ax_raw: plt.Axes
-    "Axes for plotting raw signal."
-    _ax_freq: plt.Axes
-    "Axes for plotting signal in frequnecy domain."
-    _ax_filt: plt.Axes
-    "Axes for plotting filtered data."
-    _ax_raw_zoom: plt.Axes
-    "Axes for plotting a region containing actual RAW signal."
-    _ax_filt_zoom: plt.Axes
-    "Axes for plotting a region containing actual FILTERED signal."
-
-    def __init__(self, dims: int=-1, params: list[str]=[]) -> None:
-        """Class init.
-        
-        <dims> dimensionality of the stored measurement.
-        <params> contain names of the dimensions."""
+    def __init__(self) -> None:
 
         #general metadata
         self.attrs = FileMetadata(
@@ -269,7 +249,7 @@ class PaData:
         if not title:
             logger.error('Max data_points reached! Data cannot be added!')
             return None
-        logger.debug(f'{ds_name=}')
+        logger.debug(f'{title=}')
         # ensure that units of parameter and data for new point
         # is the same as units of already present points
         if measurement.attrs.data_points:
@@ -334,19 +314,9 @@ class PaData:
     def _get_time(date_time: datetime) -> str:
         return date_time.strftime("%d-%m-%Y, %H:%M:%S")
 
-    def save(self, filename: str='') -> None:
+    def save(self, filename: str) -> None:
         """Save data to file."""
 
-        if filename:
-            self.attrs['filename'] = filename
-        elif self.attrs['filename']:
-            filename = self.attrs['filename']
-        else:
-            logger.warning('Filename is not set. Data cannot be saved!')
-            return
-        if confirm_action('Do you want to add notes to the file?'):
-            self.attrs['notes'] = texteditor.open(
-                'Add description preferably in one line.')
         self._flush(filename)
 
     def save_tmp(self) -> None:
@@ -359,9 +329,13 @@ class PaData:
         logger.debug('...Finishing tmp save.')
 
     def _flush(self, filename: str) -> None:
-        """Write data to disk."""
+        """
+        Write data to disk.
+        
+        Processed data (filt and freq) is not saved.
+        """
 
-        logger.debug(f'Start friting data to {filename}')
+        logger.debug(f'Start writing data to {filename}')
         with h5py.File(filename, 'w') as file:
             # set file metada
             file.attrs.update(self._to_dict(self.attrs))
@@ -518,13 +492,15 @@ class PaData:
         return BaseData(**init_vals)
 
     def _calc_data_fit(self,
-                       ds_name: str,
+                       data: PlainQuantity,
+                       data_raw: npt.NDArray[np.uint8],
                        points: int=20
         ) -> Tuple[float,float]:
-        """Calculate coefs to convert data_raw to data.
+        """
+        Calculate coefs to convert ``data_raw`` to ``data``.
         
-        Return (a,b), where <data> = a*<data_raw> + b.
-        <points> is amount of points used for fitting.
+        Return (a,b), where ``data`` = a*``data_raw`` + b.\n
+        ``points`` - amount of points used for fitting.
         """
 
         DIFF_VALS = 5
@@ -537,19 +513,20 @@ class PaData:
 
         #in the begining of data there could be long baseline
         #therefore start searching for meaningfull data from maximum
-        max_ind = np.flatnonzero(data==data.max())[0]
+        max_ind = np.flatnonzero(data==data.max())[0] # type: ignore
         x = data_raw[max_ind:max_ind+points]
         if len(np.unique(x))< DIFF_VALS:
-            for i in range(len(self.raw_data[ds_name]['data_raw'])):
+            i = 0
+            for i in range(len(data_raw)):
                 stop_ind = max_ind+points+i
                 x = data_raw[max_ind:stop_ind].copy()
                 if len(np.unique(x)) == DIFF_VALS:
                     break
-        logger.debug(f'{i} additional points added to find '
-                     + f'{DIFF_VALS} unique values.')
-        y = [quantity.m for quantity, _ in zip(data[max_ind:], x)]
+            logger.debug(f'{i} additional points added to find '
+                        + f'{DIFF_VALS} unique values.')
+        y = [quantity.m for quantity, _ in zip(data[max_ind:], x)] # type: ignore
         coef = np.polyfit(x, y, 1)
-        return coef
+        return coef # type: ignore
 
     def load(self, filename: str, *args, **kwargs) -> None:
         """Load data from file."""
@@ -751,8 +728,6 @@ class PaData:
             err_msg = 'Cannot get param_val for all datapoints.'
             logger.debug(err_msg)
             raise PlotError(err_msg)
-        else:
-            self._param_values = param_values
 
         ydata = PaData.get_dependance(
             msmnt=msmnt,
@@ -816,10 +791,10 @@ class PaData:
         Return a tuple, which contain [ydata, ydata, ylabel, xlabel].
         """
         
-        start = ds['x_var_start']
-        stop = ds['x_var_stop']
-        step = ds['x_var_step']
-        num = len(ds['data'])
+        start = ds.x_var_start
+        stop = ds.x_var_stop
+        step = ds.x_var_step
+        num = len(ds.data) # type: ignore
         time_data = Q_(np.linspace(start.m,stop.m,num), start.u)
 
         x_label = ds.x_var_name
@@ -918,17 +893,20 @@ class PaData:
         Return tuple, containing (filt_data, freq_data).
         """
 
-        logger.debug(f'Starting FFT for {ds_name} '
+        logger.debug(f'Starting FFT ' 
                      + f'with bp filter ({low}:{high})...')
-        dt = ds['x_var_step'].to('s').m
+        dt = data.x_var_step.to('s').m
         low = low.to('Hz').m
         high = high.to('Hz').m
         logger.debug(f'{dt=}')
-        W = fftfreq(len(ds['data'].m), dt) # array with freqs
-        f_signal = rfft(ds['data'].m) # signal in f-space
+        # array with freqs
+        W = fftfreq(len(data.data.m), dt)
+        # signal in f-space
+        f_signal = rfft(data.data.m)
 
         filtered_f_signal = f_signal.copy()
-        filtered_f_signal[(W<low)] = 0 # high pass filtering
+        # kind of bad high pass filtering
+        filtered_f_signal[(W<low)] = 0
 
         if high > 1/(2.5*dt): # Nyquist frequency check
             filtered_f_signal[(W>1/(2.5*dt))] = 0 
