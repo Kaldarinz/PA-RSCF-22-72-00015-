@@ -259,13 +259,13 @@ class PaData:
             if exist_params:
                 param_val = [x.to(y.u) for x,y in zip(param_val,exist_params)]
             # get data from any existing datapoint
-            exist_dp = next(iter(measurement.data.values()))
-            exist_data =next(iter(exist_dp.raw_data.values())).data
-            for dp in data:
-                if exist_data.u != dp.pa_signal.u:
-                    logger.debug(f'Changing units of data from {dp.pa_signal.u} '
-                                +f'to {exist_data.u}')
-                    dp.pa_signal = dp.pa_signal.to(exist_data.u)
+            # exist_dp = next(iter(measurement.data.values()))
+            # exist_data =next(iter(exist_dp.raw_data.values())).data
+            # for dp in data:
+            #     if exist_data.u != dp.pa_signal.u:
+            #         logger.debug(f'Changing units of data from {dp.pa_signal.u} '
+            #                     +f'to {exist_data.u}')
+            #         dp.pa_signal = dp.pa_signal.to(exist_data.u)
         
         metadata = PointMetadata(
             wavelength = data[0].wavelength,
