@@ -85,7 +85,7 @@ def _init_call() -> None:
     "Serial communication with oscilloscope."
     _osc_call.start()
 
-def init_hardware() -> bool:
+def init_hardware(**kwargs) -> bool:
     """Initialize all hardware.
     
     Load hardware config from rsc/config.yaml if it was not done.\n

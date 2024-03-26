@@ -52,7 +52,6 @@ from PySide6.QtGui import (
 import numpy as np
 import pyqtgraph as pg
 from pint.facets.plain.quantity import PlainQuantity
-from matplotlib.backend_bases import PickEvent
 
 from . import (
     verify_measure_ui,

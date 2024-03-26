@@ -1488,13 +1488,20 @@ class MapData:
         scanned_pos = self.get_scanned_pos()
         scanned_sig = self.get_scanned_sig(signal)
 
-        result = griddata(
-            points = scanned_pos,
-            values = scanned_sig,
-            xi = (x_coords, y_coords),
-            method = method,
-            fill_value = scanned_sig.mean()
-        )
+        # Interpolation will fail if we have only 1 scanned line
+        if len(self.lines) < 2:
+            result = np.full(
+                (x_coords.shape[1], y_coords.shape[0]),
+                scanned_sig.mean()
+            )
+        else:
+            result = griddata(
+                points = scanned_pos,
+                values = scanned_sig,
+                xi = (x_coords, y_coords),
+                method = method,
+                fill_value = scanned_sig.mean()
+            )
         delta = int((time.time() - strart)*1000)
         logger.info(f'Get_image_data done in {delta} ms.')
         return result

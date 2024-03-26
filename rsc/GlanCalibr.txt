@@ -3,7 +3,14 @@
 # The second column is energy [uJ], measured at sample.
 11	158
 23	325
+30 300
+31 358
+32 395
 34	440
+39 443
+40 491
+46 509
+53 604
 54	770
 96	1300
 136	1840
