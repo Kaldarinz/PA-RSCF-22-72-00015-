@@ -897,7 +897,6 @@ def meas_point_from_osc(
     """Make MeasuredPoint from OscMeasurement and wavelength."""
 
     logger.debug('Start creating MeasuredPoint...')
-    pm = hardware.power_meter
     pm_ch_id = int(hardware.config['power_meter']['connected_chan']) - 1
     pm_raw_data = msmnt.data_raw[pm_ch_id]
     pm_yinc = msmnt.yincrement[pm_ch_id]
@@ -906,7 +905,7 @@ def meas_point_from_osc(
         # TODO This can potentially produce wrong energy values when
         # PM signal was not fully measured. Calculation of energy from
         # derivative of PM signal should be considered.
-        pm_energy = pm.energy_from_data(
+        pm_energy = PowerMeter.energy_from_data(
             pm_raw_data*pm_yinc, msmnt.dt
         )
         if pm_energy is not None:

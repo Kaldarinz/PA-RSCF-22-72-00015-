@@ -1035,7 +1035,8 @@ class ScanLine:
             while result[istop - 1].pos == stop:
                 istop -= 1
                 dups += 1
-        logger.debug(f'{dups} duplicate edge values trimmed.')
+        if dups:
+            logger.debug(f'{dups} duplicate edge values trimmed.')
         return result[istart:(istop + 1)]
 
     @property
@@ -2190,7 +2191,7 @@ class Actor:
         """
 
         r = Result()
-        logger.debug(f'Function {func.__name__} submitted to actor')
+        # logger.debug(f'Function {func.__name__} submitted to actor')
         self._send((func, args, kwargs, r), priority)
         res = r.result()
         if isinstance(res, ActorFail):
@@ -2204,7 +2205,7 @@ class Actor:
         self.enabled = True
         while True:
             func, args, kwargs, r = self.recv()
-            logger.debug(f'Actor Starting: {func.__name__}')
+            # logger.debug(f'Actor Starting: {func.__name__}')
             try:
                 r.set_result(func(*args, **kwargs))
             except:
@@ -2213,7 +2214,7 @@ class Actor:
                 + f'{traceback.format_exc()}')
                 logger.error(msg)
                 r.set_result(ActorFail(msg))
-            logger.debug(f'{func.__name__} is ready')
+            # logger.debug(f'{func.__name__} is ready')
 
     def show_tasks(self):
 

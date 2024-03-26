@@ -262,7 +262,7 @@ def glan_calc(
     Do not interact with hardware.
     """
 
-    logger.debug('Starting sample energy calculation...')
+    # logger.debug('Starting sample energy calculation...')
     sub_folder = 'rsc'
     filename = 'GlanCalibr.txt'
     filename = os.path.join(sub_folder,filename)
@@ -271,11 +271,9 @@ def glan_calc(
         calibr_data = np.loadtxt(filename, dtype=np.float64)
     except FileNotFoundError:
         logger.error('File with glan callibration not found!')
-        logger.debug('...Terminating')
         return
     except ValueError as er:
         logger.error(f'Error while loading color glass data!: {str(er)}')
-        logger.debug('...Terminating')
         return
 
     #get coefficients which fit calibration data with fit_order polynom
@@ -286,7 +284,7 @@ def glan_calc(
 
     #return the value of polynom at energy
     sample_en = fit(energy.to('uJ').m)*ureg.uJ
-    logger.debug(f'...Finishing. {sample_en=}.')
+    logger.debug(f'Calculated sample energy {str(sample_en)}.')
     return sample_en
 
 def calc_sample_en(

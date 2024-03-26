@@ -342,15 +342,15 @@ class Oscilloscope:
         """
 
         start = time.time()
-        logger.debug(
-            'Starting measure signal from oscilloscope screen. '
-            + f'{smooth=}, {correct_bl=}'
-        )
+        # logger.debug(
+        #     'Starting measure signal from oscilloscope screen. '
+        #     + f'{smooth=}, {correct_bl=}'
+        # )
         self.run_normal()
         self.scr_data_raw = [None]*self.CHANNELS
         for i, read_flag in enumerate([read_ch1, read_ch2]):
             if read_flag:
-                logger.debug(f'Starting screen read from {self.CH_IDS[i]}')
+                # logger.debug(f'Starting screen read from {self.CH_IDS[i]}')
                 data_raw = self._read_scr_data(i)
                 if smooth:
                     data_raw = self.rolling_average(data_raw)
@@ -358,10 +358,10 @@ class Oscilloscope:
                     data_raw = self._baseline_correction(data_raw)
                 data_raw = self._trail_correction(data_raw)
                 self.scr_data_raw[i] = data_raw
-                logger.debug(
-                    f'Screen data for channel {self.CH_IDS[i]} set. '
-                    + f'min = {data_raw.min()}, max = {data_raw.max()}'
-                )  
+                # logger.debug(
+                #     f'Screen data for channel {self.CH_IDS[i]} set. '
+                #     + f'min = {data_raw.min()}, max = {data_raw.max()}'
+                # )  
         
         result = OscMeasurement(
             datetime = datetime.now(),
@@ -372,7 +372,7 @@ class Oscilloscope:
         )
         stop = time.time()
         logger.debug(
-            f'...Finishing measure screen in {(stop-start)*1000:.1f} ms.'
+            f'Measure screen done in {(stop-start)*1000:.1f} ms.'
         )
         return result
 
@@ -460,6 +460,8 @@ class Oscilloscope:
         
         # minimum increment of data
         dif = np.diff(data)
+        if dif.max() <= 0:
+            return data
         min_inc = dif[dif>0].min()
         # correction is required, when average value
         # in the last Window differs from the previous Window
@@ -517,7 +519,7 @@ class Oscilloscope:
             start = time.time()
             answer = self.__osc.query(message)
             stop = time.time()
-            logger.debug(f'Query {message} took {(stop-start)*1000} ms.')
+            # logger.debug(f'Query {message} took {(stop-start)*1000} ms.')
             return answer
         except pv.errors.VisaIOError:
             self.not_found = True
@@ -537,9 +539,12 @@ class Oscilloscope:
             raise OscConnectError(err_msg)
         try:
             written = 0
+            start = time.time()
             for msg in message:
                 written += self.__osc.write(msg)
-            logger.debug(f'{written} bytes written to osc.')
+            stop = time.time()
+            delta = stop - start
+            # logger.debug(f'{written} bytes written to osc in {delta*1000:.1f} ms.')
             return written
         except pv.errors.VisaIOError:
             self.not_found = True
@@ -563,7 +568,7 @@ class Oscilloscope:
             raw_data = self.__osc.read_raw()
             stop = time.time()
             delta = stop - start
-            logger.debug(f'Reading from osc took: {delta*1000:.1f} ms.')
+            # logger.debug(f'Reading from osc took: {delta*1000:.1f} ms.')
         except pv.errors.VisaIOError:
             self.not_found = True
             err_msg = 'Read from osc failed.'
@@ -762,20 +767,27 @@ class Oscilloscope:
                      + f'min val={result.min()}') #type: ignore
         return result
 
-    def _ok_read(self, dur: int,
-                 data_chunk: npt.NDArray) -> None:
+    def _ok_read(self,
+                dur: int,
+                data_chunk: npt.NDArray,
+                strict: bool=True
+        ) -> bool:
         """Verify that read data have necessary size.
         
-        If verification fails, raise OscIOError."""
+        If data length is wrong and `strict` is True, raise OscIOError.
+        Otherwise just return False.
+        """
 
         if dur == len(data_chunk):
-            return 
-        else:
+            return True
+        elif strict:
             err_msg = ('Data length is wrong, '
                        + f'{dur} is required, '
                        + f'actual length is {len(data_chunk)}')
             logger.debug(err_msg)
             raise OscIOError(err_msg)
+        else:
+            return False
 
     def _read_data(self, ch_id: int) -> npt.NDArray[np.int16]:
         """Read data from the specified channel.
@@ -833,13 +845,15 @@ class Oscilloscope:
         cmd.append(':WAV:DATA?')
         self._write(cmd)
         data = self._read()
-        self._ok_read(self.MAX_SCR_POINTS, data)                      
+        if not self._ok_read(self.MAX_SCR_POINTS, data, strict=False):
+            return np.zeros(self.MAX_SCR_POINTS, np.int16)
         return data
 
 class PowerMeter:
     
     ###DEFAULTS###
     SENS = 2888 #scalar coef to convert integral readings into [mJ]
+    BL_LENGTH = Oscilloscope.BL_LENGTH
 
     ch: int # channel ID number
     osc: Oscilloscope
@@ -876,7 +890,7 @@ class PowerMeter:
         called only by Actor.
         """
 
-        logger.debug('Starting fast energy measuring...')
+        # logger.debug('Starting fast energy measuring...')
         meas_channel = self._build_chan_list()
         data = self.osc.measure_scr(
                 read_ch1=meas_channel[0],
@@ -888,18 +902,16 @@ class PowerMeter:
             logger.warning(msg)
             raise OscIOError(msg)
         # logger.debug('PowerMeter response obtained')
-        result = self.energy_from_data(
+        result = PowerMeter.energy_from_data(
             pm_data,
             self.osc.xincrement
             )
         if result is None:
             result = EnergyMeasurement(datetime.now())
-        logger.debug('...Finishing energy measure.'
-                     + f' Laser amp = {result.energy}')
         return result
 
+    @staticmethod
     def energy_from_data(
-            self,
             data: PlainQuantity,
             step: PlainQuantity
         ) -> EnergyMeasurement|None:
@@ -925,24 +937,23 @@ class PowerMeter:
         Thread safe.
         """
 
-        logger.debug('Starting convertion of raw signal to energy...')
+        # logger.debug('Starting convertion of raw signal to energy...')
         if not data.is_compatible_with(ureg.V):
-            logger.warning('Wrong units of data. Only Volts are accepted.')
+            logger.warning('PM energy error. Wrong units. Volts expected.')
             return None
-        data.ito(ureg.V) # this could not work, change to .to()
-        start_ind = self.find_pm_start_ind(data)
+        data = data.to('V')
+        start_ind = PowerMeter.find_pm_start_ind(data)
         if start_ind is None:
-            logger.debug('...Terminating. Start index failed.')
             return None
         # minimum noise value on points, used for base line calculation
-        bl_length = int(len(data)*self.osc.BL_LENGTH) # type: ignore
+        bl_length = int(len(data)*PowerMeter.BL_LENGTH) # type: ignore
         noise_min = data[:bl_length].min() # type: ignore
         if noise_min < 0:
             noise_neg = data[:bl_length][data[:bl_length]<0].mean() # type: ignore
         else:
             noise_neg = 0
         signal_data = data[start_ind:] # type: ignore
-        laser_amp = signal_data[signal_data>(2*noise_neg)].sum()*step.to('s').m*self.SENS # type: ignore
+        laser_amp = signal_data[signal_data>(2*noise_neg)].sum()*step.to('s').m*PowerMeter.SENS # type: ignore
         laser_amp = Q_(laser_amp.m, 'mJ')
         result = EnergyMeasurement(
             datetime.now(),
@@ -951,6 +962,7 @@ class PowerMeter:
             istart= start_ind,
             energy = laser_amp
         )
+        logger.debug(f'Laser energy {str(result.energy)}')
         return result
     
     @staticmethod
@@ -1006,7 +1018,8 @@ class PowerMeter:
             channel -= 1
         return result
 
-    def find_pm_start_ind(self, data: PlainQuantity) -> int|None:
+    @staticmethod
+    def find_pm_start_ind(data: PlainQuantity) -> int|None:
         """
         Find index of power meter signal begining.
         
@@ -1023,24 +1036,26 @@ class PowerMeter:
         Thread safe.
         """
 
-        logger.debug('Starting search for power meter signal start...')
+        # logger.debug('Starting search for power meter signal start...')
         if not PowerMeter.check_data(data):
             return None
-        av_len = int(len(data)*self.osc.BL_LENGTH) # type: ignore
+        av_len = int(len(data)*PowerMeter.BL_LENGTH) # type: ignore
         av_span = data[:av_len] # type: ignore
-        while np.count_nonzero(av_span[av_span > 0]) < 5:
-            av_len += 1
-            av_span = data[:av_len] # type: ignore
-            if av_len + 21 > len(data): # type: ignore
-                logger.debug('Signal does not contain enough positive values.')
-                return None
-        aver = av_span[av_span > 0].mean()
+        # while np.count_nonzero(av_span[av_span > 0]) < 5:
+        #     av_len += int(len(data)*PowerMeter.BL_LENGTH) # type: ignore
+        #     av_span = data[:av_len] # type: ignore
+        #     if av_len + 21 > len(data): # type: ignore
+        #         logger.debug('Start ind error. Too few pos values.')
+        #         return None
+        aver = av_span[av_span >= 0].mean()
         ind = None
+        if len(data)>50000:
+            logger.info(f'{aver=}; {data.max()=}')
         for i in np.where(data>(aver*2))[0]:
-            if np.count_nonzero(data[i:i+20][data[i:i+20] > aver*2]) > 15: # type: ignore
+            if np.count_nonzero(data[i:i+20][data[i:i+20] > aver]) > 16: # type: ignore
                 ind = i
                 break
-        logger.debug(f'Power meter signal starts at {ind}')
+        logger.debug(f'PM signal begins at index {ind}')
         return ind
 
     def pulse_offset(
@@ -1054,8 +1069,8 @@ class PowerMeter:
         Thread safe.
         """
 
-        logger.debug('Starting lase pulse offset calculation...')
-        index = self.find_pm_start_ind(data)
+        # logger.debug('Starting lase pulse offset calculation...')
+        index = PowerMeter.find_pm_start_ind(data)
         if index is None:
             return None
         offset = (step*index).to('us')
