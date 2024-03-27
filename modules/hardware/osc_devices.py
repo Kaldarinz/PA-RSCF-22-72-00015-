@@ -106,6 +106,7 @@ class Oscilloscope:
         self.data_raw: List[Optional[npt.NDArray[np.int16]]] = [None]*self.CHANNELS
         self.scr_data_raw: List[Optional[npt.NDArray[np.int16]]] = [None]*self.CHANNELS
         self.scale: list[PlainQuantity | None] = [None]*self.CHANNELS
+        self.scr_scale: list[PlainQuantity | None] = [None]*self.CHANNELS
 
         # data smoothing parameters
         self.ra_kernel: int # kernel size for rolling average smoothing
@@ -368,7 +369,7 @@ class Oscilloscope:
             data_raw = self.scr_data_raw.copy(),
             dt = self.xincrement,
             pre_t = [self.xincrement*self.MAX_SCR_POINTS/2]*2,
-            yincrement = self.scale.copy()
+            yincrement = self.scr_scale.copy()
         )
         stop = time.time()
         logger.debug(
@@ -835,7 +836,7 @@ class Oscilloscope:
 
         chan = self.CH_IDS[ch_id]
         self._set_preamble()
-        self.scale[ch_id] = Q_(self.yincrement, 'V')
+        self.scr_scale[ch_id] = Q_(self.yincrement, 'V')
         cmd = []
         cmd.append(':WAV:SOUR ' + chan)
         cmd.append(':WAV:MODE NORM')
@@ -1041,16 +1042,14 @@ class PowerMeter:
             return None
         av_len = int(len(data)*PowerMeter.BL_LENGTH) # type: ignore
         av_span = data[:av_len] # type: ignore
-        # while np.count_nonzero(av_span[av_span > 0]) < 5:
-        #     av_len += int(len(data)*PowerMeter.BL_LENGTH) # type: ignore
-        #     av_span = data[:av_len] # type: ignore
-        #     if av_len + 21 > len(data): # type: ignore
-        #         logger.debug('Start ind error. Too few pos values.')
-        #         return None
+        while np.count_nonzero(av_span[av_span > 0]) < 5:
+            av_len += int(len(data)*PowerMeter.BL_LENGTH) # type: ignore
+            av_span = data[:av_len] # type: ignore
+            if av_len + 21 > len(data): # type: ignore
+                logger.debug('Start ind error. Too few pos values.')
+                return None
         aver = av_span[av_span >= 0].mean()
         ind = None
-        if len(data)>50000:
-            logger.info(f'{aver=}; {data.max()=}')
         for i in np.where(data>(aver*2))[0]:
             if np.count_nonzero(data[i:i+20][data[i:i+20] > aver]) > 16: # type: ignore
                 ind = i
