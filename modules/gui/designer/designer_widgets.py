@@ -204,26 +204,7 @@ class DataViewer(QWidget, data_viewer_ui.Ui_Form):
         self.p_1d.plot_curve.point_picked.connect(self.pick_event)
         # Data picker for map
         self.p_2d.plot_map.pixel_selected.connect(self.map_point_selected)
-        # Test
-        self.p_2d.btn_tst.clicked.connect(
-            lambda: start_cb_worker(
-                callback = self.show_Image,
-                func = self.data.maps[self.s_msmnt_title].get_image_data, # type: ignore
-                signal = 'max_amp'
-            )
-        )
         self.p_2d.btn_hres.toggled.connect(self.p_2d.plot_map.set_highres)
-
-    def show_Image(self, data: np.ndarray) -> None:
-
-        self.diag = QDialog()
-        
-        lo = QHBoxLayout()
-        image = pg.ImageView()
-        image.setImage(data)
-        lo.addWidget(image)
-        self.diag.setLayout(lo)
-        self.diag.exec()
 
     @Slot(bool)
     def data_updated(self, data_exist: bool) -> None:

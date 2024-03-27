@@ -460,18 +460,18 @@ class Oscilloscope:
             return data
         
         # minimum increment of data
-        dif = np.diff(data)
-        if dif.max() <= 0:
+        dif = np.abs(np.diff(data))
+        if dif.max() == 0:
             return data
-        min_inc = dif[dif>0].min()
-        # correction is required, when average value
-        # in the last Window differs from the previous Window
-        # for more than 2 minimum data increment
-        if abs(data[-2*w:-w].mean() - data[-w:].mean()) > 2 * min_inc:
-            # data is corrected by filling last Window values 
-            # with mean from previous Window
-            fill = int(data[-2*w:-w].mean())
-            data[-w:] = fill
+        # min_inc = dif[dif>0].min()
+        # # correction is required, when average value
+        # # in the last Window differs from the previous Window
+        # # for more than 2 minimum data increment
+        # if abs(data[-2*w:-w].mean() - data[-w:].mean()) > 2 * min_inc:
+        #     # data is corrected by filling last Window values 
+        #     # with mean from previous Window
+        fill = int(data[-2*w:-w].mean())
+        data[-w:] = fill
         return data
 
     def _wait_trig(self, timeout: int=5000) -> bool:

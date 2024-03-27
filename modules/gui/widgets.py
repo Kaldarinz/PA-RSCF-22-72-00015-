@@ -392,7 +392,7 @@ class PgMap(pg.GraphicsLayoutWidget):
 
         self.clear_plot()
         self.data = data
-        logger.info(f'{self.data.blp=}')
+        # logger.info(f'{self.data.blp=}')
         # Set scan range
         self.set_scanrange(
             width = data.width,

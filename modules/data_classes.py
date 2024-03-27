@@ -661,8 +661,8 @@ class MeasuredPoint:
     `datetime`: `datetime` - Date and time of measurement.\n
     `pa_signal_raw`: ndarray - Raw PA signal.\n
     `pm_signal_raw`: ndarray - Raw PM signal.\n
-    `pa_signal`: `PlainQuantity[array]` - Sampled PA signal in [V/J].\n
-    `pm_signal`: `PlainQuantity[array]` - Sampled PM signal in [V].
+    `pa_signal`: `PlainQuantity[array]` - PA signal in physical units.\n
+    `pm_signal`: `PlainQuantity[array]` - PM signal in physical units.
     This signal is downsampled from `pm_signal_raw`.\n
     `dt`: `PlainQuantity` - Sampling interval for PA data.
     `dt_pm`: PlainQuantity - Sampling interval for PM data, could differ
@@ -671,8 +671,9 @@ class MeasuredPoint:
     relative to the begining of laser pulse.\n
     `stop_time`: `PlainQuantity` - Stop of PA signal sampling interval
     relative to the begining of laser pulse.\n
-    `yincrement`: `PlainQuantity` - Scaling factor to convert raw data to [V].\n
-    `max_amp`: `PlainQuantity` - Maximum PA amplitude in [V/J].\n
+    `yincrement`: `PlainQuantity` - Scaling factor to convert raw data to physical units.\n
+    `pm_yin`: `PlainQuantity` - Scaling factor to convert PM raw data to physical units."
+    `max_amp`: `PlainQuantity` - Maximum PA amplitude in physical units.\n
     `pm_energy`: `PlainQuantity` - Energy at PM in [J].\n
     `sample_en`: `PlainQuantity` - Energy at sample in [J].\n
     `wavelength`: `PlainQuantity` - Excitation laser wavelength.\n
@@ -762,6 +763,7 @@ class MeasuredPoint:
             # Normalize PA signal to sample energy
             new.pa_signal = new.pa_signal/new.sample_en
             new.max_amp = new.max_amp/new.sample_en
+            new.yincrement = new.yincrement/new.sample_en
             # Calculate time from start of pm_signal to trigger position
             _pm_start = data.pre_t[pm_ch_ind]
             _pa_start = data.pre_t[pa_ch_ind]
@@ -1302,9 +1304,10 @@ class MapData:
                 point = cast(MeasuredPoint|None, point)
                 if point is not None:
                     # Assume that signal attribute is PlainQuantity
-                    arr[index] = getattr(point, signal).m
                     if units is None:
                         units = getattr(point, signal).u
+                    arr[index] = getattr(point, signal).to(units).m
+                    
             return Q_(arr, units)
         
         x = get_coord('h')
