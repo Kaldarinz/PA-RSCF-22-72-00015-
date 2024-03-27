@@ -1447,6 +1447,46 @@ class MapData:
         logger.debug(f'get_scanned_pos took {int((time.time()-start)*1000)} ms')
         return np.array(res)
 
+    def get_bounded_rect(self, dpm: int) -> tuple[np.ndarray,np.ndarray]:
+        """Calculate coordinates of area for data interpolation"""
+
+        start = time.time()
+        for line_n, line in enumerate(self.lines):
+            f_pnt = line.raw_data[0]
+            l_pnt = line.raw_data[-1]
+            f_coord0 = getattr(f_pnt.pos, self.faxis).m
+            f_coord1 = getattr(l_pnt.pos, self.faxis).m
+            f_coord0, f_coord1 = sorted([f_coord0, f_coord1])
+            if line_n == 0:
+                # Save initial min and max along fast axis
+                f_min = f_coord0
+                f_max = f_coord1
+                # Save min value for slow axis
+                s_min = getattr(f_pnt.pos, self.saxis).m
+            else:
+                if f_coord0 > f_min:
+                    f_min = f_coord0
+                if f_coord1 < f_max:
+                    f_max = f_coord1
+            s_max = getattr(f_pnt.pos, self.saxis).m
+        s_min, s_max = sorted([s_min, s_max])
+
+        if self.scan_dir.startswith('H'):
+            x1 = f_min
+            x2 = f_max
+            y1 = s_min
+            y2 = s_max
+        else:
+            x1 = s_min
+            x2 = s_max
+            y1 = f_min
+            y2 = f_max
+
+        x_coords = np.linspace(x1, x2, int((x2-x1)*dpm)).reshape((1, -1))
+        y_coords = np.linspace(y1, y2, int((y2-y1)*dpm)).reshape((-1, 1))
+        logger.debug(f'get_bounded_rect took {int((time.time()-start)*1000)} ms')
+        return (x_coords, y_coords)
+
     def get_image_data(
             self,
             signal: str,
@@ -1472,26 +1512,10 @@ class MapData:
         """
 
         strart = time.time()
-        startp = self.startp
-        diagp = startp + Direction(self.fstep)*self.fsize + self.sstep*len(self.lines)
-        x1 = getattr(startp, self.haxis).m
-        x2 = getattr(diagp, self.haxis).m
-        y1 = getattr(startp, self.vaxis).m
-        y2 = getattr(diagp, self.vaxis).m
-        logger.info(f'{x1=}; {x2=}; {y1=}; {y2=}')
-        x_coords = np.linspace(
-            start = min(x1, x2),
-            stop = max(x1, x2),
-            num = int(abs(x2 - x1)*dpm)
-        ).reshape((1, -1))
-        y_coords = np.linspace(
-            start = min(y1, y2),
-            stop = max(y1, y2),
-            num = int(abs(y1 - y2)*dpm)
-        ).reshape((-1, 1))
+
         scanned_pos = self.get_scanned_pos()
         scanned_sig = self.get_scanned_sig(signal)
-
+        x_coords, y_coords = self.get_bounded_rect(dpm)
         # Interpolation will fail if we have only 1 scanned line
         if len(self.lines) < 2:
             result = np.full(
