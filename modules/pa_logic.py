@@ -799,6 +799,8 @@ def scan_2d(
         ]
         # Add measured points to scan line
         line._raw_sig = meas_points
+        # Trigger energy position calculation
+        line.raw_data
         # Add scanned line to scan
         scan.add_line(line)
         signals.progess.emit(line)

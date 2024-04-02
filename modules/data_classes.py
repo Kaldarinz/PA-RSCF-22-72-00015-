@@ -1028,12 +1028,12 @@ class ScanLine:
 
         # Remove duplicated edge values
         dups = 0
+        istart = 0
+        istop = len(result) - 1
         if trim_edges:
-            istart = 0
             while result[istart + 1].pos == start:
                 istart += 1
                 dups += 1
-            istop = len(result) - 1
             while result[istop - 1].pos == stop:
                 istop -= 1
                 dups += 1
@@ -1048,14 +1048,14 @@ class ScanLine:
         # if positions and signals were added, then calculate results
         # otherwise it is supposed that MeasuredPoints were setted.
         if len(self._raw_pos) and len(self._raw_sig):
-            return self.calc_scan_coord(
+            if not len(self._raw_data):
+                self._raw_data = self.calc_scan_coord(
                 signals = self._raw_sig,
                 poses = self._raw_pos,
                 start = self.startp,
                 stop = self.stopp
             )
-        else:
-            return self._raw_data
+        return self._raw_data
     @raw_data.setter
     def raw_data(self, val: list[MeasuredPoint]) -> None:
         self._raw_data = val
@@ -1395,7 +1395,10 @@ class MapData:
 
         tstart = time.time()
         if len(self._plot_sigs) == 0:
-            self._plot_sigs.append(copy.deepcopy(self.lines[0].raw_data))
+            # Do not forget to sort data in the first line
+            line_points = copy.deepcopy(self.lines[0].raw_data)
+            line_points.sort(key = lambda x: getattr(x.pos, self.faxis))
+            self._plot_sigs.append(line_points)
         # Amount of cashed scan lines
         icashed = int((len(self._plot_sigs) + 1)/2)
         # Create a deep copy of new data
