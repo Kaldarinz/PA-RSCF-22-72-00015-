@@ -352,6 +352,7 @@ class Oscilloscope:
         for i, read_flag in enumerate([read_ch1, read_ch2]):
             if read_flag:
                 # logger.debug(f'Starting screen read from {self.CH_IDS[i]}')
+                self._wait_trig()
                 data_raw = self._read_scr_data(i)
                 if smooth:
                     data_raw = self.rolling_average(data_raw)
