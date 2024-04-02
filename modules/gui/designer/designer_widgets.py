@@ -102,6 +102,11 @@ from ..widgets import (
 from ..compound_widgets import(
     PointView
 )
+from ...pa_logic import (
+    move_to,
+    set_stages_speed,
+     wait_all_stages
+)
 
 logger = logging.getLogger(__name__)
 

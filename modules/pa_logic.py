@@ -397,6 +397,28 @@ def set_stages_speed(
         logger.debug(f'New {axes} stage speed is {set_speed}.')
     return set_speed
 
+def get_stages_speed(
+       priority: int=Priority.NORMAL,
+       axis: str | None=None,
+        **kwargs
+    ) -> PlainQuantity:
+
+    logger.debug(f'Start getting stage speed.')
+    if axis is None:
+        axis, stage = next(iter(hardware.stages.items()))
+    else:
+        stage = hardware.stages[axis]
+    vel_params = _stage_call.submit(
+        priority,
+        stage.get_velocity_parameters
+    )
+    if isinstance(vel_params, ActorFail):
+        logger.info(f'Velocity cannot be get for {axis} stage.')
+        return Q_(np.nan, 'm/s')
+    set_speed = Q_(vel_params.max_velocity, 'm/s')
+    logger.debug(f'{axis} stage velocity is {set_speed}.')
+    return set_speed
+
 def stages_status(
         priority: int=Priority.LOW,
         **kwargs
@@ -749,6 +771,14 @@ def scan_2d(
         priority = priority,
         func = hardware.osc.set_measurement
     )
+    # Move to start point
+    logger.info('Moving to scan start position.')
+    scan_speed = get_stages_speed()
+    set_stages_speed(Q_(2, 'mm/s'))
+    move_to(scan.startp)
+    wait_all_stages()
+    set_stages_speed(scan_speed)
+    logger.info('At scan start position.')
     # Scan loop
     for line_ind in range(scan.spoints):
         # Create scan line
@@ -757,16 +787,10 @@ def scan_2d(
             logger.error('Unexpected end of scan.')
             return scan
         # move to line  starting point
-        if not line_ind:
-            logger.info('Moving to scan start position.')
-        else:
-            logger.info('Moving to next line.')
+        logger.info('Moving to next line.')
         move_to(line.startp)
         wait_all_stages()
-        if not line_ind:
-            logger.info('At scan start position.')
-        else:
-            logger.info('Line scan strating.')
+        logger.info('Line scan strating.')
         # Launch energy measurements
         comm_en, result_en, tkwargs = set_cont(
             dtype = SCAN_MODES[scan.mode],
