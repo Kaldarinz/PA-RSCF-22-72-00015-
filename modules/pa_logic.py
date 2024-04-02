@@ -60,6 +60,9 @@ from .data_classes import (
     MeasuredPoint,
     WorkerFlags
 )
+from .exceptions import (
+    OscIOError
+)
 from .constants import (
     Priority,
     SCAN_MODES
@@ -834,9 +837,9 @@ def __meas_cont(
             )
             break
         logger.debug(f'Prepare to measure {comm.count} at {t=}')
-        msmnt = called_func(*args, **kwargs)
-        # Skip bad reads
-        if msmnt is None:
+        try:
+            msmnt = called_func(*args, **kwargs)
+        except OscIOError:
             continue
         # Add only unique measurements
         if len(result):

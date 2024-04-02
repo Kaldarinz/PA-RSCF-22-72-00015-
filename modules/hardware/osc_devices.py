@@ -266,8 +266,7 @@ class Oscilloscope:
 
         Accept the same arguments as `measure` and functions similarly,
         but assume that oscilloscope parameters did not change since
-        last `set_measurement` call and do not request any additional
-        data.
+        last `set_measurement` call and dont update osc state params.
         """
         start = time.time()
         logger.debug(
