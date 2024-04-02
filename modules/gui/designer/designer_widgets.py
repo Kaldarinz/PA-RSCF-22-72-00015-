@@ -1504,6 +1504,9 @@ class PowerMeterMonitor(QWidget,pm_monitor_ui.Ui_Form):
     ``plot_left`` and ``plot_right``.
     """
 
+    togle_msmnt = Signal(bool)
+    "Signal to start or stop energy measurement."
+
     def __init__(
             self,
             parent: QWidget | None=None,
@@ -1531,11 +1534,17 @@ class PowerMeterMonitor(QWidget,pm_monitor_ui.Ui_Form):
 
         # Start button
         self.btn_start.toggled.connect(
-            lambda enable: self.btn_pause.setChecked(not enable)
+            lambda enable: btn_set_silent(self.btn_pause, not enable)
+        )
+        self.btn_start.toggled.connect(
+            lambda enable: self.togle_msmnt.emit(enable)
         )
         # Pause button
         self.btn_pause.toggled.connect(
-            lambda enable: self.btn_start.setChecked(not enable)
+            lambda enable: btn_set_silent(self.btn_start, not enable)
+        )
+        self.btn_pause.toggled.connect(
+            lambda enable: self.togle_msmnt.emit(not enable)
         )
 
         ### Stop button
@@ -1552,6 +1561,10 @@ class PowerMeterMonitor(QWidget,pm_monitor_ui.Ui_Form):
         )
         self.btn_stop.clicked.connect(
             lambda: self.plot_right.clear_plot()
+        )
+        # Emit stop signal
+        self.btn_stop.clicked.connect(
+            lambda: self.togle_msmnt.emit(False)
         )
 
     def add_msmnt(self, measurement: EnergyMeasurement) -> None:

@@ -243,7 +243,7 @@ class Oscilloscope:
                 self.post_t[i] = (duration - trig_offset)
         self._ch_points()
         
-        # Set Y scales for both channels
+        # Read Y scales for both channels
         for i in range(self.CHANNELS):
             self._write([':WAV:SOUR ' + self.CH_IDS[i]])
             yinc = self._query(':WAV:YINC?')

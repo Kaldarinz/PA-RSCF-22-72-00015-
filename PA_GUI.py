@@ -634,6 +634,8 @@ class Window(QMainWindow,Ui_MainWindow,):
                 scan = scan,
                 speed = self.p_map.sb_cur_speed.quantity
         )
+        # Disable screen energy measurement
+        self.enable_pm(False)
         self.p_map.scan_worker = scan_worker
         scan_worker.signals.progess.connect(self.p_map.plot_scan.upd_scan)
         scan_worker.signals.finished.connect(self.p_map.scan_finished)
@@ -722,8 +724,6 @@ class Window(QMainWindow,Ui_MainWindow,):
         if pa_logic.osc_open():
             if not self.timer_pm.isActive():
                 self.timer_pm.timeout.connect(self.upd_pm)
-                self.timer_pm.start()
-                logger.info('Energy measurement cycle started!')
         else:
             logger.info('Failed to start energy mesurement cycle!')
 
@@ -747,6 +747,16 @@ class Window(QMainWindow,Ui_MainWindow,):
         )
         self.pool.start(pm_worker)
 
+    def enable_pm(self, enable: bool) -> None:
+        """Enable screen energy measurement."""
+
+        if enable and not self.timer_pm.isActive():
+            self.timer_pm.start()
+            logger.info('Energy measurement cycle started!')
+        elif not enable and self.timer_pm.isActive():
+            self.timer_pm.stop()
+            logger.info('Energy measurement cycle stopped!')
+
     def upd_motor(self) -> None:
         """Update information on motors widget."""
 
@@ -768,7 +778,10 @@ class Window(QMainWindow,Ui_MainWindow,):
         ) -> None:
         """Initialize power meter monitor."""
 
+        # Provide energy result to the monitor
         self.energy_measured.connect(monitor.add_msmnt)
+        # Allow energy measurement start/stop
+        monitor.togle_msmnt.connect(self.enable_pm)
 
     def start_cb_worker(
             self,

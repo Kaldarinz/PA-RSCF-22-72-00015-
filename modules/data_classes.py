@@ -830,24 +830,24 @@ class MeasuredPoint:
         Return decimated data and decimation factor.
         """
 
-        logger.debug(f'Starting decimation data with {len(data)} size.')
+        # logger.debug(f'Starting decimation data with {len(data)} size.')
         factor = int(len(data)/target)
         if factor == 0:
-            logger.debug('...Terminatin. Decimation is not required.')
+            # logger.debug('...Terminatin. Decimation is not required.')
             return (data, 1)
-        logger.debug(f'Decimation factor = {factor}')
+        # logger.debug(f'Decimation factor = {factor}')
         iterations = int(math.log10(factor))
         rem = factor//10**iterations
         decim_factor = 1
         for i in range(iterations):
             data = decimate(data, 10) # type: ignore
-            logger.debug(f'{len(data)=} after decim step {i}')
+            # logger.debug(f'{len(data)=} after decim step {i}')
             decim_factor *=10
-            logger.debug(f'Curr {decim_factor=}')
+            # logger.debug(f'Curr {decim_factor=}')
         if rem > 1:
             data = decimate(data, rem) # type: ignore
             decim_factor *=rem
-        logger.debug(f'...Finishing. Final size is {len(data)}')
+        # logger.debug(f'...Finishing. Final size is {len(data)}')
         return data, decim_factor
 
 class ScanLine:
@@ -2091,7 +2091,7 @@ class PriorityQueue:
         Return operation status.
         """
 
-        if priority < 3 and self.nitems > 5:
+        if priority < 3 and self.nitems > 3:
             logger.debug('Too many calls, skipping low priority task.')
             return False
         with self._cv:
