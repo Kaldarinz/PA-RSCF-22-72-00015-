@@ -1933,7 +1933,7 @@ class MapData:
         return self._scan_plane
     @scan_plane.setter
     def scan_plane(self, val: str) -> None:
-        if val.upper() not in ['XY', 'YZ', 'ZX']:
+        if val.upper() not in ['XY', 'YZ', 'XZ']:
             raise ValueError
         self._scan_plane = val.upper()
 
