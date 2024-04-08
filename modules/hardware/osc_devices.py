@@ -853,7 +853,7 @@ class Oscilloscope:
 class PowerMeter:
     
     ###DEFAULTS###
-    SENS = 2888 #scalar coef to convert integral readings into [mJ]
+    SENS = 2310 #scalar coef to convert integral readings into [mJ]
     BL_LENGTH = Oscilloscope.BL_LENGTH
 
     ch: int # channel ID number

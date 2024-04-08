@@ -283,9 +283,12 @@ def glan_calc(
     fit = np.poly1d(coef)
 
     #return the value of polynom at energy
-    sample_en = fit(energy.to('uJ').m)*ureg.uJ
-    logger.debug(f'Calculated sample energy {str(sample_en)}.')
-    return sample_en
+    sample_en = fit(energy.to('uJ').m)
+    if sample_en <=0:
+        logger.warning('Wrong sample energy')
+        return Q_(0, 'uJ')
+    logger.debug(f'Calculated sample energy {str(sample_en)} uJ.')
+    return sample_en*ureg.uJ
 
 def calc_sample_en(
         wavelength: PlainQuantity,

@@ -1,19 +1,13 @@
 # Calibration data for the glan prism used to control energy in the system.
 # The first column is energy [uJ], measured at glass reflection.
 # The second column is energy [uJ], measured at sample.
-11	158
-23	325
-30 300
-31 358
-32 395
-34	440
-39 443
-40 491
-46 509
-53 604
-54	770
-96	1300
-136	1840
-190	2600
-283	3900
-660	9700
+4.7 51
+8.7 98
+17  230
+25  330
+37  490
+47  700
+100 1462
+200 2954
+300 4447
+500 7431
