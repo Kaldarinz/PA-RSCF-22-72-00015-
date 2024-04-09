@@ -341,6 +341,9 @@ class Window(QMainWindow,Ui_MainWindow,):
                 pa_logic.move_to,
                 new_pos = pos)
         )
+        self.d_motors.pos_selected.connect(
+            lambda pos: logger.info(f'Motors sent to:{pos=}'))
+        
         # Break al stages
         self.d_motors.btn_stop.clicked.connect(
             lambda: self.start_worker(pa_logic.break_all_stages)

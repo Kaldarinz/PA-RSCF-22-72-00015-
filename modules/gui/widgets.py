@@ -786,6 +786,15 @@ class PgMap(pg.GraphicsLayoutWidget):
             rect = [x, y, w, h]
         )
 
+    def remove_bar(self) -> None:
+        """Remove color bar from map."""
+
+        try:
+            self.removeItem(self._bar)
+            self.removeItem(self._hist)
+        except:
+            pass
+
     def _pick_point(self, event: MouseClickEvent) -> Position:
         """Calculate position of a mouse click."""
         # This return correct coordinates

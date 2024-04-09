@@ -1680,6 +1680,11 @@ class MotorView(QDockWidget, motor_control_ui.Ui_DockWidget):
         self.plot_xz.abs_coords = True
         self.plot_yz.abs_coords = True
 
+        # Remove colorbars
+        self.plot_xy.remove_bar()
+        self.plot_xz.remove_bar()
+        self.plot_yz.remove_bar()
+
         self.pixmap_c = QPixmap(
             u":/icons/qt_resources/plug-connect.png"
         )
@@ -1691,13 +1696,15 @@ class MotorView(QDockWidget, motor_control_ui.Ui_DockWidget):
 
         # Set default range
         self.set_range(
-            (Q_(25, 'mm'), Q_(25, 'mm'))
+            (Q_(0, 'mm'), Q_(25, 'mm'))
         )
 
         # Set initial position of plots
         self.plot_xy.set_cur_pos(Position(x = self.x, y = self.y))
         self.plot_xz.set_cur_pos(Position(x = self.x, z = self.z))
         self.plot_yz.set_cur_pos(Position(y = self.y, z = self.z))
+
+        self.connectSignalsSlots()
 
     def connectSignalsSlots(self) -> None:
         """Connect default signals and slots."""
@@ -1745,9 +1752,9 @@ class MotorView(QDockWidget, motor_control_ui.Ui_DockWidget):
         min_val = range[0].to('mm').m
         max_val = range[1].to('mm').m
         
-        self.plot_xy.set_scanrange(*range)
-        self.plot_xz.set_scanrange(*range)
-        self.plot_yz.set_scanrange(*range)
+        self.plot_xy.set_scanrange(range[1], range[1])
+        self.plot_xz.set_scanrange(range[1], range[1])
+        self.plot_yz.set_scanrange(range[1], range[1])
 
         # Set plot titles
         self.plot_xy.hlabel = 'X'
@@ -1762,6 +1769,7 @@ class MotorView(QDockWidget, motor_control_ui.Ui_DockWidget):
             self.sb_y_new_pos,
             self.sb_z_new_pos
         ]):
+            logger.info(f'{min_val=}; {max_val=}')
             sb.setMinimum(min_val)
             sb.setMaximum(max_val)
 
