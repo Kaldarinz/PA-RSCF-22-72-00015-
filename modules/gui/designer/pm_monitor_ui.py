@@ -95,7 +95,7 @@ class Ui_Form(object):
         self.le_sample.setObjectName(u"le_sample")
         sizePolicy.setHeightForWidth(self.le_sample.sizePolicy().hasHeightForWidth())
         self.le_sample.setSizePolicy(sizePolicy)
-        self.le_sample.setMinimumSize(QSize(50, 0))
+        self.le_sample.setMinimumSize(QSize(70, 0))
         self.le_sample.setMaximumSize(QSize(50, 16777215))
 
         self.horizontalLayout_9.addWidget(self.le_sample)
@@ -109,8 +109,8 @@ class Ui_Form(object):
         self.le_cnt.setObjectName(u"le_cnt")
         sizePolicy.setHeightForWidth(self.le_cnt.sizePolicy().hasHeightForWidth())
         self.le_cnt.setSizePolicy(sizePolicy)
-        self.le_cnt.setMinimumSize(QSize(0, 20))
-        self.le_cnt.setMaximumSize(QSize(50, 16777215))
+        self.le_cnt.setMinimumSize(QSize(30, 20))
+        self.le_cnt.setMaximumSize(QSize(30, 16777215))
 
         self.horizontalLayout_9.addWidget(self.le_cnt)
 

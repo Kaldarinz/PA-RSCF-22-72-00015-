@@ -1592,7 +1592,13 @@ class PowerMeterMonitor(QWidget,pm_monitor_ui.Ui_Form):
             self.le_cur_en.setText(form_quant(self.measured_en[-1]))
             mean_val = msmnts.mean() # type: ignore
             self.le_aver_en.setText(form_quant(mean_val))
-            self.le_sample.setText(form_quant(hutils.glan_calc(mean_val)))
+            sample_en = hutils.glan_calc(mean_val)
+            if sample_en is not None:
+                sample_en.ito('mJ')
+                sample_en_str = f'{sample_en:.3f~P}'
+            else:
+                sample_en_str = ''
+            self.le_sample.setText(sample_en_str)
             self.le_std_en.setText(form_quant(msmnts.std())) # type: ignore
             self.le_cnt.setText(f'{len(self.measured_en)}')
         else:
@@ -1600,7 +1606,6 @@ class PowerMeterMonitor(QWidget,pm_monitor_ui.Ui_Form):
             self.le_cur_en.setText('')
             self.le_std_en.setText('')
             self.le_cnt.setText('0')
-
 
     def add_msmnt(self, measurement: EnergyMeasurement) -> None:
         """"Add energy measurement."""
