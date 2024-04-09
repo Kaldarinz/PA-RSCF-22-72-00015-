@@ -86,6 +86,34 @@ class Ui_Form(object):
 
         self.horizontalLayout_9.addWidget(self.le_std_en)
 
+        self.lbl_sample = QLabel(Form)
+        self.lbl_sample.setObjectName(u"lbl_sample")
+
+        self.horizontalLayout_9.addWidget(self.lbl_sample)
+
+        self.le_sample = QLineEdit(Form)
+        self.le_sample.setObjectName(u"le_sample")
+        sizePolicy.setHeightForWidth(self.le_sample.sizePolicy().hasHeightForWidth())
+        self.le_sample.setSizePolicy(sizePolicy)
+        self.le_sample.setMinimumSize(QSize(50, 0))
+        self.le_sample.setMaximumSize(QSize(50, 16777215))
+
+        self.horizontalLayout_9.addWidget(self.le_sample)
+
+        self.lbl_cnt = QLabel(Form)
+        self.lbl_cnt.setObjectName(u"lbl_cnt")
+
+        self.horizontalLayout_9.addWidget(self.lbl_cnt)
+
+        self.le_cnt = QLineEdit(Form)
+        self.le_cnt.setObjectName(u"le_cnt")
+        sizePolicy.setHeightForWidth(self.le_cnt.sizePolicy().hasHeightForWidth())
+        self.le_cnt.setSizePolicy(sizePolicy)
+        self.le_cnt.setMinimumSize(QSize(0, 20))
+        self.le_cnt.setMaximumSize(QSize(50, 16777215))
+
+        self.horizontalLayout_9.addWidget(self.le_cnt)
+
         self.btn_start = QPushButton(Form)
         self.btn_start.setObjectName(u"btn_start")
         font = QFont()
@@ -174,9 +202,11 @@ class Ui_Form(object):
 
     def retranslateUi(self, Form):
         Form.setWindowTitle(QCoreApplication.translate("Form", u"Form", None))
-        self.lbl_cur_en.setText(QCoreApplication.translate("Form", u"Current Energy:", None))
-        self.lbl_aver_en.setText(QCoreApplication.translate("Form", u"Average Energy:", None))
-        self.lbl_std_en.setText(QCoreApplication.translate("Form", u"std:", None))
+        self.lbl_cur_en.setText(QCoreApplication.translate("Form", u"Energy:", None))
+        self.lbl_aver_en.setText(QCoreApplication.translate("Form", u"Aver Energy:", None))
+        self.lbl_std_en.setText(QCoreApplication.translate("Form", u"Std:", None))
+        self.lbl_sample.setText(QCoreApplication.translate("Form", u"Aver Sample Energy", None))
+        self.lbl_cnt.setText(QCoreApplication.translate("Form", u"Counts:", None))
         self.btn_start.setText(QCoreApplication.translate("Form", u"START", None))
         self.btn_pause.setText(QCoreApplication.translate("Form", u"PAUSE", None))
         self.btn_stop.setText(QCoreApplication.translate("Form", u"STOP", None))

@@ -44,7 +44,7 @@
      <item>
       <widget class="QLabel" name="lbl_cur_en">
        <property name="text">
-        <string>Current Energy:</string>
+        <string>Energy:</string>
        </property>
       </widget>
      </item>
@@ -79,7 +79,7 @@
      <item>
       <widget class="QLabel" name="lbl_aver_en">
        <property name="text">
-        <string>Average Energy:</string>
+        <string>Aver Energy:</string>
        </property>
       </widget>
      </item>
@@ -114,7 +114,7 @@
      <item>
       <widget class="QLabel" name="lbl_std_en">
        <property name="text">
-        <string>std:</string>
+        <string>Std:</string>
        </property>
       </widget>
      </item>
@@ -143,6 +143,64 @@
        </property>
        <property name="readOnly">
         <bool>true</bool>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLabel" name="lbl_sample">
+       <property name="text">
+        <string>Aver Sample Energy</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLineEdit" name="le_sample">
+       <property name="sizePolicy">
+        <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+         <horstretch>0</horstretch>
+         <verstretch>0</verstretch>
+        </sizepolicy>
+       </property>
+       <property name="minimumSize">
+        <size>
+         <width>50</width>
+         <height>0</height>
+        </size>
+       </property>
+       <property name="maximumSize">
+        <size>
+         <width>50</width>
+         <height>16777215</height>
+        </size>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLabel" name="lbl_cnt">
+       <property name="text">
+        <string>Counts:</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLineEdit" name="le_cnt">
+       <property name="sizePolicy">
+        <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+         <horstretch>0</horstretch>
+         <verstretch>0</verstretch>
+        </sizepolicy>
+       </property>
+       <property name="minimumSize">
+        <size>
+         <width>0</width>
+         <height>20</height>
+        </size>
+       </property>
+       <property name="maximumSize">
+        <size>
+         <width>50</width>
+         <height>16777215</height>
+        </size>
        </property>
       </widget>
      </item>

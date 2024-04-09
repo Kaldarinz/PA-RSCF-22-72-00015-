@@ -72,10 +72,12 @@ def start_cb_worker(
         worker.signals.result.connect(callback)
         pool.start(worker)
 
-def form_quant(quant: PlainQuantity) -> str:
+def form_quant(quant: PlainQuantity|None) -> str:
     """Format str representation of a quantity."""
 
-    return f'{quant:~.2gP}'
+    if quant is None:
+         return ''
+    return f'{quant.to_compact():.3f~P}'
 
 def btn_set_silent (btn: QPushButton, state: bool) -> None:
     """Set state of a button without triggering signals."""

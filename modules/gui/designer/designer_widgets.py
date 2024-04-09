@@ -1528,7 +1528,8 @@ class PowerMeterMonitor(QWidget,pm_monitor_ui.Ui_Form):
         self.setupUi(self)
         self.tune_width = tune_width
         self.qu = deque(maxlen = self.tune_width)
-        self.aver = aver
+        self.cnt = 0
+        self.measured_en: list[PlainQuantity] = []
         self.connect_signals_slots()
 
         self.plot_left.set_pts_visible(False)
@@ -1572,6 +1573,35 @@ class PowerMeterMonitor(QWidget,pm_monitor_ui.Ui_Form):
             lambda: self.togle_msmnt.emit(False)
         )
 
+        #Clear msmnt labels
+        self.togle_msmnt.connect(self.set_lbls)
+
+    def set_lbls(self, clear: bool=False) -> None:
+        """
+        Update energy labels.
+        
+        Attributes
+        ----------
+        `clear` - optional flag to clear data.
+        """
+        if clear:
+            self.measured_en = []
+
+        if len(self.measured_en):
+            msmnts = Q_.from_list(self.measured_en)
+            self.le_cur_en.setText(form_quant(self.measured_en[-1]))
+            mean_val = msmnts.mean() # type: ignore
+            self.le_aver_en.setText(form_quant(mean_val))
+            self.le_sample.setText(form_quant(hutils.glan_calc(mean_val)))
+            self.le_std_en.setText(form_quant(msmnts.std())) # type: ignore
+            self.le_cnt.setText(f'{len(self.measured_en)}')
+        else:
+            self.le_aver_en.setText('')
+            self.le_cur_en.setText('')
+            self.le_std_en.setText('')
+            self.le_cnt.setText('0')
+
+
     def add_msmnt(self, measurement: EnergyMeasurement) -> None:
         """"Add energy measurement."""
 
@@ -1582,12 +1612,7 @@ class PowerMeterMonitor(QWidget,pm_monitor_ui.Ui_Form):
         # Check if measurement is not empty
         if measurement.energy.m is np.nan:
             return
-        # Skip duplicate read
-        if np.array_equal(
-            measurement.signal.m,
-            self.plot_left.ydata
-        ):
-            return
+
         # Plot signal
         self.plot_left.plot(measurement.signal)
         self.plot_left.set_marker(measurement.istart)
@@ -1604,14 +1629,9 @@ class PowerMeterMonitor(QWidget,pm_monitor_ui.Ui_Form):
             ytune = np.array(self.qu)
             self.plot_right.plot(Q_(ytune, energy.u))
         
-        # Update line edits with energy info
-        units = self.plot_right.yunits
-        ytune = self.plot_right.ydata
-        self.le_cur_en.setText(form_quant(measurement.energy))
-        aver = Q_(ytune.mean(), units)
-        self.le_aver_en.setText(form_quant(aver))
-        std = Q_(ytune.std(), units)
-        self.le_std_en.setText(form_quant(std))
+        # Update labels with energy info
+        self.measured_en.append(measurement.energy)
+        self.set_lbls()
 
 class MapView(QWidget, map_data_view_ui.Ui_Map_view):
     """Plots for 2D data."""

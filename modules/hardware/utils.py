@@ -253,7 +253,7 @@ def glan_calc_reverse(
     return energy
 
 def glan_calc(
-        energy: PlainQuantity,
+        energy: PlainQuantity|None,
         fit_order: int=1
     ) -> PlainQuantity|None:
     """
@@ -262,6 +262,8 @@ def glan_calc(
     Do not interact with hardware.
     """
 
+    if energy is None:
+        return
     # logger.debug('Starting sample energy calculation...')
     sub_folder = 'rsc'
     filename = 'GlanCalibr.txt'
