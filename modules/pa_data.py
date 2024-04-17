@@ -694,7 +694,6 @@ class PaData:
                 comments=''
             )    
 
-
     @staticmethod
     def _build_name(n: int, name: str='point') -> str:
         """
@@ -714,10 +713,14 @@ class PaData:
         ) -> PlotData:
         """Get main data for plotting.
         
+        Attributes
+        ----------
         ``msmnt`` - measurement, from which to plot data.\n
         ``type`` - type of data to return can be 'filt_data' or 'raw_data'\n
         ``value`` - property of the data to be represented.\n
-        Return a tuple, which contain [ydata, xdata, ylabel, xlabel].
+        Return
+        ------
+        PlotData instance. `yerr` is 2 standard deviations.
         """
         
         xdata = PaData.get_dependance(
@@ -745,7 +748,7 @@ class PaData:
         y_label = sample.y_var_name
         result = PlotData(
             ydata = ydata[0],
-            yerr = ydata[1].to(ydata[0].u),
+            yerr = ydata[1].to(ydata[0].u)*2,
             xdata = xdata[0],
             xerr = xdata[1].to(xdata[0].u),
             ylabel = y_label,
