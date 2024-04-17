@@ -612,22 +612,22 @@ class PaData:
 
         params = []
         for msmnt_title, msmnt in self.measurements.items():
-            points = []
+            points = [
+                {
+                    'name': 'Select all data',
+                    'type': 'bool',
+                    'value': False
+                }     
+            ]
             for pnt_title, pnt in msmnt.data.items():
-                samples = []
-                for sample_title in pnt.raw_data:
-                    samples.append(
-                        {
-                            'name': sample_title,
-                            'type': 'bool',
-                            'value': False
-                        }
-                    )
+                samples = [title for title in pnt.raw_data]
                 points.append(
                     {
                         'name': pnt_title,
-                        'type': 'group',
-                        'children': samples
+                        'type': 'checklist',
+                        'limits': samples,
+                        'value': '',
+                        'default': samples
                     }
                 )
             params.append(

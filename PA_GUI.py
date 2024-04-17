@@ -30,7 +30,10 @@ from pint.facets.plain.quantity import PlainQuantity
 import PySide6
 import pyqtgraph as pg
 from pyqtgraph.parametertree import Parameter, ParameterTree
-from pyqtgraph.parametertree.parameterTypes import GroupParameter
+from pyqtgraph.parametertree.parameterTypes import (
+    GroupParameter,
+    ChecklistParameter
+)
 from PySide6.QtCore import (
     Qt,
     QThread,
@@ -536,6 +539,7 @@ class Window(QMainWindow,Ui_MainWindow,):
     def export_data(self) -> None:
         """Export data to txt."""
 
+        # Create widget for data selection
         self.export_diag = QWidget()
         self.export_diag.setWindowFlag(Qt.WindowType.WindowStaysOnTopHint)
         self.export_diag.setWindowTitle('Choose data to export')
@@ -546,6 +550,18 @@ class Window(QMainWindow,Ui_MainWindow,):
             type = 'group',
             children = self.data_viewer.data.get_content() # type: ignore
         )
+        # Enable 'select all data' btn
+        def select_all_data(sel_param: Parameter, val: bool) -> None:
+            msmnt_param = sel_param.parent()
+            for ch in msmnt_param: # type: ignore
+                if isinstance(ch, ChecklistParameter):
+                    if val:
+                        ch.setToDefault()
+                    else:
+                        ch.setValue('')
+        for ch in p:
+            ch.names['Select all data'].sigValueChanged.connect(select_all_data)
+        
         config = Parameter.create(
             name = 'Config',
             type = 'group',
