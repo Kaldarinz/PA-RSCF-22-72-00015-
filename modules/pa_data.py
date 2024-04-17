@@ -640,59 +640,125 @@ class PaData:
         
         return params
 
+    def get_dtypes_for_export(self) -> list[str]:
+        """Get types of information available for export."""
+
+        dtypes = ['Raw data']
+        for field in fields(BaseData):
+            # For BaseData we should not include data iself
+            # in the description
+            if field.name in ['data', 'data_raw']:
+                continue
+            dtypes.append(field.name)
+        for field in fields(PointMetadata):
+            dtypes.append(field.name)
+        return dtypes
+
     def export_data(
             self,
             filename: str,
+            dtype: str,
             selected: OrderedDict) -> None:
 
+        # Headers for data
         hdr_msmnts = []
         hdr_pts = []
         hdr_sample = []
         hdr_units = []
+        hdr_signals = []
         data = None
         for msmnt_title, msmnt in selected.items():
             if (e_msmnt:=self.measurements.get(msmnt_title, None)) is not None:
                 for pnt_title, pnt in e_msmnt.data.items():
                     for sample_title, sample in pnt.raw_data.items():
                         if msmnt[1][pnt_title][1][sample_title][0]:
-                            hdr_msmnts += [msmnt_title]*2
-                            hdr_pts += [pnt_title]*2
-                            hdr_sample += [sample_title]*2
-                            hdr_units.append(str(sample.x_var_step.u))
-                            hdr_units.append(str(sample.data.u))
-                            if data is None:
-                                data = np.linspace(
-                                    sample.x_var_start.m,
-                                    sample.x_var_stop.m,
-                                    e_msmnt.attrs.max_len
-                                )[:, np.newaxis]
-                            else:
-                                data = np.hstack(
-                                    (
-                                        data,
-                                        np.linspace(
-                                            sample.x_var_start.m,
-                                            sample.x_var_stop.m,
-                                            e_msmnt.attrs.max_len
-                                        )[:, np.newaxis]
+                            # If raw data is requested
+                            if dtype == 'Raw data':
+                                hdr_msmnts += [msmnt_title]*2
+                                hdr_pts += [pnt_title]*2
+                                hdr_sample += [sample_title]*2
+                                hdr_signals += [dtype]*2
+                                hdr_units.append(str(sample.x_var_step.u))
+                                hdr_units.append(str(sample.data.u))
+                                if data is None:
+                                    data = np.linspace(
+                                        sample.x_var_start.m,
+                                        sample.x_var_stop.m,
+                                        e_msmnt.attrs.max_len
+                                    )[:, np.newaxis]
+                                else:
+                                    data = np.hstack(
+                                        (
+                                            data,
+                                            np.linspace(
+                                                sample.x_var_start.m,
+                                                sample.x_var_stop.m,
+                                                e_msmnt.attrs.max_len
+                                            )[:, np.newaxis]
+                                        )
                                     )
-                                )
-                            data = np.hstack((data, sample.data.m[:,np.newaxis]))
+                                data = np.hstack((data, sample.data.m[:,np.newaxis]))
+                                continue
+                            hdr_msmnts += [msmnt_title]
+                            hdr_pts += [pnt_title]
+                            hdr_sample += [sample_title]
+                            hdr_signals += [dtype]
+                            # If dtype in BaseData attributes
+                            if dtype in [fld.name for fld in fields(BaseData)]:
+                                cur_val = getattr(sample, dtype)
+                            else:
+                                cur_val = getattr(pnt.attrs, dtype)
+                            if isinstance(cur_val, PlainQuantity):
+                                hdr_units.append(str(cur_val.u))
+                                if data is None:
+                                    data = np.array([cur_val.m])[:, np.newaxis]
+                                else:
+                                    data = np.hstack(
+                                        (
+                                            data,
+                                            np.array([cur_val.m])[:, np.newaxis]
+                                        )
+                                    )
+                            else:
+                                hdr_units += ' '
+                                if data is None:
+                                    data = np.array([str(cur_val)])[:, np.newaxis]
+                                else:
+                                    data = np.hstack(
+                                        (
+                                            data,
+                                            np.array([str(cur_val)])[:, np.newaxis]
+                                        )
+                                    )
+                                 
         if data is not None:
             delim = selected['Config'][1]['delimeter'][0]
             fmt = selected['Config'][1]['format'][0]
             header = delim.join(hdr_msmnts) + '\n'
             header += delim.join(hdr_pts) + '\n'
             header += delim.join(hdr_sample) + '\n'
-            header += delim.join(hdr_units)
-            np.savetxt(
+            header += delim.join(hdr_units) + '\n'
+            header += delim.join(hdr_signals)
+            # Save txt data type
+            if data.dtype.char == 'U':
+                np.savetxt(
                 fname = filename,
                 X = data,
                 delimiter = delim,
-                fmt = fmt,
+                fmt = '%s',
                 header = header,
-                comments=''
-            )    
+                comments = ''
+            )
+            # Save numeric data type
+            else:
+                np.savetxt(
+                    fname = filename,
+                    X = data,
+                    delimiter = delim,
+                    fmt = fmt,
+                    header = header,
+                    comments = ''
+                )    
 
     @staticmethod
     def _build_name(n: int, name: str='point') -> str:

@@ -567,9 +567,15 @@ class Window(QMainWindow,Ui_MainWindow,):
             type = 'group',
             children = [
                 {'name': 'delimeter', 'type': 'str', 'value': ';'},
-                {'name': 'format', 'type': 'str', 'value': r'%10.6e'}
+                {'name': 'format', 'type': 'str', 'value': r'%10.6e'},
+                {
+                    'name': 'Data Type',
+                    'type': 'list',
+                    'limits': self.data_viewer.data.get_dtypes_for_export() # type: ignore
+                }
             ]
         )
+
         p.insertChild(0, config)
         # Collapse all
         def activate(param):
@@ -589,7 +595,10 @@ class Window(QMainWindow,Ui_MainWindow,):
                 dir=initial_dir,
                 filter='Text file (*.txt)'
             )[0]
-            self.data_viewer.data.export_data(filename, p.getValues()) # type: ignore
+            if filename:
+                dtype = p.names["Config"].names["Data Type"].value()
+                self.data_viewer.data.export_data(filename, dtype, p.getValues()) # type: ignore
+        
         btn = Parameter.create(
             name = 'Export Data',
             type = 'action'
