@@ -677,7 +677,8 @@ class PaData:
                                 hdr_msmnts += [msmnt_title]*2
                                 hdr_pts += [pnt_title]*2
                                 hdr_sample += [sample_title]*2
-                                hdr_signals += [dtype]*2
+                                hdr_signals += ['Time']
+                                hdr_signals += ['PA Signal']
                                 hdr_units.append(str(sample.x_var_step.u))
                                 hdr_units.append(str(sample.data.u))
                                 if data is None:
@@ -747,7 +748,8 @@ class PaData:
                 delimiter = delim,
                 fmt = '%s',
                 header = header,
-                comments = ''
+                comments = '',
+                encoding='iso-8859-1'
             )
             # Save numeric data type
             else:
@@ -757,7 +759,8 @@ class PaData:
                     delimiter = delim,
                     fmt = fmt,
                     header = header,
-                    comments = ''
+                    comments = '',
+                    encoding='iso-8859-1'
                 )    
 
     @staticmethod
