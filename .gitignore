@@ -2,7 +2,7 @@
 .DS_Store
 backup files/
 typings/
-measuring results/
+# measuring results/
 test.py
 tst.py
 .gitignore
