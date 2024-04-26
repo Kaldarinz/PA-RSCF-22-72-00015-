@@ -331,7 +331,7 @@ class Oscilloscope:
             read_ch1: bool=True,
             read_ch2: bool=True,
             correct_bl: bool=True,
-            smooth: bool=True,
+            smooth: bool=False,
         ) -> OscMeasurement:
         """
         Measure data from screen.
@@ -359,10 +359,10 @@ class Oscilloscope:
                     data_raw = self._baseline_correction(data_raw)
                 data_raw = self._trail_correction(data_raw)
                 self.scr_data_raw[i] = data_raw
-                # logger.debug(
-                #     f'Screen data for channel {self.CH_IDS[i]} set. '
-                #     + f'min = {data_raw.min()}, max = {data_raw.max()}'
-                # )  
+                logger.info(
+                    f'Screen data for channel {self.CH_IDS[i]} set. '
+                    + f'min = {data_raw.min()}, max = {data_raw.max()}'
+                )  
         
         result = OscMeasurement(
             datetime = datetime.now(),
@@ -904,7 +904,7 @@ class PowerMeter:
             raise OscIOError(msg)
         # logger.debug('PowerMeter response obtained')
         result = PowerMeter.energy_from_data(
-            pm_data,
+            pm_data.copy(),
             self.osc.xincrement
             )
         if result is None:
