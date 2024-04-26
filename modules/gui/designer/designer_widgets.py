@@ -516,9 +516,9 @@ class DataViewer(QWidget, data_viewer_ui.Ui_Form):
             return
         # Update data
         msmnts = self.data.measurements # type: ignore
-        # I'm not sure if it will actually change title of s_msmnt
-        ###### CHECK IT ####
         msmnts[top_left.data()] = msmnts.pop(self.s_msmnt_title)
+        # Set changed flag
+        self.data_changed.emit(True)
 
     @Slot()
     def del_msmsnt(self) -> None:
