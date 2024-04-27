@@ -63,7 +63,7 @@ def start_cb_worker(
         """
         Execute `func` in a separate thread, return value to `callback`.
 
-        `callback` function is called when `func` emit `results` signal.
+        `callback` function is called when `func` emits `results` signal.
         Value returned by `results` is sent as `callback` arguments.
         """
 

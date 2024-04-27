@@ -724,8 +724,11 @@ class Oscilloscope:
         msg.append(':WAV:STOP ' + str(dur+start))
         msg.append(':WAV:DATA?')
         self._write(msg)
+        # Prevent too fast read, which in rare case leads to wrong read data size
+        time.sleep(0.01)
         data = self._read()
-        self._ok_read(dur, data)
+        if not self._ok_read(dur, data, strict=False):
+            data = data[:dur]
         # logger.debug(f'...Finishing. Signal with {len(data)} '
         #                 + f'data points read. {data.min()=},'
         #                 + f'{data.max()=}')

@@ -105,7 +105,7 @@ from ..compound_widgets import(
 from ...pa_logic import (
     move_to,
     set_stages_speed,
-     wait_all_stages
+    wait_all_stages
 )
 
 logger = logging.getLogger(__name__)
@@ -529,7 +529,7 @@ class DataViewer(QWidget, data_viewer_ui.Ui_Form):
         # Remove measurement from data
         self.data.measurements.pop(val.data()) # type: ignore
         # Trigger update of widgets
-        self.data_changed.emit()
+        self.data_changed.emit(True)
         logger.info(f'Measurement: {val.data()} removed.')
 
     @property
