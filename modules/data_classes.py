@@ -1096,7 +1096,7 @@ class MapData:
     There are two kinds of attributes: `setted` and `measured`. The
     former are parameters defined at initialization, the latter are
     actually measured values.\n
-    `lines`:         `list[ScanLine]` - All `measured` scan lines.\n
+    `lines`:        `list[ScanLine]` - All `measured` scan lines.\n
     `points`:       `list[MeasuredPoint]` - All `measured point.\n
     `wavelength`:   `PlainQuantity` - `setted` excitation wavelength.
     `num_points`:   `int` - `Property`. Read only `measured` number
@@ -1255,7 +1255,8 @@ class MapData:
         self.lines.append(line)
 
     def get_plot_data(
-            self, signal: str
+            self,
+            signal: str
         ) -> tuple[PlainQuantity, PlainQuantity, PlainQuantity]:
         """
         Prepare data for plotting.

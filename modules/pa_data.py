@@ -90,7 +90,7 @@ import os, os.path
 import logging
 from collections import OrderedDict
 
-from scipy.fftpack import rfft, irfft, fftfreq
+from scipy.fftpack import rfft, irfft, fftfreq, rfftfreq
 import pint
 from pint.facets.plain.quantity import PlainQuantity
 import h5py
@@ -954,8 +954,8 @@ class PaData:
     @staticmethod
     def bp_filter(
             data: BaseData,
-            low: PlainQuantity=Q_(1, 'kHz'),
-            high: PlainQuantity=Q_(10, 'MHz')
+            low: PlainQuantity=Q_(100, 'kHz'),
+            high: PlainQuantity=Q_(3, 'MHz')
         ) -> tuple[ProcessedData, ProcessedData]:
         """
         Perform bandpass filtration.
@@ -972,7 +972,7 @@ class PaData:
         high = high.to('Hz').m
         logger.debug(f'{dt=}')
         # array with freqs
-        W = fftfreq(len(data.data.m), dt)
+        W = rfftfreq(len(data.data.m), dt)
         # signal in f-space
         f_signal = rfft(data.data.m)
 
@@ -987,7 +987,7 @@ class PaData:
 
         #pass frequencies
         filtered_freq = W[(W>low)*(W<high)]
-        filtered_data = f_signal[(W>low)*(W<high)]
+        filtered_data = np.abs(f_signal[(W>low)*(W<high)])
         freq_data = ProcessedData(
             data = Q_(filtered_data, data.data.u),
             x_var_step = Q_((filtered_freq[1]-filtered_freq[0]), 'Hz'),
